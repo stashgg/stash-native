@@ -6,7 +6,7 @@ They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/st
 > [!WARNING]
 > Stash primarily maintains the Unity version. Changes and patches may be propagated slowly to the standalone versions.
 
-# Platform SDKs
+## Platforms
 
 | Platform      | Readme                      | Description                                      |
 |---------------|-------------------------------------------|--------------------------------------------------|
