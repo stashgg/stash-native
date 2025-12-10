@@ -1,0 +1,3 @@
+rootProject.name = 'StashPayNative'
+include ':stashpay'
+include ':sample'
