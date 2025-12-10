@@ -4,6 +4,9 @@ Unity package for integrating in-app Stash Pay checkout flows inside native iOS 
 
 These packages are standalone ports of the Stash Pay Unity plugin, designed to work with native Android and iOS projects.
 
+> [!WARNING]
+> Stash primarily maintains Unity version of the native dialog. This standalone version may be slightly updated or it might take a while for all unity version improvements to be applied to this repository.
+
 # Platform SDKs
 
 ### [Android SDK](./Android/README.md)
