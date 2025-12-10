@@ -49,7 +49,7 @@ class ViewController: UIViewController {
         
         // Open Checkout Button
         let checkoutButton = UIButton(type: .system)
-        checkoutButton.setTitle("Open Checkout (Card)", for: .normal)
+        checkoutButton.setTitle("Open Checkout", for: .normal)
         checkoutButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
         checkoutButton.backgroundColor = .systemBlue
         checkoutButton.setTitleColor(.white, for: .normal)
@@ -57,19 +57,6 @@ class ViewController: UIViewController {
         checkoutButton.addTarget(self, action: #selector(openCheckoutTapped), for: .touchUpInside)
         checkoutButton.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(checkoutButton)
-        
-        // Open Popup Button
-        let popupButton = UIButton(type: .system)
-        popupButton.setTitle("Open Popup", for: .normal)
-        popupButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        popupButton.backgroundColor = .clear
-        popupButton.setTitleColor(.systemBlue, for: .normal)
-        popupButton.layer.cornerRadius = 8
-        popupButton.layer.borderWidth = 1
-        popupButton.layer.borderColor = UIColor.systemBlue.cgColor
-        popupButton.addTarget(self, action: #selector(openPopupTapped), for: .touchUpInside)
-        popupButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(popupButton)
         
         // Status Label
         statusLabel.text = "Ready"
@@ -96,12 +83,7 @@ class ViewController: UIViewController {
             checkoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             checkoutButton.heightAnchor.constraint(equalToConstant: 50),
             
-            popupButton.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 12),
-            popupButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            popupButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            popupButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            statusLabel.topAnchor.constraint(equalTo: popupButton.bottomAnchor, constant: 40),
+            statusLabel.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 40),
             statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
@@ -125,16 +107,6 @@ class ViewController: UIViewController {
         
         statusLabel.text = "Opening checkout..."
         StashPayCard.sharedInstance().openCheckout(withURL: url)
-    }
-    
-    @objc private func openPopupTapped() {
-        guard let url = urlTextField.text, !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a URL")
-            return
-        }
-        
-        statusLabel.text = "Opening popup..."
-        StashPayCard.sharedInstance().openPopup(withURL: url)
     }
     
     @objc private func dismissKeyboard() {

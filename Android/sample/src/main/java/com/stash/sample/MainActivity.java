@@ -31,7 +31,6 @@ public class MainActivity extends AppCompatActivity {
         urlInput = findViewById(R.id.urlInput);
         statusText = findViewById(R.id.statusText);
         Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
-        Button openPopupButton = findViewById(R.id.openPopupButton);
         
         urlInput.setText(DEFAULT_URL);
         
@@ -87,17 +86,6 @@ public class MainActivity extends AppCompatActivity {
             if (!url.isEmpty()) {
                 statusText.setText("Opening checkout...");
                 stashPayCard.openCheckout(url);
-            } else {
-                Toast.makeText(this, "Please enter a URL", Toast.LENGTH_SHORT).show();
-            }
-        });
-        
-        // Open Popup
-        openPopupButton.setOnClickListener(v -> {
-            String url = urlInput.getText().toString().trim();
-            if (!url.isEmpty()) {
-                statusText.setText("Opening popup...");
-                stashPayCard.openPopup(url);
             } else {
                 Toast.makeText(this, "Please enter a URL", Toast.LENGTH_SHORT).show();
             }

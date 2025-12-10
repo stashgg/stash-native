@@ -75,7 +75,7 @@ stashPay.delegate = self;
 [stashPay openCheckoutWithURL:@"https://your-checkout-url.com"];
 ```
 
-## Presentation Modes
+## Presentation Mode
 
 ### Checkout Card
 
@@ -89,38 +89,6 @@ stashPay.openCheckout(url);
 ```swift
 // iOS
 stashPay.openCheckout(withURL: url)
-```
-
-### Popup
-
-Opens a centered modal popup, ideal for opt-in flows or smaller content.
-
-```java
-// Android - default size
-stashPay.openPopup(url);
-
-// Android - custom size
-StashPayCard.PopupSizeConfig config = new StashPayCard.PopupSizeConfig(
-    0.9f,   // portrait width multiplier
-    0.8f,   // portrait height multiplier
-    0.85f,  // landscape width multiplier
-    0.75f   // landscape height multiplier
-);
-stashPay.openPopup(url, config);
-```
-
-```swift
-// iOS - default size
-stashPay.openPopup(withURL: url)
-
-// iOS - custom size
-let config = StashPayPopupSizeConfig(
-    portraitWidth: 0.9,
-    portraitHeight: 0.8,
-    landscapeWidth: 0.85,
-    landscapeHeight: 0.75
-)
-stashPay.openPopup(withURL: url, sizeConfig: config)
 ```
 
 ## Callbacks / Events

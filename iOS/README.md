@@ -51,11 +51,6 @@ class ViewController: UIViewController {
         // Open checkout card (slides up from bottom)
         StashPayCard.sharedInstance().openCheckout(withURL: "https://your-checkout-url.com")
     }
-    
-    func openPopup() {
-        // Open popup (centered modal)
-        StashPayCard.sharedInstance().openPopup(withURL: "https://your-popup-url.com")
-    }
 }
 
 // MARK: - StashPayCardDelegate
@@ -106,11 +101,6 @@ extension ViewController: StashPayCardDelegate {
     [[StashPayCard sharedInstance] openCheckoutWithURL:@"https://your-checkout-url.com"];
 }
 
-- (void)openPopup {
-    // Open popup
-    [[StashPayCard sharedInstance] openPopupWithURL:@"https://your-popup-url.com"];
-}
-
 #pragma mark - StashPayCardDelegate
 
 - (void)stashPayCardDidCompletePayment {
@@ -134,29 +124,6 @@ extension ViewController: StashPayCardDelegate {
 }
 
 @end
-```
-
-## Custom Popup Size
-
-```swift
-let config = StashPayPopupSizeConfig(
-    portraitWidth: 0.9,
-    portraitHeight: 0.8,
-    landscapeWidth: 0.85,
-    landscapeHeight: 0.75
-)
-
-StashPayCard.sharedInstance().openPopup(withURL: url, sizeConfig: config)
-```
-
-```objc
-StashPayPopupSizeConfig *config = [[StashPayPopupSizeConfig alloc] 
-    initWithPortraitWidth:0.9
-           portraitHeight:0.8
-           landscapeWidth:0.85
-          landscapeHeight:0.75];
-
-[[StashPayCard sharedInstance] openPopupWithURL:url sizeConfig:config];
 ```
 
 ## Web-Based Checkout
@@ -202,8 +169,6 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `cardVerticalPosition` | Vertical position (0.0-1.0) |
 | `cardWidthRatio` | Width ratio (0.0-1.0) |
 | `openCheckout(withURL:)` | Open checkout in card UI |
-| `openPopup(withURL:)` | Open popup with default size |
-| `openPopup(withURL:sizeConfig:)` | Open popup with custom size |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset and dismiss |
 | `dismissSafariViewController()` | Dismiss Safari VC |

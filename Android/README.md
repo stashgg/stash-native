@@ -103,9 +103,6 @@ public class MainActivity extends AppCompatActivity {
 ```java
 // Open checkout card (slides up from bottom)
 StashPayCard.getInstance().openCheckout("https://your-checkout-url.com");
-
-// Open popup (centered modal)
-StashPayCard.getInstance().openPopup("https://your-popup-url.com");
 ```
 
 ### 3. Using StashPayListenerAdapter
@@ -120,18 +117,6 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
         Toast.makeText(MainActivity.this, "Payment Success!", Toast.LENGTH_SHORT).show();
     }
 });
-```
-
-## Custom Popup Size
-
-```java
-StashPayCard.PopupSizeConfig config = new StashPayCard.PopupSizeConfig();
-config.portraitWidthMultiplier = 0.9f;
-config.portraitHeightMultiplier = 0.8f;
-config.landscapeWidthMultiplier = 0.85f;
-config.landscapeHeightMultiplier = 0.75f;
-
-StashPayCard.getInstance().openPopup(url, config);
 ```
 
 ## Web-Based Checkout
@@ -153,8 +138,6 @@ StashPayCard.getInstance().openCheckout(url);
 | `setActivity(Activity)` | Set the current activity (required) |
 | `setListener(StashPayListener)` | Set the event listener |
 | `openCheckout(String url)` | Open checkout in card UI |
-| `openPopup(String url)` | Open popup with default size |
-| `openPopup(String url, PopupSizeConfig)` | Open popup with custom size |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset and dismiss |
 | `isCurrentlyPresented()` | Check if dialog is shown |
