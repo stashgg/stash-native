@@ -40,6 +40,7 @@ public class StashPayCardPortraitActivity extends Activity {
     private static final float CARD_HEIGHT_EXPANDED = 0.95f;
 
     private FrameLayout rootLayout;
+    private View backdropView;
     private FrameLayout cardContainer;
     private WebView webView;
     private ProgressBar loadingIndicator;
@@ -109,21 +110,12 @@ public class StashPayCardPortraitActivity extends Activity {
             Window window = getWindow();
             if (window != null) {
                 try {
-                    if (wasLandscapeBeforePortrait && !isTablet && !usePopup) {
-                        window.setBackgroundDrawable(new ColorDrawable(Color.BLACK));
-                    } else {
-                        window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                    }
+                    // Always use transparent window - we use our own backdrop view
+                    window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
                     
                     requestWindowFeature(Window.FEATURE_NO_TITLE);
                     window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-                    window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
-                    window.addFlags(WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH);
-                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                    
-                    WindowManager.LayoutParams params = window.getAttributes();
-                    params.dimAmount = 0.3f;
-                    window.setAttributes(params);
+                    window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
                 } catch (Exception e) {
                     Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
                 }
@@ -139,6 +131,8 @@ public class StashPayCardPortraitActivity extends Activity {
     private void createUI() {
         try {
             rootLayout = new FrameLayout(this);
+            rootLayout.setBackgroundColor(Color.TRANSPARENT);
+            
             boolean isTablet = false;
             try {
                 isTablet = StashWebViewUtils.isTablet(this);
@@ -146,16 +140,22 @@ public class StashPayCardPortraitActivity extends Activity {
                 Log.e(TAG, "Error checking if tablet in createUI: " + e.getMessage(), e);
             }
             
+            // Create separate backdrop view for independent fade animation
+            backdropView = new View(this);
+            backdropView.setLayoutParams(new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, 
+                FrameLayout.LayoutParams.MATCH_PARENT));
             try {
                 if (wasLandscapeBeforePortrait && !isTablet && !usePopup) {
-                    rootLayout.setBackgroundColor(Color.BLACK);
+                    backdropView.setBackgroundColor(Color.BLACK);
                 } else {
-                    rootLayout.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
+                    backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
-                rootLayout.setBackgroundColor(Color.parseColor("#80000000"));
+                backdropView.setBackgroundColor(Color.parseColor("#80000000"));
             }
+            rootLayout.addView(backdropView);
             
             try {
                 if (usePopup) {
@@ -170,13 +170,14 @@ public class StashPayCardPortraitActivity extends Activity {
             }
             
             if (!usePopup && cardContainer != null) {
-                rootLayout.setOnClickListener(v -> {
+                // Make backdrop dismiss when tapped
+                backdropView.setOnClickListener(v -> {
                     try {
-                        if (!isDismissing && v == rootLayout && !isPurchaseProcessing) {
+                        if (!isDismissing && !isPurchaseProcessing) {
                             dismissWithAnimation();
                         }
                     } catch (Exception e) {
-                        Log.e(TAG, "Error in root layout click handler: " + e.getMessage(), e);
+                        Log.e(TAG, "Error in backdrop click handler: " + e.getMessage(), e);
                     }
                 });
                 cardContainer.setOnClickListener(v -> {});
@@ -414,9 +415,17 @@ public class StashPayCardPortraitActivity extends Activity {
             height = (int)(getResources().getDisplayMetrics().heightPixels * CARD_HEIGHT_NORMAL);
         }
         
+        // Fade out the backdrop independently
+        if (backdropView != null) {
+            backdropView.animate()
+                .alpha(0f)
+                .setDuration(350)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                .start();
+        }
+        
         cardContainer.animate()
             .translationY(height)
-            .alpha(0f)
             .setDuration(400)
             .setInterpolator(new SpringInterpolator())
             .withEndAction(this::finish)
@@ -824,21 +833,18 @@ public class StashPayCardPortraitActivity extends Activity {
                 Log.e(TAG, "Error locking orientation: " + e.getMessage(), e);
             }
             
-            Window window = getWindow();
-            if (window != null) {
-                try {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                    WindowManager.LayoutParams params = window.getAttributes();
-                    params.dimAmount = 0f;
-                    window.setAttributes(params);
-                } catch (Exception e) {
-                    Log.e(TAG, "Error configuring window for dismissal: " + e.getMessage(), e);
-                }
-            }
-            
             if (cardContainer == null) {
                 finishActivityWithNoAnimation();
                 return;
+            }
+            
+            // Fade out the backdrop independently
+            if (backdropView != null) {
+                backdropView.animate()
+                    .alpha(0f)
+                    .setDuration(350)
+                    .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                    .start();
             }
             
             if (usePopup) {
@@ -893,16 +899,11 @@ public class StashPayCardPortraitActivity extends Activity {
     }
     
     private void finishActivityWithNoAnimation() {
-        if (rootLayout != null) {
-            rootLayout.setVisibility(View.INVISIBLE);
+        if (backdropView != null) {
+            backdropView.setVisibility(View.INVISIBLE);
         }
-        
-        Window window = getWindow();
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+        if (cardContainer != null) {
+            cardContainer.setVisibility(View.INVISIBLE);
         }
         
         overridePendingTransition(0, 0);
