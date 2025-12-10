@@ -8,7 +8,7 @@ They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/st
 
 # Platform SDKs
 
-| Platform      | SDK Documentation                         | Description                                      |
+| Platform      | Readme                      | Description                                      |
 |---------------|-------------------------------------------|--------------------------------------------------|
 | Android       | [Android SDK](./Android/README.md)        | Native Android library with Gradle support.       |
 | iOS           | [iOS SDK](./iOS/README.md)                | Native iOS framework with Swift Package Manager support. |
