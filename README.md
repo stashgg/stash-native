@@ -1,20 +1,17 @@
 # Stash Pay for Android / iOS
 
-These are standalone packages that enable seamless integration of Stash Pay checkout flows within native Android and iOS applications. 
-They are adapted from the Stash Pay Unity plugin to work directly with native applications.
+Standalone packages that enable Stash Pay checkout flows within native Android and iOS applications. 
+They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/stash-unity) to work directly with native applications.
 
 > [!WARNING]
-> Stash primarily maintains the version for Unity games. Changes and patches may be propagated slowly to the standalone versions.
+> Stash primarily maintains the Unity version. Changes and patches may be propagated slowly to the standalone versions.
 
 # Platform SDKs
 
-### [Android SDK](./Android/README.md)
-
-Native Android library with Gradle support.
-
-### [iOS SDK](./iOS/README.md)
-
-Native iOS framework with Swift Package Manager support.
+| Platform      | SDK Documentation                         | Description                                      |
+|---------------|-------------------------------------------|--------------------------------------------------|
+| Android       | [Android SDK](./Android/README.md)        | Native Android library with Gradle support.       |
+| iOS           | [iOS SDK](./iOS/README.md)                | Native iOS framework with Swift Package Manager support. |
 
 ## Quick Start
 
