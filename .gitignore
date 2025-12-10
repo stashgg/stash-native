@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# macOS Thumbnails
+Icon?
+
+# macOS Directory metadata
+.Spotlight-V100
+.Trashes
+.fseventsd
+
+# macOS temporary files
+.TemporaryItems
+.DocumentRevisions-V100
+.VolumeIcon.icns
