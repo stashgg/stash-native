@@ -1,4 +1,4 @@
-# Stash Pay for Android / iOS
+# Stash Pay for Android / iOS [Preview]
 
 Standalone packages that enable Stash Pay checkout flows within native Android and iOS applications. 
 They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/stash-unity) to work directly with native applications.
