@@ -4,6 +4,9 @@ Standalone packages that enable Stash Pay checkout flows within native Android a
 They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/stash-unity) to work directly with native applications.
 
 > [!WARNING]
+> This repository is currently being actively built. Information may be incorrect or outdated. Please reach out to developers@stash.gg if you have any issues.
+
+> [!WARNING]
 > Stash primarily maintains the Unity version. Changes and patches may be propagated slowly to the standalone versions.
 
 ## Platforms

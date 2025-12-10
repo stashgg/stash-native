@@ -2,6 +2,9 @@
 
 Native iOS SDK for integrating Stash Pay checkout into your iOS applications.
 
+> [!WARNING]
+> This repository is currently being actively built. Information may be incorrect or outdated. Please reach out to developers@stash.gg if you have any issues.
+
 ## Installation
 
 ### Swift Package Manager
@@ -201,6 +204,3 @@ To run the sample:
 2. Select a simulator or device
 3. Build and run
 
-## License
-
-Copyright 2024 Stash. All rights reserved.

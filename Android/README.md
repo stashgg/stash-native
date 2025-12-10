@@ -2,6 +2,9 @@
 
 Native Android SDK for integrating Stash Pay checkout into your Android applications.
 
+> [!WARNING]
+> This repository is currently being actively built. Information may be incorrect or outdated. Please reach out to developers@stash.gg if you have any issues.
+
 ## Installation
 
 ### Gradle (Local Module)
@@ -176,7 +179,3 @@ See the `sample/` directory for a complete working example.
 cd Android
 ./gradlew :sample:installDebug
 ```
-
-## License
-
-Copyright 2024 Stash. All rights reserved.
