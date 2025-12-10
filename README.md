@@ -1,11 +1,10 @@
 # Stash Pay for Android / iOS
 
-Unity package for integrating in-app Stash Pay checkout flows inside native iOS and Android applications.
-
-These packages are standalone ports of the Stash Pay Unity plugin, designed to work with native Android and iOS projects.
+These are standalone packages that enable seamless integration of Stash Pay checkout flows within native Android and iOS applications. 
+They are adapted from the Stash Pay Unity plugin to work directly with native applications.
 
 > [!WARNING]
-> Stash primarily maintains Unity version of the native dialog. This standalone version may be slightly updated or it might take a while for all unity version improvements to be applied to this repository.
+> Stash primarily maintains the version for Unity games. Changes and patches may be propagated slowly to the standalone versions.
 
 # Platform SDKs
 
@@ -78,20 +77,15 @@ stashPay.delegate = self;
 [stashPay openCheckoutWithURL:@"https://your-checkout-url.com"];
 ```
 
-## Presentation Mode
+```objc
+// Implement delegate
+- (void)stashPayCardDidCompletePayment {
+    // Handle success
+}
 
-### Checkout Card
-
-Opens the checkout URL in a sliding card that appears from the bottom of the screen (or centered on tablets).
-
-```java
-// Android
-stashPay.openCheckout(url);
-```
-
-```swift
-// iOS
-stashPay.openCheckout(withURL: url)
+- (void)stashPayCardDidFailPayment {
+    // Handle failure
+}
 ```
 
 ## Callbacks / Events
@@ -101,7 +95,6 @@ stashPay.openCheckout(withURL: url)
 | Payment Success | Called when the payment completes successfully |
 | Payment Failure | Called when the payment fails |
 | Dialog Dismissed | Called when the user dismisses the checkout UI |
-| Opt-in Response | Called when an opt-in response is received |
 | Page Loaded | Called when the checkout page finishes loading (with load time) |
 
 ## Web-Based Checkout
