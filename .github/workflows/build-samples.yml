@@ -32,19 +32,38 @@ jobs:
         working-directory: Android
         run: ./gradlew :sample:assembleRelease
       
+      - name: Find APK file
+        id: find-apk
+        run: |
+          APK_PATH=$(find Android/sample/build/outputs/apk -name "*.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "APK not found! Searching in Android/sample/build/outputs/apk:"
+            ls -la Android/sample/build/outputs/apk/ || true
+            find Android/sample/build/outputs -name "*.apk" || true
+            exit 1
+          fi
+          echo "Found APK at: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+      
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-sample-apk
-          path: Android/sample/build/outputs/apk/release/sample-release.apk
+          path: ${{ steps.find-apk.outputs.apk_path }}
           retention-days: 7
       
       - name: Upload APK to BrowserStack
         id: browserstack-android
         run: |
+          APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Error: APK file not found at $APK_PATH"
+            exit 1
+          fi
+          echo "Uploading APK to BrowserStack: $APK_PATH"
           RESPONSE=$(curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
             -X POST "https://api-cloud.browserstack.com/app-live/upload" \
-            -F "file=@Android/sample/build/outputs/apk/release/sample-release.apk")
+            -F "file=@$APK_PATH")
           echo "response=$RESPONSE" >> $GITHUB_OUTPUT
           echo "BrowserStack Android Upload Response:"
           echo "$RESPONSE"
@@ -79,10 +98,22 @@ jobs:
         working-directory: iOS/Sample
         run: |
           mkdir -p build/Payload
-          cp -r build/DerivedData/Build/Products/Release-iphoneos/StashPaySample.app build/Payload/
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/StashPaySample.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: App bundle not found at $APP_PATH"
+            echo "Searching for app bundle:"
+            find build/DerivedData -name "*.app" -type d || true
+            exit 1
+          fi
+          cp -r "$APP_PATH" build/Payload/
           cd build
           zip -r StashPaySample.ipa Payload
           cd ..
+          if [ ! -f "build/StashPaySample.ipa" ]; then
+            echo "Error: IPA file was not created"
+            exit 1
+          fi
+          echo "IPA created successfully at build/StashPaySample.ipa"
       
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -90,14 +121,20 @@ jobs:
           name: ios-sample-ipa
           path: iOS/Sample/build/StashPaySample.ipa
           retention-days: 7
-          if-no-files-found: warn
+          if-no-files-found: error
       
       - name: Upload IPA to BrowserStack
         id: browserstack-ios
         run: |
+          IPA_PATH="iOS/Sample/build/StashPaySample.ipa"
+          if [ ! -f "$IPA_PATH" ]; then
+            echo "Error: IPA file not found at $IPA_PATH"
+            exit 1
+          fi
+          echo "Uploading IPA to BrowserStack: $IPA_PATH"
           RESPONSE=$(curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
             -X POST "https://api-cloud.browserstack.com/app-live/upload" \
-            -F "file=@iOS/Sample/build/StashPaySample.ipa")
+            -F "file=@$IPA_PATH")
           echo "response=$RESPONSE" >> $GITHUB_OUTPUT
           echo "BrowserStack iOS Upload Response:"
           echo "$RESPONSE"
