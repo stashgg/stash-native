@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.stash.sample'
+    namespace 'com.stash.nativedemo'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.stash.sample"
+        applicationId "com.stash.nativedemo"
         minSdk 21
         targetSdk 34
         versionCode 1

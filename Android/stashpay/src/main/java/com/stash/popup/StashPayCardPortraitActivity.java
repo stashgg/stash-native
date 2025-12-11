@@ -387,7 +387,7 @@ public class StashPayCardPortraitActivity extends Activity {
                                     // For tablets, use fade dismiss animation
                                     animateTabletDismiss();
                                 } else {
-                                    animateDismiss();
+                                animateDismiss();
                                 }
                             } else {
                                 animateSnapBack();

@@ -18,7 +18,7 @@ import com.stash.popup.StashPayCard;
  * Sample activity demonstrating StashPayCard SDK integration.
  */
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "StashPaySample";
+    private static final String TAG = "StashNativeDemo";
     
     private static final String DEFAULT_URL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html";
     

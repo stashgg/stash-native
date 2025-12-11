@@ -98,7 +98,7 @@ jobs:
         working-directory: iOS/Sample
         run: |
           mkdir -p build/Payload
-          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/StashPaySample.app"
+          APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/StashNativeDemo.app"
           if [ ! -d "$APP_PATH" ]; then
             echo "Error: App bundle not found at $APP_PATH"
             echo "Searching for app bundle:"
@@ -107,26 +107,26 @@ jobs:
           fi
           cp -r "$APP_PATH" build/Payload/
           cd build
-          zip -r StashPaySample.ipa Payload
+          zip -r StashNativeDemo.ipa Payload
           cd ..
-          if [ ! -f "build/StashPaySample.ipa" ]; then
+          if [ ! -f "build/StashNativeDemo.ipa" ]; then
             echo "Error: IPA file was not created"
             exit 1
           fi
-          echo "IPA created successfully at build/StashPaySample.ipa"
+          echo "IPA created successfully at build/StashNativeDemo.ipa"
       
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-sample-ipa
-          path: iOS/Sample/build/StashPaySample.ipa
+          path: iOS/Sample/build/StashNativeDemo.ipa
           retention-days: 7
           if-no-files-found: error
       
       - name: Upload IPA to BrowserStack
         id: browserstack-ios
         run: |
-          IPA_PATH="iOS/Sample/build/StashPaySample.ipa"
+          IPA_PATH="iOS/Sample/build/StashNativeDemo.ipa"
           if [ ! -f "$IPA_PATH" ]; then
             echo "Error: IPA file not found at $IPA_PATH"
             exit 1
