@@ -10,6 +10,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.material.switchmaterial.SwitchMaterial;
+
 import com.stash.popup.StashPayCard;
 
 /**
@@ -31,12 +33,20 @@ public class MainActivity extends AppCompatActivity {
         urlInput = findViewById(R.id.urlInput);
         statusText = findViewById(R.id.statusText);
         Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
+        SwitchMaterial webViewModeSwitch = findViewById(R.id.webViewModeSwitch);
         
         urlInput.setText(DEFAULT_URL);
         
         // Initialize StashPayCard
         StashPayCard stashPayCard = StashPayCard.getInstance();
         stashPayCard.setActivity(this);
+        
+        // Web View Mode toggle
+        webViewModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            stashPayCard.setForceWebBasedCheckout(isChecked);
+            String modeText = isChecked ? "Web View (Chrome)" : "Card UI";
+            statusText.setText("Mode: " + modeText);
+        });
         
         // Set up event listener
         stashPayCard.setListener(new StashPayCard.StashPayListener() {

@@ -14,6 +14,7 @@ class ViewController: UIViewController {
     
     private let urlTextField = UITextField()
     private let statusLabel = UILabel()
+    private let webViewModeSwitch = UISwitch()
     private let defaultURL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html"
     
     // MARK: - Lifecycle
@@ -47,6 +48,24 @@ class ViewController: UIViewController {
         urlTextField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(urlTextField)
         
+        // Web View Mode Toggle
+        let webViewModeContainer = UIStackView()
+        webViewModeContainer.axis = .horizontal
+        webViewModeContainer.alignment = .center
+        webViewModeContainer.spacing = 12
+        webViewModeContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(webViewModeContainer)
+        
+        let webViewModeLabel = UILabel()
+        webViewModeLabel.text = "Use Web View Mode (Safari)"
+        webViewModeLabel.font = .systemFont(ofSize: 16)
+        webViewModeLabel.textColor = .label
+        webViewModeContainer.addArrangedSubview(webViewModeLabel)
+        
+        webViewModeSwitch.isOn = false
+        webViewModeSwitch.addTarget(self, action: #selector(webViewModeToggled), for: .valueChanged)
+        webViewModeContainer.addArrangedSubview(webViewModeSwitch)
+        
         // Open Checkout Button
         let checkoutButton = UIButton(type: .system)
         checkoutButton.setTitle("Open Checkout", for: .normal)
@@ -78,7 +97,11 @@ class ViewController: UIViewController {
             urlTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             urlTextField.heightAnchor.constraint(equalToConstant: 44),
             
-            checkoutButton.topAnchor.constraint(equalTo: urlTextField.bottomAnchor, constant: 24),
+            webViewModeContainer.topAnchor.constraint(equalTo: urlTextField.bottomAnchor, constant: 20),
+            webViewModeContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            webViewModeContainer.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+            
+            checkoutButton.topAnchor.constraint(equalTo: webViewModeContainer.bottomAnchor, constant: 24),
             checkoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             checkoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             checkoutButton.heightAnchor.constraint(equalToConstant: 50),
@@ -107,6 +130,12 @@ class ViewController: UIViewController {
         
         statusLabel.text = "Opening checkout..."
         StashPayCard.sharedInstance().openCheckout(withURL: url)
+    }
+    
+    @objc private func webViewModeToggled() {
+        StashPayCard.sharedInstance().forceWebBasedCheckout = webViewModeSwitch.isOn
+        let modeText = webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI"
+        statusLabel.text = "Mode: \(modeText)"
     }
     
     @objc private func dismissKeyboard() {

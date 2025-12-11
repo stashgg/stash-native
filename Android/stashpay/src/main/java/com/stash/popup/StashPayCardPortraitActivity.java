@@ -357,6 +357,7 @@ public class StashPayCardPortraitActivity extends Activity {
                     if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 10)) {
                         isDragging = true;
                         
+                        // On tablets, only allow drag down (dismiss), not drag up (expand)
                         if (deltaY > 0) {
                             float newTranslationY = initialTranslationY + deltaY;
                             cardContainer.setTranslationY(newTranslationY);
@@ -364,6 +365,7 @@ public class StashPayCardPortraitActivity extends Activity {
                             float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
                             cardContainer.setAlpha(1.0f - (progress * 0.5f));
                         } else if (deltaY < 0 && !isTablet && !isExpanded && !wasLandscapeBeforePortrait) {
+                            // Drag up to expand - disabled for tablets
                             float dragProgress = Math.min(Math.abs(deltaY) / StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 100), 1.0f);
                             cardContainer.setScaleX(1.0f + (dragProgress * 0.02f));
                             cardContainer.setScaleY(1.0f + (dragProgress * 0.02f));
@@ -378,14 +380,20 @@ public class StashPayCardPortraitActivity extends Activity {
                         DisplayMetrics metrics = getResources().getDisplayMetrics();
                         
                         if (finalDeltaY > 0) {
-                            int dismissThreshold = isTablet ? (int)(metrics.heightPixels * 0.2f) 
+                            int dismissThreshold = isTablet ? (int)(metrics.heightPixels * 0.15f) 
                                                              : (int)(metrics.heightPixels * 0.25f);
                             if (finalDeltaY > dismissThreshold) {
-                                animateDismiss();
+                                if (isTablet) {
+                                    // For tablets, use fade dismiss animation
+                                    animateTabletDismiss();
+                                } else {
+                                    animateDismiss();
+                                }
                             } else {
                                 animateSnapBack();
                             }
                         } else if (finalDeltaY < 0 && !isTablet && !isExpanded && !wasLandscapeBeforePortrait) {
+                            // Drag up to expand - only for phones, not tablets
                             if (Math.abs(finalDeltaY) > StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 80)) {
                                 animateExpand();
                             } else {
@@ -419,16 +427,42 @@ public class StashPayCardPortraitActivity extends Activity {
         if (backdropView != null) {
             backdropView.animate()
                 .alpha(0f)
-                .setDuration(350)
+                .setDuration(250)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .start();
         }
         
         cardContainer.animate()
             .translationY(height)
-            .setDuration(400)
-            .setInterpolator(new SpringInterpolator())
+            .setDuration(300)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
             .withEndAction(this::finish)
+            .start();
+    }
+    
+    private void animateTabletDismiss() {
+        if (cardContainer == null) return;
+        if (isPurchaseProcessing) return;
+        
+        isDismissing = true;
+        
+        // Fade out the backdrop
+        if (backdropView != null) {
+            backdropView.animate()
+                .alpha(0f)
+                .setDuration(200)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                .start();
+        }
+        
+        // Scale down and fade out the card for a seamless tablet dismiss
+        cardContainer.animate()
+            .alpha(0f)
+            .scaleX(0.9f)
+            .scaleY(0.9f)
+            .setDuration(200)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .withEndAction(this::finishActivityWithNoAnimation)
             .start();
     }
     
@@ -847,14 +881,17 @@ public class StashPayCardPortraitActivity extends Activity {
                     .start();
             }
             
-            if (usePopup) {
+            boolean isTablet = StashWebViewUtils.isTablet(this);
+            
+            if (usePopup || isTablet) {
+                // Use fade animation for popups and tablets
                 try {
                     cardContainer.animate()
                         .alpha(0f)
                         .scaleX(0.9f)
                         .scaleY(0.9f)
-                        .setDuration(250)
-                        .setInterpolator(new SpringInterpolator())
+                        .setDuration(200)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
                         .withEndAction(() -> {
                             try {
                                 finishActivityWithNoAnimation();
@@ -869,11 +906,12 @@ public class StashPayCardPortraitActivity extends Activity {
                     finishActivityWithNoAnimation();
                 }
             } else {
+                // Use slide animation for phones
                 try {
                     cardContainer.animate()
                         .translationY(cardContainer.getHeight())
-                        .setDuration(400)
-                        .setInterpolator(new SpringInterpolator())
+                        .setDuration(300)
+                        .setInterpolator(new android.view.animation.AccelerateInterpolator())
                         .withEndAction(() -> {
                             try {
                                 finishActivityWithNoAnimation();
