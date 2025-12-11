@@ -1,0 +1,83 @@
+name: Build Sample Apps
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android Sample APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x Android/gradlew
+      
+      - name: Build Android Sample APK
+        working-directory: Android
+        run: ./gradlew :sample:assembleRelease
+      
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-sample-apk
+          path: Android/sample/build/outputs/apk/release/sample-release.apk
+          retention-days: 7
+
+  build-ios:
+    name: Build iOS Sample IPA
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      
+      - name: Build iOS Sample for Device
+        working-directory: iOS/Sample
+        run: |
+          xcodebuild clean build \
+            -project StashPaySample.xcodeproj \
+            -scheme StashPaySample \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      
+      - name: Create IPA
+        working-directory: iOS/Sample
+        run: |
+          mkdir -p build/Payload
+          cp -r build/DerivedData/Build/Products/Release-iphoneos/StashPaySample.app build/Payload/
+          cd build
+          zip -r StashPaySample.ipa Payload
+          cd ..
+      
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sample-ipa
+          path: iOS/Sample/build/StashPaySample.ipa
+          retention-days: 7
+          if-no-files-found: warn
