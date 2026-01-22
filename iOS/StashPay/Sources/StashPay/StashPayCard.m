@@ -12,6 +12,14 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
+// Suppress warnings when compiling without ARC (e.g., in game engines like Unreal)
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshadow"
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #pragma mark - PopupSizeConfig Implementation
 
 @implementation StashPayPopupSizeConfig
@@ -342,7 +350,11 @@ NSString* appendThemeQueryParameter(NSString* url);
 @end
 
 @implementation WebViewLoadDelegate {
+#if __has_feature(objc_arc)
     __weak WKWebView* _webView;
+#else
+    __unsafe_unretained WKWebView* _webView;
+#endif
     UIView* _loadingView;
     NSTimer* _timeoutTimer;
 }
@@ -440,7 +452,11 @@ NSString* appendThemeQueryParameter(NSString* url);
         self.pageLoadStartTime = 0;
     }
     
+#if __has_feature(objc_arc)
     __weak WebViewLoadDelegate *weakSelf = self;
+#else
+    __unsafe_unretained WebViewLoadDelegate *weakSelf = self;
+#endif
     __block void (^checkPageReady)(void);
     checkPageReady = ^{
         NSString *readyCheck = @"(function() { \
@@ -474,7 +490,11 @@ NSString* appendThemeQueryParameter(NSString* url);
                     }
                 }
             } else {
+#if __has_feature(objc_arc)
                 __weak void (^weakCheckPageReady)(void) = checkPageReady;
+#else
+                __unsafe_unretained void (^weakCheckPageReady)(void) = checkPageReady;
+#endif
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     if (weakCheckPageReady) {
                         weakCheckPageReady();
@@ -2401,3 +2421,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
 }
 
 @end
+
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic pop
+#endif

@@ -93,7 +93,11 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * The delegate to receive StashPayCard events.
  */
+#if __has_feature(objc_arc)
 @property (nonatomic, weak, nullable) id<StashPayCardDelegate> delegate;
+#else
+@property (nonatomic, assign, nullable) id<StashPayCardDelegate> delegate;
+#endif
 
 /**
  * Gets whether web-based checkout (SFSafariViewController) is forced.
