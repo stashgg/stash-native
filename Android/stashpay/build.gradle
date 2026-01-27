@@ -35,4 +35,6 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.browser:browser:1.7.0'
+    // Required for DialogFragment optimization (optional - can be removed if not using DialogFragment)
+    implementation 'androidx.fragment:fragment:1.6.2'
 }

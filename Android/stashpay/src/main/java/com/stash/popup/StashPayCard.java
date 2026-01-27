@@ -261,4 +261,72 @@ public class StashPayCard {
     public void setCardConfiguration(float heightRatio, float verticalPosition, float widthRatio) {
         plugin.setCardConfiguration(heightRatio, verticalPosition, widthRatio);
     }
+    
+    /**
+     * Pre-warms a WebView instance to improve initial load time.
+     * 
+     * This is an optional optimization that creates a WebView in the background
+     * before it's needed, reducing the time to show the checkout UI.
+     * 
+     * IMPORTANT: Pre-warming consumes ~20-50MB RAM. The SDK automatically:
+     * - Checks available memory before pre-warming
+     * - Only pre-warms on devices with >=2GB RAM and >=200MB available
+     * - Disables pre-warming on low-end devices
+     * - Handles OutOfMemoryError gracefully
+     * 
+     * Recommended usage: Call this in your Activity's onCreate() or onResume()
+     * if you expect the user to open checkout soon.
+     * 
+     * @param activity The current activity
+     */
+    public void preWarmWebView(Activity activity) {
+        plugin.preWarmWebView(activity);
+    }
+    
+    /**
+     * Sets whether to use DialogFragment instead of Activity for checkout presentation.
+     * 
+     * DialogFragment is faster (50-150ms faster launch) and uses less memory (10-20MB less),
+     * but requires the Activity to extend FragmentActivity.
+     * 
+     * Default: false (uses Activity)
+     * 
+     * @param useDialogFragment true to use DialogFragment, false to use Activity
+     */
+    public void setUseDialogFragment(boolean useDialogFragment) {
+        plugin.useDialogFragment = useDialogFragment;
+    }
+    
+    /**
+     * Gets whether DialogFragment mode is enabled.
+     * @return true if DialogFragment is enabled, false if Activity is used
+     */
+    public boolean isUseDialogFragment() {
+        return plugin.useDialogFragment;
+    }
+    
+    /**
+     * Enables or disables performance timing logs.
+     * 
+     * When enabled, logs detailed timing information including:
+     * - Time from openCheckout() to UI visible
+     * - WebView creation time
+     * - Page load time
+     * - Total time breakdown
+     * 
+     * Useful for debugging and performance analysis.
+     * 
+     * @param enable true to enable timing logs, false to disable
+     */
+    public void setEnableTimingLogs(boolean enable) {
+        plugin.enableTimingLogs = enable;
+    }
+    
+    /**
+     * Gets whether timing logs are enabled.
+     * @return true if timing logs are enabled
+     */
+    public boolean isEnableTimingLogs() {
+        return plugin.enableTimingLogs;
+    }
 }

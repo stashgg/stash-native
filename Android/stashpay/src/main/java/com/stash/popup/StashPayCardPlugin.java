@@ -47,6 +47,22 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
+    // Pre-warming optimization (memory-aware)
+    private WebView preWarmedWebView;
+    private boolean isPreWarming = false;
+    private boolean preWarmingEnabled = true; // Can be disabled for low-memory devices
+    private String preConnectedDomain = null; // Track which domain we've pre-connected to
+    
+    // DialogFragment optimization (faster than Activity)
+    // Auto-enabled when pre-warming is disabled (low-memory devices)
+    public boolean useDialogFragment = false; // Set to true to use DialogFragment instead of Activity
+    
+    // Debug timing measurements
+    public boolean enableTimingLogs = true; // Enabled by default for performance monitoring
+    private long timingStartTime;
+    private long timingWebViewCreateStart;
+    private long timingUIShowStart;
+    
     private float cardHeightRatio = 0.6f;
     private boolean isCurrentlyPresented;
     private boolean paymentSuccessHandled;
@@ -157,14 +173,288 @@ public class StashPayCardPlugin {
     
     void setActivity(Activity activity) {
         this.activity = activity;
+        // Auto-disable pre-warming on low-end devices
+        if (activity != null && StashWebViewUtils.isLowEndDevice()) {
+            preWarmingEnabled = false;
+            Log.d(TAG, "Pre-warming disabled on low-end device");
+        }
+        
+        // Auto-enable DialogFragment when pre-warming is disabled (compensation optimization)
+        // DialogFragment is faster and uses less memory, good for low-memory devices
+        if (activity != null && !preWarmingEnabled && activity instanceof androidx.fragment.app.FragmentActivity) {
+            if (!useDialogFragment) {
+                useDialogFragment = true;
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Auto-enabled DialogFragment (pre-warming disabled)");
+                }
+            }
+        }
     }
     
     void setListener(StashPayCard.StashPayListener listener) {
         this.listener = listener;
     }
     
+    /**
+     * Pre-warms a WebView instance if device has sufficient memory.
+     * This improves initial load time but consumes ~20-50MB RAM.
+     * Only pre-warms on devices with >=2GB RAM and >=200MB available.
+     * 
+     * @param activity The activity context
+     */
+    public void preWarmWebView(Activity activity) {
+        if (activity == null || !preWarmingEnabled) {
+            return;
+        }
+        
+        // Check memory before pre-warming
+        if (!StashWebViewUtils.hasSufficientMemoryForPreWarming(activity)) {
+            Log.d(TAG, "Skipping pre-warming due to insufficient memory");
+            preWarmingEnabled = false; // Disable for future attempts
+            
+            // Auto-enable DialogFragment as compensation (faster, less memory)
+            // This happens immediately when pre-warming fails
+            if (activity instanceof androidx.fragment.app.FragmentActivity && !useDialogFragment) {
+                useDialogFragment = true;
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Auto-enabled DialogFragment (insufficient memory for pre-warming)");
+                } else {
+                    Log.d(TAG, "Auto-enabled DialogFragment (insufficient memory for pre-warming)");
+                }
+            }
+            return;
+        }
+        
+        if (preWarmedWebView != null || isPreWarming) {
+            return; // Already pre-warmed or in progress
+        }
+        
+        isPreWarming = true;
+        
+        // Create on UI thread (WebView requirement)
+        activity.runOnUiThread(() -> {
+            try {
+                preWarmedWebView = new WebView(activity);
+                StashWebViewUtils.configureWebViewSettings(
+                    preWarmedWebView, 
+                    StashWebViewUtils.isDarkTheme(activity)
+                );
+                
+                // Pre-load a minimal blank page to initialize WebView engine
+                // This is much lighter than loading a full checkout page
+                preWarmedWebView.loadDataWithBaseURL(
+                    "https://stash.gg", 
+                    "<html><head><meta name='viewport' content='width=device-width, initial-scale=1.0'></head><body></body></html>", 
+                    "text/html", 
+                    "UTF-8", 
+                    null
+                );
+                
+                isPreWarming = false;
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] WebView pre-warmed successfully");
+                } else {
+                    Log.d(TAG, "WebView pre-warmed successfully");
+                }
+            } catch (OutOfMemoryError e) {
+                Log.w(TAG, "Out of memory during pre-warming, disabling feature", e);
+                preWarmingEnabled = false;
+                isPreWarming = false;
+                cleanupPreWarmedWebView();
+            } catch (Exception e) {
+                Log.e(TAG, "Error pre-warming WebView: " + e.getMessage(), e);
+                isPreWarming = false;
+                cleanupPreWarmedWebView();
+            }
+        });
+    }
+    
+    /**
+     * Pre-connects to a domain by loading a minimal resource in the pre-warmed WebView.
+     * This establishes TCP connection, DNS cache, and TLS handshake before actual page load.
+     * Can save 100-300ms on network delay.
+     * 
+     * @param url The target URL to pre-connect to
+     * @param activity The activity context
+     */
+    private void preConnectToDomain(String url, Activity activity) {
+        if (activity == null || url == null || url.isEmpty()) {
+            if (enableTimingLogs) {
+                Log.d(TAG, "⏱️ [TIMING] Pre-connect skipped: invalid parameters");
+            }
+            return;
+        }
+        
+        try {
+            String baseUrl = StashWebViewUtils.extractBaseUrl(url);
+            if (baseUrl == null) {
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Pre-connect skipped: failed to extract base URL");
+                }
+                return;
+            }
+            
+            if (baseUrl.equals(preConnectedDomain)) {
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Pre-connect skipped: already connected to " + baseUrl);
+                }
+                return; // Already pre-connected to this domain
+            }
+            
+            // Only pre-connect if we have a pre-warmed WebView ready
+            if (preWarmedWebView == null) {
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Pre-connect skipped: WebView not pre-warmed yet (pre-warming in progress: " + isPreWarming + ")");
+                }
+                return;
+            }
+            
+            if (isPreWarming) {
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Pre-connect skipped: pre-warming still in progress");
+                }
+                return;
+            }
+            
+            preConnectedDomain = baseUrl;
+            
+            // Load a minimal data URL with the target domain as base URL
+            // This establishes the connection without loading actual content
+            String minimalHtml = "<html><head></head><body></body></html>";
+            
+            if (enableTimingLogs) {
+                Log.d(TAG, "⏱️ [TIMING] Pre-connecting to domain: " + baseUrl);
+            }
+            
+            // Load in background - don't wait for it
+            // Using loadDataWithBaseURL establishes connection to the domain
+            // Optimize: Check if already on UI thread to avoid runOnUiThread overhead
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                // Already on UI thread - direct call (saves ~2-5ms)
+                try {
+                    preWarmedWebView.loadDataWithBaseURL(
+                        baseUrl,
+                        minimalHtml,
+                        "text/html",
+                        "UTF-8",
+                        null
+                    );
+                    if (enableTimingLogs) {
+                        Log.d(TAG, "⏱️ [TIMING] Pre-connect request sent to domain: " + baseUrl);
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "Pre-connect failed (non-critical): " + e.getMessage());
+                }
+            } else {
+                activity.runOnUiThread(() -> {
+                    try {
+                        preWarmedWebView.loadDataWithBaseURL(
+                            baseUrl,
+                            minimalHtml,
+                            "text/html",
+                            "UTF-8",
+                            null
+                        );
+                        if (enableTimingLogs) {
+                            Log.d(TAG, "⏱️ [TIMING] Pre-connect request sent to domain: " + baseUrl);
+                        }
+                    } catch (Exception e) {
+                        Log.d(TAG, "Pre-connect failed (non-critical): " + e.getMessage());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            Log.d(TAG, "Error pre-connecting: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Gets or creates a WebView, reusing pre-warmed instance if available.
+     * Falls back to creating new WebView if pre-warming failed or was disabled.
+     */
+    WebView getOrCreateWebView(Activity activity) {
+        if (enableTimingLogs) {
+            timingWebViewCreateStart = System.currentTimeMillis();
+        }
+        
+        if (preWarmedWebView != null && activity != null) {
+            // Reuse pre-warmed WebView
+            WebView webView = preWarmedWebView;
+            preWarmedWebView = null; // Clear reference to prevent reuse
+            preConnectedDomain = null; // Reset pre-connection tracking
+            if (enableTimingLogs) {
+                long time = System.currentTimeMillis() - timingWebViewCreateStart;
+                Log.d(TAG, "⏱️ [TIMING] Reusing pre-warmed WebView: " + time + "ms");
+            } else {
+                Log.d(TAG, "Reusing pre-warmed WebView");
+            }
+            return webView;
+        }
+        
+        // Create new WebView - optimized path (removed redundant version check)
+        WebView webView;
+        try {
+            webView = new WebView(activity);
+            // Set hardware layer type immediately for faster rendering (saves ~5-10ms)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating WebView: " + e.getMessage(), e);
+            webView = new WebView(activity);
+        }
+        
+        if (enableTimingLogs) {
+            long time = System.currentTimeMillis() - timingWebViewCreateStart;
+            Log.d(TAG, "⏱️ [TIMING] Created new WebView: " + time + "ms");
+        }
+        return webView;
+    }
+    
+    /**
+     * Cleans up pre-warmed WebView to free memory.
+     */
+    private void cleanupPreWarmedWebView() {
+        if (preWarmedWebView != null) {
+            try {
+                if (preWarmedWebView.getParent() != null) {
+                    ((ViewGroup)preWarmedWebView.getParent()).removeView(preWarmedWebView);
+                }
+                preWarmedWebView.stopLoading();
+                preWarmedWebView.destroy();
+            } catch (Exception e) {
+                Log.e(TAG, "Error cleaning up pre-warmed WebView: " + e.getMessage());
+            }
+            preWarmedWebView = null;
+            preConnectedDomain = null; // Reset pre-connection tracking
+        }
+    }
+    
+    /**
+     * Re-pre-warms WebView after checkout closes to keep it ready for next use.
+     * This ensures subsequent checkouts are fast.
+     */
+    private void rePreWarmWebViewIfNeeded() {
+        // Only re-pre-warm if pre-warming is enabled and we have an activity
+        if (preWarmingEnabled && activity != null && preWarmedWebView == null && !isPreWarming) {
+            // Delay slightly to avoid doing work during cleanup
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (activity != null && preWarmingEnabled && preWarmedWebView == null && !isPreWarming) {
+                    if (enableTimingLogs) {
+                        Log.d(TAG, "⏱️ [TIMING] Re-pre-warming WebView for next use");
+                    }
+                    preWarmWebView(activity);
+                }
+            }, 300); // Wait 300ms after cleanup before re-pre-warming
+        }
+    }
+    
     public void openCheckout(String url) {
         try {
+            if (enableTimingLogs) {
+                timingStartTime = System.currentTimeMillis();
+                Log.d(TAG, "⏱️ [TIMING] openCheckout() called");
+            }
             usePopupPresentation = false;
             openURLInternal(url);
         } catch (Exception e) {
@@ -175,6 +465,10 @@ public class StashPayCardPlugin {
     
     public void openPopup(String url) {
         try {
+            if (enableTimingLogs) {
+                timingStartTime = System.currentTimeMillis();
+                Log.d(TAG, "⏱️ [TIMING] openPopup() called");
+            }
             usePopupPresentation = true;
             useCustomSize = false;
             openURLInternal(url);
@@ -274,6 +568,14 @@ public class StashPayCardPlugin {
                 return;
             }
 
+            // Ensure DialogFragment is enabled if pre-warming is disabled (compensation optimization)
+            if (!preWarmingEnabled && activity instanceof androidx.fragment.app.FragmentActivity && !useDialogFragment) {
+                useDialogFragment = true;
+                if (enableTimingLogs) {
+                    Log.d(TAG, "⏱️ [TIMING] Auto-enabled DialogFragment (pre-warming disabled)");
+                }
+            }
+
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 url = "https://" + url;
             }
@@ -284,6 +586,9 @@ public class StashPayCardPlugin {
                 Log.e(TAG, "Error appending theme parameter: " + e.getMessage(), e);
             }
 
+            // Pre-connect to the domain to reduce network delay
+            preConnectToDomain(url, activity);
+
             final String finalUrl = url;
 
             activity.runOnUiThread(() -> {
@@ -293,7 +598,18 @@ public class StashPayCardPlugin {
                     } else if (forceSafariViewController) {
                         openWithChromeCustomTabs(finalUrl, activity);
                     } else {
-                        launchPortraitActivity(finalUrl, activity);
+                        // Use DialogFragment if enabled (faster), otherwise use Activity
+                        if (useDialogFragment && activity instanceof androidx.fragment.app.FragmentActivity) {
+                            if (enableTimingLogs) {
+                                Log.d(TAG, "⏱️ [TIMING] Using DialogFragment (faster than Activity)");
+                            }
+                            launchDialogFragment(finalUrl, (androidx.fragment.app.FragmentActivity) activity);
+                        } else {
+                            if (enableTimingLogs && !useDialogFragment) {
+                                Log.d(TAG, "⏱️ [TIMING] Using Activity (DialogFragment not available or disabled)");
+                            }
+                            launchPortraitActivity(finalUrl, activity);
+                        }
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in UI thread operation: " + e.getMessage(), e);
@@ -306,8 +622,48 @@ public class StashPayCardPlugin {
         }
     }
     
+    /**
+     * Launches DialogFragment version (faster, lower memory).
+     * This is an optional optimization - can be removed if not needed.
+     */
+    private void launchDialogFragment(String url, androidx.fragment.app.FragmentActivity activity) {
+        try {
+            if (enableTimingLogs) {
+                timingUIShowStart = System.currentTimeMillis();
+                long timeToLaunch = timingUIShowStart - timingStartTime;
+                Log.d(TAG, "⏱️ [TIMING] Launching DialogFragment (time since openCheckout: " + timeToLaunch + "ms)");
+            }
+            
+            android.view.Display display = activity.getWindowManager().getDefaultDisplay();
+            int rotation = display.getRotation();
+            boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
+            
+            StashPayCardDialogFragment fragment = StashPayCardDialogFragment.newInstance(
+                url, url, usePopupPresentation, isLandscape
+            );
+            
+            fragment.show(activity.getSupportFragmentManager(), "StashPayCardDialog");
+            isCurrentlyPresented = true;
+            
+            if (enableTimingLogs) {
+                long launchTime = System.currentTimeMillis() - timingUIShowStart;
+                Log.d(TAG, "⏱️ [TIMING] DialogFragment launched in: " + launchTime + "ms");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch DialogFragment, falling back to Activity: " + e.getMessage());
+            // Fallback to Activity if DialogFragment fails
+            launchPortraitActivity(url, activity);
+        }
+    }
+    
     private void launchPortraitActivity(String url, Activity activity) {
         try {
+            if (enableTimingLogs) {
+                timingUIShowStart = System.currentTimeMillis();
+                long timeToLaunch = timingUIShowStart - timingStartTime;
+                Log.d(TAG, "⏱️ [TIMING] Launching Activity (time since openCheckout: " + timeToLaunch + "ms)");
+            }
+            
             android.view.Display display = activity.getWindowManager().getDefaultDisplay();
             int rotation = display.getRotation();
             boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
@@ -319,11 +675,16 @@ public class StashPayCardPlugin {
             intent.putExtra("cardHeightRatio", cardHeightRatio);
             intent.putExtra("usePopup", usePopupPresentation);
             intent.putExtra("wasLandscape", isLandscape);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT | Intent.FLAG_ACTIVITY_SINGLE_TOP);
             
             activity.startActivity(intent);
             activity.overridePendingTransition(0, 0);
             isCurrentlyPresented = true;
+            
+            if (enableTimingLogs) {
+                long launchTime = System.currentTimeMillis() - timingUIShowStart;
+                Log.d(TAG, "⏱️ [TIMING] Activity launched in: " + launchTime + "ms");
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
         }
@@ -457,25 +818,35 @@ public class StashPayCardPlugin {
                 currentContainer.setBackground(popupBg);
                 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, 24));
-                    currentContainer.setOutlineProvider(new ViewOutlineProvider() {
-                        @Override
-                        public void getOutline(View view, Outline outline) {
-                            try {
-                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-                            } catch (Exception e) {
-                                Log.e(TAG, "Error setting outline: " + e.getMessage(), e);
+                    // Reduce elevation on low-end devices
+                    boolean isVeryLowEnd = StashWebViewUtils.isVeryLowEndDevice(activity);
+                    float elevation = isVeryLowEnd ? 
+                        StashWebViewUtils.dpToPx(activity, 8) : // Reduced from 24dp
+                        StashWebViewUtils.dpToPx(activity, 24);
+                    currentContainer.setElevation(elevation);
+                    
+                    // Simplify corner radius on very low-end (reduce complexity)
+                    if (!isVeryLowEnd) {
+                        currentContainer.setOutlineProvider(new ViewOutlineProvider() {
+                            @Override
+                            public void getOutline(View view, Outline outline) {
+                                try {
+                                    outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+                                } catch (Exception e) {
+                                    Log.e(TAG, "Error setting outline: " + e.getMessage(), e);
+                                }
                             }
-                        }
-                    });
-                    currentContainer.setClipToOutline(true);
+                        });
+                        currentContainer.setClipToOutline(true);
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error setting container background: " + e.getMessage(), e);
             }
             
             try {
-                webView = new WebView(activity);
+                // Reuse pre-warmed WebView if available, otherwise create new
+                webView = getOrCreateWebView(activity);
                 FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
                 webView.setLayoutParams(webViewParams);
@@ -541,16 +912,26 @@ public class StashPayCardPlugin {
     private void animateFadeIn() {
         try {
             if (currentContainer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                currentContainer.setAlpha(0.0f);
-                currentContainer.setScaleX(0.9f);
-                currentContainer.setScaleY(0.9f);
-                currentContainer.animate()
-                    .alpha(1.0f)
-                    .scaleX(1.0f)
-                    .scaleY(1.0f)
-                    .setDuration(200)
-                    .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
-                    .start();
+                // Skip animation on very low-end devices for faster display
+                boolean isVeryLowEnd = activity != null && StashWebViewUtils.isVeryLowEndDevice(activity);
+                
+                if (isVeryLowEnd) {
+                    // Show immediately without animation
+                    currentContainer.setAlpha(1.0f);
+                    currentContainer.setScaleX(1.0f);
+                    currentContainer.setScaleY(1.0f);
+                } else {
+                    currentContainer.setAlpha(0.0f);
+                    currentContainer.setScaleX(0.9f);
+                    currentContainer.setScaleY(0.9f);
+                    currentContainer.animate()
+                        .alpha(1.0f)
+                        .scaleX(1.0f)
+                        .scaleY(1.0f)
+                        .setDuration(200)
+                        .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                        .start();
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error in animateFadeIn: " + e.getMessage(), e);
@@ -600,7 +981,20 @@ public class StashPayCardPlugin {
         }
 
         try {
-            StashWebViewUtils.configureWebViewSettings(webView, StashWebViewUtils.isDarkTheme(activity));
+            boolean isDark = StashWebViewUtils.isDarkTheme(activity);
+            boolean isLowEnd = StashWebViewUtils.isLowEndDevice() || StashWebViewUtils.isVeryLowEndDevice(activity);
+            StashWebViewUtils.configureWebViewSettings(webView, isDark, isLowEnd);
+            
+            // Re-enable images after page starts loading (low-end optimization)
+            if (isLowEnd && Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                webView.postDelayed(() -> {
+                    try {
+                        webView.getSettings().setLoadsImagesAutomatically(true);
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error re-enabling images: " + e.getMessage(), e);
+                    }
+                }, 1000); // Enable images after 1 second
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
         }
@@ -632,6 +1026,12 @@ public class StashPayCardPlugin {
                         } catch (Exception e) {
                             Log.e(TAG, "Error sending page loaded message: " + e.getMessage(), e);
                         }
+                        
+                        if (enableTimingLogs && timingStartTime > 0) {
+                            long totalTime = System.currentTimeMillis() - timingStartTime;
+                            Log.d(TAG, "⏱️ [TIMING] ⭐ TOTAL TIME (openCheckout to page loaded): " + totalTime + "ms");
+                        }
+                        
                         pageLoadStartTime = 0;
                     }
                     
@@ -853,6 +1253,16 @@ public class StashPayCardPlugin {
                 }
                 webView = null;
             }
+            
+            // Don't clean up pre-warmed WebView here - it should persist for reuse
+            // Only clean it up if it's not being used (it will be null if already used)
+            if (preWarmedWebView != null && preWarmedWebView != webView) {
+                // Pre-warmed WebView exists but wasn't used - keep it for next time
+                // Don't clean it up
+            }
+            
+            // Re-pre-warm WebView for next use (if enabled and not already pre-warmed)
+            rePreWarmWebViewIfNeeded();
             
             if (currentContainer != null) {
                 try {

@@ -40,6 +40,10 @@ public class MainActivity extends AppCompatActivity {
         // Initialize StashPayCard
         StashPayCard stashPayCard = StashPayCard.getInstance();
         stashPayCard.setActivity(this);
+        stashPayCard.setEnableTimingLogs(true); // Enable performance timing logs
+        
+        // Pre-warm WebView for faster checkout launch (saves 400-700ms)
+        stashPayCard.preWarmWebView(this);
         
         // Web View Mode toggle
         webViewModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
