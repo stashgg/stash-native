@@ -220,17 +220,19 @@ NSString* appendThemeQueryParameter(NSString* url);
         CGFloat width, height, x, y;
         
         if (isRunningOniPad()) {
-            // For iPad card mode, respect customFrame if it's valid and already set
-            // This prevents recalculation and unwanted resize animations
+            // Check if screen orientation changed (rotation occurred)
+            BOOL screenSizeChanged = NO;
             if (!CGRectIsEmpty(self.customFrame) && !CGRectIsNull(self.customFrame) &&
                 self.customFrame.size.width > 0 && self.customFrame.size.height > 0) {
-                // Recenter the existing customFrame size on current screen
-                width = self.customFrame.size.width;
-                height = self.customFrame.size.height;
-                x = (screenBounds.size.width - width) / 2;
-                y = (screenBounds.size.height - height) / 2;
-            } else {
-                // Only recalculate if customFrame isn't set yet
+                // Detect rotation by checking if screen aspect ratio flipped
+                BOOL wasLandscape = (self.customFrame.size.width > self.customFrame.size.height);
+                BOOL isNowLandscape = (screenBounds.size.width > screenBounds.size.height);
+                screenSizeChanged = (wasLandscape != isNowLandscape);
+            }
+            
+            if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || CGRectIsNull(self.customFrame) ||
+                self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
+                // Recalculate size for new screen dimensions (rotation or first time)
                 CGSize cardSize = calculateiPadCardSize(screenBounds);
                 if (_isCardExpanded) {
                     width = cardSize.width;
@@ -239,6 +241,12 @@ NSString* appendThemeQueryParameter(NSString* url);
                     width = cardSize.width * 0.7;
                     height = cardSize.height * 0.7;
                 }
+                x = (screenBounds.size.width - width) / 2;
+                y = (screenBounds.size.height - height) / 2;
+            } else {
+                // Same orientation - just recenter existing size (prevents initial resize)
+                width = self.customFrame.size.width;
+                height = self.customFrame.size.height;
                 x = (screenBounds.size.width - width) / 2;
                 y = (screenBounds.size.height - height) / 2;
             }
