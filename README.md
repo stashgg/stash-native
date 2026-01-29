@@ -13,8 +13,15 @@ They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/st
 
 | Platform      | Readme                      | Description                                      |
 |---------------|-------------------------------------------|--------------------------------------------------|
-| Android       | [Android SDK](./Android/README.md)        | Native Android library with Gradle support.       |
-| iOS           | [iOS SDK](./iOS/README.md)                | Native iOS framework with Swift Package Manager support. |
+| Android       | [Android SDK](./Android/README.md)        | Native Android library (AAR) with Gradle support.       |
+| iOS           | [iOS SDK](./iOS/README.md)                | Native iOS framework (XCFramework) with Swift Package Manager support. |
+
+## Downloads
+
+Pre-built binaries are available on [GitHub Releases](https://github.com/stashgg/stash-native/releases):
+
+- **Android**: `stashpay-release.aar`
+- **iOS**: `StashPay.xcframework.zip`
 
 ## Quick Start
 
@@ -113,10 +120,12 @@ stashPay.forceWebBasedCheckout = true
 
 ## Sample Apps
 
-Both platforms include sample apps demonstrating SDK integration:
+Both platforms include sample apps (StashNativeDemo) demonstrating SDK integration:
 
-- **Android**: `./Android/sample/`
-- **iOS**: `./iOS/Sample/`
+- **Android**: `./Android/sample/` - Run with `./gradlew :sample:installDebug`
+- **iOS**: `./iOS/Sample/` - Open `StashPaySample.xcodeproj` in Xcode
+
+The sample apps include a toggle to switch between the native card UI and browser-based checkout.
 
 ## Versioning
 

@@ -7,7 +7,36 @@ Native Android SDK for integrating Stash Pay checkout into your Android applicat
 
 ## Installation
 
+### AAR File (Recommended)
+
+Download the pre-built AAR from [GitHub Releases](https://github.com/stashgg/stash-native/releases):
+
+1. Download `stashpay-release.aar` from the latest release
+2. Copy it to your project's `libs` folder
+3. Add to your `build.gradle`:
+
+```groovy
+dependencies {
+    implementation files('libs/stashpay-release.aar')
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.browser:browser:1.7.0'
+}
+```
+
+### Build AAR Locally
+
+Alternatively, build the AAR yourself:
+
+```bash
+cd Android
+./gradlew :stashpay:assembleRelease
+```
+
+The AAR will be at `stashpay/build/outputs/aar/stashpay-release.aar`.
+
 ### Gradle (Local Module)
+
+For development or if you want to modify the source:
 
 1. Copy the `stashpay` module to your project
 2. Add to your `settings.gradle`:
@@ -21,26 +50,6 @@ include ':stashpay'
 ```groovy
 dependencies {
     implementation project(':stashpay')
-}
-```
-
-### AAR File
-
-1. Build the AAR:
-
-```bash
-cd Android
-./gradlew :stashpay:assembleRelease
-```
-
-2. Copy `stashpay/build/outputs/aar/stashpay-release.aar` to your project's `libs` folder
-3. Add to your `build.gradle`:
-
-```groovy
-dependencies {
-    implementation files('libs/stashpay-release.aar')
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.browser:browser:1.7.0'
 }
 ```
 
@@ -173,9 +182,11 @@ The SDK includes ProGuard rules. If you encounter issues, add:
 
 ## Sample App
 
-See the `sample/` directory for a complete working example.
+See the `sample/` directory for a complete working example (StashNativeDemo).
 
 ```bash
 cd Android
 ./gradlew :sample:installDebug
 ```
+
+The sample app includes a toggle to switch between the native card UI and Chrome Custom Tabs checkout.

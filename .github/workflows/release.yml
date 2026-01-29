@@ -1,0 +1,213 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build-android:
+    name: Build Android AAR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x Android/gradlew
+      
+      - name: Build Android AAR
+        working-directory: Android
+        run: ./gradlew :stashpay:assembleRelease
+      
+      - name: Find AAR file
+        id: find-aar
+        run: |
+          AAR_PATH=$(find Android/stashpay/build/outputs/aar -name "*.aar" -type f | head -1)
+          if [ -z "$AAR_PATH" ]; then
+            echo "AAR not found!"
+            find Android/stashpay/build/outputs -name "*.aar" || true
+            exit 1
+          fi
+          echo "Found AAR at: $AAR_PATH"
+          echo "aar_path=$AAR_PATH" >> $GITHUB_OUTPUT
+      
+      - name: Upload AAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stashpay-android-aar
+          path: ${{ steps.find-aar.outputs.aar_path }}
+          retention-days: 7
+
+  build-ios:
+    name: Build iOS XCFramework
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      
+      - name: Build XCFramework
+        run: |
+          cd iOS/StashPay
+          
+          # Create build directory
+          mkdir -p build
+          
+          # Archive for iOS device
+          echo "Building for iOS device..."
+          xcodebuild archive \
+            -project StashPay.xcodeproj \
+            -scheme StashPay \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/StashPay-iOS.xcarchive \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+          
+          # Archive for iOS Simulator
+          echo "Building for iOS Simulator..."
+          xcodebuild archive \
+            -project StashPay.xcodeproj \
+            -scheme StashPay \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath build/StashPay-Sim.xcarchive \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+          
+          # Create XCFramework
+          echo "Creating XCFramework..."
+          xcodebuild -create-xcframework \
+            -framework "build/StashPay-iOS.xcarchive/Products/Library/Frameworks/StashPay.framework" \
+            -framework "build/StashPay-Sim.xcarchive/Products/Library/Frameworks/StashPay.framework" \
+            -output build/StashPay.xcframework
+          
+          # Verify XCFramework was created
+          if [ ! -d "build/StashPay.xcframework" ]; then
+            echo "Failed to create XCFramework"
+            exit 1
+          fi
+          
+          echo "XCFramework created successfully"
+          ls -la build/StashPay.xcframework
+      
+      - name: Zip XCFramework
+        run: |
+          cd iOS/StashPay/build
+          zip -r StashPay.xcframework.zip StashPay.xcframework
+          echo "Created StashPay.xcframework.zip"
+          ls -la StashPay.xcframework.zip
+      
+      - name: Upload XCFramework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stashpay-ios-xcframework
+          path: iOS/StashPay/build/StashPay.xcframework.zip
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-ios]
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download Android AAR
+        uses: actions/download-artifact@v4
+        with:
+          name: stashpay-android-aar
+          path: release-artifacts
+      
+      - name: Download iOS XCFramework
+        uses: actions/download-artifact@v4
+        with:
+          name: stashpay-ios-xcframework
+          path: release-artifacts
+      
+      - name: List artifacts
+        run: |
+          echo "Release artifacts:"
+          ls -la release-artifacts/
+      
+      - name: Determine version tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using tag: $TAG"
+      
+      - name: Rename artifacts with version
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          cd release-artifacts
+          
+          # Rename AAR
+          AAR_FILE=$(find . -name "*.aar" | head -1)
+          if [ -n "$AAR_FILE" ]; then
+            mv "$AAR_FILE" "StashPay-${TAG}.aar"
+          fi
+          
+          # Rename XCFramework zip
+          if [ -f "StashPay.xcframework.zip" ]; then
+            mv "StashPay.xcframework.zip" "StashPay-${TAG}.xcframework.zip"
+          fi
+          
+          echo "Renamed artifacts:"
+          ls -la
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## StashPay SDK ${{ steps.version.outputs.tag }}
+            
+            ### Android
+            Download `StashPay-${{ steps.version.outputs.tag }}.aar` and add to your project's `libs` folder.
+            
+            ```groovy
+            dependencies {
+                implementation files('libs/StashPay-${{ steps.version.outputs.tag }}.aar')
+                implementation 'androidx.appcompat:appcompat:1.6.1'
+                implementation 'androidx.browser:browser:1.7.0'
+            }
+            ```
+            
+            ### iOS
+            Download `StashPay-${{ steps.version.outputs.tag }}.xcframework.zip`, unzip, and add `StashPay.xcframework` to your Xcode project.
+            
+            Alternatively, use Swift Package Manager with this repository URL.
+          files: |
+            release-artifacts/StashPay-${{ steps.version.outputs.tag }}.aar
+            release-artifacts/StashPay-${{ steps.version.outputs.tag }}.xcframework.zip
+          draft: false
+          prerelease: false

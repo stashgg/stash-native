@@ -7,24 +7,29 @@ Native iOS SDK for integrating Stash Pay checkout into your iOS applications.
 
 ## Installation
 
+### XCFramework (Recommended)
+
+Download the pre-built XCFramework from [GitHub Releases](https://github.com/stashgg/stash-native/releases):
+
+1. Download `StashPay.xcframework.zip` from the latest release
+2. Unzip and drag `StashPay.xcframework` into your Xcode project
+3. In your target's **General** tab, ensure it appears under **Frameworks, Libraries, and Embedded Content**
+4. Set the embed option to **Embed & Sign**
+
 ### Swift Package Manager
 
-Add to your `Package.swift`:
+Add via Xcode:
+1. File > Add Packages...
+2. Enter the repository URL: `https://github.com/stashgg/stash-native.git`
+3. Select "StashPay" and add to your target
+
+Or add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(path: "../StashPay")
+    .package(url: "https://github.com/stashgg/stash-native.git", from: "1.0.0")
 ]
 ```
-
-Or add via Xcode:
-1. File > Add Packages...
-2. Enter the path to the StashPay folder
-3. Select "StashPay" and add to your target
-
-### CocoaPods (Manual)
-
-Copy the `StashPay/Sources/StashPay` folder to your project and add the files to your target.
 
 ### Manual Integration
 
@@ -197,10 +202,12 @@ All delegate methods are optional.
 
 ## Sample App
 
-See the `Sample/` directory for a complete working example.
+See the `Sample/` directory for a complete working example (StashNativeDemo).
 
 To run the sample:
-1. Open `StashPaySample.xcodeproj` in Xcode
+1. Open `Sample/StashPaySample.xcodeproj` in Xcode
 2. Select a simulator or device
 3. Build and run
+
+The sample app includes a toggle to switch between the native card UI and Safari-based checkout.
 
