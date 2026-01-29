@@ -220,16 +220,28 @@ NSString* appendThemeQueryParameter(NSString* url);
         CGFloat width, height, x, y;
         
         if (isRunningOniPad()) {
-            CGSize cardSize = calculateiPadCardSize(screenBounds);
-            if (_isCardExpanded) {
-                width = cardSize.width;
-                height = cardSize.height;
+            // For iPad card mode, respect customFrame if it's valid and already set
+            // This prevents recalculation and unwanted resize animations
+            if (!CGRectIsEmpty(self.customFrame) && !CGRectIsNull(self.customFrame) &&
+                self.customFrame.size.width > 0 && self.customFrame.size.height > 0) {
+                // Recenter the existing customFrame size on current screen
+                width = self.customFrame.size.width;
+                height = self.customFrame.size.height;
+                x = (screenBounds.size.width - width) / 2;
+                y = (screenBounds.size.height - height) / 2;
             } else {
-                width = cardSize.width * 0.7;
-                height = cardSize.height * 0.7;
+                // Only recalculate if customFrame isn't set yet
+                CGSize cardSize = calculateiPadCardSize(screenBounds);
+                if (_isCardExpanded) {
+                    width = cardSize.width;
+                    height = cardSize.height;
+                } else {
+                    width = cardSize.width * 0.7;
+                    height = cardSize.height * 0.7;
+                }
+                x = (screenBounds.size.width - width) / 2;
+                y = (screenBounds.size.height - height) / 2;
             }
-            x = (screenBounds.size.width - width) / 2;
-            y = (screenBounds.size.height - height) / 2;
         } else {
             if (screenBounds.size.width > screenBounds.size.height) {
                 CGFloat temp = screenBounds.size.width;
@@ -1632,40 +1644,27 @@ CGSize calculateiPadCardSize(CGRect screenBounds) {
         return CGSizeMake(600, 700);
     }
     
-    CGFloat landscapeWidth = fmax(screenBounds.size.width, screenBounds.size.height);
-    CGFloat landscapeHeight = fmin(screenBounds.size.width, screenBounds.size.height);
+    // Use actual current screen dimensions (not landscape-assumed dimensions)
+    // This ensures the percentage matches what user sees on screen
+    CGFloat screenWidth = screenBounds.size.width;
+    CGFloat screenHeight = screenBounds.size.height;
     
-    // Use configurable tablet ratios
-    CGFloat maxCardWidth = landscapeWidth * _tabletWidthRatio;
-    CGFloat maxCardHeight = landscapeHeight * _tabletHeightRatio;
+    // Apply configurable tablet ratios to actual screen dimensions
+    CGFloat cardWidth = screenWidth * _tabletWidthRatio;
+    CGFloat cardHeight = screenHeight * _tabletHeightRatio;
     
-    if (maxCardWidth <= 0 || maxCardHeight <= 0) {
+    if (cardWidth <= 0 || cardHeight <= 0) {
         return CGSizeMake(600, 700);
-    }
-    
-    // Calculate aspect ratio from the configured dimensions
-    CGFloat targetAspectRatio = maxCardWidth / maxCardHeight;
-    
-    CGFloat cardWidth, cardHeight;
-    
-    if (maxCardWidth / targetAspectRatio <= maxCardHeight) {
-        cardWidth = maxCardWidth;
-        cardHeight = cardWidth / targetAspectRatio;
-    } else {
-        cardHeight = maxCardHeight;
-        cardWidth = cardHeight * targetAspectRatio;
     }
     
     // Enforce minimum sizes for usability
     CGFloat minWidth = 400;
     CGFloat minHeight = 500;
-    if (cardWidth < minWidth || cardHeight < minHeight) {
-        // Scale up proportionally if too small
-        CGFloat scaleW = minWidth / cardWidth;
-        CGFloat scaleH = minHeight / cardHeight;
-        CGFloat scale = fmax(scaleW, scaleH);
-        cardWidth = cardWidth * scale;
-        cardHeight = cardHeight * scale;
+    if (cardWidth < minWidth) {
+        cardWidth = minWidth;
+    }
+    if (cardHeight < minHeight) {
+        cardHeight = minHeight;
     }
     
     return CGSizeMake(cardWidth, cardHeight);

@@ -236,40 +236,27 @@ public class StashPayCardPortraitActivity extends Activity {
     }
 
     private int[] calculateTabletCardSize(DisplayMetrics metrics) {
-        int landscapeWidth = Math.max(metrics.widthPixels, metrics.heightPixels);
-        int landscapeHeight = Math.min(metrics.widthPixels, metrics.heightPixels);
+        // Use actual current screen dimensions (not landscape-assumed dimensions)
+        // This ensures the percentage matches what user sees on screen
+        int screenWidth = metrics.widthPixels;
+        int screenHeight = metrics.heightPixels;
         
-        // Use configurable tablet ratios
-        float maxCardWidth = landscapeWidth * tabletWidthRatio;
-        float maxCardHeight = landscapeHeight * tabletHeightRatio;
+        // Apply configurable tablet ratios to actual screen dimensions
+        int cardWidth = (int)(screenWidth * tabletWidthRatio);
+        int cardHeight = (int)(screenHeight * tabletHeightRatio);
         
-        if (maxCardWidth <= 0 || maxCardHeight <= 0) {
+        if (cardWidth <= 0 || cardHeight <= 0) {
             return new int[]{600, 700};
-        }
-        
-        // Calculate aspect ratio from the configured dimensions
-        float targetAspectRatio = maxCardWidth / maxCardHeight;
-        
-        int cardWidth, cardHeight;
-        
-        if (maxCardWidth / targetAspectRatio <= maxCardHeight) {
-            cardWidth = (int)maxCardWidth;
-            cardHeight = (int)(cardWidth / targetAspectRatio);
-        } else {
-            cardHeight = (int)maxCardHeight;
-            cardWidth = (int)(cardHeight * targetAspectRatio);
         }
         
         // Enforce minimum sizes for usability
         int minWidth = 400;
         int minHeight = 500;
-        if (cardWidth < minWidth || cardHeight < minHeight) {
-            // Scale up proportionally if too small
-            float scaleW = (float)minWidth / cardWidth;
-            float scaleH = (float)minHeight / cardHeight;
-            float scale = Math.max(scaleW, scaleH);
-            cardWidth = (int)(cardWidth * scale);
-            cardHeight = (int)(cardHeight * scale);
+        if (cardWidth < minWidth) {
+            cardWidth = minWidth;
+        }
+        if (cardHeight < minHeight) {
+            cardHeight = minHeight;
         }
         
         return new int[]{cardWidth, cardHeight};
