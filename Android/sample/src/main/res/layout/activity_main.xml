@@ -49,6 +49,84 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/urlInputLayout" />
 
+    <!-- Card Size Configuration Section -->
+    <TextView
+        android:id="@+id/sizeConfigTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Card Size Configuration"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/webViewModeSwitch" />
+
+    <!-- Phone Card Height Slider -->
+    <TextView
+        android:id="@+id/phoneHeightLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Phone Height: 68%"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/sizeConfigTitle" />
+
+    <SeekBar
+        android:id="@+id/phoneHeightSlider"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:max="90"
+        android:progress="58"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/phoneHeightLabel" />
+
+    <!-- Tablet Width Slider -->
+    <TextView
+        android:id="@+id/tabletWidthLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Tablet Width: 80%"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/phoneHeightSlider" />
+
+    <SeekBar
+        android:id="@+id/tabletWidthSlider"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:max="90"
+        android:progress="70"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tabletWidthLabel" />
+
+    <!-- Tablet Height Slider -->
+    <TextView
+        android:id="@+id/tabletHeightLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Tablet Height: 75%"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tabletWidthSlider" />
+
+    <SeekBar
+        android:id="@+id/tabletHeightSlider"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:max="90"
+        android:progress="65"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tabletHeightLabel" />
+
     <Button
         android:id="@+id/openCheckoutButton"
         android:layout_width="0dp"
@@ -57,7 +135,7 @@
         android:text="Open Checkout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/webViewModeSwitch" />
+        app:layout_constraintTop_toBottomOf="@+id/tabletHeightSlider" />
 
     <TextView
         android:id="@+id/statusLabel"

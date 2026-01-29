@@ -257,8 +257,94 @@ public class StashPayCard {
      * @param heightRatio Height ratio (0.0 to 1.0) relative to screen height
      * @param verticalPosition Vertical position ratio (0.0 = bottom, 1.0 = top)
      * @param widthRatio Width ratio (0.0 to 1.0) relative to screen width
+     * @deprecated Use individual setters: setCardHeightRatio(), setCardWidthRatio(), etc.
      */
+    @Deprecated
     public void setCardConfiguration(float heightRatio, float verticalPosition, float widthRatio) {
         plugin.setCardConfiguration(heightRatio, verticalPosition, widthRatio);
+    }
+    
+    // ============================================================================
+    // Phone Card Size Configuration
+    // ============================================================================
+    
+    /**
+     * Gets the card height ratio for phone checkout presentation.
+     * 
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getCardHeightRatio() {
+        return plugin.getCardHeightRatio();
+    }
+    
+    /**
+     * Sets the card height ratio for phone checkout presentation.
+     * This controls how tall the checkout card appears on phones.
+     * 
+     * @param ratio Height ratio (0.1 to 1.0) relative to screen height. Default is 0.68.
+     */
+    public void setCardHeightRatio(float ratio) {
+        plugin.setCardHeightRatio(ratio);
+    }
+    
+    /**
+     * Gets the card width ratio for phone checkout presentation.
+     * 
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getCardWidthRatio() {
+        return plugin.getCardWidthRatio();
+    }
+    
+    /**
+     * Sets the card width ratio for phone checkout presentation.
+     * This controls how wide the checkout card appears on phones.
+     * 
+     * @param ratio Width ratio (0.1 to 1.0) relative to screen width. Default is 1.0 (full width).
+     */
+    public void setCardWidthRatio(float ratio) {
+        plugin.setCardWidthRatio(ratio);
+    }
+    
+    // ============================================================================
+    // Tablet Card Size Configuration
+    // ============================================================================
+    
+    /**
+     * Gets the tablet width ratio for tablet checkout presentation.
+     * 
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getTabletWidthRatio() {
+        return plugin.getTabletWidthRatio();
+    }
+    
+    /**
+     * Sets the tablet width ratio for tablet checkout presentation.
+     * This controls how wide the checkout card appears on tablets.
+     * 
+     * @param ratio Width ratio (0.1 to 1.0) relative to screen width. Default is 0.8.
+     */
+    public void setTabletWidthRatio(float ratio) {
+        plugin.setTabletWidthRatio(ratio);
+    }
+    
+    /**
+     * Gets the tablet height ratio for tablet checkout presentation.
+     * 
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getTabletHeightRatio() {
+        return plugin.getTabletHeightRatio();
+    }
+    
+    /**
+     * Sets the tablet height ratio for tablet checkout presentation.
+     * This controls how tall the checkout card appears on tablets.
+     * 
+     * @param ratio Height ratio (0.1 to 1.0) relative to screen height. Default is 0.75.
+     */
+    public void setTabletHeightRatio(float ratio) {
+        plugin.setTabletHeightRatio(ratio);
     }
 }

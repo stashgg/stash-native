@@ -134,6 +134,72 @@ extension ViewController: StashPayCardDelegate {
 @end
 ```
 
+## Card Size Configuration
+
+You can customize the size of the checkout card for both iPhones and iPads.
+
+### iPhone Card Size
+
+On iPhones, the checkout card slides up from the bottom. You can configure its height:
+
+```swift
+let stashPay = StashPayCard.sharedInstance()
+
+// Set card height (0.1 to 1.0, default 0.6 = 60% of screen height)
+stashPay.cardHeightRatio = 0.75  // 75% of screen height
+
+// Set card width (0.1 to 1.0, default 1.0 = full width)
+stashPay.cardWidthRatio = 0.9  // 90% of screen width
+```
+
+### iPad Card Size
+
+On iPads, the checkout card appears centered on screen. You can configure its size:
+
+```swift
+let stashPay = StashPayCard.sharedInstance()
+
+// Set tablet width (0.1 to 1.0, default 0.8 = 80% of screen width)
+stashPay.tabletWidthRatio = 0.7  // 70% of screen width
+
+// Set tablet height (0.1 to 1.0, default 0.75 = 75% of screen height)
+stashPay.tabletHeightRatio = 0.85  // 85% of screen height
+```
+
+### Complete Example (Swift)
+
+```swift
+let stashPay = StashPayCard.sharedInstance()
+stashPay.delegate = self
+
+// Configure iPhone card size
+stashPay.cardHeightRatio = 0.75
+
+// Configure iPad card size
+stashPay.tabletWidthRatio = 0.7
+stashPay.tabletHeightRatio = 0.85
+
+// Open checkout with configured sizes
+stashPay.openCheckout(withURL: url)
+```
+
+### Objective-C Example
+
+```objc
+StashPayCard *stashPay = [StashPayCard sharedInstance];
+stashPay.delegate = self;
+
+// Configure iPhone card size
+stashPay.cardHeightRatio = 0.75;
+
+// Configure iPad card size
+stashPay.tabletWidthRatio = 0.7;
+stashPay.tabletHeightRatio = 0.85;
+
+// Open checkout with configured sizes
+[stashPay openCheckoutWithURL:url];
+```
+
 ## Web-Based Checkout
 
 To use SFSafariViewController instead of the in-app card UI:
@@ -173,9 +239,11 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `forceWebBasedCheckout` | Use SFSafariViewController |
 | `isCurrentlyPresented` | Check if dialog is shown |
 | `isPurchaseProcessing` | Check if payment is in progress |
-| `cardHeightRatio` | Height ratio (0.0-1.0) |
+| `cardHeightRatio` | iPhone card height ratio (0.1-1.0) |
 | `cardVerticalPosition` | Vertical position (0.0-1.0) |
-| `cardWidthRatio` | Width ratio (0.0-1.0) |
+| `cardWidthRatio` | iPhone card width ratio (0.1-1.0) |
+| `tabletWidthRatio` | iPad card width ratio (0.1-1.0) |
+| `tabletHeightRatio` | iPad card height ratio (0.1-1.0) |
 | `openCheckout(withURL:)` | Open checkout in card UI |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset and dismiss |

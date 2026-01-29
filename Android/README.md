@@ -131,6 +131,55 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 });
 ```
 
+## Card Size Configuration
+
+You can customize the size of the checkout card for both phones and tablets.
+
+### Phone Card Size
+
+On phones, the checkout card slides up from the bottom. You can configure its height:
+
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+
+// Set card height (0.1 to 1.0, default 0.68 = 68% of screen height)
+stashPay.setCardHeightRatio(0.75f);  // 75% of screen height
+
+// Set card width (0.1 to 1.0, default 1.0 = full width)
+stashPay.setCardWidthRatio(0.9f);  // 90% of screen width
+```
+
+### Tablet Card Size
+
+On tablets, the checkout card appears centered on screen. You can configure its size:
+
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+
+// Set tablet width (0.1 to 1.0, default 0.8 = 80% of screen width)
+stashPay.setTabletWidthRatio(0.7f);  // 70% of screen width
+
+// Set tablet height (0.1 to 1.0, default 0.75 = 75% of screen height)
+stashPay.setTabletHeightRatio(0.85f);  // 85% of screen height
+```
+
+### Complete Example
+
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+stashPay.setActivity(this);
+
+// Configure phone card size
+stashPay.setCardHeightRatio(0.75f);
+
+// Configure tablet card size
+stashPay.setTabletWidthRatio(0.7f);
+stashPay.setTabletHeightRatio(0.85f);
+
+// Open checkout with configured sizes
+stashPay.openCheckout(url);
+```
+
 ## Web-Based Checkout
 
 To use Chrome Custom Tabs instead of the in-app card UI:
@@ -155,6 +204,14 @@ StashPayCard.getInstance().openCheckout(url);
 | `isCurrentlyPresented()` | Check if dialog is shown |
 | `setForceWebBasedCheckout(boolean)` | Use Chrome Custom Tabs |
 | `isPurchaseProcessing()` | Check if payment is in progress |
+| `setCardHeightRatio(float)` | Set phone card height (0.1-1.0) |
+| `setCardWidthRatio(float)` | Set phone card width (0.1-1.0) |
+| `setTabletWidthRatio(float)` | Set tablet card width (0.1-1.0) |
+| `setTabletHeightRatio(float)` | Set tablet card height (0.1-1.0) |
+| `getCardHeightRatio()` | Get phone card height ratio |
+| `getCardWidthRatio()` | Get phone card width ratio |
+| `getTabletWidthRatio()` | Get tablet card width ratio |
+| `getTabletHeightRatio()` | Get tablet card height ratio |
 
 ### StashPayListener
 

@@ -58,12 +58,19 @@ static BOOL _isCardCurrentlyPresented = NO;
 static BOOL _paymentSuccessHandled = NO;
 static BOOL _paymentSuccessCallbackCalled = NO;
 
+// Phone card configuration
 static CGFloat _cardHeightRatio = 0.6;
 static CGFloat _cardVerticalPosition = 1.0;
 static CGFloat _cardWidthRatio = 1.0;
 static CGFloat _originalCardHeightRatio = 0.6;
 static CGFloat _originalCardVerticalPosition = 1.0;
 static CGFloat _originalCardWidthRatio = 1.0;
+
+// Tablet (iPad) card configuration
+static CGFloat _tabletWidthRatio = 0.8;
+static CGFloat _tabletHeightRatio = 0.75;
+static CGFloat _originalTabletWidthRatio = 0.8;
+static CGFloat _originalTabletHeightRatio = 0.75;
 
 static BOOL _useCustomPopupSize = NO;
 static CGFloat _customPortraitWidthMultiplier = 1.0285;
@@ -1628,14 +1635,16 @@ CGSize calculateiPadCardSize(CGRect screenBounds) {
     CGFloat landscapeWidth = fmax(screenBounds.size.width, screenBounds.size.height);
     CGFloat landscapeHeight = fmin(screenBounds.size.width, screenBounds.size.height);
     
-    CGFloat targetAspectRatio = 0.75;
-    
-    CGFloat maxCardWidth = landscapeWidth * 0.8;
-    CGFloat maxCardHeight = landscapeHeight * 0.75;
+    // Use configurable tablet ratios
+    CGFloat maxCardWidth = landscapeWidth * _tabletWidthRatio;
+    CGFloat maxCardHeight = landscapeHeight * _tabletHeightRatio;
     
     if (maxCardWidth <= 0 || maxCardHeight <= 0) {
         return CGSizeMake(600, 700);
     }
+    
+    // Calculate aspect ratio from the configured dimensions
+    CGFloat targetAspectRatio = maxCardWidth / maxCardHeight;
     
     CGFloat cardWidth, cardHeight;
     
@@ -1647,8 +1656,16 @@ CGSize calculateiPadCardSize(CGRect screenBounds) {
         cardWidth = cardHeight * targetAspectRatio;
     }
     
-    if (cardWidth < 400 || cardHeight < 500) {
-        return CGSizeMake(600, 700);
+    // Enforce minimum sizes for usability
+    CGFloat minWidth = 400;
+    CGFloat minHeight = 500;
+    if (cardWidth < minWidth || cardHeight < minHeight) {
+        // Scale up proportionally if too small
+        CGFloat scaleW = minWidth / cardWidth;
+        CGFloat scaleH = minHeight / cardHeight;
+        CGFloat scale = fmax(scaleW, scaleH);
+        cardWidth = cardWidth * scale;
+        cardHeight = cardHeight * scale;
     }
     
     return CGSizeMake(cardWidth, cardHeight);
@@ -1808,6 +1825,30 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _originalCardWidthRatio = clampedRatio;
 }
 
+// ============================================================================
+// Tablet (iPad) Card Size Configuration
+// ============================================================================
+
+- (CGFloat)tabletWidthRatio {
+    return _tabletWidthRatio;
+}
+
+- (void)setTabletWidthRatio:(CGFloat)ratio {
+    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
+    _tabletWidthRatio = clampedRatio;
+    _originalTabletWidthRatio = clampedRatio;
+}
+
+- (CGFloat)tabletHeightRatio {
+    return _tabletHeightRatio;
+}
+
+- (void)setTabletHeightRatio:(CGFloat)ratio {
+    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
+    _tabletHeightRatio = clampedRatio;
+    _originalTabletHeightRatio = clampedRatio;
+}
+
 - (void)openCheckoutWithURL:(NSString *)url {
     if (url == nil || url.length == 0) {
         return;
@@ -1886,6 +1927,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _originalCardHeightRatio = _cardHeightRatio;
     _originalCardVerticalPosition = _cardVerticalPosition;
     _originalCardWidthRatio = _cardWidthRatio;
+    _originalTabletWidthRatio = _tabletWidthRatio;
+    _originalTabletHeightRatio = _tabletHeightRatio;
     
     StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
     

@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -35,6 +36,14 @@ public class MainActivity extends AppCompatActivity {
         Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
         SwitchMaterial webViewModeSwitch = findViewById(R.id.webViewModeSwitch);
         
+        // Size configuration UI
+        TextView phoneHeightLabel = findViewById(R.id.phoneHeightLabel);
+        SeekBar phoneHeightSlider = findViewById(R.id.phoneHeightSlider);
+        TextView tabletWidthLabel = findViewById(R.id.tabletWidthLabel);
+        SeekBar tabletWidthSlider = findViewById(R.id.tabletWidthSlider);
+        TextView tabletHeightLabel = findViewById(R.id.tabletHeightLabel);
+        SeekBar tabletHeightSlider = findViewById(R.id.tabletHeightSlider);
+        
         urlInput.setText(DEFAULT_URL);
         
         // Initialize StashPayCard
@@ -46,6 +55,48 @@ public class MainActivity extends AppCompatActivity {
             stashPayCard.setForceWebBasedCheckout(isChecked);
             String modeText = isChecked ? "Web View (Chrome)" : "Card UI";
             statusText.setText("Mode: " + modeText);
+        });
+        
+        // Phone Height Slider (10% to 100%)
+        phoneHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                float ratio = (progress + 10) / 100f; // 10% to 100%
+                phoneHeightLabel.setText(String.format("Phone Height: %d%%", progress + 10));
+                stashPayCard.setCardHeightRatio(ratio);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        
+        // Tablet Width Slider (10% to 100%)
+        tabletWidthSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                float ratio = (progress + 10) / 100f; // 10% to 100%
+                tabletWidthLabel.setText(String.format("Tablet Width: %d%%", progress + 10));
+                stashPayCard.setTabletWidthRatio(ratio);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
+        });
+        
+        // Tablet Height Slider (10% to 100%)
+        tabletHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                float ratio = (progress + 10) / 100f; // 10% to 100%
+                tabletHeightLabel.setText(String.format("Tablet Height: %d%%", progress + 10));
+                stashPayCard.setTabletHeightRatio(ratio);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
         // Set up event listener

@@ -134,6 +134,24 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, assign) CGFloat cardWidthRatio;
 
+// ============================================================================
+// Tablet (iPad) Card Size Configuration
+// ============================================================================
+
+/**
+ * Tablet width ratio (0.1 to 1.0) relative to screen width.
+ * Default is 0.8 (80% of screen width).
+ * Only applies on iPads.
+ */
+@property (nonatomic, assign) CGFloat tabletWidthRatio;
+
+/**
+ * Tablet height ratio (0.1 to 1.0) relative to screen height.
+ * Default is 0.75 (75% of screen height).
+ * Only applies on iPads.
+ */
+@property (nonatomic, assign) CGFloat tabletHeightRatio;
+
 /**
  * Gets the shared singleton instance of StashPayCard.
  */

@@ -47,7 +47,14 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
-    private float cardHeightRatio = 0.6f;
+    // Phone card configuration
+    private float cardHeightRatio = 0.68f;
+    private float cardWidthRatio = 1.0f;
+    
+    // Tablet card configuration
+    private float tabletWidthRatio = 0.8f;
+    private float tabletHeightRatio = 0.75f;
+    
     private boolean isCurrentlyPresented;
     private boolean paymentSuccessHandled;
     private boolean isPurchaseProcessing;
@@ -235,10 +242,71 @@ public class StashPayCardPlugin {
     
     public void setCardConfiguration(float heightRatio, float verticalPosition, float widthRatio) {
         try {
-            this.cardHeightRatio = heightRatio;
+            this.cardHeightRatio = clampRatio(heightRatio);
+            this.cardWidthRatio = clampRatio(widthRatio);
         } catch (Exception e) {
             Log.e(TAG, "Error in setCardConfiguration: " + e.getMessage(), e);
         }
+    }
+    
+    // ============================================================================
+    // Phone Card Size Configuration
+    // ============================================================================
+    
+    public float getCardHeightRatio() {
+        return cardHeightRatio;
+    }
+    
+    public void setCardHeightRatio(float ratio) {
+        try {
+            this.cardHeightRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardHeightRatio: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getCardWidthRatio() {
+        return cardWidthRatio;
+    }
+    
+    public void setCardWidthRatio(float ratio) {
+        try {
+            this.cardWidthRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardWidthRatio: " + e.getMessage(), e);
+        }
+    }
+    
+    // ============================================================================
+    // Tablet Card Size Configuration
+    // ============================================================================
+    
+    public float getTabletWidthRatio() {
+        return tabletWidthRatio;
+    }
+    
+    public void setTabletWidthRatio(float ratio) {
+        try {
+            this.tabletWidthRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletWidthRatio: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getTabletHeightRatio() {
+        return tabletHeightRatio;
+    }
+    
+    public void setTabletHeightRatio(float ratio) {
+        try {
+            this.tabletHeightRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletHeightRatio: " + e.getMessage(), e);
+        }
+    }
+    
+    private float clampRatio(float ratio) {
+        return Math.max(0.1f, Math.min(1.0f, ratio));
     }
     
     public void setForceSafariViewController(boolean force) {
@@ -316,7 +384,12 @@ public class StashPayCardPlugin {
             intent.setClassName(activity, "com.stash.popup.StashPayCardPortraitActivity");
             intent.putExtra("url", url);
             intent.putExtra("initialURL", url);
+            // Phone card configuration
             intent.putExtra("cardHeightRatio", cardHeightRatio);
+            intent.putExtra("cardWidthRatio", cardWidthRatio);
+            // Tablet card configuration
+            intent.putExtra("tabletWidthRatio", tabletWidthRatio);
+            intent.putExtra("tabletHeightRatio", tabletHeightRatio);
             intent.putExtra("usePopup", usePopupPresentation);
             intent.putExtra("wasLandscape", isLandscape);
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
