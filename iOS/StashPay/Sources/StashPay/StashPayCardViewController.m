@@ -12,11 +12,6 @@
 extern BOOL isRunningOniPad(void);
 extern UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
-extern CGFloat _cardVerticalPosition;
-extern CGFloat _cardHeightRatio;
-extern CGFloat _cardWidthRatio;
-extern CGFloat _tabletWidthRatio;
-extern CGFloat _tabletHeightRatio;
 extern BOOL _usePopupPresentation;
 extern BOOL _isCardExpanded;
 
@@ -179,7 +174,7 @@ extern CGFloat _tabletHeightRatioLandscape;
         width = portraitBounds.size.width * _cardWidthRatioPortrait;
         height = portraitBounds.size.height * _cardHeightRatioPortrait;
         CGFloat x = (portraitBounds.size.width - width) / 2;
-        CGFloat y = portraitBounds.size.height * _cardVerticalPosition - height;
+        CGFloat y = portraitBounds.size.height * 1.0 - height;
         if (y < 0) y = 0;
         
         CGRect newFrame = CGRectMake(x, y, width, height);
@@ -314,7 +309,7 @@ extern CGFloat _tabletHeightRatioLandscape;
     if (isRunningOniPad() || _usePopupPresentation) {
         cornersToRound = UIRectCornerAllCorners;
     } else {
-        cornersToRound = getCornersToRoundForPosition(_cardVerticalPosition, NO);
+        cornersToRound = getCornersToRoundForPosition(1.0, NO);
     }
     
     CAShapeLayer *newMaskLayer = createCornerRadiusMask(viewBounds, cornersToRound, kCornerRadiusDefault);

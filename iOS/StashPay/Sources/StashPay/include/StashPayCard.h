@@ -116,42 +116,6 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, readonly) BOOL isPurchaseProcessing;
 
-/**
- * Card height ratio (0.0 to 1.0) relative to screen height.
- * Default is 0.68. Deprecated: Use cardHeightRatioPortrait instead.
- */
-@property (nonatomic, assign) CGFloat cardHeightRatio;
-
-/**
- * Vertical position ratio (0.0 = bottom, 1.0 = top).
- * Default is 1.0 (card slides up from bottom).
- */
-@property (nonatomic, assign) CGFloat cardVerticalPosition;
-
-/**
- * Card width ratio (0.0 to 1.0) relative to screen width.
- * Default is 1.0 (full width). Deprecated: Use cardWidthRatioPortrait instead.
- */
-@property (nonatomic, assign) CGFloat cardWidthRatio;
-
-// ============================================================================
-// Tablet (iPad) Card Size Configuration (Legacy - Deprecated)
-// ============================================================================
-
-/**
- * Tablet width ratio (0.1 to 1.0) relative to screen width.
- * Default is 0.8 (80% of screen width).
- * Deprecated: Use tabletWidthRatioPortrait/tabletWidthRatioLandscape instead.
- */
-@property (nonatomic, assign) CGFloat tabletWidthRatio;
-
-/**
- * Tablet height ratio (0.1 to 1.0) relative to screen height.
- * Default is 0.75 (75% of screen height).
- * Deprecated: Use tabletHeightRatioPortrait/tabletHeightRatioLandscape instead.
- */
-@property (nonatomic, assign) CGFloat tabletHeightRatio;
-
 // ============================================================================
 // Orientation-Specific Phone Card Size Configuration
 // ============================================================================

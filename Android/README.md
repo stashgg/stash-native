@@ -155,22 +155,6 @@ stashPay.setTabletWidthRatioLandscape(0.3f);  // 30% width in landscape (default
 stashPay.setTabletHeightRatioLandscape(0.6f); // 60% height in landscape (default)
 ```
 
-### Legacy Single-Ratio Properties
-
-The legacy single-ratio methods are still available for backward compatibility:
-
-```java
-StashPayCard stashPay = StashPayCard.getInstance();
-
-// Phone (deprecated - use portrait/landscape methods instead)
-stashPay.setCardHeightRatio(0.68f);  // Sets portrait ratio
-stashPay.setCardWidthRatio(1.0f);
-
-// Tablet (deprecated - use portrait/landscape methods instead)
-stashPay.setTabletWidthRatio(0.8f);
-stashPay.setTabletHeightRatio(0.75f);
-```
-
 ### Complete Example
 
 ```java
@@ -215,14 +199,14 @@ StashPayCard.getInstance().openCheckout(url);
 | `isCurrentlyPresented()` | Check if dialog is shown |
 | `setForceWebBasedCheckout(boolean)` | Use Chrome Custom Tabs |
 | `isPurchaseProcessing()` | Check if payment is in progress |
-| `setCardHeightRatio(float)` | Set phone card height (0.1-1.0) |
-| `setCardWidthRatio(float)` | Set phone card width (0.1-1.0) |
-| `setTabletWidthRatio(float)` | Set tablet card width (0.1-1.0) |
-| `setTabletHeightRatio(float)` | Set tablet card height (0.1-1.0) |
-| `getCardHeightRatio()` | Get phone card height ratio |
-| `getCardWidthRatio()` | Get phone card width ratio |
-| `getTabletWidthRatio()` | Get tablet card width ratio |
-| `getTabletHeightRatio()` | Get tablet card height ratio |
+| `setCardHeightRatioPortrait(float)` | Set phone card height in portrait (0.1-1.0) |
+| `setCardHeightRatioLandscape(float)` | Set phone card height in landscape (0.1-1.0) |
+| `setCardWidthRatioPortrait(float)` | Set phone card width in portrait (0.1-1.0) |
+| `setCardWidthRatioLandscape(float)` | Set phone card width in landscape (0.1-1.0) |
+| `setTabletWidthRatioPortrait(float)` | Set tablet card width in portrait (0.1-1.0) |
+| `setTabletHeightRatioPortrait(float)` | Set tablet card height in portrait (0.1-1.0) |
+| `setTabletWidthRatioLandscape(float)` | Set tablet card width in landscape (0.1-1.0) |
+| `setTabletHeightRatioLandscape(float)` | Set tablet card height in landscape (0.1-1.0) |
 
 ### StashPayListener
 

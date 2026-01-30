@@ -58,17 +58,10 @@ static BOOL _isCardCurrentlyPresented = NO;
 static BOOL _paymentSuccessHandled = NO;
 static BOOL _paymentSuccessCallbackCalled = NO;
 
-// Phone card configuration (legacy - deprecated)
-static CGFloat _cardHeightRatio = 0.68;
-static CGFloat _cardVerticalPosition = 1.0;
-static CGFloat _cardWidthRatio = 1.0;
+// Original (collapsed) values stored when card is presented; used for expand/collapse
 static CGFloat _originalCardHeightRatio = 0.68;
 static CGFloat _originalCardVerticalPosition = 1.0;
 static CGFloat _originalCardWidthRatio = 1.0;
-
-// Tablet (iPad) card configuration (legacy - deprecated)
-static CGFloat _tabletWidthRatio = 0.8;
-static CGFloat _tabletHeightRatio = 0.75;
 static CGFloat _originalTabletWidthRatio = 0.8;
 static CGFloat _originalTabletHeightRatio = 0.75;
 
@@ -1027,7 +1020,7 @@ NSString* appendThemeQueryParameter(NSString* url);
         // Force layout to ensure all subviews are positioned correctly
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
-        UIRectCorner corners = getCornersToRoundForPosition(_cardVerticalPosition, isRunningOniPad());
+        UIRectCorner corners = getCornersToRoundForPosition(1.0, isRunningOniPad());
         CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
 
@@ -1121,12 +1114,12 @@ NSString* appendThemeQueryParameter(NSString* url);
             CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         } else if (progress > 0.5) {
-            UIRectCorner corners = getCornersToRoundForPosition(_cardVerticalPosition, NO);
+            UIRectCorner corners = getCornersToRoundForPosition(1.0, NO);
             corners |= UIRectCornerTopLeft | UIRectCornerTopRight;
             CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         } else {
-            UIRectCorner corners = getCornersToRoundForPosition(_cardVerticalPosition, NO);
+            UIRectCorner corners = getCornersToRoundForPosition(1.0, NO);
             CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         }
@@ -1788,61 +1781,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     return [StashPayCardInternal sharedInstance].isPurchaseProcessing;
 }
 
-- (CGFloat)cardHeightRatio {
-    return _cardHeightRatio;
-}
-
-- (void)setCardHeightRatio:(CGFloat)ratio {
-    // Update both static and instance - static is used by OrientationLockedViewController
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _cardHeightRatio = clampedRatio;
-    _originalCardHeightRatio = clampedRatio;
-}
-
-- (CGFloat)cardVerticalPosition {
-    return _cardVerticalPosition;
-}
-
-- (void)setCardVerticalPosition:(CGFloat)position {
-    CGFloat clampedPosition = position < 0.0 ? 0.0 : (position > 1.0 ? 1.0 : position);
-    _cardVerticalPosition = clampedPosition;
-    _originalCardVerticalPosition = clampedPosition;
-}
-
-- (CGFloat)cardWidthRatio {
-    return _cardWidthRatio;
-}
-
-- (void)setCardWidthRatio:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _cardWidthRatio = clampedRatio;
-    _originalCardWidthRatio = clampedRatio;
-}
-
-// ============================================================================
-// Tablet (iPad) Card Size Configuration
-// ============================================================================
-
-- (CGFloat)tabletWidthRatio {
-    return _tabletWidthRatio;
-}
-
-- (void)setTabletWidthRatio:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _tabletWidthRatio = clampedRatio;
-    _originalTabletWidthRatio = clampedRatio;
-}
-
-- (CGFloat)tabletHeightRatio {
-    return _tabletHeightRatio;
-}
-
-- (void)setTabletHeightRatio:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _tabletHeightRatio = clampedRatio;
-    _originalTabletHeightRatio = clampedRatio;
-}
-
 // ============================================================================
 // Orientation-Specific Phone Card Size Configuration
 // ============================================================================
@@ -1854,8 +1792,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
 - (void)setCardHeightRatioPortrait:(CGFloat)ratio {
     CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
     _cardHeightRatioPortrait = clampedRatio;
-    // Also update legacy property for backward compatibility
-    _cardHeightRatio = clampedRatio;
     _originalCardHeightRatio = clampedRatio;
 }
 
@@ -1875,8 +1811,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
 - (void)setCardWidthRatioPortrait:(CGFloat)ratio {
     CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
     _cardWidthRatioPortrait = clampedRatio;
-    // Also update legacy property for backward compatibility
-    _cardWidthRatio = clampedRatio;
     _originalCardWidthRatio = clampedRatio;
 }
 
@@ -2003,12 +1937,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _paymentSuccessCallbackCalled = NO;
     _isCardExpanded = NO;
     
-    // Store original configuration values
-    _originalCardHeightRatio = _cardHeightRatio;
-    _originalCardVerticalPosition = _cardVerticalPosition;
-    _originalCardWidthRatio = _cardWidthRatio;
-    _originalTabletWidthRatio = _tabletWidthRatio;
-    _originalTabletHeightRatio = _tabletHeightRatio;
+    // Store original (collapsed) configuration from orientation-specific values
+    _originalCardHeightRatio = _cardHeightRatioPortrait;
+    _originalCardVerticalPosition = 1.0;
+    _originalCardWidthRatio = _cardWidthRatioPortrait;
+    _originalTabletWidthRatio = _tabletWidthRatioPortrait;
+    _originalTabletHeightRatio = _tabletHeightRatioPortrait;
     
     // Dispatch to appropriate presentation method based on device type
     if (_usePopupPresentation) {

@@ -54,14 +54,6 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
-    // Phone card configuration
-    private float cardHeightRatio = 0.68f;
-    private float cardWidthRatio = 1.0f;
-    
-    // Tablet card configuration
-    private float tabletWidthRatio = 0.8f;
-    private float tabletHeightRatio = 0.75f;
-    
     // Orientation-specific phone card configuration
     private float cardHeightRatioPortrait = 0.68f;
     private float cardHeightRatioLandscape = 0.5f;
@@ -273,71 +265,6 @@ public class StashPayCardPlugin {
         }
     }
     
-    public void setCardConfiguration(float heightRatio, float verticalPosition, float widthRatio) {
-        try {
-            this.cardHeightRatio = clampRatio(heightRatio);
-            this.cardWidthRatio = clampRatio(widthRatio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardConfiguration: " + e.getMessage(), e);
-        }
-    }
-    
-    // ============================================================================
-    // Phone Card Size Configuration
-    // ============================================================================
-    
-    public float getCardHeightRatio() {
-        return cardHeightRatio;
-    }
-    
-    public void setCardHeightRatio(float ratio) {
-        try {
-            this.cardHeightRatio = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardHeightRatio: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getCardWidthRatio() {
-        return cardWidthRatio;
-    }
-    
-    public void setCardWidthRatio(float ratio) {
-        try {
-            this.cardWidthRatio = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardWidthRatio: " + e.getMessage(), e);
-        }
-    }
-    
-    // ============================================================================
-    // Tablet Card Size Configuration
-    // ============================================================================
-    
-    public float getTabletWidthRatio() {
-        return tabletWidthRatio;
-    }
-    
-    public void setTabletWidthRatio(float ratio) {
-        try {
-            this.tabletWidthRatio = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletWidthRatio: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getTabletHeightRatio() {
-        return tabletHeightRatio;
-    }
-    
-    public void setTabletHeightRatio(float ratio) {
-        try {
-            this.tabletHeightRatio = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletHeightRatio: " + e.getMessage(), e);
-        }
-    }
-    
     // ============================================================================
     // Orientation-Specific Phone Card Size Configuration
     // ============================================================================
@@ -349,8 +276,6 @@ public class StashPayCardPlugin {
     public void setCardHeightRatioPortrait(float ratio) {
         try {
             this.cardHeightRatioPortrait = clampRatio(ratio);
-            // Also update legacy property for backward compatibility
-            this.cardHeightRatio = clampRatio(ratio);
         } catch (Exception e) {
             Log.e(TAG, "Error in setCardHeightRatioPortrait: " + e.getMessage(), e);
         }
@@ -375,8 +300,6 @@ public class StashPayCardPlugin {
     public void setCardWidthRatioPortrait(float ratio) {
         try {
             this.cardWidthRatioPortrait = clampRatio(ratio);
-            // Also update legacy property for backward compatibility
-            this.cardWidthRatio = clampRatio(ratio);
         } catch (Exception e) {
             Log.e(TAG, "Error in setCardWidthRatioPortrait: " + e.getMessage(), e);
         }
@@ -527,13 +450,6 @@ public class StashPayCardPlugin {
             intent.setClassName(activity, "com.stash.popup.StashPayCardPortraitActivity");
             intent.putExtra("url", url);
             intent.putExtra("initialURL", url);
-            // Phone card configuration (legacy)
-            intent.putExtra("cardHeightRatio", cardHeightRatio);
-            intent.putExtra("cardWidthRatio", cardWidthRatio);
-            // Tablet card configuration (legacy)
-            intent.putExtra("tabletWidthRatio", tabletWidthRatio);
-            intent.putExtra("tabletHeightRatio", tabletHeightRatio);
-            // Orientation-specific phone card configuration
             intent.putExtra("cardHeightRatioPortrait", cardHeightRatioPortrait);
             intent.putExtra("cardHeightRatioLandscape", cardHeightRatioLandscape);
             intent.putExtra("cardWidthRatioPortrait", cardWidthRatioPortrait);

@@ -10,7 +10,6 @@
 // Forward declarations for helper functions
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 extern BOOL isRunningOniPad(void);
-extern CGFloat _cardVerticalPosition;
 
 @implementation StashPayCardAnimator
 

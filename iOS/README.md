@@ -158,22 +158,6 @@ stashPay.tabletWidthRatioLandscape = 0.3  // 30% width in landscape (default)
 stashPay.tabletHeightRatioLandscape = 0.6 // 60% height in landscape (default)
 ```
 
-### Legacy Single-Ratio Properties
-
-The legacy single-ratio properties are still available for backward compatibility:
-
-```swift
-let stashPay = StashPayCard.sharedInstance()
-
-// iPhone (deprecated - use portrait/landscape properties instead)
-stashPay.cardHeightRatio = 0.68  // Sets portrait ratio
-stashPay.cardWidthRatio = 1.0
-
-// iPad (deprecated - use portrait/landscape properties instead)
-stashPay.tabletWidthRatio = 0.8
-stashPay.tabletHeightRatio = 0.75
-```
-
 ### Complete Example (Swift)
 
 ```swift
@@ -253,11 +237,14 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `forceWebBasedCheckout` | Use SFSafariViewController |
 | `isCurrentlyPresented` | Check if dialog is shown |
 | `isPurchaseProcessing` | Check if payment is in progress |
-| `cardHeightRatio` | iPhone card height ratio (0.1-1.0) |
-| `cardVerticalPosition` | Vertical position (0.0-1.0) |
-| `cardWidthRatio` | iPhone card width ratio (0.1-1.0) |
-| `tabletWidthRatio` | iPad card width ratio (0.1-1.0) |
-| `tabletHeightRatio` | iPad card height ratio (0.1-1.0) |
+| `cardHeightRatioPortrait` | iPhone card height in portrait (0.1-1.0) |
+| `cardHeightRatioLandscape` | iPhone card height in landscape (0.1-1.0) |
+| `cardWidthRatioPortrait` | iPhone card width in portrait (0.1-1.0) |
+| `cardWidthRatioLandscape` | iPhone card width in landscape (0.1-1.0) |
+| `tabletWidthRatioPortrait` | iPad card width in portrait (0.1-1.0) |
+| `tabletHeightRatioPortrait` | iPad card height in portrait (0.1-1.0) |
+| `tabletWidthRatioLandscape` | iPad card width in landscape (0.1-1.0) |
+| `tabletHeightRatioLandscape` | iPad card height in landscape (0.1-1.0) |
 | `openCheckout(withURL:)` | Open checkout in card UI |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset and dismiss |

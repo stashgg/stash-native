@@ -57,12 +57,6 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean googlePayRedirectHandled;
     private boolean isPurchaseProcessing;
     
-    // Card size configuration (legacy)
-    private float cardHeightRatio = 0.68f;
-    private float cardWidthRatio = 1.0f;
-    private float tabletWidthRatio = 0.8f;
-    private float tabletHeightRatio = 0.75f;
-    
     // Orientation-specific phone card configuration
     private float cardHeightRatioPortrait = 0.68f;
     private float cardHeightRatioLandscape = 0.5f;
@@ -104,13 +98,6 @@ public class StashPayCardPortraitActivity extends Activity {
             usePopup = intent.getBooleanExtra("usePopup", false);
             wasLandscapeBeforePortrait = intent.getBooleanExtra("wasLandscape", false);
             
-            // Read card size configuration (legacy)
-            cardHeightRatio = intent.getFloatExtra("cardHeightRatio", 0.68f);
-            cardWidthRatio = intent.getFloatExtra("cardWidthRatio", 1.0f);
-            tabletWidthRatio = intent.getFloatExtra("tabletWidthRatio", 0.8f);
-            tabletHeightRatio = intent.getFloatExtra("tabletHeightRatio", 0.75f);
-            
-            // Read orientation-specific card size configuration
             cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", 0.68f);
             cardHeightRatioLandscape = intent.getFloatExtra("cardHeightRatioLandscape", 0.5f);
             cardWidthRatioPortrait = intent.getFloatExtra("cardWidthRatioPortrait", 1.0f);
@@ -313,14 +300,12 @@ public class StashPayCardPortraitActivity extends Activity {
                 effectiveHeightRatio = CARD_HEIGHT_EXPANDED;
                 isExpanded = true;
             } else {
-                // Use configurable card height ratio for phones
-                effectiveHeightRatio = cardHeightRatio;
+                effectiveHeightRatio = cardHeightRatioPortrait;
                 isExpanded = false;
             }
             cardHeight = (int)(metrics.heightPixels * effectiveHeightRatio);
-            // Use configurable card width ratio for phones
-            if (cardWidthRatio < 1.0f) {
-                cardWidth = (int)(metrics.widthPixels * cardWidthRatio);
+            if (cardWidthRatioPortrait < 1.0f) {
+                cardWidth = (int)(metrics.widthPixels * cardWidthRatioPortrait);
             } else {
                 cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
             }
@@ -531,7 +516,7 @@ public class StashPayCardPortraitActivity extends Activity {
         if (isPurchaseProcessing) return;
         int height = cardContainer.getHeight();
         if (height == 0) {
-            height = (int)(getResources().getDisplayMetrics().heightPixels * cardHeightRatio);
+            height = (int)(getResources().getDisplayMetrics().heightPixels * cardHeightRatioPortrait);
         }
         
         // Fade out the backdrop independently
@@ -638,7 +623,7 @@ public class StashPayCardPortraitActivity extends Activity {
         
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         
-        int collapsedHeight = (int)(metrics.heightPixels * cardHeightRatio);
+        int collapsedHeight = (int)(metrics.heightPixels * cardHeightRatioPortrait);
         
         animateCardHeight(collapsedHeight, 380);
         
@@ -670,7 +655,7 @@ public class StashPayCardPortraitActivity extends Activity {
         } else if (isExpanded) {
             targetHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
         } else {
-            targetHeight = (int)(metrics.heightPixels * cardHeightRatio);
+            targetHeight = (int)(metrics.heightPixels * cardHeightRatioPortrait);
         }
         
         if (params.height != targetHeight) {
