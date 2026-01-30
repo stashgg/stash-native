@@ -75,10 +75,10 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState != null) {
             urlInput.setText(savedInstanceState.getString(KEY_URL, DEFAULT_URL));
             isAdvancedExpanded = savedInstanceState.getBoolean(KEY_ADVANCED_EXPANDED, false);
-            tabletPortraitWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 50));
-            tabletPortraitHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 70));
-            tabletLandscapeWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 70));
-            tabletLandscapeHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 55));
+            tabletPortraitWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 30));
+            tabletPortraitHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 40));
+            tabletLandscapeWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 20));
+            tabletLandscapeHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 50));
         } else {
             urlInput.setText(DEFAULT_URL);
         }

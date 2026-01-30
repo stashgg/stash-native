@@ -70,10 +70,10 @@ public class StashPayCardPortraitActivity extends Activity {
     private float cardWidthRatioLandscape = 0.8f;
     
     // Orientation-specific tablet card configuration
-    private float tabletWidthRatioPortrait = 0.6f;
-    private float tabletHeightRatioPortrait = 0.8f;
-    private float tabletWidthRatioLandscape = 0.8f;
-    private float tabletHeightRatioLandscape = 0.65f;
+    private float tabletWidthRatioPortrait = 0.4f;
+    private float tabletHeightRatioPortrait = 0.5f;
+    private float tabletWidthRatioLandscape = 0.3f;
+    private float tabletHeightRatioLandscape = 0.6f;
     
     private static final String COLOR_LIGHT_BG = "#F2F2F7";
     private static final String COLOR_DARK_STROKE = "#38383A";
@@ -115,10 +115,10 @@ public class StashPayCardPortraitActivity extends Activity {
             cardHeightRatioLandscape = intent.getFloatExtra("cardHeightRatioLandscape", 0.5f);
             cardWidthRatioPortrait = intent.getFloatExtra("cardWidthRatioPortrait", 1.0f);
             cardWidthRatioLandscape = intent.getFloatExtra("cardWidthRatioLandscape", 0.8f);
-            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", 0.6f);
-            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", 0.8f);
-            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", 0.8f);
-            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", 0.65f);
+            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", 0.4f);
+            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", 0.5f);
+            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", 0.3f);
+            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", 0.6f);
             
             if (url == null || url.isEmpty()) {
                 finish();
@@ -602,34 +602,26 @@ public class StashPayCardPortraitActivity extends Activity {
 
     private void animateExpand() {
         if (cardContainer == null) return;
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        
+        // Tablets use fixed sizing - ignore expand/collapse
         boolean isTablet = StashWebViewUtils.isTablet(this);
+        if (isTablet) return;
+        
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
         
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
         
         int expandedHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
-        int expandedWidth;
+        int expandedWidth = params.width;
         
-        if (isTablet) {
-            int[] cardSize = calculateTabletCardSize(metrics);
-            expandedWidth = cardSize[0];
-            expandedHeight = cardSize[1];
-        } else {
-            expandedWidth = params.width;
-        }
-        
-        animateCardHeight(expandedHeight, isTablet ? 350 : 450);
-        
-        if (isTablet) {
-            animateCardWidth(expandedWidth, 350);
-        }
+        animateCardHeight(expandedHeight, 450);
         
         cardContainer.animate()
             .translationY(0)
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(isTablet ? 350 : 450)
+            .setDuration(450)
             .setInterpolator(new SpringInterpolator())
             .start();
         
@@ -638,33 +630,23 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void animateCollapse() {
         if (cardContainer == null || !isExpanded) return;
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        
+        // Tablets use fixed sizing - ignore expand/collapse
         boolean isTablet = StashWebViewUtils.isTablet(this);
+        if (isTablet) return;
         
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
         
-        int collapsedHeight;
-        int collapsedWidth;
+        int collapsedHeight = (int)(metrics.heightPixels * cardHeightRatio);
         
-        if (isTablet) {
-            int[] defaultCardSize = calculateTabletCardSize(metrics);
-            collapsedWidth = (int)(defaultCardSize[0] * 0.7f);
-            collapsedHeight = (int)(defaultCardSize[1] * 0.7f);
-            
-            animateCardWidth(collapsedWidth, 320);
-        } else {
-            collapsedHeight = (int)(metrics.heightPixels * cardHeightRatio);
-            collapsedWidth = params.width;
-        }
-        
-        animateCardHeight(collapsedHeight, isTablet ? 320 : 380);
+        animateCardHeight(collapsedHeight, 380);
         
         cardContainer.animate()
             .translationY(0)
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(isTablet ? 320 : 380)
+            .setDuration(380)
             .setInterpolator(new SpringInterpolator())
             .start();
         

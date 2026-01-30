@@ -152,10 +152,10 @@ stashPay.cardWidthRatioPortrait = 1.0     // Full width in portrait (default)
 stashPay.cardWidthRatioLandscape = 0.8    // 80% width in landscape (default)
 
 // iPad card size - portrait and landscape
-stashPay.tabletWidthRatioPortrait = 0.6   // 60% width in portrait (default)
-stashPay.tabletHeightRatioPortrait = 0.8  // 80% height in portrait (default)
-stashPay.tabletWidthRatioLandscape = 0.8  // 80% width in landscape (default)
-stashPay.tabletHeightRatioLandscape = 0.65 // 65% height in landscape (default)
+stashPay.tabletWidthRatioPortrait = 0.4   // 40% width in portrait (default)
+stashPay.tabletHeightRatioPortrait = 0.5  // 50% height in portrait (default)
+stashPay.tabletWidthRatioLandscape = 0.3  // 30% width in landscape (default)
+stashPay.tabletHeightRatioLandscape = 0.6 // 60% height in landscape (default)
 ```
 
 ### Legacy Single-Ratio Properties
@@ -185,10 +185,10 @@ stashPay.cardHeightRatioPortrait = 0.7
 stashPay.cardHeightRatioLandscape = 0.5
 
 // Configure iPad card size for both orientations
-stashPay.tabletWidthRatioPortrait = 0.6
-stashPay.tabletHeightRatioPortrait = 0.8
-stashPay.tabletWidthRatioLandscape = 0.8
-stashPay.tabletHeightRatioLandscape = 0.65
+stashPay.tabletWidthRatioPortrait = 0.4
+stashPay.tabletHeightRatioPortrait = 0.5
+stashPay.tabletWidthRatioLandscape = 0.3
+stashPay.tabletHeightRatioLandscape = 0.6
 
 // Open checkout - sizing will automatically adjust on rotation
 stashPay.openCheckout(withURL: url)
@@ -205,10 +205,10 @@ stashPay.cardHeightRatioPortrait = 0.7;
 stashPay.cardHeightRatioLandscape = 0.5;
 
 // Configure iPad card size for both orientations
-stashPay.tabletWidthRatioPortrait = 0.6;
-stashPay.tabletHeightRatioPortrait = 0.8;
-stashPay.tabletWidthRatioLandscape = 0.8;
-stashPay.tabletHeightRatioLandscape = 0.65;
+stashPay.tabletWidthRatioPortrait = 0.4;
+stashPay.tabletHeightRatioPortrait = 0.5;
+stashPay.tabletWidthRatioLandscape = 0.3;
+stashPay.tabletHeightRatioLandscape = 0.6;
 
 // Open checkout with configured sizes
 [stashPay openCheckoutWithURL:url];

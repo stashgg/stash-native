@@ -69,10 +69,10 @@ public class StashPayCardPlugin {
     private float cardWidthRatioLandscape = 0.8f;
     
     // Orientation-specific tablet card configuration
-    private float tabletWidthRatioPortrait = 0.6f;
-    private float tabletHeightRatioPortrait = 0.8f;
-    private float tabletWidthRatioLandscape = 0.8f;
-    private float tabletHeightRatioLandscape = 0.65f;
+    private float tabletWidthRatioPortrait = 0.4f;
+    private float tabletHeightRatioPortrait = 0.5f;
+    private float tabletWidthRatioLandscape = 0.3f;
+    private float tabletHeightRatioLandscape = 0.6f;
     
     private boolean isCurrentlyPresented;
     private boolean paymentSuccessHandled;

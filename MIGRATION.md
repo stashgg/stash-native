@@ -122,10 +122,10 @@ stashPay.cardWidthRatioPortrait = 1.0     // Full width in portrait
 stashPay.cardWidthRatioLandscape = 0.8    // 80% in landscape
 
 // Tablet sizing
-stashPay.tabletWidthRatioPortrait = 0.6   // 60% in portrait (default)
-stashPay.tabletHeightRatioPortrait = 0.8  // 80% in portrait (default)
-stashPay.tabletWidthRatioLandscape = 0.8  // 80% in landscape (default)
-stashPay.tabletHeightRatioLandscape = 0.65 // 65% in landscape (default)
+stashPay.tabletWidthRatioPortrait = 0.4   // 40% in portrait (default)
+stashPay.tabletHeightRatioPortrait = 0.5  // 50% in portrait (default)
+stashPay.tabletWidthRatioLandscape = 0.3  // 30% in landscape (default)
+stashPay.tabletHeightRatioLandscape = 0.6 // 60% in landscape (default)
 ```
 
 **Android:**
@@ -139,10 +139,10 @@ stashPay.setCardWidthRatioPortrait(1.0f);
 stashPay.setCardWidthRatioLandscape(0.8f);
 
 // Tablet sizing
-stashPay.setTabletWidthRatioPortrait(0.6f);
-stashPay.setTabletHeightRatioPortrait(0.8f);
-stashPay.setTabletWidthRatioLandscape(0.8f);
-stashPay.setTabletHeightRatioLandscape(0.65f);
+stashPay.setTabletWidthRatioPortrait(0.4f);
+stashPay.setTabletHeightRatioPortrait(0.5f);
+stashPay.setTabletWidthRatioLandscape(0.3f);
+stashPay.setTabletHeightRatioLandscape(0.6f);
 ```
 
 The checkout dialog will automatically resize when the device is rotated, providing optimal sizing for each orientation.

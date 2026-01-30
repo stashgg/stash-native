@@ -486,12 +486,20 @@
             });
         }
     } else if ([name isEqualToString:@"stashExpand"]) {
+        // Tablets use fixed sizing - ignore expand/collapse messages
+        if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+            return;
+        }
         if ([self.delegate respondsToSelector:@selector(webViewManagerDidRequestExpand:)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self.delegate webViewManagerDidRequestExpand:self];
             });
         }
     } else if ([name isEqualToString:@"stashCollapse"]) {
+        // Tablets use fixed sizing - ignore expand/collapse messages
+        if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad) {
+            return;
+        }
         if ([self.delegate respondsToSelector:@selector(webViewManagerDidRequestCollapse:)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self.delegate webViewManagerDidRequestCollapse:self];

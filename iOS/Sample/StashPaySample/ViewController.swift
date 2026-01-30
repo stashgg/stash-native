@@ -179,7 +179,7 @@ class ViewController: UIViewController {
         
         tabletPortraitWidthSlider.minimumValue = 10
         tabletPortraitWidthSlider.maximumValue = 100
-        tabletPortraitWidthSlider.value = 60
+        tabletPortraitWidthSlider.value = 40
         tabletPortraitWidthSlider.accessibilityLabel = "Tablet portrait width percentage"
         tabletPortraitWidthSlider.addTarget(self, action: #selector(tabletPortraitWidthChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletPortraitWidthSlider)
@@ -191,7 +191,7 @@ class ViewController: UIViewController {
         
         tabletPortraitHeightSlider.minimumValue = 10
         tabletPortraitHeightSlider.maximumValue = 100
-        tabletPortraitHeightSlider.value = 80
+        tabletPortraitHeightSlider.value = 50
         tabletPortraitHeightSlider.accessibilityLabel = "Tablet portrait height percentage"
         tabletPortraitHeightSlider.addTarget(self, action: #selector(tabletPortraitHeightChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletPortraitHeightSlider)
@@ -209,7 +209,7 @@ class ViewController: UIViewController {
         
         tabletLandscapeWidthSlider.minimumValue = 10
         tabletLandscapeWidthSlider.maximumValue = 100
-        tabletLandscapeWidthSlider.value = 80
+        tabletLandscapeWidthSlider.value = 30
         tabletLandscapeWidthSlider.accessibilityLabel = "Tablet landscape width percentage"
         tabletLandscapeWidthSlider.addTarget(self, action: #selector(tabletLandscapeWidthChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeWidthSlider)
@@ -221,7 +221,7 @@ class ViewController: UIViewController {
         
         tabletLandscapeHeightSlider.minimumValue = 10
         tabletLandscapeHeightSlider.maximumValue = 100
-        tabletLandscapeHeightSlider.value = 65
+        tabletLandscapeHeightSlider.value = 60
         tabletLandscapeHeightSlider.accessibilityLabel = "Tablet landscape height percentage"
         tabletLandscapeHeightSlider.addTarget(self, action: #selector(tabletLandscapeHeightChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeHeightSlider)
@@ -289,10 +289,10 @@ class ViewController: UIViewController {
     private func setupStashPayCard() {
         StashPayCard.sharedInstance().delegate = self
         // Set defaults using orientation-specific API - matching slider defaults
-        StashPayCard.sharedInstance().tabletWidthRatioPortrait = 0.6
-        StashPayCard.sharedInstance().tabletHeightRatioPortrait = 0.8
-        StashPayCard.sharedInstance().tabletWidthRatioLandscape = 0.8
-        StashPayCard.sharedInstance().tabletHeightRatioLandscape = 0.65
+        StashPayCard.sharedInstance().tabletWidthRatioPortrait = 0.4
+        StashPayCard.sharedInstance().tabletHeightRatioPortrait = 0.5
+        StashPayCard.sharedInstance().tabletWidthRatioLandscape = 0.3
+        StashPayCard.sharedInstance().tabletHeightRatioLandscape = 0.6
     }
     
     // MARK: - Actions

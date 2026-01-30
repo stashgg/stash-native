@@ -149,10 +149,10 @@ stashPay.setCardWidthRatioPortrait(1.0f);     // Full width in portrait (default
 stashPay.setCardWidthRatioLandscape(0.8f);    // 80% width in landscape (default)
 
 // Tablet card size - portrait and landscape
-stashPay.setTabletWidthRatioPortrait(0.6f);   // 60% width in portrait (default)
-stashPay.setTabletHeightRatioPortrait(0.8f);  // 80% height in portrait (default)
-stashPay.setTabletWidthRatioLandscape(0.8f);  // 80% width in landscape (default)
-stashPay.setTabletHeightRatioLandscape(0.65f); // 65% height in landscape (default)
+stashPay.setTabletWidthRatioPortrait(0.4f);   // 40% width in portrait (default)
+stashPay.setTabletHeightRatioPortrait(0.5f);  // 50% height in portrait (default)
+stashPay.setTabletWidthRatioLandscape(0.3f);  // 30% width in landscape (default)
+stashPay.setTabletHeightRatioLandscape(0.6f); // 60% height in landscape (default)
 ```
 
 ### Legacy Single-Ratio Properties
@@ -182,10 +182,10 @@ stashPay.setCardHeightRatioPortrait(0.7f);
 stashPay.setCardHeightRatioLandscape(0.5f);
 
 // Configure tablet card size for both orientations
-stashPay.setTabletWidthRatioPortrait(0.6f);
-stashPay.setTabletHeightRatioPortrait(0.8f);
-stashPay.setTabletWidthRatioLandscape(0.8f);
-stashPay.setTabletHeightRatioLandscape(0.65f);
+stashPay.setTabletWidthRatioPortrait(0.4f);
+stashPay.setTabletHeightRatioPortrait(0.5f);
+stashPay.setTabletWidthRatioLandscape(0.3f);
+stashPay.setTabletHeightRatioLandscape(0.6f);
 
 // Open checkout - sizing will automatically adjust on rotation
 stashPay.openCheckout(url);
