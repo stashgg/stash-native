@@ -1235,8 +1235,8 @@ public class StashPayCardPortraitActivity extends Activity {
         if (!usePopup && cardContainer != null && rootLayout != null) {
             boolean isTablet = StashWebViewUtils.isTablet(this);
             if (isTablet) {
-                rootLayout.removeAllViews();
-                createUI();
+                // Seamless animation for tablet rotation
+                animateTabletRotation();
             } else {
                 if (wasLandscapeBeforePortrait) {
                     if (!isExpanded) {
@@ -1250,6 +1250,47 @@ public class StashPayCardPortraitActivity extends Activity {
                     }
                 }
             }
+        }
+    }
+    
+    private void animateTabletRotation() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int[] newSize = calculateTabletCardSize(metrics);
+        int newWidth = newSize[0];
+        int newHeight = newSize[1];
+        
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        int currentWidth = params.width;
+        int currentHeight = params.height;
+        
+        // Animate width
+        if (currentWidth != newWidth) {
+            ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
+            widthAnim.setDuration(400);
+            widthAnim.setInterpolator(new SpringInterpolator());
+            widthAnim.addUpdateListener(animation -> {
+                if (cardContainer != null) {
+                    FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+                    p.width = (int) animation.getAnimatedValue();
+                    cardContainer.setLayoutParams(p);
+                }
+            });
+            widthAnim.start();
+        }
+        
+        // Animate height
+        if (currentHeight != newHeight) {
+            ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
+            heightAnim.setDuration(400);
+            heightAnim.setInterpolator(new SpringInterpolator());
+            heightAnim.addUpdateListener(animation -> {
+                if (cardContainer != null) {
+                    FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+                    p.height = (int) animation.getAnimatedValue();
+                    cardContainer.setLayoutParams(p);
+                }
+            });
+            heightAnim.start();
         }
     }
 }

@@ -247,17 +247,14 @@ NSString* appendThemeQueryParameter(NSString* url);
             // Always update previousScreenSize to current
             self.previousScreenSize = currentScreenSize;
             
+            // Tablets don't have expand/collapse - always use configured sizes directly
+            // Always recalculate on rotation to use orientation-specific ratios
             if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || CGRectIsNull(self.customFrame) ||
                 self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
                 // Recalculate size for new screen dimensions (rotation or first time)
                 CGSize cardSize = calculateiPadCardSize(screenBounds);
-                if (_isCardExpanded) {
-                    width = cardSize.width;
-                    height = cardSize.height;
-                } else {
-                    width = cardSize.width * 0.7;
-                    height = cardSize.height * 0.7;
-                }
+                width = cardSize.width;
+                height = cardSize.height;
                 x = (screenBounds.size.width - width) / 2;
                 y = (screenBounds.size.height - height) / 2;
             } else {
@@ -291,9 +288,23 @@ NSString* appendThemeQueryParameter(NSString* url);
                                      fabs(self.view.frame.size.height - newFrame.size.height);
             
             if (frameDifference > 50.0) {
-                [UIView animateWithDuration:0.3 animations:^{
+                // Seamless spring animation for rotation
+                [UIView animateWithDuration:0.4
+                                      delay:0
+                     usingSpringWithDamping:0.85
+                      initialSpringVelocity:0.3
+                                    options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionLayoutSubviews
+                                 animations:^{
                     self.view.frame = newFrame;
                     self.customFrame = newFrame;
+                    
+                    // Update webview frame for seamless resize
+                    for (UIView *subview in self.view.subviews) {
+                        if ([subview isKindOfClass:[WKWebView class]]) {
+                            subview.frame = CGRectMake(0, 0, newFrame.size.width, newFrame.size.height);
+                            break;
+                        }
+                    }
                     
                     UIView *dragTray = [self.view viewWithTag:8888];
                     if (dragTray) {
@@ -304,6 +315,8 @@ NSString* appendThemeQueryParameter(NSString* url);
                             handle.frame = CGRectMake(handleX, 8, 36, 5);
                         }
                     }
+                    
+                    [self.view layoutIfNeeded];
                 } completion:^(BOOL finished) {
                     [self updateCornerRadiusMask];
                 }];
@@ -2352,13 +2365,14 @@ NSString* appendThemeQueryParameter(NSString* url) {
         }
     }
     
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
-    
-    // On iPad, default size is the "expanded" state
+    // On iPad, set expanded state BEFORE showing window to prevent size miscalculation
+    // Tablets don't have expand/collapse - they use configured sizes directly
     if (isRunningOniPad() && !_usePopupPresentation) {
         _isCardExpanded = YES;
     }
+    
+    cardWindow.hidden = NO;
+    [cardWindow makeKeyAndVisible];
     
     // Calculate overlay bounds - use portrait dimensions when enforcing portrait on iPhone
     CGRect overlayBounds = [UIScreen mainScreen].bounds;

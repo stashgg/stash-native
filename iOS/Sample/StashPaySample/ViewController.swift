@@ -28,12 +28,18 @@ class ViewController: UIViewController {
     
     // Size configuration UI
     private let landscapeLockSwitch = UISwitch()
-    private let phoneHeightLabel = UILabel()
-    private let phoneHeightSlider = UISlider()
-    private let tabletWidthLabel = UILabel()
-    private let tabletWidthSlider = UISlider()
-    private let tabletHeightLabel = UILabel()
-    private let tabletHeightSlider = UISlider()
+    
+    // Tablet Portrait sliders
+    private let tabletPortraitWidthLabel = UILabel()
+    private let tabletPortraitWidthSlider = UISlider()
+    private let tabletPortraitHeightLabel = UILabel()
+    private let tabletPortraitHeightSlider = UISlider()
+    
+    // Tablet Landscape sliders
+    private let tabletLandscapeWidthLabel = UILabel()
+    private let tabletLandscapeWidthSlider = UISlider()
+    private let tabletLandscapeHeightLabel = UILabel()
+    private let tabletLandscapeHeightSlider = UISlider()
     
     // Orientation lock state
     private var isLandscapeLocked = false
@@ -160,50 +166,65 @@ class ViewController: UIViewController {
         
         advancedOptionsContainer.addArrangedSubview(landscapeLockContainer)
         
-        // Size Configuration Section
-        let sizeConfigTitle = UILabel()
-        sizeConfigTitle.text = "Card Size Configuration"
-        sizeConfigTitle.font = .systemFont(ofSize: 16, weight: .bold)
-        advancedOptionsContainer.addArrangedSubview(sizeConfigTitle)
+        // Size Configuration Section - Tablet Portrait
+        let tabletPortraitTitle = UILabel()
+        tabletPortraitTitle.text = "Tablet Size (Portrait)"
+        tabletPortraitTitle.font = .systemFont(ofSize: 16, weight: .bold)
+        advancedOptionsContainer.addArrangedSubview(tabletPortraitTitle)
         
-        // Phone Height Slider (sets both portrait and landscape)
-        phoneHeightLabel.text = "Phone Height (Portrait): 68%"
-        phoneHeightLabel.font = .systemFont(ofSize: 14)
-        phoneHeightLabel.textColor = .secondaryLabel
-        advancedOptionsContainer.addArrangedSubview(phoneHeightLabel)
+        tabletPortraitWidthLabel.text = "Width: 60%"
+        tabletPortraitWidthLabel.font = .systemFont(ofSize: 14)
+        tabletPortraitWidthLabel.textColor = .secondaryLabel
+        advancedOptionsContainer.addArrangedSubview(tabletPortraitWidthLabel)
         
-        phoneHeightSlider.minimumValue = 10
-        phoneHeightSlider.maximumValue = 100
-        phoneHeightSlider.value = 68 // Default for portrait
-        phoneHeightSlider.accessibilityLabel = "Adjust phone card height percentage (sets portrait, landscape is auto-adjusted)"
-        phoneHeightSlider.addTarget(self, action: #selector(phoneHeightChanged), for: .valueChanged)
-        advancedOptionsContainer.addArrangedSubview(phoneHeightSlider)
+        tabletPortraitWidthSlider.minimumValue = 10
+        tabletPortraitWidthSlider.maximumValue = 100
+        tabletPortraitWidthSlider.value = 60
+        tabletPortraitWidthSlider.accessibilityLabel = "Tablet portrait width percentage"
+        tabletPortraitWidthSlider.addTarget(self, action: #selector(tabletPortraitWidthChanged), for: .valueChanged)
+        advancedOptionsContainer.addArrangedSubview(tabletPortraitWidthSlider)
         
-        // Tablet Width Slider (sets both portrait and landscape)
-        tabletWidthLabel.text = "Tablet Width (Portrait): 60%"
-        tabletWidthLabel.font = .systemFont(ofSize: 14)
-        tabletWidthLabel.textColor = .secondaryLabel
-        advancedOptionsContainer.addArrangedSubview(tabletWidthLabel)
+        tabletPortraitHeightLabel.text = "Height: 80%"
+        tabletPortraitHeightLabel.font = .systemFont(ofSize: 14)
+        tabletPortraitHeightLabel.textColor = .secondaryLabel
+        advancedOptionsContainer.addArrangedSubview(tabletPortraitHeightLabel)
         
-        tabletWidthSlider.minimumValue = 10
-        tabletWidthSlider.maximumValue = 100
-        tabletWidthSlider.value = 60 // New default for portrait
-        tabletWidthSlider.accessibilityLabel = "Adjust tablet card width percentage (portrait)"
-        tabletWidthSlider.addTarget(self, action: #selector(tabletWidthChanged), for: .valueChanged)
-        advancedOptionsContainer.addArrangedSubview(tabletWidthSlider)
+        tabletPortraitHeightSlider.minimumValue = 10
+        tabletPortraitHeightSlider.maximumValue = 100
+        tabletPortraitHeightSlider.value = 80
+        tabletPortraitHeightSlider.accessibilityLabel = "Tablet portrait height percentage"
+        tabletPortraitHeightSlider.addTarget(self, action: #selector(tabletPortraitHeightChanged), for: .valueChanged)
+        advancedOptionsContainer.addArrangedSubview(tabletPortraitHeightSlider)
         
-        // Tablet Height Slider (sets both portrait and landscape)
-        tabletHeightLabel.text = "Tablet Height (Portrait): 80%"
-        tabletHeightLabel.font = .systemFont(ofSize: 14)
-        tabletHeightLabel.textColor = .secondaryLabel
-        advancedOptionsContainer.addArrangedSubview(tabletHeightLabel)
+        // Size Configuration Section - Tablet Landscape
+        let tabletLandscapeTitle = UILabel()
+        tabletLandscapeTitle.text = "Tablet Size (Landscape)"
+        tabletLandscapeTitle.font = .systemFont(ofSize: 16, weight: .bold)
+        advancedOptionsContainer.addArrangedSubview(tabletLandscapeTitle)
         
-        tabletHeightSlider.minimumValue = 10
-        tabletHeightSlider.maximumValue = 100
-        tabletHeightSlider.value = 80 // New default for portrait
-        tabletHeightSlider.accessibilityLabel = "Adjust tablet card height percentage (portrait)"
-        tabletHeightSlider.addTarget(self, action: #selector(tabletHeightChanged), for: .valueChanged)
-        advancedOptionsContainer.addArrangedSubview(tabletHeightSlider)
+        tabletLandscapeWidthLabel.text = "Width: 80%"
+        tabletLandscapeWidthLabel.font = .systemFont(ofSize: 14)
+        tabletLandscapeWidthLabel.textColor = .secondaryLabel
+        advancedOptionsContainer.addArrangedSubview(tabletLandscapeWidthLabel)
+        
+        tabletLandscapeWidthSlider.minimumValue = 10
+        tabletLandscapeWidthSlider.maximumValue = 100
+        tabletLandscapeWidthSlider.value = 80
+        tabletLandscapeWidthSlider.accessibilityLabel = "Tablet landscape width percentage"
+        tabletLandscapeWidthSlider.addTarget(self, action: #selector(tabletLandscapeWidthChanged), for: .valueChanged)
+        advancedOptionsContainer.addArrangedSubview(tabletLandscapeWidthSlider)
+        
+        tabletLandscapeHeightLabel.text = "Height: 65%"
+        tabletLandscapeHeightLabel.font = .systemFont(ofSize: 14)
+        tabletLandscapeHeightLabel.textColor = .secondaryLabel
+        advancedOptionsContainer.addArrangedSubview(tabletLandscapeHeightLabel)
+        
+        tabletLandscapeHeightSlider.minimumValue = 10
+        tabletLandscapeHeightSlider.maximumValue = 100
+        tabletLandscapeHeightSlider.value = 65
+        tabletLandscapeHeightSlider.accessibilityLabel = "Tablet landscape height percentage"
+        tabletLandscapeHeightSlider.addTarget(self, action: #selector(tabletLandscapeHeightChanged), for: .valueChanged)
+        advancedOptionsContainer.addArrangedSubview(tabletLandscapeHeightSlider)
         
         // Layout
         NSLayoutConstraint.activate([
@@ -267,9 +288,7 @@ class ViewController: UIViewController {
     
     private func setupStashPayCard() {
         StashPayCard.sharedInstance().delegate = self
-        // Set defaults using orientation-specific API
-        StashPayCard.sharedInstance().cardHeightRatioPortrait = 0.68
-        StashPayCard.sharedInstance().cardHeightRatioLandscape = 0.5
+        // Set defaults using orientation-specific API - matching slider defaults
         StashPayCard.sharedInstance().tabletWidthRatioPortrait = 0.6
         StashPayCard.sharedInstance().tabletHeightRatioPortrait = 0.8
         StashPayCard.sharedInstance().tabletWidthRatioLandscape = 0.8
@@ -329,28 +348,28 @@ class ViewController: UIViewController {
         }
     }
     
-    @objc private func phoneHeightChanged() {
-        let ratio = CGFloat(phoneHeightSlider.value) / 100.0
-        phoneHeightLabel.text = "Phone Height (Portrait): \(Int(phoneHeightSlider.value))%"
-        // Set both portrait and landscape ratios (landscape slightly lower)
-        StashPayCard.sharedInstance().cardHeightRatioPortrait = ratio
-        StashPayCard.sharedInstance().cardHeightRatioLandscape = max(0.1, ratio - 0.18)
-    }
-    
-    @objc private func tabletWidthChanged() {
-        let ratio = CGFloat(tabletWidthSlider.value) / 100.0
-        tabletWidthLabel.text = "Tablet Width (Portrait): \(Int(tabletWidthSlider.value))%"
-        // Portrait uses this ratio, landscape uses slightly higher
+    @objc private func tabletPortraitWidthChanged() {
+        let ratio = CGFloat(tabletPortraitWidthSlider.value) / 100.0
+        tabletPortraitWidthLabel.text = "Width: \(Int(tabletPortraitWidthSlider.value))%"
         StashPayCard.sharedInstance().tabletWidthRatioPortrait = ratio
-        StashPayCard.sharedInstance().tabletWidthRatioLandscape = min(1.0, ratio + 0.2)
     }
     
-    @objc private func tabletHeightChanged() {
-        let ratio = CGFloat(tabletHeightSlider.value) / 100.0
-        tabletHeightLabel.text = "Tablet Height (Portrait): \(Int(tabletHeightSlider.value))%"
-        // Portrait uses this ratio, landscape uses slightly lower
+    @objc private func tabletPortraitHeightChanged() {
+        let ratio = CGFloat(tabletPortraitHeightSlider.value) / 100.0
+        tabletPortraitHeightLabel.text = "Height: \(Int(tabletPortraitHeightSlider.value))%"
         StashPayCard.sharedInstance().tabletHeightRatioPortrait = ratio
-        StashPayCard.sharedInstance().tabletHeightRatioLandscape = max(0.1, ratio - 0.15)
+    }
+    
+    @objc private func tabletLandscapeWidthChanged() {
+        let ratio = CGFloat(tabletLandscapeWidthSlider.value) / 100.0
+        tabletLandscapeWidthLabel.text = "Width: \(Int(tabletLandscapeWidthSlider.value))%"
+        StashPayCard.sharedInstance().tabletWidthRatioLandscape = ratio
+    }
+    
+    @objc private func tabletLandscapeHeightChanged() {
+        let ratio = CGFloat(tabletLandscapeHeightSlider.value) / 100.0
+        tabletLandscapeHeightLabel.text = "Height: \(Int(tabletLandscapeHeightSlider.value))%"
+        StashPayCard.sharedInstance().tabletHeightRatioLandscape = ratio
     }
     
     @objc private func dismissKeyboard() {

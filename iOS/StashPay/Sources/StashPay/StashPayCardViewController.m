@@ -139,6 +139,8 @@ extern CGFloat _tabletHeightRatioLandscape;
         // Check for rotation
         BOOL screenSizeChanged = [self detectRotationChange:screenBounds];
         
+        // Tablets don't have expand/collapse - always use configured sizes directly
+        // Always recalculate on rotation to use orientation-specific ratios
         if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || 
             self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
             // Use orientation-specific ratios
@@ -149,13 +151,8 @@ extern CGFloat _tabletHeightRatioLandscape;
             CGSize cardSize = [[self class] calculateiPadCardSizeForScreenBounds:screenBounds
                                                                  tabletWidthRatio:widthRatio
                                                                 tabletHeightRatio:heightRatio];
-            if (_isCardExpanded) {
-                width = cardSize.width;
-                height = cardSize.height;
-            } else {
-                width = cardSize.width * 0.7;
-                height = cardSize.height * 0.7;
-            }
+            width = cardSize.width;
+            height = cardSize.height;
             x = (screenBounds.size.width - width) / 2;
             y = (screenBounds.size.height - height) / 2;
         } else {
