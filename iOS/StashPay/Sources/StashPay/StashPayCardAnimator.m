@@ -72,12 +72,6 @@ extern CGFloat _cardVerticalPosition;
     if (dragTray) {
         dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
         
-        // Update gradient layer
-        CAGradientLayer *gradientLayer = (CAGradientLayer *)dragTray.layer.sublayers.firstObject;
-        if (gradientLayer && [gradientLayer isKindOfClass:[CAGradientLayer class]]) {
-            gradientLayer.frame = dragTray.bounds;
-        }
-        
         // Update handle
         UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
         if (handle) {

@@ -819,41 +819,16 @@ NSString* appendThemeQueryParameter(NSString* url);
     DragTrayView *dragTrayView = [[DragTrayView alloc] init];
     dragTrayView.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
     dragTrayView.tag = 8888;
-    
-    // Add black gradient fade for visual separation
-    CAGradientLayer *gradientLayer = [CAGradientLayer layer];
-    gradientLayer.frame = dragTrayView.bounds;
-    
-    if (isRunningOniPad()) {
-        gradientLayer.colors = @[
-            (id)[UIColor colorWithWhite:0.0 alpha:0.25].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.15].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.0].CGColor
-        ];
-    } else {
-        gradientLayer.colors = @[
-            (id)[UIColor colorWithWhite:0.0 alpha:0.35].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.20].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.0].CGColor
-        ];
-    }
-    gradientLayer.locations = @[@0.0, @0.5, @1.0];
-    [dragTrayView.layer addSublayer:gradientLayer];
-    
     dragTrayView.backgroundColor = [UIColor clearColor];
     
     UIView *handleView = [[UIView alloc] init];
-    // Apple Pay style handle - light gray, thicker, more prominent
+    // Simple handle bar - matches Android style
     handleView.backgroundColor = [UIColor colorWithWhite:0.8 alpha:1.0];
-    handleView.layer.cornerRadius = 3.0; // Slightly larger radius for modern look
-    handleView.tag = 8889; // Tag for easy access
-    // Handle is always centered - Apple Pay style dimensions (36pt wide, 5pt tall)
+    handleView.layer.cornerRadius = 3.0;
+    handleView.tag = 8889;
+    // Handle is always centered (36pt wide, 5pt tall)
     handleView.frame = CGRectMake(cardWidth/2 - 18, 8, 36, 5);
-    handleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin; // Keep centered
-    handleView.layer.shadowColor = [UIColor blackColor].CGColor;
-    handleView.layer.shadowOffset = CGSizeMake(0, 1);
-    handleView.layer.shadowOpacity = 0.15; // Subtle shadow like Apple Pay
-    handleView.layer.shadowRadius = 2.0; // Subtle shadow
+    handleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
     [dragTrayView addSubview:handleView];
     
     // Add pan gesture recognizer to drag tray (it will only receive touches in handle area due to hitTest override)
@@ -1083,11 +1058,6 @@ NSString* appendThemeQueryParameter(NSString* url);
     UIView *dragTray = [cardView viewWithTag:8888];
     if (dragTray) {
         dragTray.frame = CGRectMake(0, 0, currentWidth, kDragTrayHeight);
-
-        CAGradientLayer *gradientLayer = (CAGradientLayer*)dragTray.layer.sublayers.firstObject;
-        if (gradientLayer && [gradientLayer isKindOfClass:[CAGradientLayer class]]) {
-            gradientLayer.frame = dragTray.bounds;
-        }
 
         UIView *handle = [dragTray viewWithTag:8889];
         if (handle) {

@@ -31,27 +31,7 @@ extern BOOL isRunningOniPad(void);
     dragTrayView.tag = kDragTrayViewTag;
     dragTrayView.backgroundColor = [UIColor clearColor];
     
-    // Add gradient for visual separation
-    CAGradientLayer *gradientLayer = [CAGradientLayer layer];
-    gradientLayer.frame = dragTrayView.bounds;
-    
-    if (isTablet) {
-        gradientLayer.colors = @[
-            (id)[UIColor colorWithWhite:0.0 alpha:0.25].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.15].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.0].CGColor
-        ];
-    } else {
-        gradientLayer.colors = @[
-            (id)[UIColor colorWithWhite:0.0 alpha:0.35].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.20].CGColor,
-            (id)[UIColor colorWithWhite:0.0 alpha:0.0].CGColor
-        ];
-    }
-    gradientLayer.locations = @[@0.0, @0.5, @1.0];
-    [dragTrayView.layer addSublayer:gradientLayer];
-    
-    // Add handle view (Apple Pay style)
+    // Add handle view - simple bar matching Android style (no gradient, no shadow)
     UIView *handleView = [[UIView alloc] init];
     handleView.backgroundColor = [UIColor colorWithWhite:0.8 alpha:1.0];
     handleView.layer.cornerRadius = kDragHandleCornerRadius;
@@ -60,12 +40,6 @@ extern BOOL isRunningOniPad(void);
     CGFloat handleX = (width / 2.0) - (kDragHandleWidth / 2.0);
     handleView.frame = CGRectMake(handleX, kDragHandleTopOffset, kDragHandleWidth, kDragHandleHeight);
     handleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
-    
-    // Add subtle shadow
-    handleView.layer.shadowColor = [UIColor blackColor].CGColor;
-    handleView.layer.shadowOffset = CGSizeMake(0, 1);
-    handleView.layer.shadowOpacity = 0.15;
-    handleView.layer.shadowRadius = 2.0;
     
     [dragTrayView addSubview:handleView];
     
