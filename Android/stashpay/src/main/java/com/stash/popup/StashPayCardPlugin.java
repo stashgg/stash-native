@@ -551,12 +551,12 @@ public class StashPayCardPlugin {
             try {
                 GradientDrawable popupBg = new GradientDrawable();
                 popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
-                float radius = StashWebViewUtils.dpToPx(activity, CardConstants.CORNER_RADIUS_DP);
+                float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
                 popupBg.setCornerRadius(radius);
                 currentContainer.setBackground(popupBg);
                 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, CardConstants.ELEVATION_DP));
+                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
                     currentContainer.setOutlineProvider(new ViewOutlineProvider() {
                         @Override
                         public void getOutline(View view, Outline outline) {
