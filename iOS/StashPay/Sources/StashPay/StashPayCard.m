@@ -146,6 +146,7 @@ NSString* appendThemeQueryParameter(NSString* url);
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+@property (nonatomic, assign) BOOL isRotating;  // Flag to prevent viewWillLayoutSubviews during rotation
 @property (nonatomic, assign) CGSize previousScreenSize;  // Track actual screen size for rotation detection
 - (void)updateCornerRadiusMask;
 @end
@@ -238,6 +239,11 @@ NSString* appendThemeQueryParameter(NSString* url);
             UIView *cardView = [self.view viewWithTag:9999];
             if (!cardView) {
                 return; // cardView not yet created
+            }
+            
+            // Skip if rotation is being handled by viewWillTransitionToSize
+            if (self.isRotating) {
+                return;
             }
             
             // Check if screen size changed (rotation occurred) using actual screen bounds
@@ -552,7 +558,10 @@ NSString* appendThemeQueryParameter(NSString* url);
         return;
     }
     
-    // Calculate new size based on the new screen size
+    // Mark rotation in progress to prevent viewWillLayoutSubviews from interfering
+    self.isRotating = YES;
+    
+    // Calculate new size based on the new screen size (size = new view controller size = screen size)
     CGRect newScreenBounds = CGRectMake(0, 0, size.width, size.height);
     CGSize cardSize = calculateiPadCardSize(newScreenBounds);
     CGFloat width = cardSize.width;
@@ -581,10 +590,37 @@ NSString* appendThemeQueryParameter(NSString* url);
         [cardView layoutIfNeeded];
         
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        // Update stored frame and corner radius after rotation completes
+        // Rotation complete - ensure final position is correct
+        // Re-read actual screen bounds to get the definitive post-rotation size
+        CGRect finalScreenBounds = [UIScreen mainScreen].bounds;
+        CGSize finalCardSize = calculateiPadCardSize(finalScreenBounds);
+        CGPoint finalCenter = CGPointMake(finalScreenBounds.size.width / 2.0, finalScreenBounds.size.height / 2.0);
+        
+        // Apply final position without animation
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        cardView.bounds = CGRectMake(0, 0, finalCardSize.width, finalCardSize.height);
+        cardView.center = finalCenter;
+        
+        // Update drag tray to final size
+        UIView *dragTray = [cardView viewWithTag:8888];
+        if (dragTray) {
+            dragTray.frame = CGRectMake(0, 0, finalCardSize.width, kDragTrayHeight);
+            UIView *handle = [dragTray viewWithTag:8889];
+            if (handle) {
+                CGFloat handleX = (finalCardSize.width / 2.0) - 18.0;
+                handle.frame = CGRectMake(handleX, 8, 36, 5);
+            }
+        }
+        [CATransaction commit];
+        
+        // Update stored values
         self.customFrame = cardView.frame;
-        self.previousScreenSize = size;
+        self.previousScreenSize = finalScreenBounds.size;
         [self updateCornerRadiusMaskForView:cardView];
+        
+        // Allow viewWillLayoutSubviews to function again
+        self.isRotating = NO;
     }];
 }
 
