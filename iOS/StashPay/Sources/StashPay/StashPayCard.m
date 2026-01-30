@@ -2399,12 +2399,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.tag = 9999; // Tag to find it later for animations/layout
         cardView.clipsToBounds = YES;
         cardView.layer.cornerRadius = kCornerRadiusDefault;
-        
-        // Position cardView at center with correct size
-        cardView.bounds = CGRectMake(0, 0, width, height);
-        cardView.center = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
         cardView.autoresizingMask = UIViewAutoresizingNone;
         cardView.alpha = 0.0; // Start hidden for fade-in animation
+        // NOTE: bounds and center are set AFTER adding to superview (see below)
         
         // Add webView and loadingView to cardView
         [cardView addSubview:webView];
@@ -2508,10 +2505,15 @@ NSString* appendThemeQueryParameter(NSString* url) {
         containerVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         // containerVC.view will automatically fill the window - don't fight iOS
         
-        // Add cardView to containerVC.view (cardView was already created and positioned above)
+        // Add cardView to containerVC.view (cardView was already created above)
         UIView *cardView = objc_getAssociatedObject(containerVC, "cardView");
         if (cardView) {
             [containerVC.view addSubview:cardView];
+            
+            // CRITICAL: Set center AFTER adding to superview - center is relative to superview
+            CGRect currentScreenBounds = [UIScreen mainScreen].bounds;
+            cardView.bounds = CGRectMake(0, 0, width, height);
+            cardView.center = CGPointMake(currentScreenBounds.size.width / 2.0, currentScreenBounds.size.height / 2.0);
         }
         
         // Store card size in customFrame for reference
