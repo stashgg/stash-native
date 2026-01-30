@@ -2175,6 +2175,11 @@ NSString* appendThemeQueryParameter(NSString* url) {
             [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
         ]];
         
+        // Add drag tray so it is part of the card from the start (visible during slide-up)
+        UIView *dragTray = [internal createDragTray:cardWidth];
+        [cardView addSubview:dragTray];
+        internal.dragTrayView = dragTray;
+        
         WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
         webView.navigationDelegate = delegate;
         WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
@@ -2212,11 +2217,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
             CAShapeLayer *newMaskLayer = createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
             cardView.layer.mask = newMaskLayer;
         } completion:^(BOOL finished) {
-            // Add drag tray
-            UIView *dragTray = [internal createDragTray:cardWidth];
-            [cardView addSubview:dragTray];
-            internal.dragTrayView = dragTray;
-            
             // Add tap-to-dismiss on overlay
             UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
             dismissButton.frame = overlayView.bounds;
@@ -2285,6 +2285,11 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
     ]];
     
+    // Add drag tray so it is part of the card from the start (visible during fade-in)
+    UIView *dragTray = [internal createDragTray:cardSize.width];
+    [cardView addSubview:dragTray];
+    internal.dragTrayView = dragTray;
+    
     // Create delegates
     WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
     webView.navigationDelegate = delegate;
@@ -2347,11 +2352,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.alpha = 1.0;
         overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
     } completion:^(BOOL finished) {
-        // Tablet modal: drag bar with pan gesture for drag-down-to-dismiss only (no expand/collapse).
-        UIView *dragTray = [internal createDragTray:cardSize.width];
-        [cardView addSubview:dragTray];
-        internal.dragTrayView = dragTray;
-        
         UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
         dismissButton.frame = overlayView.bounds;
         dismissButton.backgroundColor = [UIColor clearColor];
