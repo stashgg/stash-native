@@ -158,8 +158,18 @@ class ViewController: UIViewController {
             webViewModeContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             webViewModeContainer.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
             
+            // Open Checkout Button (moved above sliders for landscape visibility)
+            checkoutButton.topAnchor.constraint(equalTo: webViewModeContainer.bottomAnchor, constant: 20),
+            checkoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            checkoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            checkoutButton.heightAnchor.constraint(equalToConstant: 50),
+            
+            statusLabel.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 12),
+            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            
             // Size Configuration Section
-            sizeConfigTitle.topAnchor.constraint(equalTo: webViewModeContainer.bottomAnchor, constant: 24),
+            sizeConfigTitle.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 24),
             sizeConfigTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             
             phoneHeightLabel.topAnchor.constraint(equalTo: sizeConfigTitle.bottomAnchor, constant: 16),
@@ -185,15 +195,6 @@ class ViewController: UIViewController {
             tabletHeightSlider.topAnchor.constraint(equalTo: tabletHeightLabel.bottomAnchor, constant: 4),
             tabletHeightSlider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             tabletHeightSlider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            
-            checkoutButton.topAnchor.constraint(equalTo: tabletHeightSlider.bottomAnchor, constant: 24),
-            checkoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            checkoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            checkoutButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            statusLabel.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 24),
-            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
         ])
         
         // Dismiss keyboard on tap
