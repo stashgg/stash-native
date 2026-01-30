@@ -57,11 +57,8 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean googlePayRedirectHandled;
     private boolean isPurchaseProcessing;
     
-    // Orientation-specific phone card configuration
+    // Phone card: only height is configurable (card is always portrait, full width)
     private float cardHeightRatioPortrait = 0.68f;
-    private float cardHeightRatioLandscape = 0.5f;
-    private float cardWidthRatioPortrait = 1.0f;
-    private float cardWidthRatioLandscape = 0.8f;
     
     // Orientation-specific tablet card configuration
     private float tabletWidthRatioPortrait = 0.4f;
@@ -99,9 +96,6 @@ public class StashPayCardPortraitActivity extends Activity {
             wasLandscapeBeforePortrait = intent.getBooleanExtra("wasLandscape", false);
             
             cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", 0.68f);
-            cardHeightRatioLandscape = intent.getFloatExtra("cardHeightRatioLandscape", 0.5f);
-            cardWidthRatioPortrait = intent.getFloatExtra("cardWidthRatioPortrait", 1.0f);
-            cardWidthRatioLandscape = intent.getFloatExtra("cardWidthRatioLandscape", 0.8f);
             tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", 0.4f);
             tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", 0.5f);
             tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", 0.3f);
@@ -304,11 +298,8 @@ public class StashPayCardPortraitActivity extends Activity {
                 isExpanded = false;
             }
             cardHeight = (int)(metrics.heightPixels * effectiveHeightRatio);
-            if (cardWidthRatioPortrait < 1.0f) {
-                cardWidth = (int)(metrics.widthPixels * cardWidthRatioPortrait);
-            } else {
-                cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
-            }
+            // Phone card is always full width
+            cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
         }
         
         configureCardContainer(isTablet, cardWidth, cardHeight);

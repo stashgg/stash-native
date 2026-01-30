@@ -54,11 +54,8 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
-    // Orientation-specific phone card configuration
+    // Phone card: only height is configurable (card is always portrait, full width)
     private float cardHeightRatioPortrait = 0.68f;
-    private float cardHeightRatioLandscape = 0.5f;
-    private float cardWidthRatioPortrait = 1.0f;
-    private float cardWidthRatioLandscape = 0.8f;
     
     // Orientation-specific tablet card configuration
     private float tabletWidthRatioPortrait = 0.4f;
@@ -281,42 +278,6 @@ public class StashPayCardPlugin {
         }
     }
     
-    public float getCardHeightRatioLandscape() {
-        return cardHeightRatioLandscape;
-    }
-    
-    public void setCardHeightRatioLandscape(float ratio) {
-        try {
-            this.cardHeightRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardHeightRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getCardWidthRatioPortrait() {
-        return cardWidthRatioPortrait;
-    }
-    
-    public void setCardWidthRatioPortrait(float ratio) {
-        try {
-            this.cardWidthRatioPortrait = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardWidthRatioPortrait: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getCardWidthRatioLandscape() {
-        return cardWidthRatioLandscape;
-    }
-    
-    public void setCardWidthRatioLandscape(float ratio) {
-        try {
-            this.cardWidthRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardWidthRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
     // ============================================================================
     // Orientation-Specific Tablet Card Size Configuration
     // ============================================================================
@@ -451,10 +412,6 @@ public class StashPayCardPlugin {
             intent.putExtra("url", url);
             intent.putExtra("initialURL", url);
             intent.putExtra("cardHeightRatioPortrait", cardHeightRatioPortrait);
-            intent.putExtra("cardHeightRatioLandscape", cardHeightRatioLandscape);
-            intent.putExtra("cardWidthRatioPortrait", cardWidthRatioPortrait);
-            intent.putExtra("cardWidthRatioLandscape", cardWidthRatioLandscape);
-            // Orientation-specific tablet card configuration
             intent.putExtra("tabletWidthRatioPortrait", tabletWidthRatioPortrait);
             intent.putExtra("tabletHeightRatioPortrait", tabletHeightRatioPortrait);
             intent.putExtra("tabletWidthRatioLandscape", tabletWidthRatioLandscape);

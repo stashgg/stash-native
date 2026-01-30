@@ -135,20 +135,24 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 You can customize the size of the checkout card for both phones and tablets. The SDK supports orientation-specific sizing to ensure optimal display in both portrait and landscape orientations.
 
-### Orientation-Specific Sizing (Recommended)
+### Phone
 
-Configure different sizes for portrait and landscape orientations:
+The phone card **always forces portrait** and **always uses full screen width**. Only the card height is configurable (as a ratio of screen height in portrait):
 
 ```java
 StashPayCard stashPay = StashPayCard.getInstance();
 
-// Phone card size - portrait and landscape
-stashPay.setCardHeightRatioPortrait(0.68f);   // 68% height in portrait (default)
-stashPay.setCardHeightRatioLandscape(0.5f);   // 50% height in landscape (default)
-stashPay.setCardWidthRatioPortrait(1.0f);     // Full width in portrait (default)
-stashPay.setCardWidthRatioLandscape(0.8f);    // 80% width in landscape (default)
+// Phone: only height is configurable (card is always full width, portrait only)
+stashPay.setCardHeightRatioPortrait(0.68f);   // 68% of screen height (default)
+```
 
-// Tablet card size - portrait and landscape
+### Tablet
+
+On tablets the card can rotate; configure width and height for portrait and landscape:
+
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+
 stashPay.setTabletWidthRatioPortrait(0.4f);   // 40% width in portrait (default)
 stashPay.setTabletHeightRatioPortrait(0.5f);  // 50% height in portrait (default)
 stashPay.setTabletWidthRatioLandscape(0.3f);  // 30% width in landscape (default)
@@ -161,17 +165,15 @@ stashPay.setTabletHeightRatioLandscape(0.6f); // 60% height in landscape (defaul
 StashPayCard stashPay = StashPayCard.getInstance();
 stashPay.setActivity(this);
 
-// Configure phone card size for both orientations
+// Phone: customize card height only (portrait, full width)
 stashPay.setCardHeightRatioPortrait(0.7f);
-stashPay.setCardHeightRatioLandscape(0.5f);
 
-// Configure tablet card size for both orientations
+// Tablet: configure for both orientations
 stashPay.setTabletWidthRatioPortrait(0.4f);
 stashPay.setTabletHeightRatioPortrait(0.5f);
 stashPay.setTabletWidthRatioLandscape(0.3f);
 stashPay.setTabletHeightRatioLandscape(0.6f);
 
-// Open checkout - sizing will automatically adjust on rotation
 stashPay.openCheckout(url);
 ```
 
@@ -199,10 +201,7 @@ StashPayCard.getInstance().openCheckout(url);
 | `isCurrentlyPresented()` | Check if dialog is shown |
 | `setForceWebBasedCheckout(boolean)` | Use Chrome Custom Tabs |
 | `isPurchaseProcessing()` | Check if payment is in progress |
-| `setCardHeightRatioPortrait(float)` | Set phone card height in portrait (0.1-1.0) |
-| `setCardHeightRatioLandscape(float)` | Set phone card height in landscape (0.1-1.0) |
-| `setCardWidthRatioPortrait(float)` | Set phone card width in portrait (0.1-1.0) |
-| `setCardWidthRatioLandscape(float)` | Set phone card width in landscape (0.1-1.0) |
+| `setCardHeightRatioPortrait(float)` | Set phone card height (0.1-1.0). Phone card is always portrait and full width. |
 | `setTabletWidthRatioPortrait(float)` | Set tablet card width in portrait (0.1-1.0) |
 | `setTabletHeightRatioPortrait(float)` | Set tablet card height in portrait (0.1-1.0) |
 | `setTabletWidthRatioLandscape(float)` | Set tablet card width in landscape (0.1-1.0) |

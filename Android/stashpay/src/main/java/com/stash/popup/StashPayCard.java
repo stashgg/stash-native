@@ -271,54 +271,6 @@ public class StashPayCard {
         plugin.setCardHeightRatioPortrait(ratio);
     }
     
-    /**
-     * Gets the card height ratio for landscape orientation on phones.
-     * @return Height ratio (0.1 to 1.0) relative to screen height
-     */
-    public float getCardHeightRatioLandscape() {
-        return plugin.getCardHeightRatioLandscape();
-    }
-    
-    /**
-     * Sets the card height ratio for landscape orientation on phones.
-     * @param ratio Height ratio (0.1 to 1.0). Default is 0.5.
-     */
-    public void setCardHeightRatioLandscape(float ratio) {
-        plugin.setCardHeightRatioLandscape(ratio);
-    }
-    
-    /**
-     * Gets the card width ratio for portrait orientation on phones.
-     * @return Width ratio (0.1 to 1.0) relative to screen width
-     */
-    public float getCardWidthRatioPortrait() {
-        return plugin.getCardWidthRatioPortrait();
-    }
-    
-    /**
-     * Sets the card width ratio for portrait orientation on phones.
-     * @param ratio Width ratio (0.1 to 1.0). Default is 1.0.
-     */
-    public void setCardWidthRatioPortrait(float ratio) {
-        plugin.setCardWidthRatioPortrait(ratio);
-    }
-    
-    /**
-     * Gets the card width ratio for landscape orientation on phones.
-     * @return Width ratio (0.1 to 1.0) relative to screen width
-     */
-    public float getCardWidthRatioLandscape() {
-        return plugin.getCardWidthRatioLandscape();
-    }
-    
-    /**
-     * Sets the card width ratio for landscape orientation on phones.
-     * @param ratio Width ratio (0.1 to 1.0). Default is 0.8.
-     */
-    public void setCardWidthRatioLandscape(float ratio) {
-        plugin.setCardWidthRatioLandscape(ratio);
-    }
-    
     // ============================================================================
     // Orientation-Specific Tablet Card Size Configuration
     // ============================================================================

@@ -121,28 +121,10 @@ NS_ASSUME_NONNULL_BEGIN
 // ============================================================================
 
 /**
- * Phone card height ratio in portrait orientation (0.0 to 1.0).
+ * Phone card height ratio (0.0 to 1.0). The phone card is always portrait and full screen width.
  * Default is 0.68 (68% of screen height).
  */
 @property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
-
-/**
- * Phone card height ratio in landscape orientation (0.0 to 1.0).
- * Default is 0.5 (50% of screen height).
- */
-@property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
-
-/**
- * Phone card width ratio in portrait orientation (0.0 to 1.0).
- * Default is 1.0 (full width).
- */
-@property (nonatomic, assign) CGFloat cardWidthRatioPortrait;
-
-/**
- * Phone card width ratio in landscape orientation (0.0 to 1.0).
- * Default is 0.8 (80% of screen width).
- */
-@property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
 
 // ============================================================================
 // Orientation-Specific Tablet (iPad) Card Size Configuration

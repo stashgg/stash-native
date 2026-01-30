@@ -17,9 +17,6 @@ extern BOOL _isCardExpanded;
 
 // Orientation-specific ratios
 extern CGFloat _cardHeightRatioPortrait;
-extern CGFloat _cardHeightRatioLandscape;
-extern CGFloat _cardWidthRatioPortrait;
-extern CGFloat _cardWidthRatioLandscape;
 extern CGFloat _tabletWidthRatioPortrait;
 extern CGFloat _tabletHeightRatioPortrait;
 extern CGFloat _tabletWidthRatioLandscape;
@@ -170,8 +167,8 @@ extern CGFloat _tabletHeightRatioLandscape;
             portraitBounds.size.width = portraitBounds.size.height;
             portraitBounds.size.height = temp;
         }
-        // iPhone always uses portrait ratios since card mode forces portrait
-        width = portraitBounds.size.width * _cardWidthRatioPortrait;
+        // iPhone card is always full width, portrait; only height is configurable
+        width = portraitBounds.size.width;
         height = portraitBounds.size.height * _cardHeightRatioPortrait;
         CGFloat x = (portraitBounds.size.width - width) / 2;
         CGFloat y = portraitBounds.size.height * 1.0 - height;

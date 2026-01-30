@@ -115,13 +115,10 @@ Configure different card sizes for portrait and landscape orientations:
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// Phone sizing
-stashPay.cardHeightRatioPortrait = 0.68   // 68% in portrait (default)
-stashPay.cardHeightRatioLandscape = 0.5   // 50% in landscape (default)
-stashPay.cardWidthRatioPortrait = 1.0     // Full width in portrait
-stashPay.cardWidthRatioLandscape = 0.8    // 80% in landscape
+// Phone: only height is configurable (card is always portrait, full width)
+stashPay.cardHeightRatioPortrait = 0.68   // 68% of screen height (default)
 
-// Tablet sizing
+// Tablet sizing (portrait and landscape)
 stashPay.tabletWidthRatioPortrait = 0.4   // 40% in portrait (default)
 stashPay.tabletHeightRatioPortrait = 0.5  // 50% in portrait (default)
 stashPay.tabletWidthRatioLandscape = 0.3  // 30% in landscape (default)
@@ -132,22 +129,17 @@ stashPay.tabletHeightRatioLandscape = 0.6 // 60% in landscape (default)
 ```java
 StashPayCard stashPay = StashPayCard.getInstance();
 
-// Phone sizing
+// Phone: only height is configurable (card is always portrait, full width)
 stashPay.setCardHeightRatioPortrait(0.68f);
-stashPay.setCardHeightRatioLandscape(0.5f);
-stashPay.setCardWidthRatioPortrait(1.0f);
-stashPay.setCardWidthRatioLandscape(0.8f);
 
-// Tablet sizing
+// Tablet sizing (portrait and landscape)
 stashPay.setTabletWidthRatioPortrait(0.4f);
 stashPay.setTabletHeightRatioPortrait(0.5f);
 stashPay.setTabletWidthRatioLandscape(0.3f);
 stashPay.setTabletHeightRatioLandscape(0.6f);
 ```
 
-The checkout dialog will automatically resize when the device is rotated, providing optimal sizing for each orientation.
-
-**Note**: The legacy single-ratio properties (`cardHeightRatio`, `tabletWidthRatio`, etc.) are still available for backward compatibility but setting the portrait-specific properties is recommended.
+The checkout dialog will automatically resize when the device is rotated (tablets). On phones the card is always portrait and full width; only the height ratio is configurable.
 
 #### 2. Tablet-Specific Behavior
 

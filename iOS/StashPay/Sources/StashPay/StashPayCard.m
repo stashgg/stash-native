@@ -65,11 +65,8 @@ static CGFloat _originalCardWidthRatio = 1.0;
 static CGFloat _originalTabletWidthRatio = 0.8;
 static CGFloat _originalTabletHeightRatio = 0.75;
 
-// Orientation-specific phone card configuration
+// Phone card: only height is configurable (card is always portrait, full width)
 static CGFloat _cardHeightRatioPortrait = 0.68;
-static CGFloat _cardHeightRatioLandscape = 0.5;
-static CGFloat _cardWidthRatioPortrait = 1.0;
-static CGFloat _cardWidthRatioLandscape = 0.8;
 
 // Orientation-specific tablet (iPad) card configuration
 static CGFloat _tabletWidthRatioPortrait = 0.4;
@@ -1795,34 +1792,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _originalCardHeightRatio = clampedRatio;
 }
 
-- (CGFloat)cardHeightRatioLandscape {
-    return _cardHeightRatioLandscape;
-}
-
-- (void)setCardHeightRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _cardHeightRatioLandscape = clampedRatio;
-}
-
-- (CGFloat)cardWidthRatioPortrait {
-    return _cardWidthRatioPortrait;
-}
-
-- (void)setCardWidthRatioPortrait:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _cardWidthRatioPortrait = clampedRatio;
-    _originalCardWidthRatio = clampedRatio;
-}
-
-- (CGFloat)cardWidthRatioLandscape {
-    return _cardWidthRatioLandscape;
-}
-
-- (void)setCardWidthRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = ratio < 0.1 ? 0.1 : (ratio > 1.0 ? 1.0 : ratio);
-    _cardWidthRatioLandscape = clampedRatio;
-}
-
 // ============================================================================
 // Orientation-Specific Tablet (iPad) Card Size Configuration
 // ============================================================================
@@ -1940,7 +1909,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // Store original (collapsed) configuration from orientation-specific values
     _originalCardHeightRatio = _cardHeightRatioPortrait;
     _originalCardVerticalPosition = 1.0;
-    _originalCardWidthRatio = _cardWidthRatioPortrait;
+    _originalCardWidthRatio = 1.0;  // Phone card is always full width
     _originalTabletWidthRatio = _tabletWidthRatioPortrait;
     _originalTabletHeightRatio = _tabletHeightRatioPortrait;
     
@@ -2039,16 +2008,15 @@ NSString* appendThemeQueryParameter(NSString* url) {
         CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
         
         if (rotationSucceeded) {
-            // Rotation worked - use actual bounds
-            cardWidth = actualBounds.size.width * _cardWidthRatioPortrait;
+            // Rotation worked - use actual bounds (phone card is always full width)
+            cardWidth = actualBounds.size.width;
             cardHeight = actualBounds.size.height * _cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
             cardFinalY = actualBounds.size.height - cardHeight;
             startY = actualBounds.size.height + cardHeight;
         } else {
             // Rotation failed - present in portrait orientation within landscape screen
-            // The card will appear correct but keyboard will be landscape
-            cardWidth = actualPortraitWidth * _cardWidthRatioPortrait;
+            cardWidth = actualPortraitWidth;
             cardHeight = actualPortraitHeight * _cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
             cardFinalY = actualBounds.size.height - cardHeight;
