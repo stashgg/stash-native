@@ -271,34 +271,75 @@ NSString* appendThemeQueryParameter(NSString* url);
                 CGFloat sizeDiff = fabs(cardView.bounds.size.width - width) + fabs(cardView.bounds.size.height - height);
                 
                 if (sizeDiff > 50.0 || screenSizeChanged) {
-                    // Seamless spring animation for rotation - animate cardView bounds and center
-                    [UIView animateWithDuration:0.4
-                                          delay:0
-                         usingSpringWithDamping:0.85
-                          initialSpringVelocity:0.3
-                                        options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionLayoutSubviews
-                                     animations:^{
-                        // Animate bounds for size (scales from center)
-                        cardView.bounds = newBounds;
-                        // Animate center to keep at screen center
-                        cardView.center = screenCenter;
+                    // Fluid frame-by-frame animation for rotation using UIViewPropertyAnimator
+                    // This provides smoother, interruptible animations with custom timing
+                    if (@available(iOS 10.0, *)) {
+                        // Use UIViewPropertyAnimator for fluid, interruptible animation
+                        UIViewPropertyAnimator *animator = [[UIViewPropertyAnimator alloc]
+                            initWithDuration:0.5
+                            dampingRatio:0.92
+                            animations:^{
+                                // Animate bounds for size (scales from center)
+                                cardView.bounds = newBounds;
+                                // Animate center to keep at screen center
+                                cardView.center = screenCenter;
+                                
+                                // Update drag tray inside cardView
+                                UIView *dragTray = [cardView viewWithTag:8888];
+                                if (dragTray) {
+                                    dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
+                                    UIView *handle = [dragTray viewWithTag:8889];
+                                    if (handle) {
+                                        CGFloat handleX = (width / 2.0) - 18.0;
+                                        handle.frame = CGRectMake(handleX, 8, 36, 5);
+                                    }
+                                }
+                                
+                                // Force layout pass to update all subviews (WebView, etc.) in sync
+                                [cardView layoutIfNeeded];
+                            }];
                         
-                        // Update drag tray inside cardView
-                        UIView *dragTray = [cardView viewWithTag:8888];
-                        if (dragTray) {
-                            dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
-                            UIView *handle = [dragTray viewWithTag:8889];
-                            if (handle) {
-                                CGFloat handleX = (width / 2.0) - 18.0;
-                                handle.frame = CGRectMake(handleX, 8, 36, 5);
+                        // Animate corner radius mask separately for smooth transition
+                        [self updateCornerRadiusMaskForView:cardView animated:YES];
+                        
+                        [animator addCompletion:^(UIViewAnimatingPosition finalPosition) {
+                            self.customFrame = cardView.frame;
+                        }];
+                        
+                        [animator startAnimation];
+                    } else {
+                        // Fallback for iOS 9 - use standard spring animation
+                        [UIView animateWithDuration:0.5
+                                              delay:0
+                             usingSpringWithDamping:0.92
+                              initialSpringVelocity:0.0
+                                            options:UIViewAnimationOptionCurveEaseInOut | 
+                                                    UIViewAnimationOptionLayoutSubviews |
+                                                    UIViewAnimationOptionBeginFromCurrentState |
+                                                    UIViewAnimationOptionAllowAnimatedContent
+                                         animations:^{
+                            cardView.bounds = newBounds;
+                            cardView.center = screenCenter;
+                            
+                            UIView *dragTray = [cardView viewWithTag:8888];
+                            if (dragTray) {
+                                dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
+                                UIView *handle = [dragTray viewWithTag:8889];
+                                if (handle) {
+                                    CGFloat handleX = (width / 2.0) - 18.0;
+                                    handle.frame = CGRectMake(handleX, 8, 36, 5);
+                                }
                             }
-                        }
+                            
+                            [cardView layoutIfNeeded];
+                        } completion:^(BOOL finished) {
+                            self.customFrame = cardView.frame;
+                            [self updateCornerRadiusMaskForView:cardView];
+                        }];
                         
-                        [cardView layoutIfNeeded];
-                    } completion:^(BOOL finished) {
-                        self.customFrame = cardView.frame;
-                        [self updateCornerRadiusMaskForView:cardView];
-                    }];
+                        // Animate corner radius mask separately for smooth transition
+                        [self updateCornerRadiusMaskForView:cardView animated:YES];
+                    }
                 } else {
                     // Small change - no animation needed
                     [CATransaction begin];
@@ -419,6 +460,10 @@ NSString* appendThemeQueryParameter(NSString* url);
 }
 
 - (void)updateCornerRadiusMaskForView:(UIView *)targetView {
+    [self updateCornerRadiusMaskForView:targetView animated:NO];
+}
+
+- (void)updateCornerRadiusMaskForView:(UIView *)targetView animated:(BOOL)animated {
     if (!targetView) return;
     
     CAShapeLayer *maskLayer = (CAShapeLayer *)targetView.layer.mask;
@@ -437,8 +482,25 @@ NSString* appendThemeQueryParameter(NSString* url);
     }
     
     CAShapeLayer *newMaskLayer = createCornerRadiusMask(viewBounds, cornersToRound, kCornerRadiusDefault);
-    maskLayer.frame = viewBounds;
-    maskLayer.path = newMaskLayer.path;
+    CGPathRef newPath = newMaskLayer.path;
+    
+    if (animated && maskLayer.path != nil) {
+        // Animate the path change for smooth corner radius during resize
+        CABasicAnimation *pathAnimation = [CABasicAnimation animationWithKeyPath:@"path"];
+        pathAnimation.fromValue = (__bridge id)maskLayer.path;
+        pathAnimation.toValue = (__bridge id)newPath;
+        pathAnimation.duration = 0.5;
+        pathAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+        pathAnimation.fillMode = kCAFillModeForwards;
+        pathAnimation.removedOnCompletion = NO;
+        
+        maskLayer.frame = viewBounds;
+        maskLayer.path = newPath;
+        [maskLayer addAnimation:pathAnimation forKey:@"pathAnimation"];
+    } else {
+        maskLayer.frame = viewBounds;
+        maskLayer.path = newPath;
+    }
 }
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
