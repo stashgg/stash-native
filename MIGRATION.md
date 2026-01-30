@@ -35,12 +35,9 @@ StashPayCard.sharedInstance().cardHeightRatio = 0.60
 
 #### 2. Internal Architecture Changes
 
-The internal implementation has been split into modular components:
-- `StashPayCardConstants.h` - Shared constants
-- `StashPayCardViewController` - View controller management
-- `StashPayCardAnimator` - Animation utilities
-- `StashPayCardGestureHandler` - Gesture handling
-- `StashPayWebViewManager` - WebView configuration
+The internal implementation has been consolidated into a single unified module:
+- `StashPayCard.h` - Public API and delegate protocol
+- `StashPayCard.m` - Complete implementation (WebView, gestures, animations)
 
 **No public API changes** - these are internal improvements.
 

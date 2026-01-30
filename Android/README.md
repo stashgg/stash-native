@@ -133,7 +133,9 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 ## Card Size Configuration
 
-You can customize the size of the checkout card for both phones and tablets. The SDK supports orientation-specific sizing to ensure optimal display in both portrait and landscape orientations.
+Card size configuration is **optional**. Only change it if your specific Stash Pay configuration requires custom sizing. In most scenarios, leave the default sizing unchanged.
+
+You can customize the size of the checkout card for phones and tablets as follows.
 
 ### Phone
 

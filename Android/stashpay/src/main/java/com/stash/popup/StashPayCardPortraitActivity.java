@@ -514,14 +514,14 @@ public class StashPayCardPortraitActivity extends Activity {
         if (backdropView != null) {
             backdropView.animate()
                 .alpha(0f)
-                .setDuration(250)
+                .setDuration(CardConstants.ANIMATION_DURATION_DISMISS)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .start();
         }
         
         cardContainer.animate()
             .translationY(height)
-            .setDuration(300)
+            .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
             .setInterpolator(new android.view.animation.AccelerateInterpolator())
             .withEndAction(this::finish)
             .start();
@@ -537,7 +537,7 @@ public class StashPayCardPortraitActivity extends Activity {
         if (backdropView != null) {
             backdropView.animate()
                 .alpha(0f)
-                .setDuration(200)
+                .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
                 .setInterpolator(new android.view.animation.AccelerateInterpolator())
                 .start();
         }
@@ -547,7 +547,7 @@ public class StashPayCardPortraitActivity extends Activity {
             .alpha(0f)
             .scaleX(0.9f)
             .scaleY(0.9f)
-            .setDuration(200)
+            .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
             .setInterpolator(new android.view.animation.AccelerateInterpolator())
             .withEndAction(this::finishActivityWithNoAnimation)
             .start();
@@ -598,7 +598,7 @@ public class StashPayCardPortraitActivity extends Activity {
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(450)
+            .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
             .setInterpolator(new SpringInterpolator())
             .start();
         
@@ -616,14 +616,14 @@ public class StashPayCardPortraitActivity extends Activity {
         
         int collapsedHeight = (int)(metrics.heightPixels * cardHeightRatioPortrait);
         
-        animateCardHeight(collapsedHeight, 380);
+        animateCardHeight(collapsedHeight, CardConstants.ANIMATION_DURATION_COLLAPSE);
         
         cardContainer.animate()
             .translationY(0)
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(380)
+            .setDuration(CardConstants.ANIMATION_DURATION_COLLAPSE)
             .setInterpolator(new SpringInterpolator())
             .start();
         
@@ -650,7 +650,7 @@ public class StashPayCardPortraitActivity extends Activity {
         }
         
         if (params.height != targetHeight) {
-            animateCardHeight(targetHeight, 450);
+            animateCardHeight(targetHeight, CardConstants.ANIMATION_DURATION_SNAP_BACK);
         }
         
         cardContainer.animate()
@@ -658,7 +658,7 @@ public class StashPayCardPortraitActivity extends Activity {
             .alpha(1f)
             .scaleX(1f)
             .scaleY(1f)
-            .setDuration(450)
+            .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
             .setInterpolator(new SpringInterpolator())
             .start();
     }
@@ -948,7 +948,7 @@ public class StashPayCardPortraitActivity extends Activity {
             if (backdropView != null) {
                 backdropView.animate()
                     .alpha(0f)
-                    .setDuration(350)
+                    .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
                     .setInterpolator(new android.view.animation.AccelerateInterpolator())
                     .start();
             }
@@ -962,7 +962,7 @@ public class StashPayCardPortraitActivity extends Activity {
                         .alpha(0f)
                         .scaleX(0.9f)
                         .scaleY(0.9f)
-                        .setDuration(200)
+                        .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
                         .setInterpolator(new android.view.animation.AccelerateInterpolator())
                         .withEndAction(() -> {
                             try {
@@ -982,7 +982,7 @@ public class StashPayCardPortraitActivity extends Activity {
                 try {
                     cardContainer.animate()
                         .translationY(cardContainer.getHeight())
-                        .setDuration(300)
+                        .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
                         .setInterpolator(new android.view.animation.AccelerateInterpolator())
                         .withEndAction(() -> {
                             try {
@@ -1229,7 +1229,7 @@ public class StashPayCardPortraitActivity extends Activity {
         // Animate width
         if (currentWidth != newWidth) {
             ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
-            widthAnim.setDuration(400);
+            widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
             widthAnim.setInterpolator(new SpringInterpolator());
             widthAnim.addUpdateListener(animation -> {
                 if (cardContainer != null) {
@@ -1244,7 +1244,7 @@ public class StashPayCardPortraitActivity extends Activity {
         // Animate height
         if (currentHeight != newHeight) {
             ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
-            heightAnim.setDuration(400);
+            heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
             heightAnim.setInterpolator(new SpringInterpolator());
             heightAnim.addUpdateListener(animation -> {
                 if (cardContainer != null) {

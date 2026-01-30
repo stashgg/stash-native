@@ -136,7 +136,9 @@ extension ViewController: StashPayCardDelegate {
 
 ## Card Size Configuration
 
-You can customize the size of the checkout card for iPhones and iPads.
+Card size configuration is **optional**. Only change it if your specific Stash Pay configuration requires custom sizing. In most scenarios, leave the default sizing unchanged.
+
+You can customize the size of the checkout card for iPhones and iPads as follows.
 
 ### Phone (iPhone)
 
