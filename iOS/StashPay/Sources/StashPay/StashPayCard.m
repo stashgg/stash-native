@@ -147,6 +147,8 @@ NSString* appendThemeQueryParameter(NSString* url);
 
 @interface IPhoneCardViewController : UIViewController
 @property (nonatomic, assign) CGRect cardFrame;
+@property (nonatomic, assign) CGRect customFrame;  // Compatibility with OrientationLockedViewController
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;  // Compatibility
 - (void)updateCornerRadiusMask;
 @end
 
@@ -177,6 +179,8 @@ NSString* appendThemeQueryParameter(NSString* url);
 
 @interface IPadModalViewController : UIViewController
 @property (nonatomic, assign) CGSize previousScreenSize;
+@property (nonatomic, assign) CGRect customFrame;  // Compatibility with OrientationLockedViewController
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;  // Compatibility
 - (void)updateCornerRadiusMaskForCardView;
 @end
 
@@ -231,6 +235,7 @@ NSString* appendThemeQueryParameter(NSString* url);
         [cardView layoutIfNeeded];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         self.previousScreenSize = size;
+        self.customFrame = newFrame;
         [self updateCornerRadiusMaskForCardView];
     }];
 }
@@ -732,11 +737,14 @@ NSString* appendThemeQueryParameter(NSString* url);
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGFloat dismissY = screenBounds.size.height;
     
-    OrientationLockedViewController *containerVC = (OrientationLockedViewController *)self.currentPresentedVC;
+    UIViewController *containerVC = self.currentPresentedVC;
     UIView *overlayView = objc_getAssociatedObject(containerVC, "overlayView");
     UIView *cardView = objc_getAssociatedObject(containerVC, "cardView");
     
-    containerVC.skipLayoutDuringInitialSetup = YES;
+    // Set skipLayoutDuringInitialSetup if the VC supports it
+    if ([containerVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
+        [(id)containerVC setSkipLayoutDuringInitialSetup:YES];
+    }
     
     CGFloat animationDuration = _usePopupPresentation ? 0.18 : kAnimationDurationFast;
     
@@ -750,7 +758,9 @@ NSString* appendThemeQueryParameter(NSString* url);
             // iPhone: slide down the containerVC.view
             CGRect frame = containerVC.view.frame;
             frame.origin.y = dismissY;
-            containerVC.customFrame = frame;
+            if ([containerVC respondsToSelector:@selector(setCustomFrame:)]) {
+                [(id)containerVC setCustomFrame:frame];
+            }
             containerVC.view.frame = frame;
         }
         
@@ -758,7 +768,9 @@ NSString* appendThemeQueryParameter(NSString* url);
             overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.0];
         }
     } completion:^(BOOL finished) {
-        containerVC.skipLayoutDuringInitialSetup = NO;
+        if ([containerVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
+            [(id)containerVC setSkipLayoutDuringInitialSetup:NO];
+        }
         if (completion) completion();
     }];
 }
@@ -2011,40 +2023,44 @@ NSString* appendThemeQueryParameter(NSString* url) {
 - (void)presentIPhoneCardWithURL:(NSString *)url {
     StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
     
-    // Always use portrait dimensions for iPhone
-    CGRect portraitBounds = [UIScreen mainScreen].bounds;
-    if (portraitBounds.size.width > portraitBounds.size.height) {
-        portraitBounds = CGRectMake(0, 0, portraitBounds.size.height, portraitBounds.size.width);
-    }
+    // Store previous key window
+    internal.previousKeyWindow = [UIApplication sharedApplication].keyWindow;
     
-    // Calculate card dimensions
-    CGFloat cardWidth = portraitBounds.size.width * _cardWidthRatioPortrait;
-    CGFloat cardHeight = portraitBounds.size.height * _cardHeightRatioPortrait;
-    CGFloat cardX = (portraitBounds.size.width - cardWidth) / 2.0;
-    CGFloat cardFinalY = portraitBounds.size.height - cardHeight;
-    if (cardFinalY < 0) cardFinalY = 0;
+    // Check if device is currently in landscape
+    CGRect currentBounds = [UIScreen mainScreen].bounds;
+    BOOL isLandscape = currentBounds.size.width > currentBounds.size.height;
     
-    // Create container view controller (iPhone-specific, always portrait)
+    // Calculate portrait dimensions (swap if currently landscape)
+    CGFloat portraitWidth = isLandscape ? currentBounds.size.height : currentBounds.size.width;
+    CGFloat portraitHeight = isLandscape ? currentBounds.size.width : currentBounds.size.height;
+    
+    // Create the window with CURRENT screen bounds first (will be updated after rotation)
+    UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:currentBounds];
+    cardWindow.windowLevel = UIWindowLevelAlert;
+    cardWindow.backgroundColor = [UIColor clearColor];
+    cardWindow.hidden = YES;
+    internal.portraitWindow = cardWindow;
+    
+    // Create container view controller
     IPhoneCardViewController *containerVC = [[IPhoneCardViewController alloc] init];
     containerVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
     containerVC.view.backgroundColor = getSystemBackgroundColor();
     containerVC.view.clipsToBounds = YES;
+    cardWindow.rootViewController = containerVC;
+    internal.currentPresentedVC = containerVC;
     
-    // Create WebView with configuration
+    // Create WebView and load URL early (while rotation happens)
     WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
     webView.translatesAutoresizingMaskIntoConstraints = NO;
     webView.alpha = 0.0;
     
-    // Create loading view
     UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
     loadingView.translatesAutoresizingMaskIntoConstraints = NO;
     loadingView.alpha = 1.0;
     
-    // Add views to container
     [containerVC.view addSubview:webView];
     [containerVC.view addSubview:loadingView];
     
-    // Pin views to container edges
     [NSLayoutConstraint activateConstraints:@[
         [webView.leadingAnchor constraintEqualToAnchor:containerVC.view.leadingAnchor],
         [webView.trailingAnchor constraintEqualToAnchor:containerVC.view.trailingAnchor],
@@ -2056,7 +2072,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [loadingView.bottomAnchor constraintEqualToAnchor:containerVC.view.bottomAnchor]
     ]];
     
-    // Create delegates
     WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
@@ -2064,7 +2079,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     objc_setAssociatedObject(containerVC, "webViewDelegate", delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, "webViewUIDelegate", uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
-    // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:nsurl
@@ -2075,84 +2089,112 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [webView loadRequest:request];
     }
     
-    // Create window with PORTRAIT bounds
-    internal.previousKeyWindow = [UIApplication sharedApplication].keyWindow;
-    UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:portraitBounds];
-    cardWindow.windowLevel = UIWindowLevelAlert;
-    cardWindow.backgroundColor = [UIColor clearColor];
-    cardWindow.rootViewController = containerVC;
-    internal.portraitWindow = cardWindow;
-    internal.currentPresentedVC = containerVC;
-    
-    // Force portrait orientation using iOS 16+ API with fallback
+    // Force portrait orientation FIRST - wait for rotation to complete before showing UI
     if (@available(iOS 16.0, *)) {
-        UIWindowScene *windowScene = cardWindow.windowScene ?: [UIApplication sharedApplication].connectedScenes.allObjects.firstObject;
-        if (windowScene && [windowScene isKindOfClass:[UIWindowScene class]]) {
+        UIWindowScene *windowScene = nil;
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                windowScene = (UIWindowScene *)scene;
+                break;
+            }
+        }
+        if (windowScene) {
             UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc] 
                 initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
             [windowScene requestGeometryUpdateWithPreferences:prefs errorHandler:nil];
         }
     } else {
-        // Fallback for iOS 15 and earlier - force portrait using deprecated but working method
         [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
         [UIViewController attemptRotationToDeviceOrientation];
     }
     
-    // Position card below screen initially (for slide-up animation)
-    CGFloat startY = portraitBounds.size.height; // Start just below screen
-    containerVC.view.frame = CGRectMake(cardX, startY, cardWidth, cardHeight);
-    containerVC.cardFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
-    containerVC.view.alpha = 1.0;
+    // Delay UI presentation to allow rotation to complete
+    // This is critical - we can't set frames until the screen is actually in portrait
+    NSTimeInterval rotationDelay = isLandscape ? 0.15 : 0.0;
     
-    // Apply corner radius (top corners only for Apple Pay style)
-    [containerVC updateCornerRadiusMask];
-    
-    // Add shadow
-    containerVC.view.layer.shadowColor = [UIColor blackColor].CGColor;
-    containerVC.view.layer.shadowOffset = CGSizeMake(0, -3);
-    containerVC.view.layer.shadowOpacity = 0.2;
-    containerVC.view.layer.shadowRadius = 10;
-    
-    // Create overlay
-    UIView *overlayView = [[UIView alloc] initWithFrame:portraitBounds];
-    overlayView.backgroundColor = [UIColor clearColor];
-    overlayView.userInteractionEnabled = YES;
-    [cardWindow insertSubview:overlayView atIndex:0];
-    objc_setAssociatedObject(containerVC, "overlayView", overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    
-    // Show window (card is below screen, so nothing visible yet)
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
-    
-    // Animate: fade in overlay and slide up card
-    CGFloat overlayOpacity = 0.35;
-    [UIView animateWithDuration:0.15 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
-    } completion:nil];
-    
-    [UIView animateWithDuration:0.45
-                          delay:0.05
-         usingSpringWithDamping:0.9
-          initialSpringVelocity:0.5
-                        options:UIViewAnimationOptionCurveEaseOut
-                     animations:^{
-        containerVC.view.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
-    } completion:^(BOOL finished) {
-        // Add drag tray for dismiss gesture
-        UIView *dragTray = [internal createDragTray:cardWidth];
-        [containerVC.view addSubview:dragTray];
-        internal.dragTrayView = dragTray;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        // NOW get the actual portrait bounds (rotation should be complete)
+        CGRect portraitBounds = [UIScreen mainScreen].bounds;
         
-        // Add tap-to-dismiss on overlay
-        UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        dismissButton.frame = overlayView.bounds;
-        dismissButton.backgroundColor = [UIColor clearColor];
-        dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [overlayView addSubview:dismissButton];
-        [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        // Safety check - if still landscape, force portrait dimensions
+        if (portraitBounds.size.width > portraitBounds.size.height) {
+            portraitBounds = CGRectMake(0, 0, portraitBounds.size.height, portraitBounds.size.width);
+        }
         
-        [internal startKeyboardObserving];
-    }];
+        // Update window frame to portrait
+        cardWindow.frame = portraitBounds;
+        
+        // Calculate card dimensions in portrait
+        CGFloat cardWidth = portraitBounds.size.width * _cardWidthRatioPortrait;
+        CGFloat cardHeight = portraitBounds.size.height * _cardHeightRatioPortrait;
+        CGFloat cardX = (portraitBounds.size.width - cardWidth) / 2.0;
+        CGFloat cardFinalY = portraitBounds.size.height - cardHeight;
+        if (cardFinalY < 0) cardFinalY = 0;
+        
+        // Position card BELOW the screen for slide-up animation
+        CGFloat startY = portraitBounds.size.height;
+        
+        // Disable animations during setup
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        
+        containerVC.view.frame = CGRectMake(cardX, startY, cardWidth, cardHeight);
+        containerVC.cardFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+        
+        // Create overlay (full screen, behind the card)
+        UIView *overlayView = [[UIView alloc] initWithFrame:portraitBounds];
+        overlayView.backgroundColor = [UIColor clearColor];
+        overlayView.userInteractionEnabled = YES;
+        overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [cardWindow insertSubview:overlayView atIndex:0];
+        objc_setAssociatedObject(containerVC, "overlayView", overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        
+        [CATransaction commit];
+        
+        // Apply corner radius (top corners only)
+        [containerVC updateCornerRadiusMask];
+        
+        // Add shadow
+        containerVC.view.layer.shadowColor = [UIColor blackColor].CGColor;
+        containerVC.view.layer.shadowOffset = CGSizeMake(0, -3);
+        containerVC.view.layer.shadowOpacity = 0.2;
+        containerVC.view.layer.shadowRadius = 10;
+        
+        // NOW show the window (card is positioned below screen)
+        cardWindow.hidden = NO;
+        [cardWindow makeKeyAndVisible];
+        
+        // Animate overlay fade in
+        CGFloat overlayOpacity = 0.35;
+        [UIView animateWithDuration:0.15 delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
+        } completion:nil];
+        
+        // Animate card sliding UP from BOTTOM
+        [UIView animateWithDuration:0.45
+                              delay:0.05
+             usingSpringWithDamping:0.9
+              initialSpringVelocity:0.5
+                            options:UIViewAnimationOptionCurveEaseOut
+                         animations:^{
+            containerVC.view.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+        } completion:^(BOOL finished) {
+            // Add drag tray
+            UIView *dragTray = [internal createDragTray:cardWidth];
+            [containerVC.view addSubview:dragTray];
+            internal.dragTrayView = dragTray;
+            
+            // Add tap-to-dismiss on overlay
+            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+            dismissButton.frame = overlayView.bounds;
+            dismissButton.backgroundColor = [UIColor clearColor];
+            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [overlayView addSubview:dismissButton];
+            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+            
+            [internal startKeyboardObserving];
+        }];
+    });
 }
 
 #pragma mark - iPad Modal Presentation (Centered, Rotatable)
