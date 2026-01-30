@@ -12,9 +12,12 @@ class ViewController: UIViewController {
     
     // MARK: - Properties
     
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
     private let urlTextField = UITextField()
     private let statusLabel = UILabel()
     private let webViewModeSwitch = UISwitch()
+    private let landscapeLockSwitch = UISwitch()
     private let defaultURL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html"
     
     // Size configuration UI
@@ -25,6 +28,9 @@ class ViewController: UIViewController {
     private let tabletHeightLabel = UILabel()
     private let tabletHeightSlider = UISlider()
     
+    // Orientation lock state
+    private var isLandscapeLocked = false
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -33,10 +39,23 @@ class ViewController: UIViewController {
         setupStashPayCard()
     }
     
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return isLandscapeLocked ? .landscape : .all
+    }
+    
     // MARK: - Setup
     
     private func setupUI() {
         view.backgroundColor = .systemBackground
+        
+        // Setup scroll view
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.alwaysBounceVertical = true
+        scrollView.keyboardDismissMode = .onDrag
+        view.addSubview(scrollView)
+        
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(contentView)
         
         // Title
         let titleLabel = UILabel()
@@ -44,7 +63,7 @@ class ViewController: UIViewController {
         titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(titleLabel)
+        contentView.addSubview(titleLabel)
         
         // URL TextField
         urlTextField.placeholder = "Enter checkout URL"
@@ -54,7 +73,7 @@ class ViewController: UIViewController {
         urlTextField.autocorrectionType = .no
         urlTextField.keyboardType = .URL
         urlTextField.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(urlTextField)
+        contentView.addSubview(urlTextField)
         
         // Web View Mode Toggle
         let webViewModeContainer = UIStackView()
@@ -62,7 +81,7 @@ class ViewController: UIViewController {
         webViewModeContainer.alignment = .center
         webViewModeContainer.spacing = 12
         webViewModeContainer.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(webViewModeContainer)
+        contentView.addSubview(webViewModeContainer)
         
         let webViewModeLabel = UILabel()
         webViewModeLabel.text = "Use Web View Mode (Safari)"
@@ -74,54 +93,23 @@ class ViewController: UIViewController {
         webViewModeSwitch.addTarget(self, action: #selector(webViewModeToggled), for: .valueChanged)
         webViewModeContainer.addArrangedSubview(webViewModeSwitch)
         
-        // Size Configuration Section
-        let sizeConfigTitle = UILabel()
-        sizeConfigTitle.text = "Card Size Configuration"
-        sizeConfigTitle.font = .systemFont(ofSize: 18, weight: .bold)
-        sizeConfigTitle.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(sizeConfigTitle)
+        // Landscape Lock Toggle
+        let landscapeLockContainer = UIStackView()
+        landscapeLockContainer.axis = .horizontal
+        landscapeLockContainer.alignment = .center
+        landscapeLockContainer.spacing = 12
+        landscapeLockContainer.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(landscapeLockContainer)
         
-        // Phone Height Slider
-        phoneHeightLabel.text = "Phone Height: 60%"
-        phoneHeightLabel.font = .systemFont(ofSize: 14)
-        phoneHeightLabel.textColor = .secondaryLabel
-        phoneHeightLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(phoneHeightLabel)
+        let landscapeLockLabel = UILabel()
+        landscapeLockLabel.text = "Lock to Landscape Mode"
+        landscapeLockLabel.font = .systemFont(ofSize: 16)
+        landscapeLockLabel.textColor = .label
+        landscapeLockContainer.addArrangedSubview(landscapeLockLabel)
         
-        phoneHeightSlider.minimumValue = 10
-        phoneHeightSlider.maximumValue = 100
-        phoneHeightSlider.value = 60
-        phoneHeightSlider.addTarget(self, action: #selector(phoneHeightChanged), for: .valueChanged)
-        phoneHeightSlider.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(phoneHeightSlider)
-        
-        // Tablet Width Slider
-        tabletWidthLabel.text = "Tablet Width: 80%"
-        tabletWidthLabel.font = .systemFont(ofSize: 14)
-        tabletWidthLabel.textColor = .secondaryLabel
-        tabletWidthLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(tabletWidthLabel)
-        
-        tabletWidthSlider.minimumValue = 10
-        tabletWidthSlider.maximumValue = 100
-        tabletWidthSlider.value = 80
-        tabletWidthSlider.addTarget(self, action: #selector(tabletWidthChanged), for: .valueChanged)
-        tabletWidthSlider.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(tabletWidthSlider)
-        
-        // Tablet Height Slider
-        tabletHeightLabel.text = "Tablet Height: 75%"
-        tabletHeightLabel.font = .systemFont(ofSize: 14)
-        tabletHeightLabel.textColor = .secondaryLabel
-        tabletHeightLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(tabletHeightLabel)
-        
-        tabletHeightSlider.minimumValue = 10
-        tabletHeightSlider.maximumValue = 100
-        tabletHeightSlider.value = 75
-        tabletHeightSlider.addTarget(self, action: #selector(tabletHeightChanged), for: .valueChanged)
-        tabletHeightSlider.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(tabletHeightSlider)
+        landscapeLockSwitch.isOn = false
+        landscapeLockSwitch.addTarget(self, action: #selector(landscapeLockToggled), for: .valueChanged)
+        landscapeLockContainer.addArrangedSubview(landscapeLockSwitch)
         
         // Open Checkout Button
         let checkoutButton = UIButton(type: .system)
@@ -132,7 +120,7 @@ class ViewController: UIViewController {
         checkoutButton.layer.cornerRadius = 8
         checkoutButton.addTarget(self, action: #selector(openCheckoutTapped), for: .touchUpInside)
         checkoutButton.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(checkoutButton)
+        contentView.addSubview(checkoutButton)
         
         // Status Label
         statusLabel.text = "Ready"
@@ -141,64 +129,139 @@ class ViewController: UIViewController {
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(statusLabel)
+        contentView.addSubview(statusLabel)
+        
+        // Size Configuration Section
+        let sizeConfigTitle = UILabel()
+        sizeConfigTitle.text = "Card Size Configuration"
+        sizeConfigTitle.font = .systemFont(ofSize: 18, weight: .bold)
+        sizeConfigTitle.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(sizeConfigTitle)
+        
+        // Phone Height Slider
+        phoneHeightLabel.text = "Phone Height: 60%"
+        phoneHeightLabel.font = .systemFont(ofSize: 14)
+        phoneHeightLabel.textColor = .secondaryLabel
+        phoneHeightLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(phoneHeightLabel)
+        
+        phoneHeightSlider.minimumValue = 10
+        phoneHeightSlider.maximumValue = 100
+        phoneHeightSlider.value = 60
+        phoneHeightSlider.addTarget(self, action: #selector(phoneHeightChanged), for: .valueChanged)
+        phoneHeightSlider.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(phoneHeightSlider)
+        
+        // Tablet Width Slider
+        tabletWidthLabel.text = "Tablet Width: 80%"
+        tabletWidthLabel.font = .systemFont(ofSize: 14)
+        tabletWidthLabel.textColor = .secondaryLabel
+        tabletWidthLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(tabletWidthLabel)
+        
+        tabletWidthSlider.minimumValue = 10
+        tabletWidthSlider.maximumValue = 100
+        tabletWidthSlider.value = 80
+        tabletWidthSlider.addTarget(self, action: #selector(tabletWidthChanged), for: .valueChanged)
+        tabletWidthSlider.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(tabletWidthSlider)
+        
+        // Tablet Height Slider
+        tabletHeightLabel.text = "Tablet Height: 75%"
+        tabletHeightLabel.font = .systemFont(ofSize: 14)
+        tabletHeightLabel.textColor = .secondaryLabel
+        tabletHeightLabel.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(tabletHeightLabel)
+        
+        tabletHeightSlider.minimumValue = 10
+        tabletHeightSlider.maximumValue = 100
+        tabletHeightSlider.value = 75
+        tabletHeightSlider.addTarget(self, action: #selector(tabletHeightChanged), for: .valueChanged)
+        tabletHeightSlider.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(tabletHeightSlider)
         
         // Layout
         NSLayoutConstraint.activate([
-            titleLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            titleLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            // Scroll view fills the entire safe area
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
+            // Content view fills scroll view and matches width
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
+            
+            // Title
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            // URL text field
             urlTextField.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 20),
-            urlTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            urlTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            urlTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            urlTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             urlTextField.heightAnchor.constraint(equalToConstant: 44),
             
+            // Web View Mode toggle
             webViewModeContainer.topAnchor.constraint(equalTo: urlTextField.bottomAnchor, constant: 16),
-            webViewModeContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            webViewModeContainer.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20),
+            webViewModeContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            webViewModeContainer.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
             
-            // Open Checkout Button (moved above sliders for landscape visibility)
-            checkoutButton.topAnchor.constraint(equalTo: webViewModeContainer.bottomAnchor, constant: 20),
-            checkoutButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            checkoutButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            // Landscape Lock toggle
+            landscapeLockContainer.topAnchor.constraint(equalTo: webViewModeContainer.bottomAnchor, constant: 12),
+            landscapeLockContainer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            landscapeLockContainer.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20),
+            
+            // Open Checkout Button
+            checkoutButton.topAnchor.constraint(equalTo: landscapeLockContainer.bottomAnchor, constant: 20),
+            checkoutButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            checkoutButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             checkoutButton.heightAnchor.constraint(equalToConstant: 50),
             
+            // Status label
             statusLabel.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 12),
-            statusLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            statusLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            statusLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            statusLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             // Size Configuration Section
             sizeConfigTitle.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 24),
-            sizeConfigTitle.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            sizeConfigTitle.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             
             phoneHeightLabel.topAnchor.constraint(equalTo: sizeConfigTitle.bottomAnchor, constant: 16),
-            phoneHeightLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            phoneHeightLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            phoneHeightLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            phoneHeightLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             phoneHeightSlider.topAnchor.constraint(equalTo: phoneHeightLabel.bottomAnchor, constant: 4),
-            phoneHeightSlider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            phoneHeightSlider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            phoneHeightSlider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            phoneHeightSlider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             tabletWidthLabel.topAnchor.constraint(equalTo: phoneHeightSlider.bottomAnchor, constant: 12),
-            tabletWidthLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            tabletWidthLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            tabletWidthLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            tabletWidthLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             tabletWidthSlider.topAnchor.constraint(equalTo: tabletWidthLabel.bottomAnchor, constant: 4),
-            tabletWidthSlider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            tabletWidthSlider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            tabletWidthSlider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            tabletWidthSlider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             tabletHeightLabel.topAnchor.constraint(equalTo: tabletWidthSlider.bottomAnchor, constant: 12),
-            tabletHeightLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            tabletHeightLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            tabletHeightLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            tabletHeightLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             
             tabletHeightSlider.topAnchor.constraint(equalTo: tabletHeightLabel.bottomAnchor, constant: 4),
-            tabletHeightSlider.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            tabletHeightSlider.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            tabletHeightSlider.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            tabletHeightSlider.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            
+            // Bottom constraint for scroll content
+            tabletHeightSlider.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
         ])
         
         // Dismiss keyboard on tap
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
         view.addGestureRecognizer(tapGesture)
     }
     
@@ -222,6 +285,28 @@ class ViewController: UIViewController {
         StashPayCard.sharedInstance().forceWebBasedCheckout = webViewModeSwitch.isOn
         let modeText = webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI"
         statusLabel.text = "Mode: \(modeText)"
+    }
+    
+    @objc private func landscapeLockToggled() {
+        isLandscapeLocked = landscapeLockSwitch.isOn
+        
+        if isLandscapeLocked {
+            // Force landscape orientation
+            if #available(iOS 16.0, *) {
+                guard let windowScene = view.window?.windowScene else { return }
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
+                setNeedsUpdateOfSupportedInterfaceOrientations()
+            } else {
+                UIDevice.current.setValue(UIInterfaceOrientation.landscapeRight.rawValue, forKey: "orientation")
+            }
+            statusLabel.text = "Locked to Landscape"
+        } else {
+            // Allow all orientations
+            if #available(iOS 16.0, *) {
+                setNeedsUpdateOfSupportedInterfaceOrientations()
+            }
+            statusLabel.text = "Orientation Unlocked"
+        }
     }
     
     @objc private func phoneHeightChanged() {

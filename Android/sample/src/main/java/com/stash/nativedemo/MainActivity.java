@@ -1,5 +1,6 @@
 package com.stash.nativedemo;
 
+import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -55,6 +56,18 @@ public class MainActivity extends AppCompatActivity {
             stashPayCard.setForceWebBasedCheckout(isChecked);
             String modeText = isChecked ? "Web View (Chrome)" : "Card UI";
             statusText.setText("Mode: " + modeText);
+        });
+        
+        // Landscape Lock toggle
+        SwitchMaterial landscapeLockSwitch = findViewById(R.id.landscapeLockSwitch);
+        landscapeLockSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                statusText.setText("Locked to Landscape");
+            } else {
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                statusText.setText("Orientation Unlocked");
+            }
         });
         
         // Phone Height Slider (10% to 100%)
