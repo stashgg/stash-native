@@ -2089,7 +2089,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [webView loadRequest:request];
     }
     
-    // Force portrait orientation FIRST - wait for rotation to complete before showing UI
+    // Force portrait orientation - UIDevice.setValue works even when app VCs don't support portrait
+    // This MUST be called first as it bypasses the view controller responder chain
+    [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
+    [UIViewController attemptRotationToDeviceOrientation];
+    
+    // For iOS 16+, also use requestGeometryUpdate as enhancement to help maintain orientation
     if (@available(iOS 16.0, *)) {
         UIWindowScene *windowScene = nil;
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -2103,14 +2108,11 @@ NSString* appendThemeQueryParameter(NSString* url) {
                 initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
             [windowScene requestGeometryUpdateWithPreferences:prefs errorHandler:nil];
         }
-    } else {
-        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
-        [UIViewController attemptRotationToDeviceOrientation];
     }
     
     // Delay UI presentation to allow rotation to complete
-    // This is critical - we can't set frames until the screen is actually in portrait
-    NSTimeInterval rotationDelay = isLandscape ? 0.15 : 0.0;
+    // Use longer delay (0.25s) to ensure rotation animation finishes
+    NSTimeInterval rotationDelay = isLandscape ? 0.25 : 0.0;
     
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // NOW get the actual portrait bounds (rotation should be complete)
@@ -2132,7 +2134,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
         if (cardFinalY < 0) cardFinalY = 0;
         
         // Position card BELOW the screen for slide-up animation
-        CGFloat startY = portraitBounds.size.height;
+        // Card must be completely off-screen (screen height + card height) so it slides UP into view
+        CGFloat startY = portraitBounds.size.height + cardHeight;
         
         // Disable animations during setup
         [CATransaction begin];
