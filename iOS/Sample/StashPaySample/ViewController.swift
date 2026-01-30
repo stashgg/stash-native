@@ -172,7 +172,6 @@ class ViewController: UIViewController {
         tabletPortraitTitle.font = .systemFont(ofSize: 16, weight: .bold)
         advancedOptionsContainer.addArrangedSubview(tabletPortraitTitle)
         
-        tabletPortraitWidthLabel.text = "Width: 60%"
         tabletPortraitWidthLabel.font = .systemFont(ofSize: 14)
         tabletPortraitWidthLabel.textColor = .secondaryLabel
         advancedOptionsContainer.addArrangedSubview(tabletPortraitWidthLabel)
@@ -180,11 +179,11 @@ class ViewController: UIViewController {
         tabletPortraitWidthSlider.minimumValue = 10
         tabletPortraitWidthSlider.maximumValue = 100
         tabletPortraitWidthSlider.value = 40
+        tabletPortraitWidthLabel.text = "Width: \(Int(tabletPortraitWidthSlider.value))%"
         tabletPortraitWidthSlider.accessibilityLabel = "Tablet portrait width percentage"
         tabletPortraitWidthSlider.addTarget(self, action: #selector(tabletPortraitWidthChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletPortraitWidthSlider)
         
-        tabletPortraitHeightLabel.text = "Height: 80%"
         tabletPortraitHeightLabel.font = .systemFont(ofSize: 14)
         tabletPortraitHeightLabel.textColor = .secondaryLabel
         advancedOptionsContainer.addArrangedSubview(tabletPortraitHeightLabel)
@@ -192,6 +191,7 @@ class ViewController: UIViewController {
         tabletPortraitHeightSlider.minimumValue = 10
         tabletPortraitHeightSlider.maximumValue = 100
         tabletPortraitHeightSlider.value = 50
+        tabletPortraitHeightLabel.text = "Height: \(Int(tabletPortraitHeightSlider.value))%"
         tabletPortraitHeightSlider.accessibilityLabel = "Tablet portrait height percentage"
         tabletPortraitHeightSlider.addTarget(self, action: #selector(tabletPortraitHeightChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletPortraitHeightSlider)
@@ -202,7 +202,6 @@ class ViewController: UIViewController {
         tabletLandscapeTitle.font = .systemFont(ofSize: 16, weight: .bold)
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeTitle)
         
-        tabletLandscapeWidthLabel.text = "Width: 80%"
         tabletLandscapeWidthLabel.font = .systemFont(ofSize: 14)
         tabletLandscapeWidthLabel.textColor = .secondaryLabel
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeWidthLabel)
@@ -210,11 +209,11 @@ class ViewController: UIViewController {
         tabletLandscapeWidthSlider.minimumValue = 10
         tabletLandscapeWidthSlider.maximumValue = 100
         tabletLandscapeWidthSlider.value = 30
+        tabletLandscapeWidthLabel.text = "Width: \(Int(tabletLandscapeWidthSlider.value))%"
         tabletLandscapeWidthSlider.accessibilityLabel = "Tablet landscape width percentage"
         tabletLandscapeWidthSlider.addTarget(self, action: #selector(tabletLandscapeWidthChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeWidthSlider)
         
-        tabletLandscapeHeightLabel.text = "Height: 65%"
         tabletLandscapeHeightLabel.font = .systemFont(ofSize: 14)
         tabletLandscapeHeightLabel.textColor = .secondaryLabel
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeHeightLabel)
@@ -222,6 +221,7 @@ class ViewController: UIViewController {
         tabletLandscapeHeightSlider.minimumValue = 10
         tabletLandscapeHeightSlider.maximumValue = 100
         tabletLandscapeHeightSlider.value = 60
+        tabletLandscapeHeightLabel.text = "Height: \(Int(tabletLandscapeHeightSlider.value))%"
         tabletLandscapeHeightSlider.accessibilityLabel = "Tablet landscape height percentage"
         tabletLandscapeHeightSlider.addTarget(self, action: #selector(tabletLandscapeHeightChanged), for: .valueChanged)
         advancedOptionsContainer.addArrangedSubview(tabletLandscapeHeightSlider)

@@ -595,6 +595,7 @@ NSString* appendThemeQueryParameter(NSString* url);
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
 - (UIView *)createDragTray:(CGFloat)cardWidth;
+- (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth;  // Same look, no pan gesture (for tablet modal)
 - (void)expandCardToFullScreen;
 - (void)collapseCardToOriginal;
 - (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView;
@@ -807,6 +808,24 @@ NSString* appendThemeQueryParameter(NSString* url);
     UIPanGestureRecognizer *dragTrayPanGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleDragTrayPanGesture:)];
     dragTrayPanGesture.delegate = self;
     [dragTrayView addGestureRecognizer:dragTrayPanGesture];
+    
+    return dragTrayView;
+}
+
+- (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth {
+    // Same visual as createDragTray but no pan gesture (for iPad modal - single size, no drag)
+    DragTrayView *dragTrayView = [[DragTrayView alloc] init];
+    dragTrayView.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
+    dragTrayView.tag = 8888;
+    dragTrayView.backgroundColor = [UIColor clearColor];
+    
+    UIView *handleView = [[UIView alloc] init];
+    handleView.backgroundColor = [UIColor colorWithWhite:0.8 alpha:1.0];
+    handleView.layer.cornerRadius = 3.0;
+    handleView.tag = 8889;
+    handleView.frame = CGRectMake(cardWidth/2 - 18, 8, 36, 5);
+    handleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+    [dragTrayView addSubview:handleView];
     
     return dragTrayView;
 }
@@ -2243,7 +2262,10 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.alpha = 1.0;
         overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
     } completion:^(BOOL finished) {
-        // Tablet modal: no drag tray. Dismiss only via overlay tap (added below).
+        // Tablet modal: visual-only drag bar (no pan gesture). Dismiss via overlay tap.
+        UIView *dragBar = [internal createDragTrayVisualOnly:cardSize.width];
+        [cardView addSubview:dragBar];
+        
         UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
         dismissButton.frame = overlayView.bounds;
         dismissButton.backgroundColor = [UIColor clearColor];

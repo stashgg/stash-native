@@ -71,16 +71,33 @@ public class MainActivity extends AppCompatActivity {
         TextView tabletLandscapeHeightLabel = findViewById(R.id.tabletLandscapeHeightLabel);
         tabletLandscapeHeightSlider = findViewById(R.id.tabletLandscapeHeightSlider);
         
-        // Restore state or set defaults
+        // Restore state or set defaults (progress 0-90 maps to 10%-100%: progress 30 = 40%, etc.)
         if (savedInstanceState != null) {
             urlInput.setText(savedInstanceState.getString(KEY_URL, DEFAULT_URL));
             isAdvancedExpanded = savedInstanceState.getBoolean(KEY_ADVANCED_EXPANDED, false);
-            tabletPortraitWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 30));
-            tabletPortraitHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 40));
-            tabletLandscapeWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 20));
-            tabletLandscapeHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 50));
+            int pw = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 30);
+            int ph = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 40);
+            int lw = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 20);
+            int lh = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 50);
+            tabletPortraitWidthSlider.setProgress(pw);
+            tabletPortraitWidthLabel.setText(String.format("Width: %d%%", pw + 10));
+            tabletPortraitHeightSlider.setProgress(ph);
+            tabletPortraitHeightLabel.setText(String.format("Height: %d%%", ph + 10));
+            tabletLandscapeWidthSlider.setProgress(lw);
+            tabletLandscapeWidthLabel.setText(String.format("Width: %d%%", lw + 10));
+            tabletLandscapeHeightSlider.setProgress(lh);
+            tabletLandscapeHeightLabel.setText(String.format("Height: %d%%", lh + 10));
         } else {
             urlInput.setText(DEFAULT_URL);
+            // Set initial slider positions and labels to match iOS (40%, 50%, 30%, 60%)
+            tabletPortraitWidthSlider.setProgress(30);
+            tabletPortraitWidthLabel.setText("Width: 40%");
+            tabletPortraitHeightSlider.setProgress(40);
+            tabletPortraitHeightLabel.setText("Height: 50%");
+            tabletLandscapeWidthSlider.setProgress(20);
+            tabletLandscapeWidthLabel.setText("Width: 30%");
+            tabletLandscapeHeightSlider.setProgress(50);
+            tabletLandscapeHeightLabel.setText("Height: 60%");
         }
         
         // Set initial advanced options visibility
@@ -96,11 +113,11 @@ public class MainActivity extends AppCompatActivity {
         StashPayCard stashPayCard = StashPayCard.getInstance();
         stashPayCard.setActivity(this);
         
-        // Set default tablet sizing ratios - matching slider defaults
-        stashPayCard.setTabletWidthRatioPortrait(0.6f);
-        stashPayCard.setTabletHeightRatioPortrait(0.8f);
-        stashPayCard.setTabletWidthRatioLandscape(0.8f);
-        stashPayCard.setTabletHeightRatioLandscape(0.65f);
+        // Apply initial tablet sizing from sliders (matches iOS: 40%, 50%, 30%, 60%)
+        stashPayCard.setTabletWidthRatioPortrait((tabletPortraitWidthSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletHeightRatioPortrait((tabletPortraitHeightSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletWidthRatioLandscape((tabletLandscapeWidthSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletHeightRatioLandscape((tabletLandscapeHeightSlider.getProgress() + 10) / 100f);
         
         // Web View Mode toggle
         webViewModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
