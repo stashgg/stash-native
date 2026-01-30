@@ -427,7 +427,9 @@ class ViewController: UIViewController {
     }
     
     private func applyLandscapeLockApproach() {
-        setNeedsUpdateOfSupportedInterfaceOrientations()
+        if #available(iOS 16.0, *) {
+            setNeedsUpdateOfSupportedInterfaceOrientations()
+        }
         
         switch landscapeLockApproach {
         case .vcMaskOnly:
