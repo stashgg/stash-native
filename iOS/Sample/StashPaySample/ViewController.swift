@@ -48,6 +48,20 @@ class ViewController: UIViewController {
     // Orientation lock state
     private var isLandscapeLocked = false
     
+    /// How to enforce landscape when "Lock to Landscape Mode" is ON. Used to test popup portrait forcing.
+    private enum LandscapeLockApproach: String, CaseIterable {
+        case vcMaskOnly = "VC mask only"
+        case vcPlusGeometry = "VC + Geometry (iOS 16+)"
+        case vcPlusUIDevice = "VC + UIDevice"
+        case vcLandscapeLeft = "VC only – Landscape Left"
+        case vcLandscapeRight = "VC only – Landscape Right"
+        case allCombined = "All combined"
+    }
+    private var landscapeLockApproach: LandscapeLockApproach = .vcPlusGeometry
+    
+    private let landscapeApproachButton = UIButton(type: .system)
+    private var landscapeApproachContainer: UIStackView?
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
@@ -57,7 +71,12 @@ class ViewController: UIViewController {
     }
     
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        return isLandscapeLocked ? .landscape : .all
+        guard isLandscapeLocked else { return .all }
+        switch landscapeLockApproach {
+        case .vcLandscapeLeft: return .landscapeLeft
+        case .vcLandscapeRight: return .landscapeRight
+        default: return .landscape
+        }
     }
     
     // MARK: - Setup
@@ -169,6 +188,28 @@ class ViewController: UIViewController {
         landscapeLockContainer.addArrangedSubview(landscapeLockSwitch)
         
         advancedOptionsContainer.addArrangedSubview(landscapeLockContainer)
+        
+        // Lock approach selection (visible when landscape lock is ON)
+        let landscapeApproachContainer = UIStackView()
+        landscapeApproachContainer.axis = .vertical
+        landscapeApproachContainer.spacing = 6
+        landscapeApproachContainer.isHidden = true
+        
+        let landscapeApproachLabel = UILabel()
+        landscapeApproachLabel.text = "Lock approach"
+        landscapeApproachLabel.font = .systemFont(ofSize: 16)
+        landscapeApproachLabel.textColor = .label
+        landscapeApproachContainer.addArrangedSubview(landscapeApproachLabel)
+        
+        landscapeApproachButton.setTitle(landscapeLockApproach.rawValue, for: .normal)
+        landscapeApproachButton.titleLabel?.font = .systemFont(ofSize: 15)
+        landscapeApproachButton.contentHorizontalAlignment = .leading
+        landscapeApproachButton.accessibilityLabel = "Select landscape lock approach for testing"
+        landscapeApproachButton.addTarget(self, action: #selector(landscapeApproachTapped), for: .touchUpInside)
+        landscapeApproachContainer.addArrangedSubview(landscapeApproachButton)
+        
+        advancedOptionsContainer.addArrangedSubview(landscapeApproachContainer)
+        self.landscapeApproachContainer = landscapeApproachContainer
         
         // Phone Card Height (applies to phone card in portrait)
         let phoneCardTitle = UILabel()
@@ -352,23 +393,62 @@ class ViewController: UIViewController {
     
     @objc private func landscapeLockToggled() {
         isLandscapeLocked = landscapeLockSwitch.isOn
+        landscapeApproachContainer?.isHidden = !isLandscapeLocked
         
         if isLandscapeLocked {
-            // Force landscape orientation
-            if #available(iOS 16.0, *) {
-                guard let windowScene = view.window?.windowScene else { return }
-                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
-                setNeedsUpdateOfSupportedInterfaceOrientations()
-            } else {
-                UIDevice.current.setValue(UIInterfaceOrientation.landscapeRight.rawValue, forKey: "orientation")
-            }
-            statusLabel.text = "Locked to Landscape"
+            applyLandscapeLockApproach()
+            statusLabel.text = "Locked to Landscape (\(landscapeLockApproach.rawValue))"
         } else {
-            // Allow all orientations
             if #available(iOS 16.0, *) {
                 setNeedsUpdateOfSupportedInterfaceOrientations()
             }
             statusLabel.text = "Orientation Unlocked"
+        }
+    }
+    
+    @objc private func landscapeApproachTapped() {
+        let sheet = UIAlertController(title: "Lock approach", message: "Choose how to enforce landscape for testing popup portrait forcing.", preferredStyle: .actionSheet)
+        for approach in LandscapeLockApproach.allCases {
+            sheet.addAction(UIAlertAction(title: approach.rawValue, style: .default) { [weak self] _ in
+                self?.landscapeLockApproach = approach
+                self?.landscapeApproachButton.setTitle(approach.rawValue, for: .normal)
+                if self?.isLandscapeLocked == true {
+                    self?.applyLandscapeLockApproach()
+                    self?.statusLabel.text = "Locked to Landscape (\(approach.rawValue))"
+                }
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = landscapeApproachButton
+            popover.sourceRect = landscapeApproachButton.bounds
+        }
+        present(sheet, animated: true)
+    }
+    
+    private func applyLandscapeLockApproach() {
+        setNeedsUpdateOfSupportedInterfaceOrientations()
+        
+        switch landscapeLockApproach {
+        case .vcMaskOnly:
+            break
+        case .vcPlusGeometry:
+            if #available(iOS 16.0, *) {
+                guard let windowScene = view.window?.windowScene else { return }
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
+            }
+        case .vcPlusUIDevice:
+            UIDevice.current.setValue(UIInterfaceOrientation.landscapeRight.rawValue, forKey: "orientation")
+        case .vcLandscapeLeft:
+            break
+        case .vcLandscapeRight:
+            break
+        case .allCombined:
+            if #available(iOS 16.0, *) {
+                guard let windowScene = view.window?.windowScene else { return }
+                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
+            }
+            UIDevice.current.setValue(UIInterfaceOrientation.landscapeRight.rawValue, forKey: "orientation")
         }
     }
     
