@@ -1,7 +1,9 @@
 package com.stash.popup;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -30,15 +32,20 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.net.Uri;
 
+import java.lang.ref.WeakReference;
+
 /**
  * Internal plugin class that handles the WebView and dialog management.
  * Use {@link StashPayCard} for the public API.
+ * 
+ * Memory optimization: Uses WeakReference for Activity to prevent leaks.
  */
 public class StashPayCardPlugin {
     private static final String TAG = "StashPayCard";
     private static StashPayCardPlugin instance;
     
-    private Activity activity;
+    // Use WeakReference to prevent Activity memory leaks
+    private WeakReference<Activity> activityRef;
     private StashPayCard.StashPayListener listener;
 
     private Dialog currentDialog;
@@ -162,8 +169,21 @@ public class StashPayCardPlugin {
     private StashPayCardPlugin() {
     }
     
+    /**
+     * Sets the Activity reference using WeakReference to prevent memory leaks.
+     * @param activity The activity to use for UI operations
+     */
     void setActivity(Activity activity) {
-        this.activity = activity;
+        this.activityRef = new WeakReference<>(activity);
+    }
+    
+    /**
+     * Gets the Activity if still available, or null if it was garbage collected.
+     * Always check for null before using.
+     * @return The activity or null if no longer available
+     */
+    private Activity getActivity() {
+        return activityRef != null ? activityRef.get() : null;
     }
     
     void setListener(StashPayCard.StashPayListener listener) {
@@ -208,6 +228,7 @@ public class StashPayCardPlugin {
     }
     
     public void dismissDialog() {
+        Activity activity = getActivity();
         if (activity != null) {
             activity.runOnUiThread(() -> {
                 try {
@@ -337,6 +358,7 @@ public class StashPayCardPlugin {
     
     private void openURLInternal(String url) {
         try {
+            Activity activity = getActivity();
             if (activity == null || url == null || url.isEmpty()) {
                 Log.e(TAG, "Invalid activity or URL");
                 return;
@@ -353,15 +375,16 @@ public class StashPayCardPlugin {
             }
 
             final String finalUrl = url;
+            final Activity finalActivity = activity;
 
             activity.runOnUiThread(() -> {
                 try {
                     if (usePopupPresentation) {
-                        createAndShowPopupDialog(finalUrl, activity);
+                        createAndShowPopupDialog(finalUrl, finalActivity);
                     } else if (forceSafariViewController) {
-                        openWithChromeCustomTabs(finalUrl, activity);
+                        openWithChromeCustomTabs(finalUrl, finalActivity);
                     } else {
-                        launchPortraitActivity(finalUrl, activity);
+                        launchPortraitActivity(finalUrl, finalActivity);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in UI thread operation: " + e.getMessage(), e);

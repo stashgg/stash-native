@@ -10,7 +10,9 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
@@ -18,34 +20,72 @@ import com.stash.popup.StashPayCard;
 
 /**
  * Sample activity demonstrating StashPayCard SDK integration.
+ * Features a two-mode interface with essential controls always visible
+ * and advanced options in a collapsible section.
  */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "StashNativeDemo";
     
     private static final String DEFAULT_URL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html";
     
+    // State preservation keys
+    private static final String KEY_URL = "url";
+    private static final String KEY_ADVANCED_EXPANDED = "advanced_expanded";
+    private static final String KEY_PHONE_HEIGHT = "phone_height";
+    private static final String KEY_TABLET_WIDTH = "tablet_width";
+    private static final String KEY_TABLET_HEIGHT = "tablet_height";
+    
     private EditText urlInput;
     private TextView statusText;
+    private TextView advancedOptionsToggle;
+    private ConstraintLayout advancedOptionsContainer;
+    private boolean isAdvancedExpanded = false;
+    
+    // Sliders
+    private SeekBar phoneHeightSlider;
+    private SeekBar tabletWidthSlider;
+    private SeekBar tabletHeightSlider;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
+        // Initialize views
         urlInput = findViewById(R.id.urlInput);
         statusText = findViewById(R.id.statusText);
         Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
         SwitchMaterial webViewModeSwitch = findViewById(R.id.webViewModeSwitch);
+        advancedOptionsToggle = findViewById(R.id.advancedOptionsToggle);
+        advancedOptionsContainer = findViewById(R.id.advancedOptionsContainer);
         
         // Size configuration UI
         TextView phoneHeightLabel = findViewById(R.id.phoneHeightLabel);
-        SeekBar phoneHeightSlider = findViewById(R.id.phoneHeightSlider);
+        phoneHeightSlider = findViewById(R.id.phoneHeightSlider);
         TextView tabletWidthLabel = findViewById(R.id.tabletWidthLabel);
-        SeekBar tabletWidthSlider = findViewById(R.id.tabletWidthSlider);
+        tabletWidthSlider = findViewById(R.id.tabletWidthSlider);
         TextView tabletHeightLabel = findViewById(R.id.tabletHeightLabel);
-        SeekBar tabletHeightSlider = findViewById(R.id.tabletHeightSlider);
+        tabletHeightSlider = findViewById(R.id.tabletHeightSlider);
         
-        urlInput.setText(DEFAULT_URL);
+        // Restore state or set defaults
+        if (savedInstanceState != null) {
+            urlInput.setText(savedInstanceState.getString(KEY_URL, DEFAULT_URL));
+            isAdvancedExpanded = savedInstanceState.getBoolean(KEY_ADVANCED_EXPANDED, false);
+            phoneHeightSlider.setProgress(savedInstanceState.getInt(KEY_PHONE_HEIGHT, 58));
+            tabletWidthSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_WIDTH, 70));
+            tabletHeightSlider.setProgress(savedInstanceState.getInt(KEY_TABLET_HEIGHT, 65));
+        } else {
+            urlInput.setText(DEFAULT_URL);
+        }
+        
+        // Set initial advanced options visibility
+        updateAdvancedOptionsVisibility();
+        
+        // Advanced options toggle
+        advancedOptionsToggle.setOnClickListener(v -> {
+            isAdvancedExpanded = !isAdvancedExpanded;
+            updateAdvancedOptionsVisibility();
+        });
         
         // Initialize StashPayCard
         StashPayCard stashPayCard = StashPayCard.getInstance();
@@ -171,5 +211,29 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         // Update activity reference in case it changed
         StashPayCard.getInstance().setActivity(this);
+    }
+    
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        // Save state for configuration changes
+        outState.putString(KEY_URL, urlInput.getText().toString());
+        outState.putBoolean(KEY_ADVANCED_EXPANDED, isAdvancedExpanded);
+        outState.putInt(KEY_PHONE_HEIGHT, phoneHeightSlider.getProgress());
+        outState.putInt(KEY_TABLET_WIDTH, tabletWidthSlider.getProgress());
+        outState.putInt(KEY_TABLET_HEIGHT, tabletHeightSlider.getProgress());
+    }
+    
+    /**
+     * Updates the visibility and indicator of the advanced options section.
+     */
+    private void updateAdvancedOptionsVisibility() {
+        if (isAdvancedExpanded) {
+            advancedOptionsContainer.setVisibility(View.VISIBLE);
+            advancedOptionsToggle.setText("▼ Advanced Options");
+        } else {
+            advancedOptionsContainer.setVisibility(View.GONE);
+            advancedOptionsToggle.setText("▶ Advanced Options");
+        }
     }
 }

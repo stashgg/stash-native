@@ -344,10 +344,17 @@ public class StashPayCardPortraitActivity extends Activity {
         cardContainer.addView(dragArea);
     }
     
+    /**
+     * Touch listener for drag handle with velocity-based gesture recognition.
+     * Uses CardConstants for consistent threshold values.
+     */
     private class DragHandleTouchListener implements View.OnTouchListener {
         private float initialY;
         private float initialTranslationY;
         private boolean isDragging;
+        private long lastMoveTime;
+        private float lastMoveY;
+        private float velocity;
         
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -364,26 +371,52 @@ public class StashPayCardPortraitActivity extends Activity {
                     initialY = event.getRawY();
                     initialTranslationY = cardContainer.getTranslationY();
                     isDragging = false;
+                    lastMoveTime = System.currentTimeMillis();
+                    lastMoveY = event.getRawY();
+                    velocity = 0;
                     return true;
                 
                 case MotionEvent.ACTION_MOVE:
                     float deltaY = event.getRawY() - initialY;
                     
+                    // Calculate velocity
+                    long currentTime = System.currentTimeMillis();
+                    float timeDelta = (currentTime - lastMoveTime) / 1000f;
+                    if (timeDelta > 0) {
+                        velocity = (event.getRawY() - lastMoveY) / timeDelta;
+                    }
+                    lastMoveTime = currentTime;
+                    lastMoveY = event.getRawY();
+                    
                     if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 10)) {
                         isDragging = true;
                         
-                        // On tablets, only allow drag down (dismiss), not drag up (expand)
-                        if (deltaY > 0) {
-                            float newTranslationY = initialTranslationY + deltaY;
-                            cardContainer.setTranslationY(newTranslationY);
-                            DisplayMetrics metrics = getResources().getDisplayMetrics();
-                            float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
-                            cardContainer.setAlpha(1.0f - (progress * 0.5f));
-                        } else if (deltaY < 0 && !isTablet && !isExpanded && !wasLandscapeBeforePortrait) {
-                            // Drag up to expand - disabled for tablets
-                            float dragProgress = Math.min(Math.abs(deltaY) / StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 100), 1.0f);
-                            cardContainer.setScaleX(1.0f + (dragProgress * 0.02f));
-                            cardContainer.setScaleY(1.0f + (dragProgress * 0.02f));
+                        // Tablet: Only allow downward drag (dismiss only)
+                        if (isTablet) {
+                            if (deltaY > 0) {
+                                float newTranslationY = initialTranslationY + deltaY;
+                                cardContainer.setTranslationY(newTranslationY);
+                                DisplayMetrics metrics = getResources().getDisplayMetrics();
+                                float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
+                                cardContainer.setAlpha(1.0f - (progress * 0.5f));
+                            }
+                        } else {
+                            // Phone: Allow both directions
+                            if (deltaY > 0) {
+                                // Drag down
+                                float newTranslationY = initialTranslationY + deltaY;
+                                cardContainer.setTranslationY(newTranslationY);
+                                DisplayMetrics metrics = getResources().getDisplayMetrics();
+                                float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
+                                cardContainer.setAlpha(1.0f - (progress * 0.5f));
+                            } else if (!isExpanded && !wasLandscapeBeforePortrait) {
+                                // Drag up to expand (phone only)
+                                float cardHeight = cardContainer.getHeight();
+                                float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                                float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
+                                cardContainer.setScaleX(1.0f + (dragProgress * 0.02f));
+                                cardContainer.setScaleY(1.0f + (dragProgress * 0.02f));
+                            }
                         }
                     }
                     return true;
@@ -393,31 +426,59 @@ public class StashPayCardPortraitActivity extends Activity {
                     if (isDragging) {
                         float finalDeltaY = event.getRawY() - initialY;
                         DisplayMetrics metrics = getResources().getDisplayMetrics();
+                        float cardHeight = cardContainer.getHeight();
                         
-                        if (finalDeltaY > 0) {
-                            int dismissThreshold = isTablet ? (int)(metrics.heightPixels * 0.15f) 
-                                                             : (int)(metrics.heightPixels * 0.25f);
-                            if (finalDeltaY > dismissThreshold) {
-                                if (isTablet) {
-                                    // For tablets, use fade dismiss animation
+                        if (isTablet) {
+                            // Tablet: Dismiss only
+                            if (finalDeltaY > 0) {
+                                float dismissThreshold = metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_TABLET;
+                                if (finalDeltaY > dismissThreshold || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD_TABLET) {
                                     animateTabletDismiss();
                                 } else {
-                                animateDismiss();
+                                    animateSnapBack();
                                 }
                             } else {
                                 animateSnapBack();
                             }
-                        } else if (finalDeltaY < 0 && !isTablet && !isExpanded && !wasLandscapeBeforePortrait) {
-                            // Drag up to expand - only for phones, not tablets
-                            if (Math.abs(finalDeltaY) > StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 80)) {
-                                animateExpand();
+                        } else {
+                            // Phone: Three-state system with velocity
+                            if (finalDeltaY > 0) {
+                                // Drag down
+                                float dismissThreshold = metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
+                                float collapseThreshold = cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
+                                
+                                if (isExpanded) {
+                                    // From expanded: collapse or dismiss
+                                    if (finalDeltaY > dismissThreshold && velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                                        animateDismiss();
+                                    } else if (finalDeltaY > collapseThreshold || velocity > CardConstants.COLLAPSE_VELOCITY_THRESHOLD) {
+                                        animateCollapse();
+                                    } else {
+                                        animateSnapBack();
+                                    }
+                                } else {
+                                    // From collapsed: dismiss
+                                    if (finalDeltaY > dismissThreshold || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                                        animateDismiss();
+                                    } else {
+                                        animateSnapBack();
+                                    }
+                                }
+                            } else if (finalDeltaY < 0 && !isExpanded && !wasLandscapeBeforePortrait) {
+                                // Drag up: expand (phone only)
+                                float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                                if (Math.abs(finalDeltaY) > expandThreshold || velocity < CardConstants.EXPAND_VELOCITY_THRESHOLD) {
+                                    animateExpand();
+                                } else {
+                                    cardContainer.setScaleX(1.0f);
+                                    cardContainer.setScaleY(1.0f);
+                                    animateSnapBack();
+                                }
                             } else {
+                                cardContainer.setScaleX(1.0f);
+                                cardContainer.setScaleY(1.0f);
                                 animateSnapBack();
                             }
-                        } else {
-                            cardContainer.setScaleX(1.0f);
-                            cardContainer.setScaleY(1.0f);
-                            animateSnapBack();
                         }
                     }
                     return true;
