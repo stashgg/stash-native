@@ -1,5 +1,6 @@
 package com.stash.popup;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
