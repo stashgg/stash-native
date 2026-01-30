@@ -423,9 +423,10 @@ public class StashPayCardPortraitActivity extends Activity {
                     lastMoveY = event.getRawY();
                     
                     if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(StashPayCardPortraitActivity.this, 10)) {
-                        isDragging = true;
+                        // Tablet: only treat as drag when moving downward (dismiss gesture)
+                        isDragging = isTablet ? (deltaY > 0) : true;
                         
-                        // Tablet: Only allow downward drag (dismiss only)
+                        // Tablet: Only allow downward drag (dismiss only). Ignore upward movement.
                         if (isTablet) {
                             if (deltaY > 0) {
                                 float newTranslationY = initialTranslationY + deltaY;
@@ -658,8 +659,12 @@ public class StashPayCardPortraitActivity extends Activity {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         boolean isTablet = StashWebViewUtils.isTablet(this);
         
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
         int targetHeight;
-        if (wasLandscapeBeforePortrait && !isTablet) {
+        if (isTablet) {
+            // Tablet: single fixed size - keep current height, only reset translation/alpha/scale
+            targetHeight = params.height;
+        } else if (wasLandscapeBeforePortrait) {
             targetHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
             isExpanded = true;
         } else if (isExpanded) {
@@ -668,7 +673,6 @@ public class StashPayCardPortraitActivity extends Activity {
             targetHeight = (int)(metrics.heightPixels * cardHeightRatio);
         }
         
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
         if (params.height != targetHeight) {
             animateCardHeight(targetHeight, 450);
         }
