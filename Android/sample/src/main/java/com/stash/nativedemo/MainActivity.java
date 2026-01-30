@@ -31,6 +31,7 @@ public class MainActivity extends AppCompatActivity {
     // State preservation keys
     private static final String KEY_URL = "url";
     private static final String KEY_ADVANCED_EXPANDED = "advanced_expanded";
+    private static final String KEY_PHONE_CARD_HEIGHT = "phone_card_height";
     private static final String KEY_TABLET_PORTRAIT_WIDTH = "tablet_portrait_width";
     private static final String KEY_TABLET_PORTRAIT_HEIGHT = "tablet_portrait_height";
     private static final String KEY_TABLET_LANDSCAPE_WIDTH = "tablet_landscape_width";
@@ -42,7 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private ConstraintLayout advancedOptionsContainer;
     private boolean isAdvancedExpanded = false;
     
-    // Sliders for portrait and landscape
+    // Sliders
+    private SeekBar phoneCardHeightSlider;
     private SeekBar tabletPortraitWidthSlider;
     private SeekBar tabletPortraitHeightSlider;
     private SeekBar tabletLandscapeWidthSlider;
@@ -61,7 +63,9 @@ public class MainActivity extends AppCompatActivity {
         advancedOptionsToggle = findViewById(R.id.advancedOptionsToggle);
         advancedOptionsContainer = findViewById(R.id.advancedOptionsContainer);
         
-        // Size configuration UI - separate portrait and landscape
+        // Size configuration UI - phone card height and tablet portrait/landscape
+        TextView phoneCardHeightLabel = findViewById(R.id.phoneCardHeightLabel);
+        phoneCardHeightSlider = findViewById(R.id.phoneCardHeightSlider);
         TextView tabletPortraitWidthLabel = findViewById(R.id.tabletPortraitWidthLabel);
         tabletPortraitWidthSlider = findViewById(R.id.tabletPortraitWidthSlider);
         TextView tabletPortraitHeightLabel = findViewById(R.id.tabletPortraitHeightLabel);
@@ -71,14 +75,17 @@ public class MainActivity extends AppCompatActivity {
         TextView tabletLandscapeHeightLabel = findViewById(R.id.tabletLandscapeHeightLabel);
         tabletLandscapeHeightSlider = findViewById(R.id.tabletLandscapeHeightSlider);
         
-        // Restore state or set defaults (progress 0-90 maps to 10%-100%: progress 30 = 40%, etc.)
+        // Restore state or set defaults (progress 0-90 maps to 10%-100%: progress 58 = 68%, etc.)
         if (savedInstanceState != null) {
             urlInput.setText(savedInstanceState.getString(KEY_URL, DEFAULT_URL));
             isAdvancedExpanded = savedInstanceState.getBoolean(KEY_ADVANCED_EXPANDED, false);
+            int phoneH = savedInstanceState.getInt(KEY_PHONE_CARD_HEIGHT, 58);
             int pw = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 30);
             int ph = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 40);
             int lw = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 20);
             int lh = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 50);
+            phoneCardHeightSlider.setProgress(phoneH);
+            phoneCardHeightLabel.setText(String.format("Height: %d%%", phoneH + 10));
             tabletPortraitWidthSlider.setProgress(pw);
             tabletPortraitWidthLabel.setText(String.format("Width: %d%%", pw + 10));
             tabletPortraitHeightSlider.setProgress(ph);
@@ -89,7 +96,10 @@ public class MainActivity extends AppCompatActivity {
             tabletLandscapeHeightLabel.setText(String.format("Height: %d%%", lh + 10));
         } else {
             urlInput.setText(DEFAULT_URL);
-            // Set initial slider positions and labels to match iOS (40%, 50%, 30%, 60%)
+            // Phone card height default 68%
+            phoneCardHeightSlider.setProgress(58);
+            phoneCardHeightLabel.setText("Height: 68%");
+            // Tablet defaults to match iOS (40%, 50%, 30%, 60%)
             tabletPortraitWidthSlider.setProgress(30);
             tabletPortraitWidthLabel.setText("Width: 40%");
             tabletPortraitHeightSlider.setProgress(40);
@@ -113,7 +123,8 @@ public class MainActivity extends AppCompatActivity {
         StashPayCard stashPayCard = StashPayCard.getInstance();
         stashPayCard.setActivity(this);
         
-        // Apply initial tablet sizing from sliders (matches iOS: 40%, 50%, 30%, 60%)
+        // Apply initial sizing from sliders
+        stashPayCard.setCardHeightRatioPortrait((phoneCardHeightSlider.getProgress() + 10) / 100f);
         stashPayCard.setTabletWidthRatioPortrait((tabletPortraitWidthSlider.getProgress() + 10) / 100f);
         stashPayCard.setTabletHeightRatioPortrait((tabletPortraitHeightSlider.getProgress() + 10) / 100f);
         stashPayCard.setTabletWidthRatioLandscape((tabletLandscapeWidthSlider.getProgress() + 10) / 100f);
@@ -136,6 +147,20 @@ public class MainActivity extends AppCompatActivity {
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
                 statusText.setText("Orientation Unlocked");
             }
+        });
+        
+        // Phone Card Height Slider (10% to 100%)
+        phoneCardHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                float ratio = (progress + 10) / 100f;
+                phoneCardHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+                stashPayCard.setCardHeightRatioPortrait(ratio);
+            }
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {}
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
         // Tablet Portrait Width Slider (10% to 100%)
@@ -261,6 +286,7 @@ public class MainActivity extends AppCompatActivity {
         // Save state for configuration changes
         outState.putString(KEY_URL, urlInput.getText().toString());
         outState.putBoolean(KEY_ADVANCED_EXPANDED, isAdvancedExpanded);
+        outState.putInt(KEY_PHONE_CARD_HEIGHT, phoneCardHeightSlider.getProgress());
         outState.putInt(KEY_TABLET_PORTRAIT_WIDTH, tabletPortraitWidthSlider.getProgress());
         outState.putInt(KEY_TABLET_PORTRAIT_HEIGHT, tabletPortraitHeightSlider.getProgress());
         outState.putInt(KEY_TABLET_LANDSCAPE_WIDTH, tabletLandscapeWidthSlider.getProgress());

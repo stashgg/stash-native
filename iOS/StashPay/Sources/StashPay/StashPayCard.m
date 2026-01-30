@@ -625,7 +625,18 @@ NSString* appendThemeQueryParameter(NSString* url);
 }
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
-    // Tablet modals don't have a drag tray; no special case needed
+    // iPad: only allow drag-down (dismiss). Block upward drags.
+    if (isRunningOniPad() && [gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
+        UIPanGestureRecognizer *panGesture = (UIPanGestureRecognizer *)gestureRecognizer;
+        if ([panGesture.view isEqual:self.dragTrayView]) {
+            UIView *referenceView = self.portraitWindow ? self.portraitWindow : panGesture.view.superview;
+            CGPoint translation = [panGesture translationInView:referenceView];
+            CGPoint velocity = [panGesture velocityInView:referenceView];
+            if (translation.y < 0 || velocity.y < 0) {
+                return NO;
+            }
+        }
+    }
     return YES;
 }
 
@@ -1165,12 +1176,15 @@ NSString* appendThemeQueryParameter(NSString* url);
 - (void)handleDragTrayPanGesture:(UIPanGestureRecognizer *)gesture {
     if (!self.currentPresentedVC) return;
     if (self.isPurchaseProcessing) return;
-    // Tablet modals don't have a drag tray - this should never run on iPad
-    if (isRunningOniPad()) return;
     
-    // iPhone only: cardView is directly on the window
-    UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:9999] : [self.currentPresentedVC.view viewWithTag:9999];
-    if (!cardView) cardView = self.currentPresentedVC.view;
+    // Get the actual card view (tag 9999) for iPhone or iPad
+    UIView *cardView;
+    if (isRunningOniPad()) {
+        cardView = [self.currentPresentedVC.view viewWithTag:9999];
+    } else {
+        cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:9999] : [self.currentPresentedVC.view viewWithTag:9999];
+        if (!cardView) cardView = self.currentPresentedVC.view;
+    }
     if (!cardView) return;
     
     switch (gesture.state) {
@@ -1196,7 +1210,10 @@ NSString* appendThemeQueryParameter(NSString* url);
 
 - (void)handleDragGestureBegan:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
     self.initialY = cardView.frame.origin.y;
-    objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    if (!isRunningOniPad()) {
+        objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
     
     if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
         [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
@@ -1208,6 +1225,20 @@ NSString* appendThemeQueryParameter(NSString* url);
     CGFloat currentTravel = translation.y;
     CGFloat screenHeight = self.portraitWindow ? self.portraitWindow.bounds.size.height : cardView.superview.bounds.size.height;
     CGFloat height = cardView.frame.size.height;
+    
+    if (isRunningOniPad()) {
+        // iPad: drag-down only (toward dismiss). No expand/collapse.
+        if (currentTravel <= 0) return;
+        CGFloat newY = MIN(screenHeight, self.initialY + currentTravel);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        cardView.frame = CGRectMake(cardView.frame.origin.x, newY, cardView.frame.size.width, height);
+        [CATransaction commit];
+        if ([self.currentPresentedVC respondsToSelector:@selector(setCustomFrame:)]) {
+            [(id)self.currentPresentedVC setCustomFrame:cardView.frame];
+        }
+        return;
+    }
     
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     UIEdgeInsets safeAreaInsets = UIEdgeInsetsZero;
@@ -1279,7 +1310,9 @@ NSString* appendThemeQueryParameter(NSString* url);
 }
     
 - (void)handleDragGestureEnded:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
-    objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    if (!isRunningOniPad()) {
+        objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
     
     UIView *referenceView = self.portraitWindow ? self.portraitWindow : cardView.superview;
     CGPoint translation = [gesture translationInView:referenceView];
@@ -1292,25 +1325,40 @@ NSString* appendThemeQueryParameter(NSString* url);
     BOOL shouldCollapse = NO;
     BOOL shouldDismiss = NO;
     
-    CGFloat expandThreshold = height * 0.15;
-    CGFloat collapseThreshold = height * 0.25;
-    CGFloat dismissThreshold = height * 0.4;
-    CGFloat expandVelocityThreshold = -300;
-    CGFloat collapseVelocityThreshold = 300;
-    CGFloat dismissVelocityThreshold = 500;
-    
-    if (currentTravel < -expandThreshold || velocity.y < expandVelocityThreshold) {
-        if (!_isCardExpanded) shouldExpand = YES;
-    } else if (currentTravel > 0) {
-        if (_isCardExpanded) {
-            if (currentTravel > dismissThreshold && velocity.y > dismissVelocityThreshold) {
+    if (isRunningOniPad()) {
+        // iPad: dismiss only. No expand/collapse.
+        if (currentTravel > 0) {
+            CGFloat currentY = cardView.frame.origin.y;
+            CGFloat screenHeight = referenceView.bounds.size.height;
+            CGFloat cardBottom = currentY + height;
+            CGFloat distanceToBottom = screenHeight - cardBottom;
+            CGFloat dismissVelocityThreshold = 1040;
+            if (distanceToBottom < 10.0 || (velocity.y > dismissVelocityThreshold && currentTravel > height * 0.325)) {
                 shouldDismiss = YES;
-            } else if (currentTravel > collapseThreshold || velocity.y > collapseVelocityThreshold) {
-                shouldCollapse = YES;
             }
-        } else {
-            if (currentTravel > dismissThreshold || velocity.y > dismissVelocityThreshold) {
-                shouldDismiss = YES;
+        }
+    } else {
+        // iPhone: expand, collapse, or dismiss
+        CGFloat expandThreshold = height * 0.15;
+        CGFloat collapseThreshold = height * 0.25;
+        CGFloat dismissThreshold = height * 0.4;
+        CGFloat expandVelocityThreshold = -300;
+        CGFloat collapseVelocityThreshold = 300;
+        CGFloat dismissVelocityThreshold = 500;
+        
+        if (currentTravel < -expandThreshold || velocity.y < expandVelocityThreshold) {
+            if (!_isCardExpanded) shouldExpand = YES;
+        } else if (currentTravel > 0) {
+            if (_isCardExpanded) {
+                if (currentTravel > dismissThreshold && velocity.y > dismissVelocityThreshold) {
+                    shouldDismiss = YES;
+                } else if (currentTravel > collapseThreshold || velocity.y > collapseVelocityThreshold) {
+                    shouldCollapse = YES;
+                }
+            } else {
+                if (currentTravel > dismissThreshold || velocity.y > dismissVelocityThreshold) {
+                    shouldDismiss = YES;
+                }
             }
         }
     }
@@ -1388,20 +1436,57 @@ NSString* appendThemeQueryParameter(NSString* url);
             }];
         }];
     } else {
-        // iPhone snap back
-        CGFloat targetProgress = _isCardExpanded ? 1.0 : 0.0;
-        [UIView animateWithDuration:0.32 
-                              delay:0 
-             usingSpringWithDamping:0.92 
-              initialSpringVelocity:fabs(velocity.y) / 1000.0 
-                            options:UIViewAnimationOptionCurveEaseOut 
-                         animations:^{
-            [self updateCardExpansionProgress:targetProgress cardView:cardView];
-        } completion:^(BOOL finished) {
-            if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-            }
-        }];
+        // Snap back: iPad to center, iPhone to expanded/collapsed
+        if (isRunningOniPad()) {
+            CGRect screenBounds = [UIScreen mainScreen].bounds;
+            CGSize cardSize = calculateiPadCardSize(screenBounds);
+            CGFloat originalWidth = cardSize.width;
+            CGFloat originalHeight = cardSize.height;
+            CGPoint screenCenter = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
+            CGRect newBounds = CGRectMake(0, 0, originalWidth, originalHeight);
+            
+            [UIView animateWithDuration:kAnimationDurationFast
+                                  delay:0
+                 usingSpringWithDamping:0.92
+                  initialSpringVelocity:fabs(velocity.y) / 1000.0
+                                options:UIViewAnimationOptionCurveEaseOut
+                             animations:^{
+                cardView.bounds = newBounds;
+                cardView.center = screenCenter;
+                
+                UIView *dragTray = [cardView viewWithTag:8888];
+                if (dragTray) {
+                    dragTray.frame = CGRectMake(0, 0, originalWidth, kDragTrayHeight);
+                    UIView *handle = [dragTray viewWithTag:8889];
+                    if (handle) {
+                        handle.frame = CGRectMake((originalWidth / 2.0) - 18.0, 8, 36, 5);
+                    }
+                }
+                
+                if ([self.currentPresentedVC respondsToSelector:@selector(setCustomFrame:)]) {
+                    [(id)self.currentPresentedVC setCustomFrame:cardView.frame];
+                }
+            } completion:^(BOOL finished) {
+                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
+                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
+                }
+            }];
+        } else {
+            // iPhone snap back
+            CGFloat targetProgress = _isCardExpanded ? 1.0 : 0.0;
+            [UIView animateWithDuration:0.32
+                                  delay:0
+                 usingSpringWithDamping:0.92
+                  initialSpringVelocity:fabs(velocity.y) / 1000.0
+                                options:UIViewAnimationOptionCurveEaseOut
+                             animations:^{
+                [self updateCardExpansionProgress:targetProgress cardView:cardView];
+            } completion:^(BOOL finished) {
+                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
+                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
+                }
+            }];
+        }
     }
 }
 
@@ -2262,9 +2347,10 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.alpha = 1.0;
         overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
     } completion:^(BOOL finished) {
-        // Tablet modal: visual-only drag bar (no pan gesture). Dismiss via overlay tap.
-        UIView *dragBar = [internal createDragTrayVisualOnly:cardSize.width];
-        [cardView addSubview:dragBar];
+        // Tablet modal: drag bar with pan gesture for drag-down-to-dismiss only (no expand/collapse).
+        UIView *dragTray = [internal createDragTray:cardSize.width];
+        [cardView addSubview:dragTray];
+        internal.dragTrayView = dragTray;
         
         UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
         dismissButton.frame = overlayView.bounds;

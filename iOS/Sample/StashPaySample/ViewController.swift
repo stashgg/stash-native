@@ -29,6 +29,10 @@ class ViewController: UIViewController {
     // Size configuration UI
     private let landscapeLockSwitch = UISwitch()
     
+    // Phone card height (portrait)
+    private let phoneCardHeightLabel = UILabel()
+    private let phoneCardHeightSlider = UISlider()
+    
     // Tablet Portrait sliders
     private let tabletPortraitWidthLabel = UILabel()
     private let tabletPortraitWidthSlider = UISlider()
@@ -166,6 +170,24 @@ class ViewController: UIViewController {
         
         advancedOptionsContainer.addArrangedSubview(landscapeLockContainer)
         
+        // Phone Card Height (applies to phone card in portrait)
+        let phoneCardTitle = UILabel()
+        phoneCardTitle.text = "Phone Card Height"
+        phoneCardTitle.font = .systemFont(ofSize: 16, weight: .bold)
+        advancedOptionsContainer.addArrangedSubview(phoneCardTitle)
+        
+        phoneCardHeightLabel.font = .systemFont(ofSize: 14)
+        phoneCardHeightLabel.textColor = .secondaryLabel
+        advancedOptionsContainer.addArrangedSubview(phoneCardHeightLabel)
+        
+        phoneCardHeightSlider.minimumValue = 10
+        phoneCardHeightSlider.maximumValue = 100
+        phoneCardHeightSlider.value = 68
+        phoneCardHeightLabel.text = "Height: \(Int(phoneCardHeightSlider.value))%"
+        phoneCardHeightSlider.accessibilityLabel = "Phone card height percentage"
+        phoneCardHeightSlider.addTarget(self, action: #selector(phoneCardHeightChanged), for: .valueChanged)
+        advancedOptionsContainer.addArrangedSubview(phoneCardHeightSlider)
+        
         // Size Configuration Section - Tablet Portrait
         let tabletPortraitTitle = UILabel()
         tabletPortraitTitle.text = "Tablet Size (Portrait)"
@@ -288,7 +310,9 @@ class ViewController: UIViewController {
     
     private func setupStashPayCard() {
         StashPayCard.sharedInstance().delegate = self
-        // Set defaults using orientation-specific API - matching slider defaults
+        // Phone card height (portrait)
+        StashPayCard.sharedInstance().cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
+        // Tablet defaults
         StashPayCard.sharedInstance().tabletWidthRatioPortrait = 0.4
         StashPayCard.sharedInstance().tabletHeightRatioPortrait = 0.5
         StashPayCard.sharedInstance().tabletWidthRatioLandscape = 0.3
@@ -346,6 +370,12 @@ class ViewController: UIViewController {
             }
             statusLabel.text = "Orientation Unlocked"
         }
+    }
+    
+    @objc private func phoneCardHeightChanged() {
+        let ratio = CGFloat(phoneCardHeightSlider.value) / 100.0
+        phoneCardHeightLabel.text = "Height: \(Int(phoneCardHeightSlider.value))%"
+        StashPayCard.sharedInstance().cardHeightRatioPortrait = ratio
     }
     
     @objc private func tabletPortraitWidthChanged() {
