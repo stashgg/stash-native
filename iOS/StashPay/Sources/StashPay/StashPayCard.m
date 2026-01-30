@@ -233,6 +233,7 @@ NSString* appendThemeQueryParameter(NSString* url);
         CGFloat width, height, x, y;
         
         if (isRunningOniPad()) {
+            // iPad: Always use center/bounds for guaranteed centering
             // Check if screen size changed (rotation occurred) using actual screen bounds
             BOOL screenSizeChanged = NO;
             CGSize currentScreenSize = screenBounds.size;
@@ -247,23 +248,93 @@ NSString* appendThemeQueryParameter(NSString* url);
             // Always update previousScreenSize to current
             self.previousScreenSize = currentScreenSize;
             
+            // Calculate screen center
+            CGPoint screenCenter = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
+            
             // Tablets don't have expand/collapse - always use configured sizes directly
-            // Always recalculate on rotation to use orientation-specific ratios
             if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || CGRectIsNull(self.customFrame) ||
                 self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
                 // Recalculate size for new screen dimensions (rotation or first time)
                 CGSize cardSize = calculateiPadCardSize(screenBounds);
                 width = cardSize.width;
                 height = cardSize.height;
-                x = (screenBounds.size.width - width) / 2;
-                y = (screenBounds.size.height - height) / 2;
             } else {
-                // Same orientation - just recenter existing size (prevents initial resize)
+                // Same orientation - keep existing size
                 width = self.customFrame.size.width;
                 height = self.customFrame.size.height;
-                x = (screenBounds.size.width - width) / 2;
-                y = (screenBounds.size.height - height) / 2;
             }
+            
+            // Check if we need to animate (size or center changed)
+            CGRect newBounds = CGRectMake(0, 0, width, height);
+            BOOL needsAnimation = !CGSizeEqualToSize(self.view.bounds.size, newBounds.size) ||
+                                  !CGPointEqualToPoint(self.view.center, screenCenter);
+            
+            if (needsAnimation) {
+                CGFloat sizeDiff = fabs(self.view.bounds.size.width - width) + fabs(self.view.bounds.size.height - height);
+                
+                if (sizeDiff > 50.0 || screenSizeChanged) {
+                    // Seamless spring animation for rotation - animate bounds and center separately
+                    // This ensures dialog scales from center, not from corner
+                    [UIView animateWithDuration:0.4
+                                          delay:0
+                         usingSpringWithDamping:0.85
+                          initialSpringVelocity:0.3
+                                        options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionLayoutSubviews
+                                     animations:^{
+                        // Animate bounds for size (scales from center)
+                        self.view.bounds = newBounds;
+                        // Animate center to keep at screen center
+                        self.view.center = screenCenter;
+                        
+                        // Update webview bounds for seamless resize
+                        for (UIView *subview in self.view.subviews) {
+                            if ([subview isKindOfClass:[WKWebView class]]) {
+                                subview.frame = newBounds;
+                                break;
+                            }
+                        }
+                        
+                        UIView *dragTray = [self.view viewWithTag:8888];
+                        if (dragTray) {
+                            dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
+                            UIView *handle = [dragTray viewWithTag:8889];
+                            if (handle) {
+                                CGFloat handleX = (width / 2.0) - 18.0;
+                                handle.frame = CGRectMake(handleX, 8, 36, 5);
+                            }
+                        }
+                        
+                        [self.view layoutIfNeeded];
+                    } completion:^(BOOL finished) {
+                        self.customFrame = self.view.frame;
+                        [self updateCornerRadiusMask];
+                    }];
+                } else {
+                    // Small change - no animation needed
+                    [CATransaction begin];
+                    [CATransaction setDisableActions:YES];
+                    self.view.bounds = newBounds;
+                    self.view.center = screenCenter;
+                    self.customFrame = self.view.frame;
+                    
+                    UIView *dragTray = [self.view viewWithTag:8888];
+                    if (dragTray) {
+                        dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
+                        UIView *handle = [dragTray viewWithTag:8889];
+                        if (handle) {
+                            CGFloat handleX = (width / 2.0) - 18.0;
+                            handle.frame = CGRectMake(handleX, 8, 36, 5);
+                        }
+                    }
+                    
+                    [CATransaction commit];
+                    [self updateCornerRadiusMask];
+                }
+            } else {
+                self.customFrame = self.view.frame;
+                [self updateCornerRadiusMask];
+            }
+            return; // iPad handling complete
         } else {
             // iPhone: Use portrait dimensions (forced portrait for card mode)
             if (screenBounds.size.width > screenBounds.size.height) {
@@ -2296,14 +2367,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         initialY = finalY;
     }
     
-    // Set frame BEFORE creating window
-    containerVC.customFrame = CGRectMake(x, initialY, width, height);
-    containerVC.view.autoresizingMask = UIViewAutoresizingNone;
-    containerVC.view.frame = containerVC.customFrame;
-    containerVC.view.alpha = 0.0;
-    containerVC.view.transform = CGAffineTransformIdentity;
-    
-    // Create window
+    // Create window first
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
@@ -2321,35 +2385,28 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [CATransaction setDisableActions:YES];
     [UIView setAnimationsEnabled:NO];
     
-    // NOTE: iPhone card frame starts below screen for slide-up animation, iPad/popup at final position
-    if (!_usePopupPresentation && !isRunningOniPad()) {
+    containerVC.view.autoresizingMask = UIViewAutoresizingNone;
+    
+    if (isRunningOniPad() || _usePopupPresentation) {
+        // iPad/Popup: Use bounds + center for guaranteed centering
+        // This ensures dialog always appears and scales from screen center
+        CGPoint screenCenter = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
+        containerVC.view.bounds = CGRectMake(0, 0, width, height);
+        containerVC.view.center = screenCenter;
+        containerVC.customFrame = CGRectMake(screenCenter.x - width/2.0, screenCenter.y - height/2.0, width, height);
+    } else {
+        // iPhone: Frame-based positioning for slide-up animation from bottom
         CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
         CGFloat belowScreenY = screenHeight + height;
         containerVC.view.frame = CGRectMake(x, belowScreenY, width, height);
         containerVC.customFrame = CGRectMake(x, belowScreenY, width, height);
-    } else {
-        containerVC.view.frame = containerVC.customFrame;
     }
-    containerVC.view.autoresizingMask = UIViewAutoresizingNone;
+    
     containerVC.view.alpha = 0.0;
     containerVC.view.transform = CGAffineTransformIdentity;
     
     [CATransaction commit];
     [UIView setAnimationsEnabled:YES];
-    
-    // iPad and popup: Force layout to ensure frame is applied
-    if (isRunningOniPad() || _usePopupPresentation) {
-        [containerVC.view setNeedsLayout];
-        [containerVC.view layoutIfNeeded];
-        
-        if (!CGRectEqualToRect(containerVC.view.frame, containerVC.customFrame)) {
-            [CATransaction begin];
-            [CATransaction setDisableActions:YES];
-            containerVC.view.frame = containerVC.customFrame;
-            containerVC.view.bounds = CGRectMake(0, 0, containerVC.customFrame.size.width, containerVC.customFrame.size.height);
-            [CATransaction commit];
-        }
-    }
     
     // CRITICAL: Verify iPhone card frame is below screen before showing (iOS may reset it)
     if (!_usePopupPresentation && !isRunningOniPad()) {
@@ -2371,8 +2428,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
         _isCardExpanded = YES;
     }
     
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
+    // For iPhone, we delay window visibility until rotation completes to avoid rotation artifacts
+    // For iPad/Popup, show immediately
+    if (isRunningOniPad() || _usePopupPresentation) {
+        cardWindow.hidden = NO;
+        [cardWindow makeKeyAndVisible];
+    }
     
     // Calculate overlay bounds - use portrait dimensions when enforcing portrait on iPhone
     CGRect overlayBounds = [UIScreen mainScreen].bounds;
@@ -2387,7 +2448,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
     UIView *overlayView = [[UIView alloc] initWithFrame:overlayBounds];
     overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.0];
     overlayView.userInteractionEnabled = YES;
-    overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    // For iPhone, don't use autoresizingMask to prevent visible rotation animation
+    if (isRunningOniPad() || _usePopupPresentation) {
+        overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    } else {
+        overlayView.autoresizingMask = UIViewAutoresizingNone;
+    }
     [cardWindow insertSubview:overlayView atIndex:0];
     
     // Store overlay reference for gesture handlers
@@ -2454,34 +2520,48 @@ NSString* appendThemeQueryParameter(NSString* url) {
             }];
         } else {
             // iPhone card animation - Apple Pay style: quick, responsive slide up from BOTTOM
-            // Use dispatch_async to ensure rotation completes before animation starts
-            dispatch_async(dispatch_get_main_queue(), ^{
-                // Re-calculate portrait screen bounds after potential rotation
+            // Use dispatch_after with delay to ensure rotation completes before showing window
+            // This eliminates visible overlay rotation artifacts when forcing portrait from landscape
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                // Get current screen bounds (should now be portrait after rotation)
                 CGRect portraitBounds = [UIScreen mainScreen].bounds;
                 if (portraitBounds.size.width > portraitBounds.size.height) {
+                    // Still landscape, swap dimensions
                     portraitBounds = CGRectMake(0, 0, portraitBounds.size.height, portraitBounds.size.width);
                 }
                 
-                // Ensure overlay covers full portrait screen
-                overlayView.frame = portraitBounds;
-                
-                // Verify card starts below screen with correct custom dimensions
-                CGFloat belowScreenY = portraitBounds.size.height + animHeight;
+                // Suppress all implicit animations during setup
                 [CATransaction begin];
                 [CATransaction setDisableActions:YES];
+                
+                // Update window and overlay to portrait bounds BEFORE showing
+                cardWindow.frame = portraitBounds;
+                overlayView.frame = portraitBounds;
+                overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.0];
+                
+                // Ensure card starts below screen
+                CGFloat belowScreenY = portraitBounds.size.height + animHeight;
                 containerVC.view.frame = CGRectMake(animX, belowScreenY, animWidth, animHeight);
                 containerVC.customFrame = CGRectMake(animX, belowScreenY, animWidth, animHeight);
                 containerVC.view.alpha = 0.0;
+                
                 [CATransaction commit];
                 
-                // Fade in the overlay
-                [UIView animateWithDuration:0.1 animations:^{
+                // NOW show the window - after all setup is complete with no animations
+                cardWindow.hidden = NO;
+                [cardWindow makeKeyAndVisible];
+                
+                // Fade in the overlay seamlessly
+                [UIView animateWithDuration:0.15
+                                      delay:0
+                                    options:UIViewAnimationOptionCurveEaseOut
+                                 animations:^{
                     overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:overlayOpacity];
-                }];
+                } completion:nil];
                 
                 // Apple Pay animation: slide up from below screen with spring
                 [UIView animateWithDuration:0.45
-                                      delay:0.05
+                                      delay:0.08
                      usingSpringWithDamping:0.88
                       initialSpringVelocity:0.2
                                     options:UIViewAnimationOptionCurveEaseOut
@@ -2491,6 +2571,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
                     containerVC.view.alpha = 1.0;
                 } completion:^(BOOL finished) {
                     containerVC.skipLayoutDuringInitialSetup = NO;
+                    
+                    // Now enable autoresizing for the overlay (rotation already complete)
+                    overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
                     
                     // Add drag tray
                     UIView *dragTray = [internal createDragTray:animWidth];

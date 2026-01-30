@@ -133,14 +133,17 @@ extern CGFloat _tabletHeightRatioLandscape;
         return;
     }
     
-    CGFloat width, height, x, y;
+    CGFloat width, height;
     
     if (isRunningOniPad()) {
+        // iPad: Always use center/bounds for guaranteed centering
         // Check for rotation
         BOOL screenSizeChanged = [self detectRotationChange:screenBounds];
         
+        // Calculate screen center
+        CGPoint screenCenter = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
+        
         // Tablets don't have expand/collapse - always use configured sizes directly
-        // Always recalculate on rotation to use orientation-specific ratios
         if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || 
             self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
             // Use orientation-specific ratios
@@ -153,15 +156,17 @@ extern CGFloat _tabletHeightRatioLandscape;
                                                                 tabletHeightRatio:heightRatio];
             width = cardSize.width;
             height = cardSize.height;
-            x = (screenBounds.size.width - width) / 2;
-            y = (screenBounds.size.height - height) / 2;
         } else {
-            // Same orientation - just recenter
+            // Same orientation - keep existing size
             width = self.customFrame.size.width;
             height = self.customFrame.size.height;
-            x = (screenBounds.size.width - width) / 2;
-            y = (screenBounds.size.height - height) / 2;
         }
+        
+        // Apply using center/bounds for iPad
+        [self applyiPadLayoutWithBounds:CGRectMake(0, 0, width, height)
+                                 center:screenCenter
+                     screenSizeChanged:screenSizeChanged];
+        return;
     } else {
         // iPhone: Use portrait dimensions (iPhones are forced to portrait for card mode)
         CGRect portraitBounds = screenBounds;
@@ -173,13 +178,13 @@ extern CGFloat _tabletHeightRatioLandscape;
         // iPhone always uses portrait ratios since card mode forces portrait
         width = portraitBounds.size.width * _cardWidthRatioPortrait;
         height = portraitBounds.size.height * _cardHeightRatioPortrait;
-        x = (portraitBounds.size.width - width) / 2;
-        y = portraitBounds.size.height * _cardVerticalPosition - height;
+        CGFloat x = (portraitBounds.size.width - width) / 2;
+        CGFloat y = portraitBounds.size.height * _cardVerticalPosition - height;
         if (y < 0) y = 0;
+        
+        CGRect newFrame = CGRectMake(x, y, width, height);
+        [self applyNewFrame:newFrame];
     }
-    
-    CGRect newFrame = CGRectMake(x, y, width, height);
-    [self applyNewFrame:newFrame];
 }
 
 - (BOOL)detectRotationChange:(CGRect)screenBounds {
@@ -200,6 +205,53 @@ extern CGFloat _tabletHeightRatioLandscape;
     self.previousScreenSize = currentScreenSize;
     
     return rotationDetected;
+}
+
+- (void)applyiPadLayoutWithBounds:(CGRect)newBounds center:(CGPoint)screenCenter screenSizeChanged:(BOOL)screenSizeChanged {
+    // Check if we need to animate (size or center changed)
+    BOOL needsAnimation = !CGSizeEqualToSize(self.view.bounds.size, newBounds.size) ||
+                          !CGPointEqualToPoint(self.view.center, screenCenter);
+    
+    if (!needsAnimation) {
+        self.customFrame = self.view.frame;
+        [self updateCornerRadiusMask];
+        return;
+    }
+    
+    CGFloat sizeDiff = fabs(self.view.bounds.size.width - newBounds.size.width) +
+                       fabs(self.view.bounds.size.height - newBounds.size.height);
+    
+    if (sizeDiff > 50.0 || screenSizeChanged) {
+        // Seamless spring animation for rotation - animate bounds and center separately
+        // This ensures dialog scales from center, not from corner
+        [UIView animateWithDuration:0.4
+                              delay:0
+             usingSpringWithDamping:0.85
+              initialSpringVelocity:0.3
+                            options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionLayoutSubviews
+                         animations:^{
+            // Animate bounds for size (scales from center)
+            self.view.bounds = newBounds;
+            // Animate center to keep at screen center
+            self.view.center = screenCenter;
+            
+            [self updateDragTrayFrame:newBounds.size.width];
+            [self.view layoutIfNeeded];
+        } completion:^(BOOL finished) {
+            self.customFrame = self.view.frame;
+            [self updateCornerRadiusMask];
+        }];
+    } else {
+        // Small change - no animation needed
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        self.view.bounds = newBounds;
+        self.view.center = screenCenter;
+        self.customFrame = self.view.frame;
+        [self updateDragTrayFrame:newBounds.size.width];
+        [CATransaction commit];
+        [self updateCornerRadiusMask];
+    }
 }
 
 - (void)applyNewFrame:(CGRect)newFrame {
