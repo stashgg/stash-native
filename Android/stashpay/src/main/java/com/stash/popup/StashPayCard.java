@@ -347,4 +347,140 @@ public class StashPayCard {
     public void setTabletHeightRatio(float ratio) {
         plugin.setTabletHeightRatio(ratio);
     }
+    
+    // ============================================================================
+    // Orientation-Specific Phone Card Size Configuration
+    // ============================================================================
+    
+    /**
+     * Gets the card height ratio for portrait orientation on phones.
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getCardHeightRatioPortrait() {
+        return plugin.getCardHeightRatioPortrait();
+    }
+    
+    /**
+     * Sets the card height ratio for portrait orientation on phones.
+     * @param ratio Height ratio (0.1 to 1.0). Default is 0.68.
+     */
+    public void setCardHeightRatioPortrait(float ratio) {
+        plugin.setCardHeightRatioPortrait(ratio);
+    }
+    
+    /**
+     * Gets the card height ratio for landscape orientation on phones.
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getCardHeightRatioLandscape() {
+        return plugin.getCardHeightRatioLandscape();
+    }
+    
+    /**
+     * Sets the card height ratio for landscape orientation on phones.
+     * @param ratio Height ratio (0.1 to 1.0). Default is 0.5.
+     */
+    public void setCardHeightRatioLandscape(float ratio) {
+        plugin.setCardHeightRatioLandscape(ratio);
+    }
+    
+    /**
+     * Gets the card width ratio for portrait orientation on phones.
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getCardWidthRatioPortrait() {
+        return plugin.getCardWidthRatioPortrait();
+    }
+    
+    /**
+     * Sets the card width ratio for portrait orientation on phones.
+     * @param ratio Width ratio (0.1 to 1.0). Default is 1.0.
+     */
+    public void setCardWidthRatioPortrait(float ratio) {
+        plugin.setCardWidthRatioPortrait(ratio);
+    }
+    
+    /**
+     * Gets the card width ratio for landscape orientation on phones.
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getCardWidthRatioLandscape() {
+        return plugin.getCardWidthRatioLandscape();
+    }
+    
+    /**
+     * Sets the card width ratio for landscape orientation on phones.
+     * @param ratio Width ratio (0.1 to 1.0). Default is 0.8.
+     */
+    public void setCardWidthRatioLandscape(float ratio) {
+        plugin.setCardWidthRatioLandscape(ratio);
+    }
+    
+    // ============================================================================
+    // Orientation-Specific Tablet Card Size Configuration
+    // ============================================================================
+    
+    /**
+     * Gets the tablet width ratio for portrait orientation.
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getTabletWidthRatioPortrait() {
+        return plugin.getTabletWidthRatioPortrait();
+    }
+    
+    /**
+     * Sets the tablet width ratio for portrait orientation.
+     * @param ratio Width ratio (0.1 to 1.0). Default is 0.6.
+     */
+    public void setTabletWidthRatioPortrait(float ratio) {
+        plugin.setTabletWidthRatioPortrait(ratio);
+    }
+    
+    /**
+     * Gets the tablet height ratio for portrait orientation.
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getTabletHeightRatioPortrait() {
+        return plugin.getTabletHeightRatioPortrait();
+    }
+    
+    /**
+     * Sets the tablet height ratio for portrait orientation.
+     * @param ratio Height ratio (0.1 to 1.0). Default is 0.8.
+     */
+    public void setTabletHeightRatioPortrait(float ratio) {
+        plugin.setTabletHeightRatioPortrait(ratio);
+    }
+    
+    /**
+     * Gets the tablet width ratio for landscape orientation.
+     * @return Width ratio (0.1 to 1.0) relative to screen width
+     */
+    public float getTabletWidthRatioLandscape() {
+        return plugin.getTabletWidthRatioLandscape();
+    }
+    
+    /**
+     * Sets the tablet width ratio for landscape orientation.
+     * @param ratio Width ratio (0.1 to 1.0). Default is 0.8.
+     */
+    public void setTabletWidthRatioLandscape(float ratio) {
+        plugin.setTabletWidthRatioLandscape(ratio);
+    }
+    
+    /**
+     * Gets the tablet height ratio for landscape orientation.
+     * @return Height ratio (0.1 to 1.0) relative to screen height
+     */
+    public float getTabletHeightRatioLandscape() {
+        return plugin.getTabletHeightRatioLandscape();
+    }
+    
+    /**
+     * Sets the tablet height ratio for landscape orientation.
+     * @param ratio Height ratio (0.1 to 1.0). Default is 0.65.
+     */
+    public void setTabletHeightRatioLandscape(float ratio) {
+        plugin.setTabletHeightRatioLandscape(ratio);
+    }
 }

@@ -110,13 +110,15 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        // Phone Height Slider (10% to 100%)
+        // Phone Height Slider (10% to 100%) - sets both portrait and landscape
         phoneHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 float ratio = (progress + 10) / 100f; // 10% to 100%
-                phoneHeightLabel.setText(String.format("Phone Height: %d%%", progress + 10));
-                stashPayCard.setCardHeightRatio(ratio);
+                phoneHeightLabel.setText(String.format("Phone Height (Portrait): %d%%", progress + 10));
+                // Set both portrait and landscape (landscape slightly lower)
+                stashPayCard.setCardHeightRatioPortrait(ratio);
+                stashPayCard.setCardHeightRatioLandscape(Math.max(0.1f, ratio - 0.18f));
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -124,13 +126,15 @@ public class MainActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Width Slider (10% to 100%)
+        // Tablet Width Slider (10% to 100%) - sets both portrait and landscape
         tabletWidthSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 float ratio = (progress + 10) / 100f; // 10% to 100%
-                tabletWidthLabel.setText(String.format("Tablet Width: %d%%", progress + 10));
-                stashPayCard.setTabletWidthRatio(ratio);
+                tabletWidthLabel.setText(String.format("Tablet Width (Portrait): %d%%", progress + 10));
+                // Portrait uses this ratio, landscape uses slightly higher
+                stashPayCard.setTabletWidthRatioPortrait(ratio);
+                stashPayCard.setTabletWidthRatioLandscape(Math.min(1.0f, ratio + 0.2f));
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {}
@@ -138,13 +142,15 @@ public class MainActivity extends AppCompatActivity {
             public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Height Slider (10% to 100%)
+        // Tablet Height Slider (10% to 100%) - sets both portrait and landscape
         tabletHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 float ratio = (progress + 10) / 100f; // 10% to 100%
-                tabletHeightLabel.setText(String.format("Tablet Height: %d%%", progress + 10));
-                stashPayCard.setTabletHeightRatio(ratio);
+                tabletHeightLabel.setText(String.format("Tablet Height (Portrait): %d%%", progress + 10));
+                // Portrait uses this ratio, landscape uses slightly lower
+                stashPayCard.setTabletHeightRatioPortrait(ratio);
+                stashPayCard.setTabletHeightRatioLandscape(Math.max(0.1f, ratio - 0.15f));
             }
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {}

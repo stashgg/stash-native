@@ -56,11 +56,23 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean googlePayRedirectHandled;
     private boolean isPurchaseProcessing;
     
-    // Card size configuration
+    // Card size configuration (legacy)
     private float cardHeightRatio = 0.68f;
     private float cardWidthRatio = 1.0f;
     private float tabletWidthRatio = 0.8f;
     private float tabletHeightRatio = 0.75f;
+    
+    // Orientation-specific phone card configuration
+    private float cardHeightRatioPortrait = 0.68f;
+    private float cardHeightRatioLandscape = 0.5f;
+    private float cardWidthRatioPortrait = 1.0f;
+    private float cardWidthRatioLandscape = 0.8f;
+    
+    // Orientation-specific tablet card configuration
+    private float tabletWidthRatioPortrait = 0.6f;
+    private float tabletHeightRatioPortrait = 0.8f;
+    private float tabletWidthRatioLandscape = 0.8f;
+    private float tabletHeightRatioLandscape = 0.65f;
     
     private static final String COLOR_LIGHT_BG = "#F2F2F7";
     private static final String COLOR_DARK_STROKE = "#38383A";
@@ -91,11 +103,21 @@ public class StashPayCardPortraitActivity extends Activity {
             usePopup = intent.getBooleanExtra("usePopup", false);
             wasLandscapeBeforePortrait = intent.getBooleanExtra("wasLandscape", false);
             
-            // Read card size configuration
+            // Read card size configuration (legacy)
             cardHeightRatio = intent.getFloatExtra("cardHeightRatio", 0.68f);
             cardWidthRatio = intent.getFloatExtra("cardWidthRatio", 1.0f);
             tabletWidthRatio = intent.getFloatExtra("tabletWidthRatio", 0.8f);
             tabletHeightRatio = intent.getFloatExtra("tabletHeightRatio", 0.75f);
+            
+            // Read orientation-specific card size configuration
+            cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", 0.68f);
+            cardHeightRatioLandscape = intent.getFloatExtra("cardHeightRatioLandscape", 0.5f);
+            cardWidthRatioPortrait = intent.getFloatExtra("cardWidthRatioPortrait", 1.0f);
+            cardWidthRatioLandscape = intent.getFloatExtra("cardWidthRatioLandscape", 0.8f);
+            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", 0.6f);
+            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", 0.8f);
+            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", 0.8f);
+            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", 0.65f);
             
             if (url == null || url.isEmpty()) {
                 finish();
@@ -236,14 +258,25 @@ public class StashPayCardPortraitActivity extends Activity {
     }
 
     private int[] calculateTabletCardSize(DisplayMetrics metrics) {
-        // Use actual current screen dimensions (not landscape-assumed dimensions)
-        // This ensures the percentage matches what user sees on screen
+        // Use actual current screen dimensions
         int screenWidth = metrics.widthPixels;
         int screenHeight = metrics.heightPixels;
         
-        // Apply configurable tablet ratios to actual screen dimensions
-        int cardWidth = (int)(screenWidth * tabletWidthRatio);
-        int cardHeight = (int)(screenHeight * tabletHeightRatio);
+        // Determine orientation and use appropriate ratios
+        boolean isLandscape = screenWidth > screenHeight;
+        
+        float widthRatio, heightRatio;
+        if (isLandscape) {
+            widthRatio = tabletWidthRatioLandscape;
+            heightRatio = tabletHeightRatioLandscape;
+        } else {
+            widthRatio = tabletWidthRatioPortrait;
+            heightRatio = tabletHeightRatioPortrait;
+        }
+        
+        // Apply orientation-specific tablet ratios to actual screen dimensions
+        int cardWidth = (int)(screenWidth * widthRatio);
+        int cardHeight = (int)(screenHeight * heightRatio);
         
         if (cardWidth <= 0 || cardHeight <= 0) {
             return new int[]{600, 700};

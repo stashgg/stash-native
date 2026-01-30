@@ -136,34 +136,42 @@ extension ViewController: StashPayCardDelegate {
 
 ## Card Size Configuration
 
-You can customize the size of the checkout card for both iPhones and iPads.
+You can customize the size of the checkout card for both iPhones and iPads. The SDK supports orientation-specific sizing to ensure optimal display in both portrait and landscape orientations.
 
-### iPhone Card Size
+### Orientation-Specific Sizing (Recommended)
 
-On iPhones, the checkout card slides up from the bottom. You can configure its height:
+Configure different sizes for portrait and landscape orientations:
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// Set card height (0.1 to 1.0, default 0.6 = 60% of screen height)
-stashPay.cardHeightRatio = 0.75  // 75% of screen height
+// iPhone card size - portrait and landscape
+stashPay.cardHeightRatioPortrait = 0.68   // 68% height in portrait (default)
+stashPay.cardHeightRatioLandscape = 0.5   // 50% height in landscape (default)
+stashPay.cardWidthRatioPortrait = 1.0     // Full width in portrait (default)
+stashPay.cardWidthRatioLandscape = 0.8    // 80% width in landscape (default)
 
-// Set card width (0.1 to 1.0, default 1.0 = full width)
-stashPay.cardWidthRatio = 0.9  // 90% of screen width
+// iPad card size - portrait and landscape
+stashPay.tabletWidthRatioPortrait = 0.6   // 60% width in portrait (default)
+stashPay.tabletHeightRatioPortrait = 0.8  // 80% height in portrait (default)
+stashPay.tabletWidthRatioLandscape = 0.8  // 80% width in landscape (default)
+stashPay.tabletHeightRatioLandscape = 0.65 // 65% height in landscape (default)
 ```
 
-### iPad Card Size
+### Legacy Single-Ratio Properties
 
-On iPads, the checkout card appears centered on screen. You can configure its size:
+The legacy single-ratio properties are still available for backward compatibility:
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// Set tablet width (0.1 to 1.0, default 0.8 = 80% of screen width)
-stashPay.tabletWidthRatio = 0.7  // 70% of screen width
+// iPhone (deprecated - use portrait/landscape properties instead)
+stashPay.cardHeightRatio = 0.68  // Sets portrait ratio
+stashPay.cardWidthRatio = 1.0
 
-// Set tablet height (0.1 to 1.0, default 0.75 = 75% of screen height)
-stashPay.tabletHeightRatio = 0.85  // 85% of screen height
+// iPad (deprecated - use portrait/landscape properties instead)
+stashPay.tabletWidthRatio = 0.8
+stashPay.tabletHeightRatio = 0.75
 ```
 
 ### Complete Example (Swift)
@@ -172,14 +180,17 @@ stashPay.tabletHeightRatio = 0.85  // 85% of screen height
 let stashPay = StashPayCard.sharedInstance()
 stashPay.delegate = self
 
-// Configure iPhone card size
-stashPay.cardHeightRatio = 0.75
+// Configure iPhone card size for both orientations
+stashPay.cardHeightRatioPortrait = 0.7
+stashPay.cardHeightRatioLandscape = 0.5
 
-// Configure iPad card size
-stashPay.tabletWidthRatio = 0.7
-stashPay.tabletHeightRatio = 0.85
+// Configure iPad card size for both orientations
+stashPay.tabletWidthRatioPortrait = 0.6
+stashPay.tabletHeightRatioPortrait = 0.8
+stashPay.tabletWidthRatioLandscape = 0.8
+stashPay.tabletHeightRatioLandscape = 0.65
 
-// Open checkout with configured sizes
+// Open checkout - sizing will automatically adjust on rotation
 stashPay.openCheckout(withURL: url)
 ```
 
@@ -189,12 +200,15 @@ stashPay.openCheckout(withURL: url)
 StashPayCard *stashPay = [StashPayCard sharedInstance];
 stashPay.delegate = self;
 
-// Configure iPhone card size
-stashPay.cardHeightRatio = 0.75;
+// Configure iPhone card size for both orientations
+stashPay.cardHeightRatioPortrait = 0.7;
+stashPay.cardHeightRatioLandscape = 0.5;
 
-// Configure iPad card size
-stashPay.tabletWidthRatio = 0.7;
-stashPay.tabletHeightRatio = 0.85;
+// Configure iPad card size for both orientations
+stashPay.tabletWidthRatioPortrait = 0.6;
+stashPay.tabletHeightRatioPortrait = 0.8;
+stashPay.tabletWidthRatioLandscape = 0.8;
+stashPay.tabletHeightRatioLandscape = 0.65;
 
 // Open checkout with configured sizes
 [stashPay openCheckoutWithURL:url];

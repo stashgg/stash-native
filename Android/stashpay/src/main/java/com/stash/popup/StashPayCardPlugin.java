@@ -62,6 +62,18 @@ public class StashPayCardPlugin {
     private float tabletWidthRatio = 0.8f;
     private float tabletHeightRatio = 0.75f;
     
+    // Orientation-specific phone card configuration
+    private float cardHeightRatioPortrait = 0.68f;
+    private float cardHeightRatioLandscape = 0.5f;
+    private float cardWidthRatioPortrait = 1.0f;
+    private float cardWidthRatioLandscape = 0.8f;
+    
+    // Orientation-specific tablet card configuration
+    private float tabletWidthRatioPortrait = 0.6f;
+    private float tabletHeightRatioPortrait = 0.8f;
+    private float tabletWidthRatioLandscape = 0.8f;
+    private float tabletHeightRatioLandscape = 0.65f;
+    
     private boolean isCurrentlyPresented;
     private boolean paymentSuccessHandled;
     private boolean isPurchaseProcessing;
@@ -326,6 +338,114 @@ public class StashPayCardPlugin {
         }
     }
     
+    // ============================================================================
+    // Orientation-Specific Phone Card Size Configuration
+    // ============================================================================
+    
+    public float getCardHeightRatioPortrait() {
+        return cardHeightRatioPortrait;
+    }
+    
+    public void setCardHeightRatioPortrait(float ratio) {
+        try {
+            this.cardHeightRatioPortrait = clampRatio(ratio);
+            // Also update legacy property for backward compatibility
+            this.cardHeightRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardHeightRatioPortrait: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getCardHeightRatioLandscape() {
+        return cardHeightRatioLandscape;
+    }
+    
+    public void setCardHeightRatioLandscape(float ratio) {
+        try {
+            this.cardHeightRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardHeightRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getCardWidthRatioPortrait() {
+        return cardWidthRatioPortrait;
+    }
+    
+    public void setCardWidthRatioPortrait(float ratio) {
+        try {
+            this.cardWidthRatioPortrait = clampRatio(ratio);
+            // Also update legacy property for backward compatibility
+            this.cardWidthRatio = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardWidthRatioPortrait: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getCardWidthRatioLandscape() {
+        return cardWidthRatioLandscape;
+    }
+    
+    public void setCardWidthRatioLandscape(float ratio) {
+        try {
+            this.cardWidthRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardWidthRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
+    // ============================================================================
+    // Orientation-Specific Tablet Card Size Configuration
+    // ============================================================================
+    
+    public float getTabletWidthRatioPortrait() {
+        return tabletWidthRatioPortrait;
+    }
+    
+    public void setTabletWidthRatioPortrait(float ratio) {
+        try {
+            this.tabletWidthRatioPortrait = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletWidthRatioPortrait: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getTabletHeightRatioPortrait() {
+        return tabletHeightRatioPortrait;
+    }
+    
+    public void setTabletHeightRatioPortrait(float ratio) {
+        try {
+            this.tabletHeightRatioPortrait = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletHeightRatioPortrait: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getTabletWidthRatioLandscape() {
+        return tabletWidthRatioLandscape;
+    }
+    
+    public void setTabletWidthRatioLandscape(float ratio) {
+        try {
+            this.tabletWidthRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletWidthRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getTabletHeightRatioLandscape() {
+        return tabletHeightRatioLandscape;
+    }
+    
+    public void setTabletHeightRatioLandscape(float ratio) {
+        try {
+            this.tabletHeightRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setTabletHeightRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
     private float clampRatio(float ratio) {
         return Math.max(0.1f, Math.min(1.0f, ratio));
     }
@@ -407,12 +527,22 @@ public class StashPayCardPlugin {
             intent.setClassName(activity, "com.stash.popup.StashPayCardPortraitActivity");
             intent.putExtra("url", url);
             intent.putExtra("initialURL", url);
-            // Phone card configuration
+            // Phone card configuration (legacy)
             intent.putExtra("cardHeightRatio", cardHeightRatio);
             intent.putExtra("cardWidthRatio", cardWidthRatio);
-            // Tablet card configuration
+            // Tablet card configuration (legacy)
             intent.putExtra("tabletWidthRatio", tabletWidthRatio);
             intent.putExtra("tabletHeightRatio", tabletHeightRatio);
+            // Orientation-specific phone card configuration
+            intent.putExtra("cardHeightRatioPortrait", cardHeightRatioPortrait);
+            intent.putExtra("cardHeightRatioLandscape", cardHeightRatioLandscape);
+            intent.putExtra("cardWidthRatioPortrait", cardWidthRatioPortrait);
+            intent.putExtra("cardWidthRatioLandscape", cardWidthRatioLandscape);
+            // Orientation-specific tablet card configuration
+            intent.putExtra("tabletWidthRatioPortrait", tabletWidthRatioPortrait);
+            intent.putExtra("tabletHeightRatioPortrait", tabletHeightRatioPortrait);
+            intent.putExtra("tabletWidthRatioLandscape", tabletWidthRatioLandscape);
+            intent.putExtra("tabletHeightRatioLandscape", tabletHeightRatioLandscape);
             intent.putExtra("usePopup", usePopupPresentation);
             intent.putExtra("wasLandscape", isLandscape);
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);

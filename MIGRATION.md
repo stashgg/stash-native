@@ -107,21 +107,63 @@ Android now uses the same threshold constants as iOS for consistent feel:
 
 ### Both Platforms
 
-#### 1. Tablet-Specific Behavior
+#### 1. Orientation-Specific Sizing (NEW)
+
+Configure different card sizes for portrait and landscape orientations:
+
+**iOS:**
+```swift
+let stashPay = StashPayCard.sharedInstance()
+
+// Phone sizing
+stashPay.cardHeightRatioPortrait = 0.68   // 68% in portrait (default)
+stashPay.cardHeightRatioLandscape = 0.5   // 50% in landscape (default)
+stashPay.cardWidthRatioPortrait = 1.0     // Full width in portrait
+stashPay.cardWidthRatioLandscape = 0.8    // 80% in landscape
+
+// Tablet sizing
+stashPay.tabletWidthRatioPortrait = 0.6   // 60% in portrait (default)
+stashPay.tabletHeightRatioPortrait = 0.8  // 80% in portrait (default)
+stashPay.tabletWidthRatioLandscape = 0.8  // 80% in landscape (default)
+stashPay.tabletHeightRatioLandscape = 0.65 // 65% in landscape (default)
+```
+
+**Android:**
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+
+// Phone sizing
+stashPay.setCardHeightRatioPortrait(0.68f);
+stashPay.setCardHeightRatioLandscape(0.5f);
+stashPay.setCardWidthRatioPortrait(1.0f);
+stashPay.setCardWidthRatioLandscape(0.8f);
+
+// Tablet sizing
+stashPay.setTabletWidthRatioPortrait(0.6f);
+stashPay.setTabletHeightRatioPortrait(0.8f);
+stashPay.setTabletWidthRatioLandscape(0.8f);
+stashPay.setTabletHeightRatioLandscape(0.65f);
+```
+
+The checkout dialog will automatically resize when the device is rotated, providing optimal sizing for each orientation.
+
+**Note**: The legacy single-ratio properties (`cardHeightRatio`, `tabletWidthRatio`, etc.) are still available for backward compatibility but setting the portrait-specific properties is recommended.
+
+#### 2. Tablet-Specific Behavior
 
 Tablets now have dismiss-only gestures (no expand/collapse):
 - Drag down to dismiss
 - Centered modal presentation
 - No forced orientation
 
-#### 2. Velocity-Based Gestures
+#### 3. Velocity-Based Gestures
 
 Both platforms now support velocity-based gesture recognition:
 - Quick swipes are recognized even with small distances
 - Slow drags require larger distances
 - Consistent feel across platforms
 
-#### 3. Enhanced Animation Parameters
+#### 4. Enhanced Animation Parameters
 
 Animation parameters are now aligned:
 - Spring damping: 0.85 (default), 0.9 (tight)

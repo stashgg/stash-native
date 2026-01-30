@@ -118,7 +118,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Card height ratio (0.0 to 1.0) relative to screen height.
- * Default is 0.6 (matching Unity behavior).
+ * Default is 0.68. Deprecated: Use cardHeightRatioPortrait instead.
  */
 @property (nonatomic, assign) CGFloat cardHeightRatio;
 
@@ -130,27 +130,83 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Card width ratio (0.0 to 1.0) relative to screen width.
- * Default is 1.0 (full width).
+ * Default is 1.0 (full width). Deprecated: Use cardWidthRatioPortrait instead.
  */
 @property (nonatomic, assign) CGFloat cardWidthRatio;
 
 // ============================================================================
-// Tablet (iPad) Card Size Configuration
+// Tablet (iPad) Card Size Configuration (Legacy - Deprecated)
 // ============================================================================
 
 /**
  * Tablet width ratio (0.1 to 1.0) relative to screen width.
  * Default is 0.8 (80% of screen width).
- * Only applies on iPads.
+ * Deprecated: Use tabletWidthRatioPortrait/tabletWidthRatioLandscape instead.
  */
 @property (nonatomic, assign) CGFloat tabletWidthRatio;
 
 /**
  * Tablet height ratio (0.1 to 1.0) relative to screen height.
  * Default is 0.75 (75% of screen height).
- * Only applies on iPads.
+ * Deprecated: Use tabletHeightRatioPortrait/tabletHeightRatioLandscape instead.
  */
 @property (nonatomic, assign) CGFloat tabletHeightRatio;
+
+// ============================================================================
+// Orientation-Specific Phone Card Size Configuration
+// ============================================================================
+
+/**
+ * Phone card height ratio in portrait orientation (0.0 to 1.0).
+ * Default is 0.68 (68% of screen height).
+ */
+@property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
+
+/**
+ * Phone card height ratio in landscape orientation (0.0 to 1.0).
+ * Default is 0.5 (50% of screen height).
+ */
+@property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
+
+/**
+ * Phone card width ratio in portrait orientation (0.0 to 1.0).
+ * Default is 1.0 (full width).
+ */
+@property (nonatomic, assign) CGFloat cardWidthRatioPortrait;
+
+/**
+ * Phone card width ratio in landscape orientation (0.0 to 1.0).
+ * Default is 0.8 (80% of screen width).
+ */
+@property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
+
+// ============================================================================
+// Orientation-Specific Tablet (iPad) Card Size Configuration
+// ============================================================================
+
+/**
+ * Tablet width ratio in portrait orientation (0.1 to 1.0).
+ * Default is 0.6 (60% of screen width).
+ */
+@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
+
+/**
+ * Tablet height ratio in portrait orientation (0.1 to 1.0).
+ * Default is 0.8 (80% of screen height).
+ */
+@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
+
+/**
+ * Tablet width ratio in landscape orientation (0.1 to 1.0).
+ * Default is 0.8 (80% of screen width).
+ */
+@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
+
+/**
+ * Tablet height ratio in landscape orientation (0.1 to 1.0).
+ * Default is 0.65 (65% of screen height).
+ */
+@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
 
 /**
  * Gets the shared singleton instance of StashPayCard.

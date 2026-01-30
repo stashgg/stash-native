@@ -151,13 +151,13 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/landscapeLockSwitch" />
 
-            <!-- Phone Card Height Slider -->
+            <!-- Phone Card Height Slider (sets both portrait and landscape) -->
             <TextView
                 android:id="@+id/phoneHeightLabel"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="Phone Height: 68%"
+                android:text="Phone Height (Portrait): 68%"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -169,18 +169,18 @@
                 android:layout_height="wrap_content"
                 android:max="90"
                 android:progress="58"
-                android:contentDescription="Adjust phone card height percentage"
+                android:contentDescription="Adjust phone card height percentage (portrait, landscape is auto-adjusted)"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/phoneHeightLabel" />
 
-            <!-- Tablet Width Slider -->
+            <!-- Tablet Width Slider (sets both portrait and landscape) -->
             <TextView
                 android:id="@+id/tabletWidthLabel"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Tablet Width: 80%"
+                android:text="Tablet Width (Portrait): 60%"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -191,19 +191,19 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:max="90"
-                android:progress="70"
-                android:contentDescription="Adjust tablet card width percentage"
+                android:progress="50"
+                android:contentDescription="Adjust tablet card width percentage (portrait)"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tabletWidthLabel" />
 
-            <!-- Tablet Height Slider -->
+            <!-- Tablet Height Slider (sets both portrait and landscape) -->
             <TextView
                 android:id="@+id/tabletHeightLabel"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Tablet Height: 75%"
+                android:text="Tablet Height (Portrait): 80%"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -215,8 +215,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
                 android:max="90"
-                android:progress="65"
-                android:contentDescription="Adjust tablet card height percentage"
+                android:progress="70"
+                android:contentDescription="Adjust tablet card height percentage (portrait)"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tabletHeightLabel"

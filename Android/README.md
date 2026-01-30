@@ -133,34 +133,42 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 ## Card Size Configuration
 
-You can customize the size of the checkout card for both phones and tablets.
+You can customize the size of the checkout card for both phones and tablets. The SDK supports orientation-specific sizing to ensure optimal display in both portrait and landscape orientations.
 
-### Phone Card Size
+### Orientation-Specific Sizing (Recommended)
 
-On phones, the checkout card slides up from the bottom. You can configure its height:
+Configure different sizes for portrait and landscape orientations:
 
 ```java
 StashPayCard stashPay = StashPayCard.getInstance();
 
-// Set card height (0.1 to 1.0, default 0.68 = 68% of screen height)
-stashPay.setCardHeightRatio(0.75f);  // 75% of screen height
+// Phone card size - portrait and landscape
+stashPay.setCardHeightRatioPortrait(0.68f);   // 68% height in portrait (default)
+stashPay.setCardHeightRatioLandscape(0.5f);   // 50% height in landscape (default)
+stashPay.setCardWidthRatioPortrait(1.0f);     // Full width in portrait (default)
+stashPay.setCardWidthRatioLandscape(0.8f);    // 80% width in landscape (default)
 
-// Set card width (0.1 to 1.0, default 1.0 = full width)
-stashPay.setCardWidthRatio(0.9f);  // 90% of screen width
+// Tablet card size - portrait and landscape
+stashPay.setTabletWidthRatioPortrait(0.6f);   // 60% width in portrait (default)
+stashPay.setTabletHeightRatioPortrait(0.8f);  // 80% height in portrait (default)
+stashPay.setTabletWidthRatioLandscape(0.8f);  // 80% width in landscape (default)
+stashPay.setTabletHeightRatioLandscape(0.65f); // 65% height in landscape (default)
 ```
 
-### Tablet Card Size
+### Legacy Single-Ratio Properties
 
-On tablets, the checkout card appears centered on screen. You can configure its size:
+The legacy single-ratio methods are still available for backward compatibility:
 
 ```java
 StashPayCard stashPay = StashPayCard.getInstance();
 
-// Set tablet width (0.1 to 1.0, default 0.8 = 80% of screen width)
-stashPay.setTabletWidthRatio(0.7f);  // 70% of screen width
+// Phone (deprecated - use portrait/landscape methods instead)
+stashPay.setCardHeightRatio(0.68f);  // Sets portrait ratio
+stashPay.setCardWidthRatio(1.0f);
 
-// Set tablet height (0.1 to 1.0, default 0.75 = 75% of screen height)
-stashPay.setTabletHeightRatio(0.85f);  // 85% of screen height
+// Tablet (deprecated - use portrait/landscape methods instead)
+stashPay.setTabletWidthRatio(0.8f);
+stashPay.setTabletHeightRatio(0.75f);
 ```
 
 ### Complete Example
@@ -169,14 +177,17 @@ stashPay.setTabletHeightRatio(0.85f);  // 85% of screen height
 StashPayCard stashPay = StashPayCard.getInstance();
 stashPay.setActivity(this);
 
-// Configure phone card size
-stashPay.setCardHeightRatio(0.75f);
+// Configure phone card size for both orientations
+stashPay.setCardHeightRatioPortrait(0.7f);
+stashPay.setCardHeightRatioLandscape(0.5f);
 
-// Configure tablet card size
-stashPay.setTabletWidthRatio(0.7f);
-stashPay.setTabletHeightRatio(0.85f);
+// Configure tablet card size for both orientations
+stashPay.setTabletWidthRatioPortrait(0.6f);
+stashPay.setTabletHeightRatioPortrait(0.8f);
+stashPay.setTabletWidthRatioLandscape(0.8f);
+stashPay.setTabletHeightRatioLandscape(0.65f);
 
-// Open checkout with configured sizes
+// Open checkout - sizing will automatically adjust on rotation
 stashPay.openCheckout(url);
 ```
 

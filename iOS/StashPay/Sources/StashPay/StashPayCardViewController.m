@@ -20,6 +20,16 @@ extern CGFloat _tabletHeightRatio;
 extern BOOL _usePopupPresentation;
 extern BOOL _isCardExpanded;
 
+// Orientation-specific ratios
+extern CGFloat _cardHeightRatioPortrait;
+extern CGFloat _cardHeightRatioLandscape;
+extern CGFloat _cardWidthRatioPortrait;
+extern CGFloat _cardWidthRatioLandscape;
+extern CGFloat _tabletWidthRatioPortrait;
+extern CGFloat _tabletHeightRatioPortrait;
+extern CGFloat _tabletWidthRatioLandscape;
+extern CGFloat _tabletHeightRatioLandscape;
+
 #pragma mark - DragTrayView Implementation
 
 @implementation StashPayDragTrayView
@@ -52,6 +62,7 @@ extern BOOL _isCardExpanded;
         _enforcePortrait = NO;
         _skipLayoutDuringInitialSetup = NO;
         _customFrame = CGRectZero;
+        _previousScreenSize = CGSizeZero;
     }
     return self;
 }
@@ -130,9 +141,14 @@ extern BOOL _isCardExpanded;
         
         if (screenSizeChanged || CGRectIsEmpty(self.customFrame) || 
             self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
+            // Use orientation-specific ratios
+            BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
+            CGFloat widthRatio = isLandscape ? _tabletWidthRatioLandscape : _tabletWidthRatioPortrait;
+            CGFloat heightRatio = isLandscape ? _tabletHeightRatioLandscape : _tabletHeightRatioPortrait;
+            
             CGSize cardSize = [[self class] calculateiPadCardSizeForScreenBounds:screenBounds
-                                                                 tabletWidthRatio:_tabletWidthRatio
-                                                                tabletHeightRatio:_tabletHeightRatio];
+                                                                 tabletWidthRatio:widthRatio
+                                                                tabletHeightRatio:heightRatio];
             if (_isCardExpanded) {
                 width = cardSize.width;
                 height = cardSize.height;
@@ -150,15 +166,16 @@ extern BOOL _isCardExpanded;
             y = (screenBounds.size.height - height) / 2;
         }
     } else {
-        // iPhone: Use portrait dimensions
+        // iPhone: Use portrait dimensions (iPhones are forced to portrait for card mode)
         CGRect portraitBounds = screenBounds;
         if (portraitBounds.size.width > portraitBounds.size.height) {
             CGFloat temp = portraitBounds.size.width;
             portraitBounds.size.width = portraitBounds.size.height;
             portraitBounds.size.height = temp;
         }
-        width = portraitBounds.size.width * _cardWidthRatio;
-        height = portraitBounds.size.height * _cardHeightRatio;
+        // iPhone always uses portrait ratios since card mode forces portrait
+        width = portraitBounds.size.width * _cardWidthRatioPortrait;
+        height = portraitBounds.size.height * _cardHeightRatioPortrait;
         x = (portraitBounds.size.width - width) / 2;
         y = portraitBounds.size.height * _cardVerticalPosition - height;
         if (y < 0) y = 0;
@@ -169,14 +186,23 @@ extern BOOL _isCardExpanded;
 }
 
 - (BOOL)detectRotationChange:(CGRect)screenBounds {
-    if (CGRectIsEmpty(self.customFrame) || CGRectIsNull(self.customFrame) ||
-        self.customFrame.size.width <= 0 || self.customFrame.size.height <= 0) {
-        return YES;
+    CGSize currentScreenSize = screenBounds.size;
+    BOOL rotationDetected = NO;
+    
+    if (self.previousScreenSize.width > 0 && self.previousScreenSize.height > 0) {
+        // Detect rotation by comparing actual screen dimensions
+        BOOL wasLandscape = (self.previousScreenSize.width > self.previousScreenSize.height);
+        BOOL isNowLandscape = (currentScreenSize.width > currentScreenSize.height);
+        rotationDetected = (wasLandscape != isNowLandscape);
+    } else {
+        // First time - treat as rotation to initialize properly
+        rotationDetected = YES;
     }
     
-    BOOL wasLandscape = (self.customFrame.size.width > self.customFrame.size.height);
-    BOOL isNowLandscape = (screenBounds.size.width > screenBounds.size.height);
-    return (wasLandscape != isNowLandscape);
+    // Always update previousScreenSize to current
+    self.previousScreenSize = currentScreenSize;
+    
+    return rotationDetected;
 }
 
 - (void)applyNewFrame:(CGRect)newFrame {

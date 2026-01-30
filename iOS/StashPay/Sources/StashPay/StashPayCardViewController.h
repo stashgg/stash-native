@@ -47,6 +47,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 
 /**
+ * Previous screen size for accurate rotation detection.
+ * Updated on each layout pass.
+ */
+@property (nonatomic, assign) CGSize previousScreenSize;
+
+/**
  * Current state of the card (collapsed, expanded, dismissing, dismissed).
  */
 @property (nonatomic, assign) StashPayCardState cardState;
