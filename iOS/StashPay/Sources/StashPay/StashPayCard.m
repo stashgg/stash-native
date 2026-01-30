@@ -534,6 +534,60 @@ NSString* appendThemeQueryParameter(NSString* url);
     return [[UIApplication sharedApplication] statusBarOrientation];
 }
 
+// iOS 8+ rotation handling - this is called when the device rotates
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    
+    if (self.skipLayoutDuringInitialSetup) {
+        return;
+    }
+    
+    // Only handle iPad rotation here
+    if (!isRunningOniPad()) {
+        return;
+    }
+    
+    UIView *cardView = [self.view viewWithTag:9999];
+    if (!cardView) {
+        return;
+    }
+    
+    // Calculate new size based on the new screen size
+    CGRect newScreenBounds = CGRectMake(0, 0, size.width, size.height);
+    CGSize cardSize = calculateiPadCardSize(newScreenBounds);
+    CGFloat width = cardSize.width;
+    CGFloat height = cardSize.height;
+    CGPoint newCenter = CGPointMake(size.width / 2.0, size.height / 2.0);
+    CGRect newBounds = CGRectMake(0, 0, width, height);
+    
+    // Animate alongside the system rotation animation
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        // Update cardView bounds and center during the rotation
+        cardView.bounds = newBounds;
+        cardView.center = newCenter;
+        
+        // Update drag tray inside cardView
+        UIView *dragTray = [cardView viewWithTag:8888];
+        if (dragTray) {
+            dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
+            UIView *handle = [dragTray viewWithTag:8889];
+            if (handle) {
+                CGFloat handleX = (width / 2.0) - 18.0;
+                handle.frame = CGRectMake(handleX, 8, 36, 5);
+            }
+        }
+        
+        // Force layout to sync WebView and other subviews
+        [cardView layoutIfNeeded];
+        
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        // Update stored frame and corner radius after rotation completes
+        self.customFrame = cardView.frame;
+        self.previousScreenSize = size;
+        [self updateCornerRadiusMaskForView:cardView];
+    }];
+}
+
 @end
 
 #pragma mark - WebViewLoadDelegate
