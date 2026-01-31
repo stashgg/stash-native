@@ -98,7 +98,7 @@ public class StashPayCardPortraitActivity extends Activity {
             
             cachedIsDarkTheme = StashWebViewUtils.isDarkTheme(this);
             try {
-                cachedIsTablet = cachedIsTablet;
+                cachedIsTablet = StashWebViewUtils.isTablet(this);
             } catch (Exception e) {
                 Log.e(TAG, "Error checking if tablet: " + e.getMessage(), e);
             }
