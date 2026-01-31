@@ -195,6 +195,24 @@ const CGFloat kPopupBaseSizeMinPhone = 300.0f;
 const CGFloat kPopupBaseSizeMax = 500.0f;
 const NSTimeInterval kPopupFrameAnimationDuration = 0.3;
 
+#pragma mark - Message Handler Names (WKScriptMessageHandler)
+
+static NSString * const kMessageHandlerPaymentSuccess = @"stashPaymentSuccess";
+static NSString * const kMessageHandlerPaymentFailure = @"stashPaymentFailure";
+static NSString * const kMessageHandlerPurchaseProcessing = @"stashPurchaseProcessing";
+static NSString * const kMessageHandlerOptin = @"stashOptin";
+static NSString * const kMessageHandlerExpand = @"stashExpand";
+static NSString * const kMessageHandlerCollapse = @"stashCollapse";
+
+#pragma mark - Associated Object Keys
+
+static NSString * const kAssociatedKeyWebViewDelegate = @"webViewDelegate";
+static NSString * const kAssociatedKeyWebViewUIDelegate = @"webViewUIDelegate";
+NSString * const StashPayAssociatedKeyOverlayView = @"overlayView";  // extern for StashPayCardViewControllers.m
+static NSString * const kAssociatedKeyLoadingView = @"loadingView";
+static NSString * const kAssociatedKeyCardView = @"cardView";
+static NSString * const kAssociatedKeyInitialCardHeight = @"initialCardHeight";
+
 #pragma mark - Helper Function Prototypes
 
 BOOL isRunningOniPad(void);
@@ -313,12 +331,12 @@ NSString* appendThemeQueryParameter(NSString* url);
 
     if (self.currentPresentedVC) {
         // Clear all associated objects to break retain cycles and allow deallocation
-        objc_setAssociatedObject(self.currentPresentedVC, "webViewDelegate", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self.currentPresentedVC, "webViewUIDelegate", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self.currentPresentedVC, "overlayView", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self.currentPresentedVC, "loadingView", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self.currentPresentedVC, "cardView", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)StashPayAssociatedKeyOverlayView, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyLoadingView, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyCardView, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
         for (UIView *subview in [self.currentPresentedVC.view.subviews copy]) {
             if ([subview isKindOfClass:[WKWebView class]]) {
@@ -328,12 +346,12 @@ NSString* appendThemeQueryParameter(NSString* url);
                 webView.navigationDelegate = nil;
                 webView.UIDelegate = nil;
                 
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashPaymentSuccess"];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashPaymentFailure"];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashPurchaseProcessing"];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashOptin"];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashExpand"];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashCollapse"];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentSuccess];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentFailure];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPurchaseProcessing];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
                 [webView.configuration.userContentController removeAllUserScripts];
                 
                 [webView loadHTMLString:@"" baseURL:nil];
@@ -345,7 +363,7 @@ NSString* appendThemeQueryParameter(NSString* url);
             }
         }
         
-        UIView *overlayView = objc_getAssociatedObject(self.currentPresentedVC, "overlayView");
+        UIView *overlayView = objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)StashPayAssociatedKeyOverlayView);
         if (overlayView) {
             for (UIView *subview in [overlayView.subviews copy]) {
                 [subview removeFromSuperview];
@@ -388,7 +406,7 @@ NSString* appendThemeQueryParameter(NSString* url);
     }
     
     UIViewController *containerVC = self.currentPresentedVC;
-    UIView *overlayView = objc_getAssociatedObject(containerVC, "overlayView");
+    UIView *overlayView = objc_getAssociatedObject(containerVC, (__bridge const void *)StashPayAssociatedKeyOverlayView);
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:containerVC];
     
@@ -397,7 +415,7 @@ NSString* appendThemeQueryParameter(NSString* url);
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         if (_usePopupPresentation || isRunningOniPad()) {
             // iPad/Popup: fade out and scale the cardView
-            UIView *cardView = objc_getAssociatedObject(containerVC, "cardView");
+            UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
             UIView *targetView = cardView ? cardView : containerVC.view;
             targetView.alpha = kDismissCardAlpha;
@@ -739,7 +757,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     self.initialY = cardView.frame.origin.y;
     
     if (!isRunningOniPad()) {
-        objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
@@ -828,7 +846,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     
 - (void)handleDragGestureEnded:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
     if (!isRunningOniPad()) {
-        objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
     UIView *referenceView = self.portraitWindow ? self.portraitWindow : cardView.superview;
@@ -836,7 +854,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     CGPoint velocity = [gesture velocityInView:referenceView];
     CGFloat currentTravel = translation.y;
     CGFloat height = cardView.frame.size.height;
-    UIView *overlayView = self.portraitWindow ? objc_getAssociatedObject(self.currentPresentedVC, "overlayView") : nil;
+    UIView *overlayView = self.portraitWindow ? objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)StashPayAssociatedKeyOverlayView) : nil;
     
     BOOL shouldExpand = NO;
     BOOL shouldCollapse = NO;
@@ -1001,7 +1019,7 @@ if (shouldExpand) {
     NSString *name = message.name;
     id<StashPayCardDelegate> delegate = [StashPayCard sharedInstance].delegate;
     
-    if ([name isEqualToString:@"stashPaymentSuccess"]) {
+    if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
         if (_paymentSuccessHandled) return;
         _paymentSuccessHandled = YES;
         _paymentSuccessCallbackCalled = YES;
@@ -1016,7 +1034,7 @@ if (shouldExpand) {
         [self dismissWithAnimation:^{
             [self cleanupCardInstance];
         }];
-    } else if ([name isEqualToString:@"stashPaymentFailure"]) {
+    } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
         if (_paymentSuccessHandled) return;
         _paymentSuccessHandled = YES;
         self.isPurchaseProcessing = NO;
@@ -1030,9 +1048,9 @@ if (shouldExpand) {
         [self dismissWithAnimation:^{
             [self cleanupCardInstance];
         }];
-    } else if ([name isEqualToString:@"stashPurchaseProcessing"]) {
+    } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
         self.isPurchaseProcessing = YES;
-    } else if ([name isEqualToString:@"stashOptin"]) {
+    } else if ([name isEqualToString:kMessageHandlerOptin]) {
         NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
 
         if (delegate && [delegate respondsToSelector:@selector(stashPayCardDidReceiveOptIn:)]) {
@@ -1044,7 +1062,7 @@ if (shouldExpand) {
         [self dismissWithAnimation:^{
             [self cleanupCardInstance];
         }];
-    } else if ([name isEqualToString:@"stashExpand"]) {
+    } else if ([name isEqualToString:kMessageHandlerExpand]) {
         // Tablets use fixed sizing - ignore expand/collapse messages
             if (isRunningOniPad()) {
             return;
@@ -1068,7 +1086,7 @@ if (shouldExpand) {
                 [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
                 }];
         }
-    } else if ([name isEqualToString:@"stashCollapse"]) {
+    } else if ([name isEqualToString:kMessageHandlerCollapse]) {
         // Tablets use fixed sizing - ignore expand/collapse messages
         if (isRunningOniPad()) {
             return;
@@ -1577,7 +1595,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         overlayView.userInteractionEnabled = YES;
         overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [cardWindow insertSubview:overlayView atIndex:0];
-        objc_setAssociatedObject(containerVC, "overlayView", overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(containerVC, (__bridge const void *)StashPayAssociatedKeyOverlayView, overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
         // Create cardView
         UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
@@ -1632,8 +1650,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
         webView.navigationDelegate = delegate;
         WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
         webView.UIDelegate = uiDelegate;
-        objc_setAssociatedObject(containerVC, "webViewDelegate", delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(containerVC, "webViewUIDelegate", uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
         NSURL *nsurl = [NSURL URLWithString:url];
         if (nsurl) {
@@ -1743,9 +1761,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, "webViewDelegate", delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, "webViewUIDelegate", uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, "cardView", cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
@@ -1776,7 +1794,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     overlayView.userInteractionEnabled = YES;
     overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [containerVC.view insertSubview:overlayView atIndex:0];
-    objc_setAssociatedObject(containerVC, "overlayView", overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)StashPayAssociatedKeyOverlayView, overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     // Apply corner radius mask and shadow
     [containerVC updateCornerRadiusMaskForCardView];
@@ -1873,9 +1891,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, "webViewDelegate", delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, "webViewUIDelegate", uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, "loadingView", loadingView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyLoadingView, loadingView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
@@ -1903,7 +1921,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     overlayView.userInteractionEnabled = YES;
     overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [cardWindow insertSubview:overlayView atIndex:0];
-    objc_setAssociatedObject(containerVC, "overlayView", overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)StashPayAssociatedKeyOverlayView, overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     
     // Apply styling
     containerVC.view.clipsToBounds = YES;
@@ -2006,12 +2024,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
                                                            forMainFrameOnly:YES];
     [userContentController addUserScript:noMarginsInjection];
     
-    [userContentController addScriptMessageHandler:internal name:@"stashPaymentSuccess"];
-    [userContentController addScriptMessageHandler:internal name:@"stashPaymentFailure"];
-    [userContentController addScriptMessageHandler:internal name:@"stashPurchaseProcessing"];
-    [userContentController addScriptMessageHandler:internal name:@"stashOptin"];
-    [userContentController addScriptMessageHandler:internal name:@"stashExpand"];
-    [userContentController addScriptMessageHandler:internal name:@"stashCollapse"];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentSuccess];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentFailure];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPurchaseProcessing];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerOptin];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];
     config.userContentController = userContentController;
     
     UIColor *systemBackgroundColor = getSystemBackgroundColor();

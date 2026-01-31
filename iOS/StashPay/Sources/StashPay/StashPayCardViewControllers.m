@@ -38,6 +38,7 @@ extern const NSTimeInterval kPopupFrameAnimationDuration;
 extern const NSInteger kCardViewTag;
 extern const NSInteger kDragTrayViewTag;
 extern const NSInteger kDragHandleViewTag;
+extern NSString * const StashPayAssociatedKeyOverlayView;
 
 extern BOOL isRunningOniPad(void);
 extern CGSize calculateiPadCardSize(CGRect screenBounds);
@@ -184,7 +185,7 @@ extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners,
         cardWindow.frame = screenBounds;
     }
     
-    UIView *overlayView = objc_getAssociatedObject(self, "overlayView");
+    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashPayAssociatedKeyOverlayView);
     if (overlayView && !CGRectEqualToRect(overlayView.frame, screenBounds)) {
         overlayView.frame = screenBounds;
     }
