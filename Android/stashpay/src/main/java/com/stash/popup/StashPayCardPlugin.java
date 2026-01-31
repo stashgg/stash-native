@@ -42,7 +42,11 @@ import java.lang.ref.WeakReference;
  */
 public class StashPayCardPlugin {
     private static final String TAG = "StashPayCard";
-    private static StashPayCardPlugin instance;
+
+    /** Thread-safe lazy singleton holder. */
+    private static class Holder {
+        static final StashPayCardPlugin INSTANCE = new StashPayCardPlugin();
+    }
     
     // Use WeakReference to prevent Activity memory leaks
     private WeakReference<Activity> activityRef;
@@ -63,9 +67,12 @@ public class StashPayCardPlugin {
     private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
     private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
     
-    private boolean isCurrentlyPresented;
-    private boolean paymentSuccessHandled;
-    private boolean isPurchaseProcessing;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean isCurrentlyPresented;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean paymentSuccessHandled;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean isPurchaseProcessing;
     private boolean usePopupPresentation;
     private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
@@ -152,10 +159,7 @@ public class StashPayCardPlugin {
     }
     
     public static StashPayCardPlugin getInstance() {
-        if (instance == null) {
-            instance = new StashPayCardPlugin();
-        }
-        return instance;
+        return Holder.INSTANCE;
     }
     
     private StashPayCardPlugin() {
