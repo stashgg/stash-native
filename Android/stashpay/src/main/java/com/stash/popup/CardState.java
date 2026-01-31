@@ -2,7 +2,7 @@ package com.stash.popup;
 
 /**
  * Represents the current state of the checkout card.
- * Used for consistent state management across animations and gestures.
+ * Reserved for future state management (animations/gestures); not yet referenced in code.
  */
 public enum CardState {
     /**

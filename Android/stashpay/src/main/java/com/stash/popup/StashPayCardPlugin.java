@@ -85,23 +85,38 @@ public class StashPayCardPlugin {
     
     private long pageLoadStartTime;
     
+    /**
+     * Runs the given runnable on the main thread if activity is available. No-op if activity is null.
+     */
+    private void runOnMainSafely(Runnable r) {
+        Activity a = getActivity();
+        if (a != null) a.runOnUiThread(r);
+    }
+
+    /**
+     * Runs the given runnable on the main thread and then dismisses the current dialog.
+     * Used by JS interface handlers to avoid duplicating post + listener + dismiss logic.
+     */
+    private void runOnMainAndDismiss(Runnable beforeDismiss) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (beforeDismiss != null) beforeDismiss.run();
+                dismissCurrentDialog();
+            } catch (Exception e) {
+                Log.e(TAG, "Error in runOnMainAndDismiss: " + e.getMessage());
+                cleanupAllViews();
+            }
+        });
+    }
+
     private class StashJavaScriptInterface {
         @JavascriptInterface
         public void onPaymentSuccess() {
             if (paymentSuccessHandled) return;
             paymentSuccessHandled = true;
             isPurchaseProcessing = false;
-
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onPaymentSuccess();
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment success: " + e.getMessage());
-                    cleanupAllViews();
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onPaymentSuccess();
             });
         }
         
@@ -110,16 +125,8 @@ public class StashPayCardPlugin {
             if (paymentSuccessHandled) return;
             paymentSuccessHandled = true;
             isPurchaseProcessing = false;
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onPaymentFailure();
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment failure: " + e.getMessage());
-                    cleanupAllViews();
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onPaymentFailure();
             });
         }
         
@@ -144,15 +151,8 @@ public class StashPayCardPlugin {
         
         @JavascriptInterface
         public void setPaymentChannel(String optinType) {
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onOptInResponse(optinType != null ? optinType : "");
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment channel: " + e.getMessage());
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onOptInResponse(optinType != null ? optinType : "");
             });
         }
         
@@ -224,17 +224,14 @@ public class StashPayCardPlugin {
     }
     
     public void dismissDialog() {
-        Activity activity = getActivity();
-        if (activity != null) {
-            activity.runOnUiThread(() -> {
-                try {
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error dismissing dialog: " + e.getMessage());
-                    cleanupAllViews();
-                }
-            });
-        }
+        runOnMainSafely(() -> {
+            try {
+                dismissCurrentDialog();
+            } catch (Exception e) {
+                Log.e(TAG, "Error dismissing dialog: " + e.getMessage());
+                cleanupAllViews();
+            }
+        });
     }
     
     public void resetPresentationState() {
@@ -410,16 +407,16 @@ public class StashPayCardPlugin {
             boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
             
             Intent intent = new Intent();
-            intent.setClassName(activity, "com.stash.popup.StashPayCardPortraitActivity");
-            intent.putExtra("url", url);
-            intent.putExtra("initialURL", url);
-            intent.putExtra("cardHeightRatioPortrait", cardHeightRatioPortrait);
-            intent.putExtra("tabletWidthRatioPortrait", tabletWidthRatioPortrait);
-            intent.putExtra("tabletHeightRatioPortrait", tabletHeightRatioPortrait);
-            intent.putExtra("tabletWidthRatioLandscape", tabletWidthRatioLandscape);
-            intent.putExtra("tabletHeightRatioLandscape", tabletHeightRatioLandscape);
-            intent.putExtra("usePopup", usePopupPresentation);
-            intent.putExtra("wasLandscape", isLandscape);
+            intent.setClassName(activity, StashPayCardPortraitActivity.class.getName());
+            intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
+            intent.putExtra(CardConstants.INTENT_EXTRA_INITIAL_URL, url);
+            intent.putExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, cardHeightRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT, tabletWidthRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT, tabletHeightRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, tabletWidthRatioLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE, tabletHeightRatioLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
+            intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             
             activity.startActivity(intent);
@@ -744,7 +741,7 @@ public class StashPayCardPlugin {
                         } catch (Exception e) {
                             Log.e(TAG, "Error in delayed page finished handler: " + e.getMessage(), e);
                         }
-                    }, 300);
+                    }, CardConstants.HIDE_LOADING_DELAY_MS);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onPageFinished: " + e.getMessage(), e);
                 }
@@ -962,7 +959,7 @@ public class StashPayCardPlugin {
             int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
             boolean isTablet = StashWebViewUtils.isTablet(activity);
             float sizeRatio = isTablet ? CardConstants.POPUP_SIZE_RATIO_TABLET : CardConstants.POPUP_SIZE_RATIO_PHONE;
-            int minSize = isTablet ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP) : StashWebViewUtils.dpToPx(activity, 300);
+            int minSize = isTablet ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP) : StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
             int maxSize = StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP);
             int baseSize = Math.max(minSize, Math.min(maxSize, (int)(smallerDimension * sizeRatio)));
             

@@ -64,6 +64,10 @@ public class StashPayCardPortraitActivity extends Activity {
     private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
     private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
 
+    /** Cached at activity start to avoid repeated theme/device lookups. */
+    private boolean cachedIsDarkTheme;
+    private boolean cachedIsTablet;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -76,25 +80,25 @@ public class StashPayCardPortraitActivity extends Activity {
                 return;
             }
             
-            url = intent.getStringExtra("url");
-            initialURL = intent.getStringExtra("initialURL");
-            usePopup = intent.getBooleanExtra("usePopup", false);
-            wasLandscapeBeforePortrait = intent.getBooleanExtra("wasLandscape", false);
+            url = intent.getStringExtra(CardConstants.INTENT_EXTRA_URL);
+            initialURL = intent.getStringExtra(CardConstants.INTENT_EXTRA_INITIAL_URL);
+            usePopup = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_USE_POPUP, false);
+            wasLandscapeBeforePortrait = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, false);
             
-            cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", CardConstants.DEFAULT_CARD_HEIGHT_RATIO);
-            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT);
-            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT);
-            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE);
-            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE);
+            cardHeightRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, CardConstants.DEFAULT_CARD_HEIGHT_RATIO);
+            tabletWidthRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT, CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT);
+            tabletHeightRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT, CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT);
+            tabletWidthRatioLandscape = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE);
+            tabletHeightRatioLandscape = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE, CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE);
             
             if (url == null || url.isEmpty()) {
                 finish();
                 return;
             }
             
-            boolean isTablet = false;
+            cachedIsDarkTheme = StashWebViewUtils.isDarkTheme(this);
             try {
-                isTablet = StashWebViewUtils.isTablet(this);
+                cachedIsTablet = cachedIsTablet;
             } catch (Exception e) {
                 Log.e(TAG, "Error checking if tablet: " + e.getMessage(), e);
             }
@@ -102,7 +106,7 @@ public class StashPayCardPortraitActivity extends Activity {
             try {
                 if (usePopup) {
                     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
-                } else if (!isTablet) {
+                } else if (!cachedIsTablet) {
                     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
                 }
             } catch (Exception e) {
@@ -135,20 +139,13 @@ public class StashPayCardPortraitActivity extends Activity {
             rootLayout = new FrameLayout(this);
             rootLayout.setBackgroundColor(Color.TRANSPARENT);
             
-            boolean isTablet = false;
-            try {
-                isTablet = StashWebViewUtils.isTablet(this);
-            } catch (Exception e) {
-                Log.e(TAG, "Error checking if tablet in createUI: " + e.getMessage(), e);
-            }
-            
             // Create separate backdrop view for independent fade animation
             backdropView = new View(this);
             backdropView.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, 
                 FrameLayout.LayoutParams.MATCH_PARENT));
             try {
-                if (wasLandscapeBeforePortrait && !isTablet && !usePopup) {
+                if (wasLandscapeBeforePortrait && !cachedIsTablet && !usePopup) {
                     backdropView.setBackgroundColor(Color.BLACK);
                 } else {
                     backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
@@ -199,7 +196,7 @@ public class StashPayCardPortraitActivity extends Activity {
         cardContainer.setLayoutParams(params);
         
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
+        bg.setColor(cachedIsDarkTheme ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
         float radius = StashWebViewUtils.dpToPx(this, (int)CardConstants.CORNER_RADIUS_DP);
         
         if (isTablet) {
@@ -265,7 +262,7 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void createCard() {
         DisplayMetrics metrics = getResources().getDisplayMetrics();
-        boolean isTablet = StashWebViewUtils.isTablet(this);
+        boolean isTablet = cachedIsTablet;
         
         int cardWidth, cardHeight;
         
@@ -351,6 +348,17 @@ public class StashPayCardPortraitActivity extends Activity {
         private long lastMoveTime;
         private float lastMoveY;
         private float velocity;
+        /** Cached for the current touch sequence to avoid repeated getDisplayMetrics() calls. */
+        private DisplayMetrics displayMetrics;
+        
+        /** Applies drag-down feedback: translation and alpha fade. Shared by tablet and phone. */
+        private void applyDragDownFeedback(float deltaY) {
+            if (displayMetrics == null) return;
+            float newTranslationY = initialTranslationY + deltaY;
+            cardContainer.setTranslationY(newTranslationY);
+            float progress = Math.min(deltaY / displayMetrics.heightPixels, 1.0f);
+            cardContainer.setAlpha(1.0f - (progress * CardConstants.ALPHA_FADE_MULTIPLIER));
+        }
         
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -360,7 +368,7 @@ public class StashPayCardPortraitActivity extends Activity {
                 return false;
             }
             
-            boolean isTablet = StashWebViewUtils.isTablet(StashPayCardPortraitActivity.this);
+            boolean isTablet = cachedIsTablet;
             
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
@@ -370,6 +378,7 @@ public class StashPayCardPortraitActivity extends Activity {
                     lastMoveTime = System.currentTimeMillis();
                     lastMoveY = event.getRawY();
                     velocity = 0;
+                    displayMetrics = getResources().getDisplayMetrics();
                     return true;
                 
                 case MotionEvent.ACTION_MOVE:
@@ -388,32 +397,16 @@ public class StashPayCardPortraitActivity extends Activity {
                         // Tablet: only treat as drag when moving downward (dismiss gesture)
                         isDragging = isTablet ? (deltaY > 0) : true;
                         
-                        // Tablet: Only allow downward drag (dismiss only). Ignore upward movement.
-                        if (isTablet) {
-                            if (deltaY > 0) {
-                                float newTranslationY = initialTranslationY + deltaY;
-                                cardContainer.setTranslationY(newTranslationY);
-                                DisplayMetrics metrics = getResources().getDisplayMetrics();
-                                float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
-                                cardContainer.setAlpha(1.0f - (progress * 0.5f));
-                            }
-                        } else {
-                            // Phone: Allow both directions
-                            if (deltaY > 0) {
-                                // Drag down
-                                float newTranslationY = initialTranslationY + deltaY;
-                                cardContainer.setTranslationY(newTranslationY);
-                                DisplayMetrics metrics = getResources().getDisplayMetrics();
-                                float progress = Math.min(deltaY / metrics.heightPixels, 1.0f);
-                                cardContainer.setAlpha(1.0f - (progress * 0.5f));
-                            } else if (!isExpanded && !wasLandscapeBeforePortrait) {
-                                // Drag up to expand (phone only)
-                                float cardHeight = cardContainer.getHeight();
-                                float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
-                                float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
-                                cardContainer.setScaleX(1.0f + (dragProgress * 0.02f));
-                                cardContainer.setScaleY(1.0f + (dragProgress * 0.02f));
-                            }
+                        if (deltaY > 0) {
+                            // Drag down: same feedback for tablet and phone
+                            applyDragDownFeedback(deltaY);
+                        } else if (!isTablet && !isExpanded && !wasLandscapeBeforePortrait) {
+                            // Phone only: drag up to expand
+                            float cardHeight = cardContainer.getHeight();
+                            float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                            float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
+                            cardContainer.setScaleX(1.0f + (dragProgress * 0.02f));
+                            cardContainer.setScaleY(1.0f + (dragProgress * 0.02f));
                         }
                     }
                     return true;
@@ -422,7 +415,7 @@ public class StashPayCardPortraitActivity extends Activity {
                 case MotionEvent.ACTION_CANCEL:
                     if (isDragging) {
                         float finalDeltaY = event.getRawY() - initialY;
-                        DisplayMetrics metrics = getResources().getDisplayMetrics();
+                        DisplayMetrics metrics = displayMetrics != null ? displayMetrics : getResources().getDisplayMetrics();
                         float cardHeight = cardContainer.getHeight();
                         
                         if (isTablet) {
@@ -555,7 +548,7 @@ public class StashPayCardPortraitActivity extends Activity {
         if (cardContainer == null) return;
         
         // Tablets use fixed sizing - ignore expand/collapse
-        boolean isTablet = StashWebViewUtils.isTablet(this);
+        boolean isTablet = cachedIsTablet;
         if (isTablet) return;
         
         DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -583,7 +576,7 @@ public class StashPayCardPortraitActivity extends Activity {
         if (cardContainer == null || !isExpanded) return;
         
         // Tablets use fixed sizing - ignore expand/collapse
-        boolean isTablet = StashWebViewUtils.isTablet(this);
+        boolean isTablet = cachedIsTablet;
         if (isTablet) return;
         
         DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -607,7 +600,7 @@ public class StashPayCardPortraitActivity extends Activity {
     private void animateSnapBack() {
         if (cardContainer == null) return;
         DisplayMetrics metrics = getResources().getDisplayMetrics();
-        boolean isTablet = StashWebViewUtils.isTablet(this);
+        boolean isTablet = cachedIsTablet;
         
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
         int targetHeight;
@@ -646,7 +639,7 @@ public class StashPayCardPortraitActivity extends Activity {
         try {
             webView = new WebView(this);
             try {
-                StashWebViewUtils.configureWebViewSettings(webView, StashWebViewUtils.isDarkTheme(this));
+                StashWebViewUtils.configureWebViewSettings(webView, cachedIsDarkTheme);
             } catch (Exception e) {
                 Log.e(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
             }
@@ -695,7 +688,7 @@ public class StashPayCardPortraitActivity extends Activity {
             try {
                 webView.setWebChromeClient(new WebChromeClient());
                 webView.addJavascriptInterface(new JSInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
-                webView.setBackgroundColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
+                webView.setBackgroundColor(cachedIsDarkTheme ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
                 
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
@@ -703,7 +696,7 @@ public class StashPayCardPortraitActivity extends Activity {
                 cardContainer.addView(webView);
                 String urlWithTheme;
                 try {
-                    urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, StashWebViewUtils.isDarkTheme(this));
+                    urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, cachedIsDarkTheme);
                 } catch (Exception e) {
                     Log.e(TAG, "Error appending theme parameter: " + e.getMessage(), e);
                     urlWithTheme = url;
@@ -728,9 +721,9 @@ public class StashPayCardPortraitActivity extends Activity {
         homeButton.setPadding(0, 0, 0, 0);
         
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor("#2C2C2E") : Color.parseColor(CardConstants.COLOR_LIGHT_BG));
+        bg.setColor(cachedIsDarkTheme ? Color.parseColor(CardConstants.COLOR_HOME_BUTTON_DARK_BG) : Color.parseColor(CardConstants.COLOR_LIGHT_BG));
         bg.setCornerRadius(StashWebViewUtils.dpToPx(this, 20));
-        bg.setStroke(StashWebViewUtils.dpToPx(this, 1), StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(CardConstants.COLOR_DARK_STROKE) : Color.parseColor(CardConstants.COLOR_LIGHT_STROKE));
+        bg.setStroke(StashWebViewUtils.dpToPx(this, 1), cachedIsDarkTheme ? Color.parseColor(CardConstants.COLOR_DARK_STROKE) : Color.parseColor(CardConstants.COLOR_LIGHT_STROKE));
         homeButton.setBackground(bg);
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -744,7 +737,7 @@ public class StashPayCardPortraitActivity extends Activity {
         homeButton.setVisibility(View.GONE);
         homeButton.setOnClickListener(v -> {
             if (initialURL != null && webView != null) {
-                String urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(initialURL, StashWebViewUtils.isDarkTheme(this));
+                String urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(initialURL, cachedIsDarkTheme);
                 webView.loadUrl(urlWithTheme);
             }
         });
@@ -769,7 +762,7 @@ public class StashPayCardPortraitActivity extends Activity {
         }
         
         String lower = url.toLowerCase();
-        if (lower.contains("pay.google.com")) {
+        if (lower.contains(CardConstants.GOOGLE_PAY_DOMAIN)) {
             googlePayRedirectHandled = true;
             openGooglePayInBrowser(initialURL);
         }
@@ -782,9 +775,9 @@ public class StashPayCardPortraitActivity extends Activity {
                 Uri uri = Uri.parse(url);
                 String existingQuery = uri.getQuery();
                 if (existingQuery != null && !existingQuery.isEmpty()) {
-                    urlWithParam = url + "&dpm=gpay";
+                    urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_AMP;
                 } else {
-                    urlWithParam = url + "?dpm=gpay";
+                    urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_QUERY;
                 }
             }
             
@@ -899,7 +892,7 @@ public class StashPayCardPortraitActivity extends Activity {
                     .start();
             }
             
-            boolean isTablet = StashWebViewUtils.isTablet(this);
+            boolean isTablet = cachedIsTablet;
             
             if (usePopup || isTablet) {
                 // Use fade animation for popups and tablets
@@ -978,13 +971,13 @@ public class StashPayCardPortraitActivity extends Activity {
                     StashPayCard.StashPayListener listener = StashPayCard.getInstance().getListener();
                     if (listener != null) {
                         switch (messageType) {
-                            case "success":
+                            case CardConstants.MESSAGE_TYPE_SUCCESS:
                                 listener.onPaymentSuccess();
                                 break;
-                            case "failure":
+                            case CardConstants.MESSAGE_TYPE_FAILURE:
                                 listener.onPaymentFailure();
                                 break;
-                            case "optin":
+                            case CardConstants.MESSAGE_TYPE_OPTIN:
                                 listener.onOptInResponse(messageBody);
                                 break;
                         }
@@ -1009,7 +1002,7 @@ public class StashPayCardPortraitActivity extends Activity {
         @JavascriptInterface
         public void onPaymentSuccess() {
             try {
-                notifyListenerAndDismiss("success", "", true);
+                notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_SUCCESS, "", true);
             } catch (Exception e) {
                 Log.e(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
             }
@@ -1018,7 +1011,7 @@ public class StashPayCardPortraitActivity extends Activity {
         @JavascriptInterface
         public void onPaymentFailure() {
             try {
-                notifyListenerAndDismiss("failure", "", true);
+                notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_FAILURE, "", true);
             } catch (Exception e) {
                 Log.e(TAG, "Error in onPaymentFailure: " + e.getMessage(), e);
             }
@@ -1042,7 +1035,7 @@ public class StashPayCardPortraitActivity extends Activity {
         @JavascriptInterface
         public void setPaymentChannel(String optinType) {
             try {
-                notifyListenerAndDismiss("optin", optinType != null ? optinType : "", false);
+                notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_OPTIN, optinType != null ? optinType : "", false);
             } catch (Exception e) {
                 Log.e(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
             }
@@ -1143,7 +1136,7 @@ public class StashPayCardPortraitActivity extends Activity {
         super.onConfigurationChanged(newConfig);
         
         if (!usePopup && cardContainer != null && rootLayout != null) {
-            boolean isTablet = StashWebViewUtils.isTablet(this);
+            boolean isTablet = cachedIsTablet;
             if (isTablet) {
                 // Seamless animation for tablet rotation
                 animateTabletRotation();

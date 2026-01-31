@@ -10,12 +10,23 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 
+#pragma mark - Loading / Reveal Constants
+
+static const NSTimeInterval kPageReadyCheckInterval = 0.1;
+static const NSTimeInterval kLoadingRevealAnimationDuration = 0.2;
+static NSString * const kForceDarkBackgroundJS =
+    @"document.documentElement.style.backgroundColor = 'black'; "
+    @"document.body.style.backgroundColor = 'black'; "
+    @"var style = document.createElement('style'); "
+    @"style.innerHTML = 'body, html { background-color: black !important; }'; "
+    @"document.head.appendChild(style);";
+
 #pragma mark - Extern declarations (defined in StashPayCard.m)
 
 extern BOOL _usePopupPresentation;
 extern BOOL isRunningOniPad(void);
 extern UIColor* getSystemBackgroundColor(void);
-extern UIWindow* getKeyWindow(void);
+extern UIViewController *getTopPresentedViewController(void);
 
 #pragma mark - WebViewLoadDelegate
 
@@ -42,7 +53,7 @@ extern UIWindow* getKeyWindow(void);
         self.webView = webView;
         _loadingView = loadingView;
         
-        _timeoutTimer = [NSTimer scheduledTimerWithTimeInterval:0.1
+        _timeoutTimer = [NSTimer scheduledTimerWithTimeInterval:kPageReadyCheckInterval
                                                         target:self
                                                       selector:@selector(handleTimeout:)
                                                       userInfo:nil
@@ -94,16 +105,11 @@ extern UIWindow* getKeyWindow(void);
         if (@available(iOS 13.0, *)) {
             UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
             if (currentStyle == UIUserInterfaceStyleDark) {
-                NSString *forceColor = @"document.documentElement.style.backgroundColor = 'black'; \
-                                      document.body.style.backgroundColor = 'black'; \
-                                      var style = document.createElement('style'); \
-                                      style.innerHTML = 'body, html { background-color: black !important; }'; \
-                                      document.head.appendChild(style);";
-                [_webView evaluateJavaScript:forceColor completionHandler:nil];
+                [_webView evaluateJavaScript:kForceDarkBackgroundJS completionHandler:nil];
             }
         }
         
-        [UIView animateWithDuration:0.2 delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
+        [UIView animateWithDuration:kLoadingRevealAnimationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self->_loadingView.alpha = 0.0;
             self->_webView.alpha = 1.0;
         } completion:^(BOOL finished) {
@@ -153,12 +159,7 @@ extern UIWindow* getKeyWindow(void);
                     if (@available(iOS 13.0, *)) {
                         UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
                         if (currentStyle == UIUserInterfaceStyleDark) {
-                            NSString *forceColor = @"document.documentElement.style.backgroundColor = 'black'; \
-                                                  document.body.style.backgroundColor = 'black'; \
-                                                  var style = document.createElement('style'); \
-                                                  style.innerHTML = 'body, html { background-color: black !important; }'; \
-                                                  document.head.appendChild(style);";
-                            [webView evaluateJavaScript:forceColor completionHandler:^(id result, NSError *error) {
+                            [webView evaluateJavaScript:kForceDarkBackgroundJS completionHandler:^(id result, NSError *error) {
                                 [strongSelf showWebViewAndRemoveLoading];
                             }];
                         } else {
@@ -170,14 +171,14 @@ extern UIWindow* getKeyWindow(void);
                 }
             } else {
 #if __has_feature(objc_arc)
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     if (weakCheckPageReady) {
                         weakCheckPageReady();
                     }
                 });
 #else
                 __unsafe_unretained void (^weakCheckPageReady)(void) = checkPageReady;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     if (weakCheckPageReady) {
                         weakCheckPageReady();
                     }
@@ -241,11 +242,7 @@ extern UIWindow* getKeyWindow(void);
     }];
     [alert addAction:okAction];
     
-    UIViewController *presentingVC = getKeyWindow().rootViewController;
-    while (presentingVC.presentedViewController) {
-        presentingVC = presentingVC.presentedViewController;
-    }
-    [presentingVC presentViewController:alert animated:YES completion:nil];
+    [getTopPresentedViewController() presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler {
@@ -261,11 +258,7 @@ extern UIWindow* getKeyWindow(void);
     [alert addAction:cancelAction];
     [alert addAction:okAction];
     
-    UIViewController *presentingVC = getKeyWindow().rootViewController;
-    while (presentingVC.presentedViewController) {
-        presentingVC = presentingVC.presentedViewController;
-    }
-    [presentingVC presentViewController:alert animated:YES completion:nil];
+    [getTopPresentedViewController() presentViewController:alert animated:YES completion:nil];
 }
 
 @end

@@ -10,6 +10,15 @@
 
 @class WKWebView;
 
+/// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
+UIViewController *getTopPresentedViewController(void);
+
+/// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
+CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+
+/// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
+void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
+
 @interface DragTrayView : UIView
 @end
 

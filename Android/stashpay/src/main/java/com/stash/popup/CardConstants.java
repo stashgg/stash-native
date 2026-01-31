@@ -137,6 +137,9 @@ public final class CardConstants {
     /** Default tablet height ratio */
     public static final float DEFAULT_TABLET_HEIGHT_RATIO = 0.75f;
     
+    /** Minimum phone popup/card width in dp */
+    public static final float MIN_PHONE_CARD_WIDTH_DP = 300f;
+    
     /** Minimum tablet card width in dp */
     public static final float MIN_TABLET_CARD_WIDTH_DP = 400f;
     
@@ -189,6 +192,19 @@ public final class CardConstants {
     /** Fallback card height for tablet */
     public static final int FALLBACK_TABLET_CARD_HEIGHT = 700;
     
+    /** Loading indicator size in dp */
+    public static final int LOADING_INDICATOR_SIZE_DP = 48;
+    
+    /** Delay in ms before hiding loading after page finished (Plugin). */
+    public static final int HIDE_LOADING_DELAY_MS = 300;
+    
+    /** Google Pay redirect: domain to detect */
+    public static final String GOOGLE_PAY_DOMAIN = "pay.google.com";
+    /** Google Pay URL param */
+    public static final String GOOGLE_PAY_PARAM = "dpm=gpay";
+    public static final String GOOGLE_PAY_PARAM_PREFIX_AMP = "&dpm=gpay";
+    public static final String GOOGLE_PAY_PARAM_PREFIX_QUERY = "?dpm=gpay";
+    
     // ============================================================================
     // Timing Constants
     // ============================================================================
@@ -207,14 +223,35 @@ public final class CardConstants {
     public static final int TABLET_SIZE_THRESHOLD_DP = 600;
     
     // ============================================================================
+    // Intent Extras (StashPayCardPlugin -> StashPayCardPortraitActivity)
+    // ============================================================================
+    
+    public static final String INTENT_EXTRA_URL = "url";
+    public static final String INTENT_EXTRA_INITIAL_URL = "initialURL";
+    public static final String INTENT_EXTRA_USE_POPUP = "usePopup";
+    public static final String INTENT_EXTRA_WAS_LANDSCAPE = "wasLandscape";
+    public static final String INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT = "cardHeightRatioPortrait";
+    public static final String INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT = "tabletWidthRatioPortrait";
+    public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT = "tabletHeightRatioPortrait";
+    public static final String INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE = "tabletWidthRatioLandscape";
+    public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE = "tabletHeightRatioLandscape";
+
+    /** Message types for notifyListenerAndDismiss (success/failure/optin). */
+    public static final String MESSAGE_TYPE_SUCCESS = "success";
+    public static final String MESSAGE_TYPE_FAILURE = "failure";
+    public static final String MESSAGE_TYPE_OPTIN = "optin";
+
+    // ============================================================================
     // Colors
     // ============================================================================
     
-    /** Background dim color (semi-transparent black) */
+    /** Background dim color (50% alpha). Used as fallback when StashWebViewUtils.COLOR_BACKGROUND_DIM parse fails. */
     public static final String COLOR_BACKGROUND_DIM = "#80000000";
     
     public static final String COLOR_LIGHT_BG = "#F2F2F7";
     public static final String COLOR_DARK_BG = "#000000";
+    /** Home button background in dark theme (iOS-style system gray). */
+    public static final String COLOR_HOME_BUTTON_DARK_BG = "#2C2C2E";
     public static final String COLOR_DARK_STROKE = "#38383A";
     public static final String COLOR_LIGHT_STROKE = "#E5E5EA";
     public static final String COLOR_DRAG_HANDLE = "#D1D1D6";

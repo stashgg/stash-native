@@ -44,6 +44,8 @@ extern BOOL isRunningOniPad(void);
 extern CGSize calculateiPadCardSize(CGRect screenBounds);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 extern UIInterfaceOrientation getInterfaceOrientation(void);
+extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 
 #pragma mark - DragTrayView
 
@@ -140,16 +142,7 @@ extern UIInterfaceOrientation getInterfaceOrientation(void);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         cardView.frame = newFrame;
-        
-        UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-        if (dragTray) {
-            dragTray.frame = CGRectMake(0, 0, newCardSize.width, kDragTrayHeight);
-            UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-            if (handle) {
-                handle.frame = CGRectMake((newCardSize.width - kHandleBarWidth) / 2.0, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
-            }
-        }
-        
+        updateDragTrayAndHandleInCardView(cardView, newCardSize.width);
         [cardView layoutIfNeeded];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         self.previousScreenSize = size;
@@ -191,29 +184,8 @@ extern UIInterfaceOrientation getInterfaceOrientation(void);
         overlayView.frame = screenBounds;
     }
     
-    BOOL isLandscape = UIInterfaceOrientationIsLandscape(getInterfaceOrientation());
-    CGFloat smallerDimension = fmin(screenBounds.size.width, screenBounds.size.height);
-    CGFloat percentage = isRunningOniPad() ? kPopupBaseSizePercentageIPad : kPopupBaseSizePercentagePhone;
-    CGFloat baseSize = fmax(
-        isRunningOniPad() ? kPopupBaseSizeMinIPad : kPopupBaseSizeMinPhone,
-        fmin(kPopupBaseSizeMax, smallerDimension * percentage)
-    );
-    
-    CGFloat portraitWidthMultiplier = _useCustomPopupSize ? _customPortraitWidthMultiplier : kPopupPortraitWidthMultiplier;
-    CGFloat portraitHeightMultiplier = _useCustomPopupSize ? _customPortraitHeightMultiplier : kPopupPortraitHeightMultiplier;
-    CGFloat landscapeWidthMultiplier = _useCustomPopupSize ? _customLandscapeWidthMultiplier : kPopupLandscapeWidthMultiplier;
-    CGFloat landscapeHeightMultiplier = _useCustomPopupSize ? _customLandscapeHeightMultiplier : kPopupLandscapeHeightMultiplier;
-    
-    CGFloat popupWidth = baseSize * (isLandscape ? landscapeWidthMultiplier : portraitWidthMultiplier);
-    CGFloat popupHeight = baseSize * (isLandscape ? landscapeHeightMultiplier : portraitHeightMultiplier);
-    
-    CGRect newFrame = CGRectMake(
-        (screenBounds.size.width - popupWidth) / 2,
-        (screenBounds.size.height - popupHeight) / 2,
-        popupWidth,
-        popupHeight
-    );
-    
+    CGRect newFrame = computePopupFrameForScreenBounds(screenBounds);
+
     if (!CGRectEqualToRect(self.view.frame, newFrame)) {
         [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
             self.view.frame = newFrame;

@@ -26,6 +26,12 @@ public class StashWebViewUtils {
     /** JavaScript bridge name used by addJavascriptInterface and JS_SDK_SCRIPT. */
     public static final String JS_INTERFACE_NAME = "StashAndroid";
     
+    /** Query param name for theme */
+    public static final String QUERY_PARAM_THEME = "theme";
+    public static final String THEME_DARK = "dark";
+    public static final String THEME_LIGHT = "light";
+    
+    /** Lighter overlay dim (12.5% alpha). Fallback when parse fails: CardConstants.COLOR_BACKGROUND_DIM (50%). */
     public static final String COLOR_BACKGROUND_DIM = "#20000000";
     public static final String COLOR_DARK_BG = "#1C1C1E";
     
@@ -120,15 +126,15 @@ public class StashWebViewUtils {
             Uri uri = Uri.parse(url);
             Uri.Builder builder = uri.buildUpon();
             
-            String theme = isDarkTheme ? "dark" : "light";
-            builder.appendQueryParameter("theme", theme);
+            String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
+            builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
             
             return builder.build().toString();
         } catch (Exception e) {
             Log.e(TAG, "Error appending theme parameter: " + e.getMessage());
             String separator = url.contains("?") ? "&" : "?";
-            String theme = isDarkTheme ? "dark" : "light";
-            return url + separator + "theme=" + theme;
+            String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
+            return url + separator + QUERY_PARAM_THEME + "=" + theme;
         }
     }
 
@@ -154,7 +160,7 @@ public class StashWebViewUtils {
                     android.content.res.ColorStateList.valueOf(isDarkTheme(context) ? Color.WHITE : Color.DKGRAY));
             }
             
-            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dpToPx(context, 48), dpToPx(context, 48));
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP), dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP));
             params.gravity = Gravity.CENTER;
             loadingIndicator.setLayoutParams(params);
             
@@ -174,7 +180,7 @@ public class StashWebViewUtils {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             loadingIndicator.animate()
                 .alpha(0.0f)
-                .setDuration(200)
+                .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
                 .withEndAction(() -> {
                     if (loadingIndicator.getParent() != null) {
                         ((ViewGroup)loadingIndicator.getParent()).removeView(loadingIndicator);
