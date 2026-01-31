@@ -22,29 +22,38 @@ import android.widget.ProgressBar;
  */
 public class StashWebViewUtils {
     private static final String TAG = "StashWebViewUtils";
+
+    /** JavaScript bridge name used by addJavascriptInterface and JS_SDK_SCRIPT. */
+    public static final String JS_INTERFACE_NAME = "StashAndroid";
     
+    /** Query param name for theme */
+    public static final String QUERY_PARAM_THEME = "theme";
+    public static final String THEME_DARK = "dark";
+    public static final String THEME_LIGHT = "light";
+    
+    /** Lighter overlay dim (12.5% alpha). Fallback when parse fails: CardConstants.COLOR_BACKGROUND_DIM (50%). */
     public static final String COLOR_BACKGROUND_DIM = "#20000000";
     public static final String COLOR_DARK_BG = "#1C1C1E";
     
     public static final String JS_SDK_SCRIPT = "(function() {" +
         "  window.stash_sdk = window.stash_sdk || {};" +
         "  window.stash_sdk.onPaymentSuccess = function(data) {" +
-        "    try { StashAndroid.onPaymentSuccess(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPaymentSuccess(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.onPaymentFailure = function(data) {" +
-        "    try { StashAndroid.onPaymentFailure(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPaymentFailure(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.onPurchaseProcessing = function(data) {" +
-        "    try { StashAndroid.onPurchaseProcessing(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPurchaseProcessing(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.setPaymentChannel = function(optinType) {" +
-        "    try { StashAndroid.setPaymentChannel(optinType || ''); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".setPaymentChannel(optinType || ''); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.expand = function() {" +
-        "    try { StashAndroid.expand(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".expand(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.collapse = function() {" +
-        "    try { StashAndroid.collapse(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".collapse(); } catch(e) {}" +
         "  };" +
         "})();";
 
@@ -68,7 +77,7 @@ public class StashWebViewUtils {
         int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
         float smallerDp = smallerDimension / metrics.density;
         
-        boolean isTabletBySize = smallerDp >= 600;
+        boolean isTabletBySize = smallerDp >= CardConstants.TABLET_SIZE_THRESHOLD_DP;
         
         boolean isTabletByConfig = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
@@ -117,15 +126,15 @@ public class StashWebViewUtils {
             Uri uri = Uri.parse(url);
             Uri.Builder builder = uri.buildUpon();
             
-            String theme = isDarkTheme ? "dark" : "light";
-            builder.appendQueryParameter("theme", theme);
+            String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
+            builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
             
             return builder.build().toString();
         } catch (Exception e) {
             Log.e(TAG, "Error appending theme parameter: " + e.getMessage());
             String separator = url.contains("?") ? "&" : "?";
-            String theme = isDarkTheme ? "dark" : "light";
-            return url + separator + "theme=" + theme;
+            String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
+            return url + separator + QUERY_PARAM_THEME + "=" + theme;
         }
     }
 
@@ -151,7 +160,7 @@ public class StashWebViewUtils {
                     android.content.res.ColorStateList.valueOf(isDarkTheme(context) ? Color.WHITE : Color.DKGRAY));
             }
             
-            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dpToPx(context, 48), dpToPx(context, 48));
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP), dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP));
             params.gravity = Gravity.CENTER;
             loadingIndicator.setLayoutParams(params);
             
@@ -171,7 +180,7 @@ public class StashWebViewUtils {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
             loadingIndicator.animate()
                 .alpha(0.0f)
-                .setDuration(200)
+                .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
                 .withEndAction(() -> {
                     if (loadingIndicator.getParent() != null) {
                         ((ViewGroup)loadingIndicator.getParent()).removeView(loadingIndicator);
@@ -183,5 +192,52 @@ public class StashWebViewUtils {
                 ((ViewGroup)loadingIndicator.getParent()).removeView(loadingIndicator);
             }
         }
+    }
+
+    // ============================================================================
+    // Chrome Custom Tabs (reflection-based to avoid hard dependency)
+    // ============================================================================
+
+    private static final String CUSTOM_TABS_INTENT_CLASS = "androidx.browser.customtabs.CustomTabsIntent";
+    private static final String CUSTOM_TABS_BUILDER_CLASS = "androidx.browser.customtabs.CustomTabsIntent$Builder";
+
+    /**
+     * Returns true if Chrome Custom Tabs is available on the device.
+     */
+    public static boolean isChromeCustomTabsAvailable(Context context) {
+        if (context == null) return false;
+        try {
+            Class.forName(CUSTOM_TABS_INTENT_CLASS);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Opens the given URL in Chrome Custom Tabs using reflection.
+     * @throws Exception if Custom Tabs is not available or launch fails
+     */
+    public static void openWithChromeCustomTabs(Activity activity, String url) throws Exception {
+        if (activity == null || url == null || url.isEmpty()) {
+            throw new IllegalArgumentException("Invalid activity or URL");
+        }
+
+        Class<?> customTabsIntentClass = Class.forName(CUSTOM_TABS_INTENT_CLASS);
+        Class<?> builderClass = Class.forName(CUSTOM_TABS_BUILDER_CLASS);
+
+        Object builder = builderClass.getDeclaredConstructor().newInstance();
+        java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
+        setToolbarColor.invoke(builder, Color.parseColor(CardConstants.COLOR_DARK_BG));
+
+        java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
+        setShowTitle.invoke(builder, true);
+
+        java.lang.reflect.Method build = builderClass.getMethod("build");
+        Object customTabsIntent = build.invoke(builder);
+
+        java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl",
+            android.content.Context.class, Uri.class);
+        launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
     }
 }

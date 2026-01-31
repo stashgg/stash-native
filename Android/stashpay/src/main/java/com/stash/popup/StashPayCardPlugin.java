@@ -1,7 +1,9 @@
 package com.stash.popup;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.Dialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -30,15 +32,24 @@ import android.widget.FrameLayout;
 import android.widget.ProgressBar;
 import android.net.Uri;
 
+import java.lang.ref.WeakReference;
+
 /**
  * Internal plugin class that handles the WebView and dialog management.
  * Use {@link StashPayCard} for the public API.
+ * 
+ * Memory optimization: Uses WeakReference for Activity to prevent leaks.
  */
 public class StashPayCardPlugin {
     private static final String TAG = "StashPayCard";
-    private static StashPayCardPlugin instance;
+
+    /** Thread-safe lazy singleton holder. */
+    private static class Holder {
+        static final StashPayCardPlugin INSTANCE = new StashPayCardPlugin();
+    }
     
-    private Activity activity;
+    // Use WeakReference to prevent Activity memory leaks
+    private WeakReference<Activity> activityRef;
     private StashPayCard.StashPayListener listener;
 
     private Dialog currentDialog;
@@ -47,46 +58,65 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
-    // Phone card configuration
-    private float cardHeightRatio = 0.68f;
-    private float cardWidthRatio = 1.0f;
+    // Phone card: only height is configurable (card is always portrait, full width)
+    private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
     
-    // Tablet card configuration
-    private float tabletWidthRatio = 0.8f;
-    private float tabletHeightRatio = 0.75f;
+    // Orientation-specific tablet card configuration
+    private float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+    private float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+    private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+    private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
     
-    private boolean isCurrentlyPresented;
-    private boolean paymentSuccessHandled;
-    private boolean isPurchaseProcessing;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean isCurrentlyPresented;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean paymentSuccessHandled;
+    /** Accessed from UI and JS threads; volatile for visibility. */
+    private volatile boolean isPurchaseProcessing;
     private boolean usePopupPresentation;
     private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
     
     private boolean useCustomSize;
-    private float customPortraitWidthMultiplier = 1.0285f;
-    private float customPortraitHeightMultiplier = 1.485f;
-    private float customLandscapeWidthMultiplier = 1.2275445f;
-    private float customLandscapeHeightMultiplier = 1.1385f;
+    private float customPortraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
+    private float customPortraitHeightMultiplier = CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER;
+    private float customLandscapeWidthMultiplier = CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER;
+    private float customLandscapeHeightMultiplier = CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER;
     
     private long pageLoadStartTime;
     
+    /**
+     * Runs the given runnable on the main thread if activity is available. No-op if activity is null.
+     */
+    private void runOnMainSafely(Runnable r) {
+        Activity a = getActivity();
+        if (a != null) a.runOnUiThread(r);
+    }
+
+    /**
+     * Runs the given runnable on the main thread and then dismisses the current dialog.
+     * Used by JS interface handlers to avoid duplicating post + listener + dismiss logic.
+     */
+    private void runOnMainAndDismiss(Runnable beforeDismiss) {
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                if (beforeDismiss != null) beforeDismiss.run();
+                dismissCurrentDialog();
+            } catch (Exception e) {
+                Log.e(TAG, "Error in runOnMainAndDismiss: " + e.getMessage());
+                cleanupAllViews();
+            }
+        });
+    }
+
     private class StashJavaScriptInterface {
         @JavascriptInterface
         public void onPaymentSuccess() {
             if (paymentSuccessHandled) return;
             paymentSuccessHandled = true;
             isPurchaseProcessing = false;
-
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onPaymentSuccess();
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment success: " + e.getMessage());
-                    cleanupAllViews();
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onPaymentSuccess();
             });
         }
         
@@ -95,16 +125,8 @@ public class StashPayCardPlugin {
             if (paymentSuccessHandled) return;
             paymentSuccessHandled = true;
             isPurchaseProcessing = false;
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onPaymentFailure();
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment failure: " + e.getMessage());
-                    cleanupAllViews();
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onPaymentFailure();
             });
         }
         
@@ -129,41 +151,35 @@ public class StashPayCardPlugin {
         
         @JavascriptInterface
         public void setPaymentChannel(String optinType) {
-            new Handler(Looper.getMainLooper()).post(() -> {
-                try {
-                    if (listener != null) {
-                        listener.onOptInResponse(optinType != null ? optinType : "");
-                    }
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling payment channel: " + e.getMessage());
-                }
+            runOnMainAndDismiss(() -> {
+                if (listener != null) listener.onOptInResponse(optinType != null ? optinType : "");
             });
         }
         
-        @JavascriptInterface
-        public void expand() {
-            // Expand functionality can be implemented here if needed
-        }
-        
-        @JavascriptInterface
-        public void collapse() {
-            // Collapse functionality can be implemented here if needed
-        }
     }
     
     public static StashPayCardPlugin getInstance() {
-        if (instance == null) {
-            instance = new StashPayCardPlugin();
-        }
-        return instance;
+        return Holder.INSTANCE;
     }
     
     private StashPayCardPlugin() {
     }
     
+    /**
+     * Sets the Activity reference using WeakReference to prevent memory leaks.
+     * @param activity The activity to use for UI operations
+     */
     void setActivity(Activity activity) {
-        this.activity = activity;
+        this.activityRef = new WeakReference<>(activity);
+    }
+    
+    /**
+     * Gets the Activity if still available, or null if it was garbage collected.
+     * Always check for null before using.
+     * @return The activity or null if no longer available
+     */
+    private Activity getActivity() {
+        return activityRef != null ? activityRef.get() : null;
     }
     
     void setListener(StashPayCard.StashPayListener listener) {
@@ -208,16 +224,14 @@ public class StashPayCardPlugin {
     }
     
     public void dismissDialog() {
-        if (activity != null) {
-            activity.runOnUiThread(() -> {
-                try {
-                    dismissCurrentDialog();
-                } catch (Exception e) {
-                    Log.e(TAG, "Error dismissing dialog: " + e.getMessage());
-                    cleanupAllViews();
-                }
-            });
-        }
+        runOnMainSafely(() -> {
+            try {
+                dismissCurrentDialog();
+            } catch (Exception e) {
+                Log.e(TAG, "Error dismissing dialog: " + e.getMessage());
+                cleanupAllViews();
+            }
+        });
     }
     
     public void resetPresentationState() {
@@ -240,68 +254,71 @@ public class StashPayCardPlugin {
         }
     }
     
-    public void setCardConfiguration(float heightRatio, float verticalPosition, float widthRatio) {
+    // ============================================================================
+    // Orientation-Specific Phone Card Size Configuration
+    // ============================================================================
+    
+    public float getCardHeightRatioPortrait() {
+        return cardHeightRatioPortrait;
+    }
+    
+    public void setCardHeightRatioPortrait(float ratio) {
         try {
-            this.cardHeightRatio = clampRatio(heightRatio);
-            this.cardWidthRatio = clampRatio(widthRatio);
+            this.cardHeightRatioPortrait = clampRatio(ratio);
         } catch (Exception e) {
-            Log.e(TAG, "Error in setCardConfiguration: " + e.getMessage(), e);
+            Log.e(TAG, "Error in setCardHeightRatioPortrait: " + e.getMessage(), e);
         }
     }
     
     // ============================================================================
-    // Phone Card Size Configuration
+    // Orientation-Specific Tablet Card Size Configuration
     // ============================================================================
     
-    public float getCardHeightRatio() {
-        return cardHeightRatio;
+    public float getTabletWidthRatioPortrait() {
+        return tabletWidthRatioPortrait;
     }
     
-    public void setCardHeightRatio(float ratio) {
+    public void setTabletWidthRatioPortrait(float ratio) {
         try {
-            this.cardHeightRatio = clampRatio(ratio);
+            this.tabletWidthRatioPortrait = clampRatio(ratio);
         } catch (Exception e) {
-            Log.e(TAG, "Error in setCardHeightRatio: " + e.getMessage(), e);
+            Log.e(TAG, "Error in setTabletWidthRatioPortrait: " + e.getMessage(), e);
         }
     }
     
-    public float getCardWidthRatio() {
-        return cardWidthRatio;
+    public float getTabletHeightRatioPortrait() {
+        return tabletHeightRatioPortrait;
     }
     
-    public void setCardWidthRatio(float ratio) {
+    public void setTabletHeightRatioPortrait(float ratio) {
         try {
-            this.cardWidthRatio = clampRatio(ratio);
+            this.tabletHeightRatioPortrait = clampRatio(ratio);
         } catch (Exception e) {
-            Log.e(TAG, "Error in setCardWidthRatio: " + e.getMessage(), e);
+            Log.e(TAG, "Error in setTabletHeightRatioPortrait: " + e.getMessage(), e);
         }
     }
     
-    // ============================================================================
-    // Tablet Card Size Configuration
-    // ============================================================================
-    
-    public float getTabletWidthRatio() {
-        return tabletWidthRatio;
+    public float getTabletWidthRatioLandscape() {
+        return tabletWidthRatioLandscape;
     }
     
-    public void setTabletWidthRatio(float ratio) {
+    public void setTabletWidthRatioLandscape(float ratio) {
         try {
-            this.tabletWidthRatio = clampRatio(ratio);
+            this.tabletWidthRatioLandscape = clampRatio(ratio);
         } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletWidthRatio: " + e.getMessage(), e);
+            Log.e(TAG, "Error in setTabletWidthRatioLandscape: " + e.getMessage(), e);
         }
     }
     
-    public float getTabletHeightRatio() {
-        return tabletHeightRatio;
+    public float getTabletHeightRatioLandscape() {
+        return tabletHeightRatioLandscape;
     }
     
-    public void setTabletHeightRatio(float ratio) {
+    public void setTabletHeightRatioLandscape(float ratio) {
         try {
-            this.tabletHeightRatio = clampRatio(ratio);
+            this.tabletHeightRatioLandscape = clampRatio(ratio);
         } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletHeightRatio: " + e.getMessage(), e);
+            Log.e(TAG, "Error in setTabletHeightRatioLandscape: " + e.getMessage(), e);
         }
     }
     
@@ -337,6 +354,7 @@ public class StashPayCardPlugin {
     
     private void openURLInternal(String url) {
         try {
+            Activity activity = getActivity();
             if (activity == null || url == null || url.isEmpty()) {
                 Log.e(TAG, "Invalid activity or URL");
                 return;
@@ -353,15 +371,16 @@ public class StashPayCardPlugin {
             }
 
             final String finalUrl = url;
+            final Activity finalActivity = activity;
 
             activity.runOnUiThread(() -> {
                 try {
                     if (usePopupPresentation) {
-                        createAndShowPopupDialog(finalUrl, activity);
+                        createAndShowPopupDialog(finalUrl, finalActivity);
                     } else if (forceSafariViewController) {
-                        openWithChromeCustomTabs(finalUrl, activity);
+                        openWithChromeCustomTabs(finalUrl, finalActivity);
                     } else {
-                        launchPortraitActivity(finalUrl, activity);
+                        launchPortraitActivity(finalUrl, finalActivity);
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in UI thread operation: " + e.getMessage(), e);
@@ -376,22 +395,28 @@ public class StashPayCardPlugin {
     
     private void launchPortraitActivity(String url, Activity activity) {
         try {
-            android.view.Display display = activity.getWindowManager().getDefaultDisplay();
-            int rotation = display.getRotation();
+            int rotation;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.view.Display display = activity.getDisplay();
+                rotation = display != null ? display.getRotation() : Surface.ROTATION_0;
+            } else {
+                @SuppressWarnings("deprecation")
+                android.view.Display display = activity.getWindowManager().getDefaultDisplay();
+                rotation = display.getRotation();
+            }
             boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
             
             Intent intent = new Intent();
-            intent.setClassName(activity, "com.stash.popup.StashPayCardPortraitActivity");
-            intent.putExtra("url", url);
-            intent.putExtra("initialURL", url);
-            // Phone card configuration
-            intent.putExtra("cardHeightRatio", cardHeightRatio);
-            intent.putExtra("cardWidthRatio", cardWidthRatio);
-            // Tablet card configuration
-            intent.putExtra("tabletWidthRatio", tabletWidthRatio);
-            intent.putExtra("tabletHeightRatio", tabletHeightRatio);
-            intent.putExtra("usePopup", usePopupPresentation);
-            intent.putExtra("wasLandscape", isLandscape);
+            intent.setClassName(activity, StashPayCardPortraitActivity.class.getName());
+            intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
+            intent.putExtra(CardConstants.INTENT_EXTRA_INITIAL_URL, url);
+            intent.putExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, cardHeightRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT, tabletWidthRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT, tabletHeightRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, tabletWidthRatioLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE, tabletHeightRatioLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
+            intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             
             activity.startActivity(intent);
@@ -478,7 +503,7 @@ public class StashPayCardPlugin {
                 mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
             } catch (Exception e) {
                 Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
-                mainFrame.setBackgroundColor(Color.parseColor("#80000000"));
+                mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
             }
             
             mainFrame.setOnClickListener(v -> {
@@ -525,12 +550,12 @@ public class StashPayCardPlugin {
             try {
                 GradientDrawable popupBg = new GradientDrawable();
                 popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
-                float radius = StashWebViewUtils.dpToPx(activity, 12);
+                float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
                 popupBg.setCornerRadius(radius);
                 currentContainer.setBackground(popupBg);
                 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, 24));
+                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
                     currentContainer.setOutlineProvider(new ViewOutlineProvider() {
                         @Override
                         public void getOutline(View view, Outline outline) {
@@ -621,7 +646,7 @@ public class StashPayCardPlugin {
                     .alpha(1.0f)
                     .scaleX(1.0f)
                     .scaleY(1.0f)
-                    .setDuration(200)
+                    .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
                     .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
                     .start();
             }
@@ -638,7 +663,7 @@ public class StashPayCardPlugin {
                         .alpha(0.0f)
                         .scaleX(0.9f)
                         .scaleY(0.9f)
-                        .setDuration(250)
+                        .setDuration(CardConstants.ANIMATION_DURATION_FAST)
                         .setInterpolator(new SpringInterpolator())
                         .withEndAction(() -> {
                             try {
@@ -716,7 +741,7 @@ public class StashPayCardPlugin {
                         } catch (Exception e) {
                             Log.e(TAG, "Error in delayed page finished handler: " + e.getMessage(), e);
                         }
-                    }, 300);
+                    }, CardConstants.HIDE_LOADING_DELAY_MS);
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onPageFinished: " + e.getMessage(), e);
                 }
@@ -738,7 +763,7 @@ public class StashPayCardPlugin {
         
         try {
             webView.setWebChromeClient(new WebChromeClient());
-            webView.addJavascriptInterface(new StashJavaScriptInterface(), "StashAndroid");
+            webView.addJavascriptInterface(new StashJavaScriptInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
             webView.setVerticalScrollBarEnabled(false);
             webView.setHorizontalScrollBarEnabled(false);
             webView.setBackgroundColor(Color.TRANSPARENT);
@@ -796,9 +821,19 @@ public class StashPayCardPlugin {
     
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
-            if (isChromeCustomTabsAvailable()) {
+            if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening URL with Chrome Custom Tabs");
-                openWithReflectionChromeCustomTabs(url, activity);
+                StashWebViewUtils.openWithChromeCustomTabs(activity, url);
+                isCurrentlyPresented = true;
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        if (listener != null) {
+                            listener.onDialogDismissed();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
+                    }
+                }, CardConstants.DIALOG_DISMISS_DELAY_MS);
             } else {
                 Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
                 openWithDefaultBrowser(url, activity);
@@ -811,49 +846,6 @@ public class StashPayCardPlugin {
                 Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());
             }
         }
-    }
-    
-    private boolean isChromeCustomTabsAvailable() {
-        try {
-            Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-    
-    private void openWithReflectionChromeCustomTabs(String url, Activity activity) throws Exception {
-        if (activity == null || url == null || url.isEmpty()) {
-            throw new IllegalArgumentException("Invalid activity or URL");
-        }
-
-        Class<?> customTabsIntentClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-        Class<?> builderClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent$Builder");
-
-        Object builder = builderClass.newInstance();
-        java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
-        setToolbarColor.invoke(builder, Color.parseColor("#000000"));
-
-        java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
-        setShowTitle.invoke(builder, true);
-
-        java.lang.reflect.Method build = builderClass.getMethod("build");
-        Object customTabsIntent = build.invoke(builder);
-
-        java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl", 
-            android.content.Context.class, Uri.class);
-        launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
-
-        isCurrentlyPresented = true;
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            try {
-                if (listener != null) {
-                    listener.onDialogDismissed();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
-            }
-        }, 1000);
     }
     
     private void openWithDefaultBrowser(String url, Activity activity) {
@@ -876,7 +868,7 @@ public class StashPayCardPlugin {
                 } catch (Exception e) {
                     Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
                 }
-            }, 1000);
+            }, CardConstants.DIALOG_DISMISS_DELAY_MS);
         } catch (Exception e) {
             Log.e(TAG, "Error opening default browser: " + e.getMessage(), e);
             isCurrentlyPresented = false;
@@ -957,7 +949,7 @@ public class StashPayCardPlugin {
     private int[] calculatePopupDimensions(Activity activity) {
         if (activity == null) {
             Log.e(TAG, "Activity is null in calculatePopupDimensions");
-            return new int[]{800, 600};
+            return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
         }
 
         try {
@@ -966,17 +958,17 @@ public class StashPayCardPlugin {
             
             int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
             boolean isTablet = StashWebViewUtils.isTablet(activity);
-            int baseSize = Math.max(
-                isTablet ? StashWebViewUtils.dpToPx(activity, 400) : StashWebViewUtils.dpToPx(activity, 300),
-                Math.min(isTablet ? StashWebViewUtils.dpToPx(activity, 500) : StashWebViewUtils.dpToPx(activity, 500), (int)(smallerDimension * (isTablet ? 0.5f : 0.75f)))
-            );
+            float sizeRatio = isTablet ? CardConstants.POPUP_SIZE_RATIO_TABLET : CardConstants.POPUP_SIZE_RATIO_PHONE;
+            int minSize = isTablet ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP) : StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+            int maxSize = StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP);
+            int baseSize = Math.max(minSize, Math.min(maxSize, (int)(smallerDimension * sizeRatio)));
             
             float widthMultiplier = isLandscape ? 
-                (useCustomSize ? customLandscapeWidthMultiplier : 1.2275445f) :
-                (useCustomSize ? customPortraitWidthMultiplier : 1.0285f);
+                (useCustomSize ? customLandscapeWidthMultiplier : CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER) :
+                (useCustomSize ? customPortraitWidthMultiplier : CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER);
             float heightMultiplier = isLandscape ? 
-                (useCustomSize ? customLandscapeHeightMultiplier : 1.1385f) :
-                (useCustomSize ? customPortraitHeightMultiplier : 1.485f);
+                (useCustomSize ? customLandscapeHeightMultiplier : CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER) :
+                (useCustomSize ? customPortraitHeightMultiplier : CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER);
 
             int popupWidth = (int)(baseSize * widthMultiplier);
             int popupHeight = (int)(baseSize * heightMultiplier);
@@ -992,7 +984,7 @@ public class StashPayCardPlugin {
                 };
             } catch (Exception e2) {
                 Log.e(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
-                return new int[]{800, 600};
+                return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
             }
         }
     }

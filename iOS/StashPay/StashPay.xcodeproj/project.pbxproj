@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		A1000001299999990000001 /* StashPayCard.m in Sources */ = {isa = PBXBuildFile; fileRef = A1000002299999990000001 /* StashPayCard.m */; };
+		A10000B1299999990000001 /* StashPayCardViewControllers.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000B2299999990000001 /* StashPayCardViewControllers.m */; };
+		A10000B3299999990000001 /* StashPayCardWebViewDelegates.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000B4299999990000001 /* StashPayCardWebViewDelegates.m */; };
 		A1000003299999990000001 /* StashPay.h in Headers */ = {isa = PBXBuildFile; fileRef = A1000004299999990000001 /* StashPay.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		A1000005299999990000001 /* StashPayCard.h in Headers */ = {isa = PBXBuildFile; fileRef = A1000006299999990000001 /* StashPayCard.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		A1000007299999990000001 /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1000008299999990000001 /* SafariServices.framework */; };
@@ -17,6 +19,8 @@
 /* Begin PBXFileReference section */
 		A1000010299999990000001 /* StashPay.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StashPay.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000002299999990000001 /* StashPayCard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashPayCard.m; sourceTree = "<group>"; };
+		A10000B2299999990000001 /* StashPayCardViewControllers.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashPayCardViewControllers.m; sourceTree = "<group>"; };
+		A10000B4299999990000001 /* StashPayCardWebViewDelegates.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashPayCardWebViewDelegates.m; sourceTree = "<group>"; };
 		A1000004299999990000001 /* StashPay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StashPay.h; sourceTree = "<group>"; };
 		A1000006299999990000001 /* StashPayCard.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StashPayCard.h; sourceTree = "<group>"; };
 		A1000008299999990000001 /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
@@ -58,6 +62,8 @@
 			children = (
 				A1000025299999990000001 /* include */,
 				A1000002299999990000001 /* StashPayCard.m */,
+				A10000B2299999990000001 /* StashPayCardViewControllers.m */,
+				A10000B4299999990000001 /* StashPayCardWebViewDelegates.m */,
 			);
 			path = StashPay;
 			sourceTree = "<group>";
@@ -169,6 +175,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000001299999990000001 /* StashPayCard.m in Sources */,
+				A10000B1299999990000001 /* StashPayCardViewControllers.m in Sources */,
+				A10000B3299999990000001 /* StashPayCardWebViewDelegates.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

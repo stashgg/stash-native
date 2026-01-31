@@ -136,34 +136,33 @@ extension ViewController: StashPayCardDelegate {
 
 ## Card Size Configuration
 
-You can customize the size of the checkout card for both iPhones and iPads.
+Card size configuration is **optional**. Only change it if your specific Stash Pay configuration requires custom sizing. In most scenarios, leave the default sizing unchanged.
 
-### iPhone Card Size
+You can customize the size of the checkout card for iPhones and iPads as follows.
 
-On iPhones, the checkout card slides up from the bottom. You can configure its height:
+### Phone (iPhone)
+
+The phone card **always forces portrait** and **always uses full screen width**. Only the card height is configurable (as a ratio of screen height in portrait):
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// Set card height (0.1 to 1.0, default 0.6 = 60% of screen height)
-stashPay.cardHeightRatio = 0.75  // 75% of screen height
-
-// Set card width (0.1 to 1.0, default 1.0 = full width)
-stashPay.cardWidthRatio = 0.9  // 90% of screen width
+// Phone: only height is configurable (card is always full width, portrait only)
+stashPay.cardHeightRatioPortrait = 0.68   // 68% of screen height (default)
 ```
 
-### iPad Card Size
+### Tablet (iPad)
 
-On iPads, the checkout card appears centered on screen. You can configure its size:
+On iPad the card can rotate; configure width and height for portrait and landscape:
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// Set tablet width (0.1 to 1.0, default 0.8 = 80% of screen width)
-stashPay.tabletWidthRatio = 0.7  // 70% of screen width
-
-// Set tablet height (0.1 to 1.0, default 0.75 = 75% of screen height)
-stashPay.tabletHeightRatio = 0.85  // 85% of screen height
+// iPad card size - portrait and landscape
+stashPay.tabletWidthRatioPortrait = 0.4   // 40% width in portrait (default)
+stashPay.tabletHeightRatioPortrait = 0.5  // 50% height in portrait (default)
+stashPay.tabletWidthRatioLandscape = 0.3  // 30% width in landscape (default)
+stashPay.tabletHeightRatioLandscape = 0.6 // 60% height in landscape (default)
 ```
 
 ### Complete Example (Swift)
@@ -172,14 +171,15 @@ stashPay.tabletHeightRatio = 0.85  // 85% of screen height
 let stashPay = StashPayCard.sharedInstance()
 stashPay.delegate = self
 
-// Configure iPhone card size
-stashPay.cardHeightRatio = 0.75
+// Phone: customize card height only (portrait, full width)
+stashPay.cardHeightRatioPortrait = 0.7
 
-// Configure iPad card size
-stashPay.tabletWidthRatio = 0.7
-stashPay.tabletHeightRatio = 0.85
+// iPad: configure for both orientations
+stashPay.tabletWidthRatioPortrait = 0.4
+stashPay.tabletHeightRatioPortrait = 0.5
+stashPay.tabletWidthRatioLandscape = 0.3
+stashPay.tabletHeightRatioLandscape = 0.6
 
-// Open checkout with configured sizes
 stashPay.openCheckout(withURL: url)
 ```
 
@@ -189,14 +189,15 @@ stashPay.openCheckout(withURL: url)
 StashPayCard *stashPay = [StashPayCard sharedInstance];
 stashPay.delegate = self;
 
-// Configure iPhone card size
-stashPay.cardHeightRatio = 0.75;
+// Phone: customize card height only (portrait, full width)
+stashPay.cardHeightRatioPortrait = 0.7;
 
-// Configure iPad card size
-stashPay.tabletWidthRatio = 0.7;
-stashPay.tabletHeightRatio = 0.85;
+// iPad: configure for both orientations
+stashPay.tabletWidthRatioPortrait = 0.4;
+stashPay.tabletHeightRatioPortrait = 0.5;
+stashPay.tabletWidthRatioLandscape = 0.3;
+stashPay.tabletHeightRatioLandscape = 0.6;
 
-// Open checkout with configured sizes
 [stashPay openCheckoutWithURL:url];
 ```
 
@@ -239,11 +240,11 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `forceWebBasedCheckout` | Use SFSafariViewController |
 | `isCurrentlyPresented` | Check if dialog is shown |
 | `isPurchaseProcessing` | Check if payment is in progress |
-| `cardHeightRatio` | iPhone card height ratio (0.1-1.0) |
-| `cardVerticalPosition` | Vertical position (0.0-1.0) |
-| `cardWidthRatio` | iPhone card width ratio (0.1-1.0) |
-| `tabletWidthRatio` | iPad card width ratio (0.1-1.0) |
-| `tabletHeightRatio` | iPad card height ratio (0.1-1.0) |
+| `cardHeightRatioPortrait` | Phone card height (0.1-1.0). Phone card is always portrait and full width. |
+| `tabletWidthRatioPortrait` | iPad card width in portrait (0.1-1.0) |
+| `tabletHeightRatioPortrait` | iPad card height in portrait (0.1-1.0) |
+| `tabletWidthRatioLandscape` | iPad card width in landscape (0.1-1.0) |
+| `tabletHeightRatioLandscape` | iPad card height in landscape (0.1-1.0) |
 | `openCheckout(withURL:)` | Open checkout in card UI |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset and dismiss |

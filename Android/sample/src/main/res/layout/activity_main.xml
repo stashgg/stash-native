@@ -12,6 +12,7 @@
         android:layout_height="wrap_content"
         android:padding="16dp">
 
+        <!-- Title -->
         <TextView
             android:id="@+id/titleText"
             android:layout_width="wrap_content"
@@ -20,10 +21,12 @@
             android:textSize="24sp"
             android:textStyle="bold"
             android:layout_marginTop="16dp"
+            android:contentDescription="StashPay SDK Sample Application"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- URL Input -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/urlInputLayout"
             android:layout_width="0dp"
@@ -39,10 +42,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textUri"
-                android:singleLine="true" />
+                android:singleLine="true"
+                android:contentDescription="Enter the checkout URL to open" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Web View Mode Toggle -->
         <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/webViewModeSwitch"
             android:layout_width="0dp"
@@ -50,31 +55,24 @@
             android:layout_marginTop="12dp"
             android:text="Use Web View Mode (Chrome)"
             android:textSize="16sp"
+            android:contentDescription="Toggle to use Chrome Custom Tabs instead of native card UI"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/urlInputLayout" />
 
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/landscapeLockSwitch"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Lock to Landscape Mode"
-            android:textSize="16sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/webViewModeSwitch" />
-
+        <!-- Open Checkout Button -->
         <Button
             android:id="@+id/openCheckoutButton"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Open Checkout"
+            android:contentDescription="Open the checkout dialog with the specified URL"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/landscapeLockSwitch" />
+            app:layout_constraintTop_toBottomOf="@+id/webViewModeSwitch" />
 
+        <!-- Status -->
         <TextView
             android:id="@+id/statusLabel"
             android:layout_width="wrap_content"
@@ -94,88 +92,225 @@
             android:text="Ready"
             android:textSize="14sp"
             android:textColor="?android:textColorSecondary"
+            android:contentDescription="Current status of the checkout operation"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toEndOf="@+id/statusLabel"
             app:layout_constraintTop_toBottomOf="@+id/openCheckoutButton" />
 
-        <!-- Card Size Configuration Section -->
+        <!-- Advanced Options Toggle -->
         <TextView
-            android:id="@+id/sizeConfigTitle"
-            android:layout_width="wrap_content"
+            android:id="@+id/advancedOptionsToggle"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="Card Size Configuration"
-            android:textSize="18sp"
+            android:layout_marginTop="24dp"
+            android:text="▶ Advanced Options"
+            android:textSize="16sp"
             android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            android:padding="8dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground"
+            android:contentDescription="Tap to show or hide advanced configuration options"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/statusLabel" />
 
-        <!-- Phone Card Height Slider -->
-        <TextView
-            android:id="@+id/phoneHeightLabel"
+        <!-- Advanced Options Container (Initially Hidden) -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/advancedOptionsContainer"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="Phone Height: 68%"
-            android:textSize="14sp"
+            android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/sizeConfigTitle" />
+            app:layout_constraintTop_toBottomOf="@+id/advancedOptionsToggle">
 
-        <SeekBar
-            android:id="@+id/phoneHeightSlider"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:max="90"
-            android:progress="58"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/phoneHeightLabel" />
+            <!-- Landscape Lock Toggle -->
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                android:id="@+id/landscapeLockSwitch"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Lock to Landscape Mode"
+                android:textSize="16sp"
+                android:contentDescription="Toggle to lock the app to landscape orientation for testing"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Tablet Width Slider -->
-        <TextView
-            android:id="@+id/tabletWidthLabel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Tablet Width: 80%"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/phoneHeightSlider" />
+            <!-- Card Size Configuration Section -->
+            <TextView
+                android:id="@+id/sizeConfigTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Card Size Configuration"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/landscapeLockSwitch" />
 
-        <SeekBar
-            android:id="@+id/tabletWidthSlider"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:max="90"
-            android:progress="70"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tabletWidthLabel" />
+            <!-- Phone Card Height Section -->
+            <TextView
+                android:id="@+id/phoneCardHeightTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Phone Card Height"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/sizeConfigTitle" />
 
-        <!-- Tablet Height Slider -->
-        <TextView
-            android:id="@+id/tabletHeightLabel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Tablet Height: 75%"
-            android:textSize="14sp"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tabletWidthSlider" />
+            <TextView
+                android:id="@+id/phoneCardHeightLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Height: 68%"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/phoneCardHeightTitle" />
 
-        <SeekBar
-            android:id="@+id/tabletHeightSlider"
+            <SeekBar
+                android:id="@+id/phoneCardHeightSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:max="90"
+                android:progress="58"
+                android:contentDescription="Phone card height percentage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/phoneCardHeightLabel" />
+
+            <!-- Tablet Portrait Section -->
+            <TextView
+                android:id="@+id/tabletPortraitTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Tablet Size (Portrait)"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/phoneCardHeightSlider" />
+
+            <TextView
+                android:id="@+id/tabletPortraitWidthLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Width: 40%"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletPortraitTitle" />
+
+            <SeekBar
+                android:id="@+id/tabletPortraitWidthSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:max="90"
+                android:progress="30"
+                android:contentDescription="Tablet portrait width percentage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletPortraitWidthLabel" />
+
+            <TextView
+                android:id="@+id/tabletPortraitHeightLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Height: 50%"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletPortraitWidthSlider" />
+
+            <SeekBar
+                android:id="@+id/tabletPortraitHeightSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:max="90"
+                android:progress="40"
+                android:contentDescription="Tablet portrait height percentage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletPortraitHeightLabel" />
+
+            <!-- Tablet Landscape Section -->
+            <TextView
+                android:id="@+id/tabletLandscapeTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Tablet Size (Landscape)"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletPortraitHeightSlider" />
+
+            <TextView
+                android:id="@+id/tabletLandscapeWidthLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Width: 30%"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletLandscapeTitle" />
+
+            <SeekBar
+                android:id="@+id/tabletLandscapeWidthSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:max="90"
+                android:progress="20"
+                android:contentDescription="Tablet landscape width percentage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletLandscapeWidthLabel" />
+
+            <TextView
+                android:id="@+id/tabletLandscapeHeightLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Height: 60%"
+                android:textSize="14sp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletLandscapeWidthSlider" />
+
+            <SeekBar
+                android:id="@+id/tabletLandscapeHeightSlider"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:max="90"
+                android:progress="50"
+                android:contentDescription="Tablet landscape height percentage"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/tabletLandscapeHeightLabel"
+                app:layout_constraintBottom_toBottomOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Spacer at bottom -->
+        <View
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:max="90"
-            android:progress="65"
-            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_height="24dp"
+            app:layout_constraintTop_toBottomOf="@+id/advancedOptionsContainer"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tabletHeightLabel"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
