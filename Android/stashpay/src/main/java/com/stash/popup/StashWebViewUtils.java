@@ -184,4 +184,51 @@ public class StashWebViewUtils {
             }
         }
     }
+
+    // ============================================================================
+    // Chrome Custom Tabs (reflection-based to avoid hard dependency)
+    // ============================================================================
+
+    private static final String CUSTOM_TABS_INTENT_CLASS = "androidx.browser.customtabs.CustomTabsIntent";
+    private static final String CUSTOM_TABS_BUILDER_CLASS = "androidx.browser.customtabs.CustomTabsIntent$Builder";
+
+    /**
+     * Returns true if Chrome Custom Tabs is available on the device.
+     */
+    public static boolean isChromeCustomTabsAvailable(Context context) {
+        if (context == null) return false;
+        try {
+            Class.forName(CUSTOM_TABS_INTENT_CLASS);
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Opens the given URL in Chrome Custom Tabs using reflection.
+     * @throws Exception if Custom Tabs is not available or launch fails
+     */
+    public static void openWithChromeCustomTabs(Activity activity, String url) throws Exception {
+        if (activity == null || url == null || url.isEmpty()) {
+            throw new IllegalArgumentException("Invalid activity or URL");
+        }
+
+        Class<?> customTabsIntentClass = Class.forName(CUSTOM_TABS_INTENT_CLASS);
+        Class<?> builderClass = Class.forName(CUSTOM_TABS_BUILDER_CLASS);
+
+        Object builder = builderClass.getDeclaredConstructor().newInstance();
+        java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
+        setToolbarColor.invoke(builder, Color.parseColor(CardConstants.COLOR_DARK_BG));
+
+        java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
+        setShowTitle.invoke(builder, true);
+
+        java.lang.reflect.Method build = builderClass.getMethod("build");
+        Object customTabsIntent = build.invoke(builder);
+
+        java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl",
+            android.content.Context.class, Uri.class);
+        launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
+    }
 }

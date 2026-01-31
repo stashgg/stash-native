@@ -813,9 +813,19 @@ public class StashPayCardPlugin {
     
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
-            if (isChromeCustomTabsAvailable()) {
+            if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening URL with Chrome Custom Tabs");
-                openWithReflectionChromeCustomTabs(url, activity);
+                StashWebViewUtils.openWithChromeCustomTabs(activity, url);
+                isCurrentlyPresented = true;
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    try {
+                        if (listener != null) {
+                            listener.onDialogDismissed();
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
+                    }
+                }, CardConstants.DIALOG_DISMISS_DELAY_MS);
             } else {
                 Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
                 openWithDefaultBrowser(url, activity);
@@ -828,49 +838,6 @@ public class StashPayCardPlugin {
                 Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());
             }
         }
-    }
-    
-    private boolean isChromeCustomTabsAvailable() {
-        try {
-            Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-    
-    private void openWithReflectionChromeCustomTabs(String url, Activity activity) throws Exception {
-        if (activity == null || url == null || url.isEmpty()) {
-            throw new IllegalArgumentException("Invalid activity or URL");
-        }
-
-        Class<?> customTabsIntentClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-        Class<?> builderClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent$Builder");
-
-        Object builder = builderClass.newInstance();
-        java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
-        setToolbarColor.invoke(builder, Color.parseColor("#000000"));
-
-        java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
-        setShowTitle.invoke(builder, true);
-
-        java.lang.reflect.Method build = builderClass.getMethod("build");
-        Object customTabsIntent = build.invoke(builder);
-
-        java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl", 
-            android.content.Context.class, Uri.class);
-        launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
-
-        isCurrentlyPresented = true;
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-            try {
-                if (listener != null) {
-                    listener.onDialogDismissed();
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
-            }
-        }, CardConstants.DIALOG_DISMISS_DELAY_MS);
     }
     
     private void openWithDefaultBrowser(String url, Activity activity) {

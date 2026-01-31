@@ -797,9 +797,9 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
-            if (isChromeCustomTabsAvailable()) {
+            if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
-                openWithReflectionChromeCustomTabs(url, activity);
+                StashWebViewUtils.openWithChromeCustomTabs(activity, url);
             } else {
                 Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
                 openInSystemBrowser(url);
@@ -812,34 +812,6 @@ public class StashPayCardPortraitActivity extends Activity {
                 Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());
             }
         }
-    }
-    
-    private boolean isChromeCustomTabsAvailable() {
-        try {
-            Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-    
-    private void openWithReflectionChromeCustomTabs(String url, Activity activity) throws Exception {
-        Class<?> customTabsIntentClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent");
-        Class<?> builderClass = Class.forName("androidx.browser.customtabs.CustomTabsIntent$Builder");
-
-        Object builder = builderClass.newInstance();
-        java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
-        setToolbarColor.invoke(builder, Color.parseColor("#000000"));
-
-        java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
-        setShowTitle.invoke(builder, true);
-
-        java.lang.reflect.Method build = builderClass.getMethod("build");
-        Object customTabsIntent = build.invoke(builder);
-
-        java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl", 
-            android.content.Context.class, Uri.class);
-        launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
     }
     
     private void openInSystemBrowser(String url) {
