@@ -7,8 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
-
-@class WKWebView;
+#import <WebKit/WebKit.h>
 
 /// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
 UIViewController *getTopPresentedViewController(void);
@@ -44,10 +43,10 @@ void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 - (void)updateCornerRadiusMask;
 @end
 
-@interface WebViewLoadDelegate : NSObject
+@interface WebViewLoadDelegate : NSObject <WKNavigationDelegate>
 @property (nonatomic, assign) CFAbsoluteTime pageLoadStartTime;
 - (instancetype)initWithWebView:(WKWebView *)webView loadingView:(UIView *)loadingView;
 @end
 
-@interface WebViewUIDelegate : NSObject
+@interface WebViewUIDelegate : NSObject <WKUIDelegate>
 @end
