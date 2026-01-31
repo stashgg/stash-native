@@ -68,7 +68,7 @@ public class StashWebViewUtils {
         int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
         float smallerDp = smallerDimension / metrics.density;
         
-        boolean isTabletBySize = smallerDp >= 600;
+        boolean isTabletBySize = smallerDp >= CardConstants.TABLET_SIZE_THRESHOLD_DP;
         
         boolean isTabletByConfig = false;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {

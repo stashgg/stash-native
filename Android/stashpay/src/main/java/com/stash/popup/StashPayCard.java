@@ -95,10 +95,10 @@ public class StashPayCard {
      * Configuration for custom popup sizing.
      */
     public static class PopupSizeConfig {
-        public float portraitWidthMultiplier = 1.0285f;
-        public float portraitHeightMultiplier = 1.485f;
-        public float landscapeWidthMultiplier = 1.2275445f;
-        public float landscapeHeightMultiplier = 1.1385f;
+        public float portraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
+        public float portraitHeightMultiplier = CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER;
+        public float landscapeWidthMultiplier = CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER;
+        public float landscapeHeightMultiplier = CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER;
         
         public PopupSizeConfig() {}
         

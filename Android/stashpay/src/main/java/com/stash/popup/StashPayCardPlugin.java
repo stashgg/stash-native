@@ -55,13 +55,13 @@ public class StashPayCardPlugin {
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
     // Phone card: only height is configurable (card is always portrait, full width)
-    private float cardHeightRatioPortrait = 0.68f;
+    private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
     
     // Orientation-specific tablet card configuration
-    private float tabletWidthRatioPortrait = 0.4f;
-    private float tabletHeightRatioPortrait = 0.5f;
-    private float tabletWidthRatioLandscape = 0.3f;
-    private float tabletHeightRatioLandscape = 0.6f;
+    private float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+    private float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+    private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+    private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
     
     private boolean isCurrentlyPresented;
     private boolean paymentSuccessHandled;
@@ -71,10 +71,10 @@ public class StashPayCardPlugin {
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
     
     private boolean useCustomSize;
-    private float customPortraitWidthMultiplier = 1.0285f;
-    private float customPortraitHeightMultiplier = 1.485f;
-    private float customLandscapeWidthMultiplier = 1.2275445f;
-    private float customLandscapeHeightMultiplier = 1.1385f;
+    private float customPortraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
+    private float customPortraitHeightMultiplier = CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER;
+    private float customLandscapeWidthMultiplier = CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER;
+    private float customLandscapeHeightMultiplier = CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER;
     
     private long pageLoadStartTime;
     
@@ -504,7 +504,7 @@ public class StashPayCardPlugin {
                 mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
             } catch (Exception e) {
                 Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
-                mainFrame.setBackgroundColor(Color.parseColor("#80000000"));
+                mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
             }
             
             mainFrame.setOnClickListener(v -> {
@@ -879,7 +879,7 @@ public class StashPayCardPlugin {
             } catch (Exception e) {
                 Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
             }
-        }, 1000);
+        }, CardConstants.DIALOG_DISMISS_DELAY_MS);
     }
     
     private void openWithDefaultBrowser(String url, Activity activity) {
@@ -902,7 +902,7 @@ public class StashPayCardPlugin {
                 } catch (Exception e) {
                     Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
                 }
-            }, 1000);
+            }, CardConstants.DIALOG_DISMISS_DELAY_MS);
         } catch (Exception e) {
             Log.e(TAG, "Error opening default browser: " + e.getMessage(), e);
             isCurrentlyPresented = false;
@@ -983,7 +983,7 @@ public class StashPayCardPlugin {
     private int[] calculatePopupDimensions(Activity activity) {
         if (activity == null) {
             Log.e(TAG, "Activity is null in calculatePopupDimensions");
-            return new int[]{800, 600};
+            return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
         }
 
         try {
@@ -992,17 +992,17 @@ public class StashPayCardPlugin {
             
             int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
             boolean isTablet = StashWebViewUtils.isTablet(activity);
-            int baseSize = Math.max(
-                isTablet ? StashWebViewUtils.dpToPx(activity, 400) : StashWebViewUtils.dpToPx(activity, 300),
-                Math.min(isTablet ? StashWebViewUtils.dpToPx(activity, 500) : StashWebViewUtils.dpToPx(activity, 500), (int)(smallerDimension * (isTablet ? 0.5f : 0.75f)))
-            );
+            float sizeRatio = isTablet ? CardConstants.POPUP_SIZE_RATIO_TABLET : CardConstants.POPUP_SIZE_RATIO_PHONE;
+            int minSize = isTablet ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP) : StashWebViewUtils.dpToPx(activity, 300);
+            int maxSize = StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP);
+            int baseSize = Math.max(minSize, Math.min(maxSize, (int)(smallerDimension * sizeRatio)));
             
             float widthMultiplier = isLandscape ? 
-                (useCustomSize ? customLandscapeWidthMultiplier : 1.2275445f) :
-                (useCustomSize ? customPortraitWidthMultiplier : 1.0285f);
+                (useCustomSize ? customLandscapeWidthMultiplier : CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER) :
+                (useCustomSize ? customPortraitWidthMultiplier : CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER);
             float heightMultiplier = isLandscape ? 
-                (useCustomSize ? customLandscapeHeightMultiplier : 1.1385f) :
-                (useCustomSize ? customPortraitHeightMultiplier : 1.485f);
+                (useCustomSize ? customLandscapeHeightMultiplier : CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER) :
+                (useCustomSize ? customPortraitHeightMultiplier : CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER);
 
             int popupWidth = (int)(baseSize * widthMultiplier);
             int popupHeight = (int)(baseSize * heightMultiplier);
@@ -1018,7 +1018,7 @@ public class StashPayCardPlugin {
                 };
             } catch (Exception e2) {
                 Log.e(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
-                return new int[]{800, 600};
+                return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
             }
         }
     }

@@ -58,25 +58,13 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean isPurchaseProcessing;
     
     // Phone card: only height is configurable (card is always portrait, full width)
-    private float cardHeightRatioPortrait = 0.68f;
+    private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
     
     // Orientation-specific tablet card configuration
-    private float tabletWidthRatioPortrait = 0.4f;
-    private float tabletHeightRatioPortrait = 0.5f;
-    private float tabletWidthRatioLandscape = 0.3f;
-    private float tabletHeightRatioLandscape = 0.6f;
-    
-    private static final String COLOR_LIGHT_BG = "#F2F2F7";
-    private static final String COLOR_DARK_STROKE = "#38383A";
-    private static final String COLOR_LIGHT_STROKE = "#E5E5EA";
-    private static final String COLOR_DRAG_HANDLE = "#D1D1D6";
-    private static final String COLOR_HOME_TEXT = "#8E8E93";
-    
-    private static final int ANIMATION_DURATION_SHORT = 200;
-    private static final int ANIMATION_DURATION_MEDIUM = 300;
-    private static final int ANIMATION_DURATION_LONG = 400;
-    private static final float CORNER_RADIUS_DP = 12f;
-    private static final float ELEVATION_DP = 24f;
+    private float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+    private float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+    private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+    private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,11 +83,11 @@ public class StashPayCardPortraitActivity extends Activity {
             usePopup = intent.getBooleanExtra("usePopup", false);
             wasLandscapeBeforePortrait = intent.getBooleanExtra("wasLandscape", false);
             
-            cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", 0.68f);
-            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", 0.4f);
-            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", 0.5f);
-            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", 0.3f);
-            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", 0.6f);
+            cardHeightRatioPortrait = intent.getFloatExtra("cardHeightRatioPortrait", CardConstants.DEFAULT_CARD_HEIGHT_RATIO);
+            tabletWidthRatioPortrait = intent.getFloatExtra("tabletWidthRatioPortrait", CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT);
+            tabletHeightRatioPortrait = intent.getFloatExtra("tabletHeightRatioPortrait", CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT);
+            tabletWidthRatioLandscape = intent.getFloatExtra("tabletWidthRatioLandscape", CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE);
+            tabletHeightRatioLandscape = intent.getFloatExtra("tabletHeightRatioLandscape", CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE);
             
             if (url == null || url.isEmpty()) {
                 finish();
@@ -169,7 +157,7 @@ public class StashPayCardPortraitActivity extends Activity {
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
-                backdropView.setBackgroundColor(Color.parseColor("#80000000"));
+                backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
             }
             rootLayout.addView(backdropView);
             
@@ -214,7 +202,7 @@ public class StashPayCardPortraitActivity extends Activity {
         
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
-        float radius = StashWebViewUtils.dpToPx(this, (int)CORNER_RADIUS_DP);
+        float radius = StashWebViewUtils.dpToPx(this, (int)CardConstants.CORNER_RADIUS_DP);
         
         if (isTablet) {
             bg.setCornerRadius(radius);
@@ -224,7 +212,7 @@ public class StashPayCardPortraitActivity extends Activity {
         cardContainer.setBackground(bg);
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            cardContainer.setElevation(StashWebViewUtils.dpToPx(this, (int)ELEVATION_DP));
+            cardContainer.setElevation(StashWebViewUtils.dpToPx(this, (int)CardConstants.ELEVATION_DP));
             cardContainer.setOutlineProvider(new ViewOutlineProvider() {
                 @Override
                 public void getOutline(View view, Outline outline) {
@@ -261,12 +249,12 @@ public class StashPayCardPortraitActivity extends Activity {
         int cardHeight = (int)(screenHeight * heightRatio);
         
         if (cardWidth <= 0 || cardHeight <= 0) {
-            return new int[]{600, 700};
+            return new int[]{CardConstants.FALLBACK_TABLET_CARD_WIDTH, CardConstants.FALLBACK_TABLET_CARD_HEIGHT};
         }
         
         // Enforce minimum sizes for usability
-        int minWidth = 400;
-        int minHeight = 500;
+        int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
+        int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
         if (cardWidth < minWidth) {
             cardWidth = minWidth;
         }
@@ -335,7 +323,7 @@ public class StashPayCardPortraitActivity extends Activity {
         
         View handle = new View(this);
         GradientDrawable handleBg = new GradientDrawable();
-        handleBg.setColor(Color.parseColor(COLOR_DRAG_HANDLE));
+        handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
         handleBg.setCornerRadius(StashWebViewUtils.dpToPx(this, 2));
         handle.setBackground(handleBg);
         handle.setLayoutParams(new LinearLayout.LayoutParams(StashWebViewUtils.dpToPx(this, 36), StashWebViewUtils.dpToPx(this, 5)));
@@ -749,14 +737,14 @@ public class StashPayCardPortraitActivity extends Activity {
         homeButton = new Button(this);
         homeButton.setText("⌂");
         homeButton.setTextSize(18);
-        homeButton.setTextColor(Color.parseColor(COLOR_HOME_TEXT));
+        homeButton.setTextColor(Color.parseColor(CardConstants.COLOR_HOME_TEXT));
         homeButton.setGravity(Gravity.CENTER);
         homeButton.setPadding(0, 0, 0, 0);
         
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor("#2C2C2E") : Color.parseColor(COLOR_LIGHT_BG));
+        bg.setColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor("#2C2C2E") : Color.parseColor(CardConstants.COLOR_LIGHT_BG));
         bg.setCornerRadius(StashWebViewUtils.dpToPx(this, 20));
-        bg.setStroke(StashWebViewUtils.dpToPx(this, 1), StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(COLOR_DARK_STROKE) : Color.parseColor(COLOR_LIGHT_STROKE));
+        bg.setStroke(StashWebViewUtils.dpToPx(this, 1), StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(CardConstants.COLOR_DARK_STROKE) : Color.parseColor(CardConstants.COLOR_LIGHT_STROKE));
         homeButton.setBackground(bg);
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {

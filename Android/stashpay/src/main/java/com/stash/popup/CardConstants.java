@@ -143,9 +143,75 @@ public final class CardConstants {
     /** Minimum tablet card height in dp */
     public static final float MIN_TABLET_CARD_HEIGHT_DP = 500f;
     
+    /** Default tablet height ratio for portrait */
+    public static final float DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT = 0.5f;
+    
+    /** Default tablet width ratio for portrait */
+    public static final float DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT = 0.4f;
+    
+    /** Default tablet height ratio for landscape */
+    public static final float DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.6f;
+    
+    /** Default tablet width ratio for landscape */
+    public static final float DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE = 0.3f;
+    
+    // ============================================================================
+    // Popup Size Multipliers
+    // ============================================================================
+    
+    /** Default popup portrait width multiplier */
+    public static final float POPUP_PORTRAIT_WIDTH_MULTIPLIER = 1.0285f;
+    
+    /** Default popup portrait height multiplier */
+    public static final float POPUP_PORTRAIT_HEIGHT_MULTIPLIER = 1.485f;
+    
+    /** Default popup landscape width multiplier */
+    public static final float POPUP_LANDSCAPE_WIDTH_MULTIPLIER = 1.2275445f;
+    
+    /** Default popup landscape height multiplier */
+    public static final float POPUP_LANDSCAPE_HEIGHT_MULTIPLIER = 1.1385f;
+    
+    /** Popup size ratio for phone */
+    public static final float POPUP_SIZE_RATIO_PHONE = 0.75f;
+    
+    /** Popup size ratio for tablet */
+    public static final float POPUP_SIZE_RATIO_TABLET = 0.5f;
+    
+    /** Fallback popup width when calculation fails */
+    public static final int FALLBACK_POPUP_WIDTH = 800;
+    
+    /** Fallback popup height when calculation fails */
+    public static final int FALLBACK_POPUP_HEIGHT = 600;
+    
+    /** Fallback card width for tablet */
+    public static final int FALLBACK_TABLET_CARD_WIDTH = 600;
+    
+    /** Fallback card height for tablet */
+    public static final int FALLBACK_TABLET_CARD_HEIGHT = 700;
+    
+    // ============================================================================
+    // Timing Constants
+    // ============================================================================
+    
+    /** Dialog dismiss delay in milliseconds */
+    public static final int DIALOG_DISMISS_DELAY_MS = 1000;
+    
+    // ============================================================================
+    // Visual Effects
+    // ============================================================================
+    
+    /** Alpha fade multiplier for drag feedback */
+    public static final float ALPHA_FADE_MULTIPLIER = 0.5f;
+    
+    /** Tablet size threshold in dp */
+    public static final int TABLET_SIZE_THRESHOLD_DP = 600;
+    
     // ============================================================================
     // Colors
     // ============================================================================
+    
+    /** Background dim color (semi-transparent black) */
+    public static final String COLOR_BACKGROUND_DIM = "#80000000";
     
     public static final String COLOR_LIGHT_BG = "#F2F2F7";
     public static final String COLOR_DARK_BG = "#000000";
