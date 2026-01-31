@@ -22,6 +22,9 @@ import android.widget.ProgressBar;
  */
 public class StashWebViewUtils {
     private static final String TAG = "StashWebViewUtils";
+
+    /** JavaScript bridge name used by addJavascriptInterface and JS_SDK_SCRIPT. */
+    public static final String JS_INTERFACE_NAME = "StashAndroid";
     
     public static final String COLOR_BACKGROUND_DIM = "#20000000";
     public static final String COLOR_DARK_BG = "#1C1C1E";
@@ -29,22 +32,22 @@ public class StashWebViewUtils {
     public static final String JS_SDK_SCRIPT = "(function() {" +
         "  window.stash_sdk = window.stash_sdk || {};" +
         "  window.stash_sdk.onPaymentSuccess = function(data) {" +
-        "    try { StashAndroid.onPaymentSuccess(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPaymentSuccess(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.onPaymentFailure = function(data) {" +
-        "    try { StashAndroid.onPaymentFailure(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPaymentFailure(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.onPurchaseProcessing = function(data) {" +
-        "    try { StashAndroid.onPurchaseProcessing(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".onPurchaseProcessing(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.setPaymentChannel = function(optinType) {" +
-        "    try { StashAndroid.setPaymentChannel(optinType || ''); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".setPaymentChannel(optinType || ''); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.expand = function() {" +
-        "    try { StashAndroid.expand(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".expand(); } catch(e) {}" +
         "  };" +
         "  window.stash_sdk.collapse = function() {" +
-        "    try { StashAndroid.collapse(); } catch(e) {}" +
+        "    try { " + JS_INTERFACE_NAME + ".collapse(); } catch(e) {}" +
         "  };" +
         "})();";
 

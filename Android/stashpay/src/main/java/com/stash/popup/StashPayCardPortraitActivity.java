@@ -694,7 +694,7 @@ public class StashPayCardPortraitActivity extends Activity {
         
             try {
                 webView.setWebChromeClient(new WebChromeClient());
-                webView.addJavascriptInterface(new JSInterface(), "StashAndroid");
+                webView.addJavascriptInterface(new JSInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
                 webView.setBackgroundColor(StashWebViewUtils.isDarkTheme(this) ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG) : Color.WHITE);
                 
                 FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(

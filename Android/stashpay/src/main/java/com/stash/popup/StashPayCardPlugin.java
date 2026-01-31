@@ -766,7 +766,7 @@ public class StashPayCardPlugin {
         
         try {
             webView.setWebChromeClient(new WebChromeClient());
-            webView.addJavascriptInterface(new StashJavaScriptInterface(), "StashAndroid");
+            webView.addJavascriptInterface(new StashJavaScriptInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
             webView.setVerticalScrollBarEnabled(false);
             webView.setHorizontalScrollBarEnabled(false);
             webView.setBackgroundColor(Color.TRANSPARENT);
