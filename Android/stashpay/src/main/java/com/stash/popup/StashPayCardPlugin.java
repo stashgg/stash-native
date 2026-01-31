@@ -398,8 +398,15 @@ public class StashPayCardPlugin {
     
     private void launchPortraitActivity(String url, Activity activity) {
         try {
-            android.view.Display display = activity.getWindowManager().getDefaultDisplay();
-            int rotation = display.getRotation();
+            int rotation;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                android.view.Display display = activity.getDisplay();
+                rotation = display != null ? display.getRotation() : Surface.ROTATION_0;
+            } else {
+                @SuppressWarnings("deprecation")
+                android.view.Display display = activity.getWindowManager().getDefaultDisplay();
+                rotation = display.getRotation();
+            }
             boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
             
             Intent intent = new Intent();

@@ -1130,6 +1130,7 @@ public class StashPayCardPortraitActivity extends Activity {
     }
     
     @Override
+    @SuppressWarnings("deprecation") // minSdk 21; use OnBackPressedDispatcher when targeting API 33+ with ComponentActivity
     public void onBackPressed() {
         if (isPurchaseProcessing) {
             return;
