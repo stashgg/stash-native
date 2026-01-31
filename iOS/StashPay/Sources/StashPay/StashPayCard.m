@@ -2125,16 +2125,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
     loadingView.backgroundColor = backgroundColor;
     loadingView.opaque = YES;
     
-    UIActivityIndicatorView *spinner;
-    if (@available(iOS 13.0, *)) {
-        spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-        spinner.color = isDarkMode ? [UIColor whiteColor] : [UIColor darkGrayColor];
-    } else {
-        spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-        if (!isDarkMode) {
-            spinner.color = [UIColor darkGrayColor];
-        }
-    }
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+    spinner.color = isDarkMode ? [UIColor whiteColor] : [UIColor darkGrayColor];
     
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
     spinner.hidesWhenStopped = NO;
