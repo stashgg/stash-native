@@ -133,6 +133,9 @@ extern UIColor* getSystemBackgroundColor(void);
     __unsafe_unretained WebViewLoadDelegate *weakSelf = self;
 #endif
     __block void (^checkPageReady)(void);
+#if __has_feature(objc_arc)
+    __block __weak void (^weakCheckPageReady)(void);
+#endif
     checkPageReady = ^{
         NSString *readyCheck = @"(function() { \
             if (document.readyState !== 'complete') return false; \
@@ -166,19 +169,25 @@ extern UIColor* getSystemBackgroundColor(void);
                 }
             } else {
 #if __has_feature(objc_arc)
-                __weak void (^weakCheckPageReady)(void) = checkPageReady;
-#else
-                __unsafe_unretained void (^weakCheckPageReady)(void) = checkPageReady;
-#endif
                 dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
                     if (weakCheckPageReady) {
                         weakCheckPageReady();
                     }
                 });
+#else
+                __unsafe_unretained void (^weakCheckPageReady)(void) = checkPageReady;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    if (weakCheckPageReady) {
+                        weakCheckPageReady();
+                    }
+                });
+#endif
             }
         }];
     };
-    
+#if __has_feature(objc_arc)
+    weakCheckPageReady = checkPageReady;
+#endif
     checkPageReady();
 }
 
