@@ -15,6 +15,7 @@
 extern BOOL _usePopupPresentation;
 extern BOOL isRunningOniPad(void);
 extern UIColor* getSystemBackgroundColor(void);
+extern UIWindow* getKeyWindow(void);
 
 #pragma mark - WebViewLoadDelegate
 
@@ -240,7 +241,7 @@ extern UIColor* getSystemBackgroundColor(void);
     }];
     [alert addAction:okAction];
     
-    UIViewController *presentingVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+    UIViewController *presentingVC = getKeyWindow().rootViewController;
     while (presentingVC.presentedViewController) {
         presentingVC = presentingVC.presentedViewController;
     }
@@ -260,7 +261,7 @@ extern UIColor* getSystemBackgroundColor(void);
     [alert addAction:cancelAction];
     [alert addAction:okAction];
     
-    UIViewController *presentingVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+    UIViewController *presentingVC = getKeyWindow().rootViewController;
     while (presentingVC.presentedViewController) {
         presentingVC = presentingVC.presentedViewController;
     }

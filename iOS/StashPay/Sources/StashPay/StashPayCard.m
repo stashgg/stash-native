@@ -226,6 +226,8 @@ UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad)
 void setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
 CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 NSString* appendThemeQueryParameter(NSString* url);
+UIWindow* getKeyWindow(void);
+UIInterfaceOrientation getInterfaceOrientation(void);
 
 #pragma mark - StashPayCardInternal
 
@@ -1273,6 +1275,40 @@ CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloa
     return maskLayer;
 }
 
+UIWindow* getKeyWindow(void) {
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                for (UIWindow *w in ws.windows) {
+                    if (w.isKeyWindow) return w;
+                }
+                if (ws.windows.count > 0) return ws.windows.firstObject;
+                break;
+            }
+        }
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [UIApplication sharedApplication].keyWindow;
+#pragma clang diagnostic pop
+}
+
+UIInterfaceOrientation getInterfaceOrientation(void) {
+    if (@available(iOS 13.0, *)) {
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
+                return ((UIWindowScene *)scene).interfaceOrientation;
+            }
+        }
+        return UIInterfaceOrientationUnknown;
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    return [UIApplication sharedApplication].statusBarOrientation;
+#pragma clang diagnostic pop
+}
+
 NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return url;
@@ -1452,7 +1488,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     safariVC.delegate = [StashPayCardInternal sharedInstance];
     [StashPayCardInternal sharedInstance].currentSafariViewController = safariVC;
     
-    UIViewController *rootVC = [UIApplication sharedApplication].keyWindow.rootViewController;
+    UIViewController *rootVC = getKeyWindow().rootViewController;
     while (rootVC.presentedViewController) {
         rootVC = rootVC.presentedViewController;
     }
@@ -1493,7 +1529,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
     
     // Store previous key window
-    internal.previousKeyWindow = [UIApplication sharedApplication].keyWindow;
+    internal.previousKeyWindow = getKeyWindow();
     
     // Get current screen bounds and determine orientation
     CGRect screenBounds = [UIScreen mainScreen].bounds;
@@ -1777,7 +1813,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     }
     
     // Create window
-    internal.previousKeyWindow = [UIApplication sharedApplication].keyWindow;
+    internal.previousKeyWindow = getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
@@ -1833,7 +1869,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     
-        BOOL isLandscape = UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation]);
+        BOOL isLandscape = UIInterfaceOrientationIsLandscape(getInterfaceOrientation());
         
         CGFloat smallerDimension = fmin(screenBounds.size.width, screenBounds.size.height);
         CGFloat percentage = isRunningOniPad() ? 0.5 : 0.75;
@@ -1907,7 +1943,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     }
     
     // Create window
-    internal.previousKeyWindow = [UIApplication sharedApplication].keyWindow;
+    internal.previousKeyWindow = getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];

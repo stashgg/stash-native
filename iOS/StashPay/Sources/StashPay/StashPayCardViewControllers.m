@@ -43,6 +43,7 @@ extern NSString * const StashPayAssociatedKeyOverlayView;
 extern BOOL isRunningOniPad(void);
 extern CGSize calculateiPadCardSize(CGRect screenBounds);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
+extern UIInterfaceOrientation getInterfaceOrientation(void);
 
 #pragma mark - DragTrayView
 
@@ -190,7 +191,7 @@ extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners,
         overlayView.frame = screenBounds;
     }
     
-    BOOL isLandscape = UIInterfaceOrientationIsLandscape([[UIApplication sharedApplication] statusBarOrientation]);
+    BOOL isLandscape = UIInterfaceOrientationIsLandscape(getInterfaceOrientation());
     CGFloat smallerDimension = fmin(screenBounds.size.width, screenBounds.size.height);
     CGFloat percentage = isRunningOniPad() ? kPopupBaseSizePercentageIPad : kPopupBaseSizePercentagePhone;
     CGFloat baseSize = fmax(
@@ -243,7 +244,7 @@ extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners,
     if (self.enforcePortrait && !isRunningOniPad()) {
         return UIInterfaceOrientationPortrait;
     }
-    return [[UIApplication sharedApplication] statusBarOrientation];
+    return getInterfaceOrientation();
 }
 
 @end
