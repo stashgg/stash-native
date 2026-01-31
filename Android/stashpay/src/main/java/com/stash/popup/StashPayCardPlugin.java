@@ -149,15 +149,6 @@ public class StashPayCardPlugin {
             });
         }
         
-        @JavascriptInterface
-        public void expand() {
-            // Expand functionality can be implemented here if needed
-        }
-        
-        @JavascriptInterface
-        public void collapse() {
-            // Collapse functionality can be implemented here if needed
-        }
     }
     
     public static StashPayCardPlugin getInstance() {

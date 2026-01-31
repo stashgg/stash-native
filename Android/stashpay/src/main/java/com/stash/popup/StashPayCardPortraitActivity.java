@@ -37,8 +37,6 @@ import android.net.Uri;
  */
 public class StashPayCardPortraitActivity extends Activity {
     private static final String TAG = "StashPayCard";
-    private static final float CARD_HEIGHT_NORMAL = 0.68f;
-    private static final float CARD_HEIGHT_EXPANDED = 0.95f;
 
     private FrameLayout rootLayout;
     private View backdropView;
@@ -279,7 +277,7 @@ public class StashPayCardPortraitActivity extends Activity {
         } else {
             float effectiveHeightRatio;
             if (wasLandscapeBeforePortrait) {
-                effectiveHeightRatio = CARD_HEIGHT_EXPANDED;
+                effectiveHeightRatio = CardConstants.EXPANDED_CARD_HEIGHT_RATIO;
                 isExpanded = true;
             } else {
                 effectiveHeightRatio = cardHeightRatioPortrait;
@@ -553,18 +551,6 @@ public class StashPayCardPortraitActivity extends Activity {
         heightAnimator.start();
     }
 
-    private void animateCardWidth(int targetWidth, int duration) {
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
-        android.animation.ValueAnimator widthAnimator = android.animation.ValueAnimator.ofInt(params.width, targetWidth);
-        widthAnimator.setDuration(duration);
-        widthAnimator.setInterpolator(new SpringInterpolator());
-        widthAnimator.addUpdateListener(animation -> {
-            params.width = (Integer)animation.getAnimatedValue();
-            cardContainer.setLayoutParams(params);
-        });
-        widthAnimator.start();
-    }
-
     private void animateExpand() {
         if (cardContainer == null) return;
         
@@ -576,7 +562,7 @@ public class StashPayCardPortraitActivity extends Activity {
         
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)cardContainer.getLayoutParams();
         
-        int expandedHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
+        int expandedHeight = (int)(metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
         int expandedWidth = params.width;
         
         animateCardHeight(expandedHeight, 450);
@@ -629,10 +615,10 @@ public class StashPayCardPortraitActivity extends Activity {
             // Tablet: single fixed size - keep current height, only reset translation/alpha/scale
             targetHeight = params.height;
         } else if (wasLandscapeBeforePortrait) {
-            targetHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
+            targetHeight = (int)(metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
             isExpanded = true;
         } else if (isExpanded) {
-            targetHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
+            targetHeight = (int)(metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
         } else {
             targetHeight = (int)(metrics.heightPixels * cardHeightRatioPortrait);
         }
@@ -1195,7 +1181,7 @@ public class StashPayCardPortraitActivity extends Activity {
                     } else {
                         DisplayMetrics metrics = getResources().getDisplayMetrics();
                         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-                        int expandedHeight = (int)(metrics.heightPixels * CARD_HEIGHT_EXPANDED);
+                        int expandedHeight = (int)(metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
                         params.height = expandedHeight;
                         cardContainer.setLayoutParams(params);
                     }
