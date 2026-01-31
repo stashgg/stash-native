@@ -6,13 +6,13 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.google.android.material.switchmaterial.SwitchMaterial;
 
@@ -20,125 +20,85 @@ import com.stash.popup.StashPayCard;
 
 /**
  * Sample activity demonstrating StashPayCard SDK integration.
- * Features a two-mode interface with essential controls always visible
- * and advanced options in a collapsible section.
+ * Features separate sections for Checkout and Modal with their own advanced options.
  */
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "StashNativeDemo";
     
     private static final String DEFAULT_URL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html";
     
-    // State preservation keys
-    private static final String KEY_URL = "url";
-    private static final String KEY_ADVANCED_EXPANDED = "advanced_expanded";
-    private static final String KEY_PHONE_CARD_HEIGHT = "phone_card_height";
-    private static final String KEY_TABLET_PORTRAIT_WIDTH = "tablet_portrait_width";
-    private static final String KEY_TABLET_PORTRAIT_HEIGHT = "tablet_portrait_height";
-    private static final String KEY_TABLET_LANDSCAPE_WIDTH = "tablet_landscape_width";
-    private static final String KEY_TABLET_LANDSCAPE_HEIGHT = "tablet_landscape_height";
-    
-    private EditText urlInput;
+    private EditText checkoutUrlInput;
+    private EditText modalUrlInput;
     private TextView statusText;
-    private TextView advancedOptionsToggle;
-    private ConstraintLayout advancedOptionsContainer;
-    private boolean isAdvancedExpanded = false;
     
-    // Sliders
-    private SeekBar phoneCardHeightSlider;
-    private SeekBar tabletPortraitWidthSlider;
-    private SeekBar tabletPortraitHeightSlider;
-    private SeekBar tabletLandscapeWidthSlider;
-    private SeekBar tabletLandscapeHeightSlider;
+    // Advanced options toggles
+    private TextView advancedCheckoutToggle;
+    private TextView advancedModalToggle;
+    private LinearLayout advancedCheckoutContainer;
+    private LinearLayout advancedModalContainer;
+    private boolean isCheckoutAdvancedExpanded = false;
+    private boolean isModalAdvancedExpanded = false;
+    
+    // Modal config values (read from sliders when opening modal)
+    private SwitchMaterial modalShowDragBarSwitch;
+    private SwitchMaterial modalAllowDismissSwitch;
+    private SeekBar modalPhonePortraitWidthSlider;
+    private SeekBar modalPhonePortraitHeightSlider;
+    private SeekBar modalPhoneLandscapeWidthSlider;
+    private SeekBar modalPhoneLandscapeHeightSlider;
+    private SeekBar modalTabletPortraitWidthSlider;
+    private SeekBar modalTabletPortraitHeightSlider;
+    private SeekBar modalTabletLandscapeWidthSlider;
+    private SeekBar modalTabletLandscapeHeightSlider;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
-        // Initialize views
-        urlInput = findViewById(R.id.urlInput);
-        statusText = findViewById(R.id.statusText);
-        Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
-        SwitchMaterial webViewModeSwitch = findViewById(R.id.webViewModeSwitch);
-        advancedOptionsToggle = findViewById(R.id.advancedOptionsToggle);
-        advancedOptionsContainer = findViewById(R.id.advancedOptionsContainer);
-        
-        // Size configuration UI - phone card height and tablet portrait/landscape
-        TextView phoneCardHeightLabel = findViewById(R.id.phoneCardHeightLabel);
-        phoneCardHeightSlider = findViewById(R.id.phoneCardHeightSlider);
-        TextView tabletPortraitWidthLabel = findViewById(R.id.tabletPortraitWidthLabel);
-        tabletPortraitWidthSlider = findViewById(R.id.tabletPortraitWidthSlider);
-        TextView tabletPortraitHeightLabel = findViewById(R.id.tabletPortraitHeightLabel);
-        tabletPortraitHeightSlider = findViewById(R.id.tabletPortraitHeightSlider);
-        TextView tabletLandscapeWidthLabel = findViewById(R.id.tabletLandscapeWidthLabel);
-        tabletLandscapeWidthSlider = findViewById(R.id.tabletLandscapeWidthSlider);
-        TextView tabletLandscapeHeightLabel = findViewById(R.id.tabletLandscapeHeightLabel);
-        tabletLandscapeHeightSlider = findViewById(R.id.tabletLandscapeHeightSlider);
-        
-        // Restore state or set defaults (progress 0-90 maps to 10%-100%: progress 58 = 68%, etc.)
-        if (savedInstanceState != null) {
-            urlInput.setText(savedInstanceState.getString(KEY_URL, DEFAULT_URL));
-            isAdvancedExpanded = savedInstanceState.getBoolean(KEY_ADVANCED_EXPANDED, false);
-            int phoneH = savedInstanceState.getInt(KEY_PHONE_CARD_HEIGHT, 58);
-            int pw = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_WIDTH, 30);
-            int ph = savedInstanceState.getInt(KEY_TABLET_PORTRAIT_HEIGHT, 40);
-            int lw = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_WIDTH, 20);
-            int lh = savedInstanceState.getInt(KEY_TABLET_LANDSCAPE_HEIGHT, 50);
-            phoneCardHeightSlider.setProgress(phoneH);
-            phoneCardHeightLabel.setText(String.format("Height: %d%%", phoneH + 10));
-            tabletPortraitWidthSlider.setProgress(pw);
-            tabletPortraitWidthLabel.setText(String.format("Width: %d%%", pw + 10));
-            tabletPortraitHeightSlider.setProgress(ph);
-            tabletPortraitHeightLabel.setText(String.format("Height: %d%%", ph + 10));
-            tabletLandscapeWidthSlider.setProgress(lw);
-            tabletLandscapeWidthLabel.setText(String.format("Width: %d%%", lw + 10));
-            tabletLandscapeHeightSlider.setProgress(lh);
-            tabletLandscapeHeightLabel.setText(String.format("Height: %d%%", lh + 10));
-        } else {
-            urlInput.setText(DEFAULT_URL);
-            // Phone card height default 68%
-            phoneCardHeightSlider.setProgress(58);
-            phoneCardHeightLabel.setText("Height: 68%");
-            // Tablet defaults to match iOS (40%, 50%, 30%, 60%)
-            tabletPortraitWidthSlider.setProgress(30);
-            tabletPortraitWidthLabel.setText("Width: 40%");
-            tabletPortraitHeightSlider.setProgress(40);
-            tabletPortraitHeightLabel.setText("Height: 50%");
-            tabletLandscapeWidthSlider.setProgress(20);
-            tabletLandscapeWidthLabel.setText("Width: 30%");
-            tabletLandscapeHeightSlider.setProgress(50);
-            tabletLandscapeHeightLabel.setText("Height: 60%");
-        }
-        
-        // Set initial advanced options visibility
-        updateAdvancedOptionsVisibility();
-        
-        // Advanced options toggle
-        advancedOptionsToggle.setOnClickListener(v -> {
-            isAdvancedExpanded = !isAdvancedExpanded;
-            updateAdvancedOptionsVisibility();
-        });
-        
         // Initialize StashPayCard
         StashPayCard stashPayCard = StashPayCard.getInstance();
         stashPayCard.setActivity(this);
         
-        // Apply initial sizing from sliders
-        stashPayCard.setCardHeightRatioPortrait((phoneCardHeightSlider.getProgress() + 10) / 100f);
-        stashPayCard.setTabletWidthRatioPortrait((tabletPortraitWidthSlider.getProgress() + 10) / 100f);
-        stashPayCard.setTabletHeightRatioPortrait((tabletPortraitHeightSlider.getProgress() + 10) / 100f);
-        stashPayCard.setTabletWidthRatioLandscape((tabletLandscapeWidthSlider.getProgress() + 10) / 100f);
-        stashPayCard.setTabletHeightRatioLandscape((tabletLandscapeHeightSlider.getProgress() + 10) / 100f);
+        // URL inputs
+        checkoutUrlInput = findViewById(R.id.checkoutUrlInput);
+        modalUrlInput = findViewById(R.id.modalUrlInput);
+        checkoutUrlInput.setText(DEFAULT_URL);
+        modalUrlInput.setText(DEFAULT_URL);
         
-        // Web View Mode toggle
-        webViewModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            stashPayCard.setForceWebBasedCheckout(isChecked);
-            String modeText = isChecked ? "Web View (Chrome)" : "Card UI";
-            statusText.setText("Mode: " + modeText);
+        statusText = findViewById(R.id.statusText);
+        
+        // Buttons
+        Button openCheckoutButton = findViewById(R.id.openCheckoutButton);
+        Button openModalButton = findViewById(R.id.openModalButton);
+        
+        // Advanced options containers
+        advancedCheckoutToggle = findViewById(R.id.advancedCheckoutToggle);
+        advancedModalToggle = findViewById(R.id.advancedModalToggle);
+        advancedCheckoutContainer = findViewById(R.id.advancedCheckoutContainer);
+        advancedModalContainer = findViewById(R.id.advancedModalContainer);
+        
+        // Checkout advanced options toggles
+        advancedCheckoutToggle.setOnClickListener(v -> {
+            isCheckoutAdvancedExpanded = !isCheckoutAdvancedExpanded;
+            updateAdvancedVisibility();
         });
         
-        // Landscape Lock toggle
+        advancedModalToggle.setOnClickListener(v -> {
+            isModalAdvancedExpanded = !isModalAdvancedExpanded;
+            updateAdvancedVisibility();
+        });
+        
+        // ==================== CHECKOUT ADVANCED OPTIONS ====================
+        
+        SwitchMaterial webViewModeSwitch = findViewById(R.id.webViewModeSwitch);
         SwitchMaterial landscapeLockSwitch = findViewById(R.id.landscapeLockSwitch);
+        
+        webViewModeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            stashPayCard.setForceWebBasedCheckout(isChecked);
+            statusText.setText("Mode: " + (isChecked ? "Web View (Chrome)" : "Card UI"));
+        });
+        
         landscapeLockSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -149,77 +109,149 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        // Phone Card Height Slider (10% to 100%)
-        phoneCardHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        // Phone card height slider
+        TextView phoneCardHeightLabel = findViewById(R.id.phoneCardHeightLabel);
+        SeekBar phoneCardHeightSlider = findViewById(R.id.phoneCardHeightSlider);
+        phoneCardHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float ratio = (progress + 10) / 100f;
                 phoneCardHeightLabel.setText(String.format("Height: %d%%", progress + 10));
-                stashPayCard.setCardHeightRatioPortrait(ratio);
+                stashPayCard.setCardHeightRatioPortrait((progress + 10) / 100f);
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Portrait Width Slider (10% to 100%)
-        tabletPortraitWidthSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        // Checkout tablet portrait sliders
+        TextView checkoutTabletPortraitWidthLabel = findViewById(R.id.checkoutTabletPortraitWidthLabel);
+        SeekBar checkoutTabletPortraitWidthSlider = findViewById(R.id.checkoutTabletPortraitWidthSlider);
+        checkoutTabletPortraitWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float ratio = (progress + 10) / 100f;
-                tabletPortraitWidthLabel.setText(String.format("Width: %d%%", progress + 10));
-                stashPayCard.setTabletWidthRatioPortrait(ratio);
+                checkoutTabletPortraitWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+                stashPayCard.setTabletWidthRatioPortrait((progress + 10) / 100f);
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Portrait Height Slider (10% to 100%)
-        tabletPortraitHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        TextView checkoutTabletPortraitHeightLabel = findViewById(R.id.checkoutTabletPortraitHeightLabel);
+        SeekBar checkoutTabletPortraitHeightSlider = findViewById(R.id.checkoutTabletPortraitHeightSlider);
+        checkoutTabletPortraitHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float ratio = (progress + 10) / 100f;
-                tabletPortraitHeightLabel.setText(String.format("Height: %d%%", progress + 10));
-                stashPayCard.setTabletHeightRatioPortrait(ratio);
+                checkoutTabletPortraitHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+                stashPayCard.setTabletHeightRatioPortrait((progress + 10) / 100f);
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Landscape Width Slider (10% to 100%)
-        tabletLandscapeWidthSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        // Checkout tablet landscape sliders
+        TextView checkoutTabletLandscapeWidthLabel = findViewById(R.id.checkoutTabletLandscapeWidthLabel);
+        SeekBar checkoutTabletLandscapeWidthSlider = findViewById(R.id.checkoutTabletLandscapeWidthSlider);
+        checkoutTabletLandscapeWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float ratio = (progress + 10) / 100f;
-                tabletLandscapeWidthLabel.setText(String.format("Width: %d%%", progress + 10));
-                stashPayCard.setTabletWidthRatioLandscape(ratio);
+                checkoutTabletLandscapeWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+                stashPayCard.setTabletWidthRatioLandscape((progress + 10) / 100f);
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Tablet Landscape Height Slider (10% to 100%)
-        tabletLandscapeHeightSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+        TextView checkoutTabletLandscapeHeightLabel = findViewById(R.id.checkoutTabletLandscapeHeightLabel);
+        SeekBar checkoutTabletLandscapeHeightSlider = findViewById(R.id.checkoutTabletLandscapeHeightSlider);
+        checkoutTabletLandscapeHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                float ratio = (progress + 10) / 100f;
-                tabletLandscapeHeightLabel.setText(String.format("Height: %d%%", progress + 10));
-                stashPayCard.setTabletHeightRatioLandscape(ratio);
+                checkoutTabletLandscapeHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+                stashPayCard.setTabletHeightRatioLandscape((progress + 10) / 100f);
             }
-            @Override
-            public void onStartTrackingTouch(SeekBar seekBar) {}
-            @Override
-            public void onStopTrackingTouch(SeekBar seekBar) {}
         });
         
-        // Set up event listener
+        // Apply initial checkout sizing
+        stashPayCard.setCardHeightRatioPortrait((phoneCardHeightSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletWidthRatioPortrait((checkoutTabletPortraitWidthSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletHeightRatioPortrait((checkoutTabletPortraitHeightSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletWidthRatioLandscape((checkoutTabletLandscapeWidthSlider.getProgress() + 10) / 100f);
+        stashPayCard.setTabletHeightRatioLandscape((checkoutTabletLandscapeHeightSlider.getProgress() + 10) / 100f);
+        
+        // ==================== MODAL ADVANCED OPTIONS ====================
+        
+        modalShowDragBarSwitch = findViewById(R.id.modalShowDragBarSwitch);
+        modalAllowDismissSwitch = findViewById(R.id.modalAllowDismissSwitch);
+        
+        // Modal phone portrait sliders
+        TextView modalPhonePortraitWidthLabel = findViewById(R.id.modalPhonePortraitWidthLabel);
+        modalPhonePortraitWidthSlider = findViewById(R.id.modalPhonePortraitWidthSlider);
+        modalPhonePortraitWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalPhonePortraitWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+            }
+        });
+        
+        TextView modalPhonePortraitHeightLabel = findViewById(R.id.modalPhonePortraitHeightLabel);
+        modalPhonePortraitHeightSlider = findViewById(R.id.modalPhonePortraitHeightSlider);
+        modalPhonePortraitHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalPhonePortraitHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+            }
+        });
+        
+        // Modal phone landscape sliders
+        TextView modalPhoneLandscapeWidthLabel = findViewById(R.id.modalPhoneLandscapeWidthLabel);
+        modalPhoneLandscapeWidthSlider = findViewById(R.id.modalPhoneLandscapeWidthSlider);
+        modalPhoneLandscapeWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalPhoneLandscapeWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+            }
+        });
+        
+        TextView modalPhoneLandscapeHeightLabel = findViewById(R.id.modalPhoneLandscapeHeightLabel);
+        modalPhoneLandscapeHeightSlider = findViewById(R.id.modalPhoneLandscapeHeightSlider);
+        modalPhoneLandscapeHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalPhoneLandscapeHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+            }
+        });
+        
+        // Modal tablet portrait sliders
+        TextView modalTabletPortraitWidthLabel = findViewById(R.id.modalTabletPortraitWidthLabel);
+        modalTabletPortraitWidthSlider = findViewById(R.id.modalTabletPortraitWidthSlider);
+        modalTabletPortraitWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalTabletPortraitWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+            }
+        });
+        
+        TextView modalTabletPortraitHeightLabel = findViewById(R.id.modalTabletPortraitHeightLabel);
+        modalTabletPortraitHeightSlider = findViewById(R.id.modalTabletPortraitHeightSlider);
+        modalTabletPortraitHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalTabletPortraitHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+            }
+        });
+        
+        // Modal tablet landscape sliders
+        TextView modalTabletLandscapeWidthLabel = findViewById(R.id.modalTabletLandscapeWidthLabel);
+        modalTabletLandscapeWidthSlider = findViewById(R.id.modalTabletLandscapeWidthSlider);
+        modalTabletLandscapeWidthSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalTabletLandscapeWidthLabel.setText(String.format("Width: %d%%", progress + 10));
+            }
+        });
+        
+        TextView modalTabletLandscapeHeightLabel = findViewById(R.id.modalTabletLandscapeHeightLabel);
+        modalTabletLandscapeHeightSlider = findViewById(R.id.modalTabletLandscapeHeightSlider);
+        modalTabletLandscapeHeightSlider.setOnSeekBarChangeListener(new SimpleSeekBarListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                modalTabletLandscapeHeightLabel.setText(String.format("Height: %d%%", progress + 10));
+            }
+        });
+        
+        // ==================== EVENT LISTENER ====================
+        
         stashPayCard.setListener(new StashPayCard.StashPayListener() {
             @Override
             public void onPaymentSuccess() {
@@ -242,17 +274,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onDialogDismissed() {
                 Log.i(TAG, "Dialog dismissed");
-                runOnUiThread(() -> {
-                    statusText.setText("Dialog dismissed");
-                });
+                runOnUiThread(() -> statusText.setText("Dialog dismissed"));
             }
             
             @Override
             public void onOptInResponse(String optinType) {
                 Log.i(TAG, "Opt-in response: " + optinType);
-                runOnUiThread(() -> {
-                    statusText.setText("Opt-in: " + optinType);
-                });
+                runOnUiThread(() -> statusText.setText("Opt-in: " + optinType));
             }
             
             @Override
@@ -261,48 +289,62 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         
-        // Open Checkout (Card UI)
+        // ==================== BUTTON HANDLERS ====================
+        
         openCheckoutButton.setOnClickListener(v -> {
-            String url = urlInput.getText().toString().trim();
+            String url = checkoutUrlInput.getText().toString().trim();
             if (!url.isEmpty()) {
                 statusText.setText("Opening checkout...");
                 stashPayCard.openCheckout(url);
             } else {
-                Toast.makeText(this, "Please enter a URL", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Please enter a checkout URL", Toast.LENGTH_SHORT).show();
             }
         });
+        
+        openModalButton.setOnClickListener(v -> {
+            String url = modalUrlInput.getText().toString().trim();
+            if (!url.isEmpty()) {
+                statusText.setText("Opening modal...");
+                StashPayCard.ModalConfig config = buildModalConfig();
+                stashPayCard.openModal(url, config);
+            } else {
+                Toast.makeText(this, "Please enter a modal URL", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+    
+    private StashPayCard.ModalConfig buildModalConfig() {
+        StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();
+        config.showDragBar = modalShowDragBarSwitch.isChecked();
+        config.allowDismiss = modalAllowDismissSwitch.isChecked();
+        config.phoneWidthRatioPortrait = (modalPhonePortraitWidthSlider.getProgress() + 10) / 100f;
+        config.phoneHeightRatioPortrait = (modalPhonePortraitHeightSlider.getProgress() + 10) / 100f;
+        config.phoneWidthRatioLandscape = (modalPhoneLandscapeWidthSlider.getProgress() + 10) / 100f;
+        config.phoneHeightRatioLandscape = (modalPhoneLandscapeHeightSlider.getProgress() + 10) / 100f;
+        config.tabletWidthRatioPortrait = (modalTabletPortraitWidthSlider.getProgress() + 10) / 100f;
+        config.tabletHeightRatioPortrait = (modalTabletPortraitHeightSlider.getProgress() + 10) / 100f;
+        config.tabletWidthRatioLandscape = (modalTabletLandscapeWidthSlider.getProgress() + 10) / 100f;
+        config.tabletHeightRatioLandscape = (modalTabletLandscapeHeightSlider.getProgress() + 10) / 100f;
+        return config;
     }
     
     @Override
     protected void onResume() {
         super.onResume();
-        // Update activity reference in case it changed
         StashPayCard.getInstance().setActivity(this);
     }
     
-    @Override
-    protected void onSaveInstanceState(@NonNull Bundle outState) {
-        super.onSaveInstanceState(outState);
-        // Save state for configuration changes
-        outState.putString(KEY_URL, urlInput.getText().toString());
-        outState.putBoolean(KEY_ADVANCED_EXPANDED, isAdvancedExpanded);
-        outState.putInt(KEY_PHONE_CARD_HEIGHT, phoneCardHeightSlider.getProgress());
-        outState.putInt(KEY_TABLET_PORTRAIT_WIDTH, tabletPortraitWidthSlider.getProgress());
-        outState.putInt(KEY_TABLET_PORTRAIT_HEIGHT, tabletPortraitHeightSlider.getProgress());
-        outState.putInt(KEY_TABLET_LANDSCAPE_WIDTH, tabletLandscapeWidthSlider.getProgress());
-        outState.putInt(KEY_TABLET_LANDSCAPE_HEIGHT, tabletLandscapeHeightSlider.getProgress());
+    private void updateAdvancedVisibility() {
+        advancedCheckoutContainer.setVisibility(isCheckoutAdvancedExpanded ? View.VISIBLE : View.GONE);
+        advancedCheckoutToggle.setText(isCheckoutAdvancedExpanded ? "▼ Advanced Options - Checkout" : "▶ Advanced Options - Checkout");
+        
+        advancedModalContainer.setVisibility(isModalAdvancedExpanded ? View.VISIBLE : View.GONE);
+        advancedModalToggle.setText(isModalAdvancedExpanded ? "▼ Advanced Options - Modal" : "▶ Advanced Options - Modal");
     }
     
-    /**
-     * Updates the visibility and indicator of the advanced options section.
-     */
-    private void updateAdvancedOptionsVisibility() {
-        if (isAdvancedExpanded) {
-            advancedOptionsContainer.setVisibility(View.VISIBLE);
-            advancedOptionsToggle.setText("▼ Advanced Options");
-        } else {
-            advancedOptionsContainer.setVisibility(View.GONE);
-            advancedOptionsToggle.setText("▶ Advanced Options");
-        }
+    /** Simple SeekBar listener with empty start/stop methods */
+    private abstract static class SimpleSeekBarListener implements SeekBar.OnSeekBarChangeListener {
+        @Override public void onStartTrackingTouch(SeekBar seekBar) {}
+        @Override public void onStopTrackingTouch(SeekBar seekBar) {}
     }
 }

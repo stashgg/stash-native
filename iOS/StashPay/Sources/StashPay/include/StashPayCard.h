@@ -36,6 +36,56 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 /**
+ * Configuration for modal presentation.
+ *
+ * Modal always appears centered on screen (unlike checkout which uses cards on phones).
+ * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+ */
+@interface StashPayModalConfig : NSObject
+
+/** Phone width ratio for portrait (0.1-1.0). Default 0.9. */
+@property (nonatomic, assign) CGFloat phoneWidthRatioPortrait;
+/** Phone height ratio for portrait (0.1-1.0). Default 0.7. */
+@property (nonatomic, assign) CGFloat phoneHeightRatioPortrait;
+/** Phone width ratio for landscape (0.1-1.0). Default 0.7. */
+@property (nonatomic, assign) CGFloat phoneWidthRatioLandscape;
+/** Phone height ratio for landscape (0.1-1.0). Default 0.85. */
+@property (nonatomic, assign) CGFloat phoneHeightRatioLandscape;
+/** Tablet width ratio for portrait (0.1-1.0). Default 0.6. */
+@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
+/** Tablet height ratio for portrait (0.1-1.0). Default 0.7. */
+@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
+/** Tablet width ratio for landscape (0.1-1.0). Default 0.5. */
+@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
+/** Tablet height ratio for landscape (0.1-1.0). Default 0.8. */
+@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
+/** Whether to show drag bar at top of modal. Default YES. */
+@property (nonatomic, assign) BOOL showDragBar;
+/** Whether tap outside and drag gestures can dismiss the modal. Default YES. */
+@property (nonatomic, assign) BOOL allowDismiss;
+
+/**
+ * Creates a default modal configuration.
+ */
+- (instancetype)init;
+
+/**
+ * Creates a modal configuration with all sizing and behavior options.
+ */
+- (instancetype)initWithPhoneWidthPortrait:(CGFloat)phoneWidthPortrait
+                         phoneHeightPortrait:(CGFloat)phoneHeightPortrait
+                         phoneWidthLandscape:(CGFloat)phoneWidthLandscape
+                        phoneHeightLandscape:(CGFloat)phoneHeightLandscape
+                        tabletWidthPortrait:(CGFloat)tabletWidthPortrait
+                       tabletHeightPortrait:(CGFloat)tabletHeightPortrait
+                       tabletWidthLandscape:(CGFloat)tabletWidthLandscape
+                      tabletHeightLandscape:(CGFloat)tabletHeightLandscape
+                               showDragBar:(BOOL)showDragBar
+                              allowDismiss:(BOOL)allowDismiss;
+
+@end
+
+/**
  * Protocol for receiving StashPayCard events.
  */
 @protocol StashPayCardDelegate <NSObject>
@@ -186,6 +236,31 @@ NS_ASSUME_NONNULL_BEGIN
  * @param sizeConfig Custom size configuration for portrait and landscape orientations
  */
 - (void)openPopupWithURL:(NSString *)url sizeConfig:(nullable StashPayPopupSizeConfig *)sizeConfig;
+
+/**
+ * Opens a URL in a centered modal dialog with default configuration.
+ *
+ * Unlike openCheckoutWithURL which uses different presentations on phones vs iPads,
+ * openModalWithURL always shows a centered modal on all devices. The modal resizes
+ * seamlessly when the device rotates.
+ *
+ * Uses default sizing ratios and shows drag bar with dismiss enabled.
+ *
+ * @param url The URL to load in the modal
+ */
+- (void)openModalWithURL:(NSString *)url;
+
+/**
+ * Opens a URL in a centered modal dialog with custom configuration.
+ *
+ * Unlike openCheckoutWithURL which uses different presentations on phones vs iPads,
+ * openModalWithURL always shows a centered modal on all devices. The modal resizes
+ * seamlessly when the device rotates.
+ *
+ * @param url The URL to load in the modal
+ * @param config Configuration for sizing, drag bar, and dismiss behavior (nil for defaults)
+ */
+- (void)openModalWithURL:(NSString *)url config:(nullable StashPayModalConfig *)config;
 
 /**
  * Dismisses any currently displayed checkout dialog.

@@ -56,8 +56,16 @@ class ViewController: UIViewController {
     }
     
     func openCheckout() {
-        // Open checkout card (slides up from bottom)
+        // Open checkout card (slides up from bottom on iPhone, centered on iPad)
         StashPayCard.sharedInstance().openCheckout(withURL: "https://your-checkout-url.com")
+    }
+    
+    func openModal() {
+        // Open centered modal (same on iPhone and iPad)
+        let config = StashPayModalConfig()
+        config.showDragBar = true
+        config.allowDismiss = true
+        StashPayCard.sharedInstance().openModal(withURL: "https://your-modal-url.com", config: config)
     }
 }
 
@@ -99,14 +107,18 @@ extension ViewController: StashPayCardDelegate {
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
-    // Set the delegate to receive callbacks
     [StashPayCard sharedInstance].delegate = self;
 }
 
 - (void)openCheckout {
-    // Open checkout card
     [[StashPayCard sharedInstance] openCheckoutWithURL:@"https://your-checkout-url.com"];
+}
+
+- (void)openModal {
+    StashPayModalConfig *config = [[StashPayModalConfig alloc] init];
+    config.showDragBar = YES;
+    config.allowDismiss = YES;
+    [[StashPayCard sharedInstance] openModalWithURL:@"https://your-modal-url.com" config:config];
 }
 
 #pragma mark - StashPayCardDelegate
@@ -134,76 +146,122 @@ extension ViewController: StashPayCardDelegate {
 @end
 ```
 
-## Card Size Configuration
+---
 
-Card size configuration is **optional**. Only change it if your specific Stash Pay configuration requires custom sizing. In most scenarios, leave the default sizing unchanged.
+## Presentation Methods
 
-You can customize the size of the checkout card for iPhones and iPads as follows.
+The SDK offers two presentation methods:
 
-### Phone (iPhone)
+| Method | iPhone Behavior | iPad Behavior | Use Case |
+|--------|-----------------|---------------|----------|
+| `openCheckout(withURL:)` | Card slides from bottom (portrait, full width) with expand/collapse gestures | Centered modal with rotation support | Standard checkout flow |
+| `openModal(withURL:config:)` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content, no card behavior |
 
-The phone card **always forces portrait** and **always uses full screen width**. Only the card height is configurable (as a ratio of screen height in portrait):
+---
 
-```swift
-let stashPay = StashPayCard.sharedInstance()
+## Checkout Configuration
 
-// Phone: only height is configurable (card is always full width, portrait only)
-stashPay.cardHeightRatioPortrait = 0.68   // 68% of screen height (default)
-```
+### iPhone Card Size
 
-### Tablet (iPad)
-
-On iPad the card can rotate; configure width and height for portrait and landscape:
+The iPhone card **always forces portrait** and **uses full screen width**. Only the height is configurable:
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// iPad card size - portrait and landscape
-stashPay.tabletWidthRatioPortrait = 0.4   // 40% width in portrait (default)
-stashPay.tabletHeightRatioPortrait = 0.5  // 50% height in portrait (default)
-stashPay.tabletWidthRatioLandscape = 0.3  // 30% width in landscape (default)
-stashPay.tabletHeightRatioLandscape = 0.6 // 60% height in landscape (default)
+// iPhone: only height is configurable (default: 68%)
+stashPay.cardHeightRatioPortrait = 0.68
 ```
 
-### Complete Example (Swift)
+### iPad Card Size
+
+On iPad, the checkout card is centered and supports rotation. Configure width and height for both orientations:
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
-stashPay.delegate = self
 
-// Phone: customize card height only (portrait, full width)
-stashPay.cardHeightRatioPortrait = 0.7
+// Portrait orientation
+stashPay.tabletWidthRatioPortrait = 0.4   // 40% width (default)
+stashPay.tabletHeightRatioPortrait = 0.5  // 50% height (default)
 
-// iPad: configure for both orientations
-stashPay.tabletWidthRatioPortrait = 0.4
-stashPay.tabletHeightRatioPortrait = 0.5
-stashPay.tabletWidthRatioLandscape = 0.3
-stashPay.tabletHeightRatioLandscape = 0.6
-
-stashPay.openCheckout(withURL: url)
+// Landscape orientation
+stashPay.tabletWidthRatioLandscape = 0.3  // 30% width (default)
+stashPay.tabletHeightRatioLandscape = 0.6 // 60% height (default)
 ```
 
-### Objective-C Example
+---
+
+## Modal Configuration
+
+The modal uses `StashPayModalConfig` for full control over appearance and behavior.
+
+### StashPayModalConfig Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `showDragBar` | BOOL | `YES` | Show visual drag bar at top of modal |
+| `allowDismiss` | BOOL | `YES` | Allow tap-outside to dismiss |
+| `phoneWidthRatioPortrait` | CGFloat | `0.9` | iPhone width in portrait (90%) |
+| `phoneHeightRatioPortrait` | CGFloat | `0.7` | iPhone height in portrait (70%) |
+| `phoneWidthRatioLandscape` | CGFloat | `0.7` | iPhone width in landscape (70%) |
+| `phoneHeightRatioLandscape` | CGFloat | `0.85` | iPhone height in landscape (85%) |
+| `tabletWidthRatioPortrait` | CGFloat | `0.6` | iPad width in portrait (60%) |
+| `tabletHeightRatioPortrait` | CGFloat | `0.7` | iPad height in portrait (70%) |
+| `tabletWidthRatioLandscape` | CGFloat | `0.5` | iPad width in landscape (50%) |
+| `tabletHeightRatioLandscape` | CGFloat | `0.8` | iPad height in landscape (80%) |
+
+### Example: Custom Modal Sizing (Swift)
+
+```swift
+let config = StashPayModalConfig()
+
+// Behavior
+config.showDragBar = false      // Hide drag bar
+config.allowDismiss = false     // Prevent dismissal by tapping outside
+
+// iPhone sizing
+config.phoneWidthRatioPortrait = 0.95
+config.phoneHeightRatioPortrait = 0.8
+config.phoneWidthRatioLandscape = 0.8
+config.phoneHeightRatioLandscape = 0.9
+
+// iPad sizing
+config.tabletWidthRatioPortrait = 0.5
+config.tabletHeightRatioPortrait = 0.6
+config.tabletWidthRatioLandscape = 0.4
+config.tabletHeightRatioLandscape = 0.7
+
+StashPayCard.sharedInstance().openModal(withURL: url, config: config)
+```
+
+### Example: Custom Modal Sizing (Objective-C)
 
 ```objc
-StashPayCard *stashPay = [StashPayCard sharedInstance];
-stashPay.delegate = self;
+StashPayModalConfig *config = [[StashPayModalConfig alloc] init];
 
-// Phone: customize card height only (portrait, full width)
-stashPay.cardHeightRatioPortrait = 0.7;
+// Behavior
+config.showDragBar = NO;
+config.allowDismiss = NO;
 
-// iPad: configure for both orientations
-stashPay.tabletWidthRatioPortrait = 0.4;
-stashPay.tabletHeightRatioPortrait = 0.5;
-stashPay.tabletWidthRatioLandscape = 0.3;
-stashPay.tabletHeightRatioLandscape = 0.6;
+// iPhone sizing
+config.phoneWidthRatioPortrait = 0.95;
+config.phoneHeightRatioPortrait = 0.8;
+config.phoneWidthRatioLandscape = 0.8;
+config.phoneHeightRatioLandscape = 0.9;
 
-[stashPay openCheckoutWithURL:url];
+// iPad sizing
+config.tabletWidthRatioPortrait = 0.5;
+config.tabletHeightRatioPortrait = 0.6;
+config.tabletWidthRatioLandscape = 0.4;
+config.tabletHeightRatioLandscape = 0.7;
+
+[[StashPayCard sharedInstance] openModalWithURL:url config:config];
 ```
+
+---
 
 ## Web-Based Checkout
 
-To use SFSafariViewController instead of the in-app card UI:
+To use SFSafariViewController instead of the in-app UI:
 
 ```swift
 StashPayCard.sharedInstance().forceWebBasedCheckout = true
@@ -229,29 +287,62 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 }
 ```
 
+---
+
 ## API Reference
 
-### StashPayCard
+### Core Properties & Methods
 
 | Property/Method | Description |
 |-----------------|-------------|
 | `sharedInstance()` | Get the singleton instance |
 | `delegate` | Set the delegate to receive callbacks |
-| `forceWebBasedCheckout` | Use SFSafariViewController |
-| `isCurrentlyPresented` | Check if dialog is shown |
-| `isPurchaseProcessing` | Check if payment is in progress |
-| `cardHeightRatioPortrait` | Phone card height (0.1-1.0). Phone card is always portrait and full width. |
-| `tabletWidthRatioPortrait` | iPad card width in portrait (0.1-1.0) |
-| `tabletHeightRatioPortrait` | iPad card height in portrait (0.1-1.0) |
-| `tabletWidthRatioLandscape` | iPad card width in landscape (0.1-1.0) |
-| `tabletHeightRatioLandscape` | iPad card height in landscape (0.1-1.0) |
-| `openCheckout(withURL:)` | Open checkout in card UI |
-| `dismiss()` | Dismiss the current dialog |
-| `resetPresentationState()` | Reset and dismiss |
-| `dismissSafariViewController()` | Dismiss Safari VC |
-| `dismissSafariViewController(withResult:)` | Dismiss with success/failure |
 
-### StashPayCardDelegate
+### Presentation Methods
+
+| Method | Description |
+|--------|-------------|
+| `openCheckout(withURL:)` | Open checkout card (bottom sheet on iPhone, centered on iPad) |
+| `openModal(withURL:)` | Open centered modal with default configuration |
+| `openModal(withURL:config:)` | Open centered modal with custom configuration |
+| `dismiss()` | Dismiss the current dialog |
+| `resetPresentationState()` | Reset internal state and dismiss |
+| `dismissSafariViewController()` | Dismiss Safari VC (web-based checkout) |
+| `dismissSafariViewController(withResult:)` | Dismiss Safari VC with success/failure |
+
+### State Properties
+
+| Property | Description |
+|----------|-------------|
+| `isCurrentlyPresented` | Returns `true` if a dialog is currently shown |
+| `isPurchaseProcessing` | Returns `true` if a payment is in progress |
+
+### Checkout Sizing (iPhone)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `cardHeightRatioPortrait` | `0.68` | Card height as ratio of screen height (0.1-1.0) |
+
+### Checkout Sizing (iPad)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `tabletWidthRatioPortrait` | `0.4` | Card width in portrait (0.1-1.0) |
+| `tabletHeightRatioPortrait` | `0.5` | Card height in portrait (0.1-1.0) |
+| `tabletWidthRatioLandscape` | `0.3` | Card width in landscape (0.1-1.0) |
+| `tabletHeightRatioLandscape` | `0.6` | Card height in landscape (0.1-1.0) |
+
+### Other Settings
+
+| Property | Description |
+|----------|-------------|
+| `forceWebBasedCheckout` | Use SFSafariViewController instead of in-app UI |
+
+---
+
+## Callbacks (StashPayCardDelegate)
+
+All delegate methods are optional.
 
 | Method | Description |
 |--------|-------------|
@@ -259,9 +350,9 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `stashPayCardDidFailPayment()` | Payment failed |
 | `stashPayCardDidDismiss()` | User dismissed the dialog |
 | `stashPayCardDidReceiveOptIn(_:)` | Opt-in response received |
-| `stashPayCardDidLoadPage(_:)` | Page finished loading |
+| `stashPayCardDidLoadPage(_:)` | Page finished loading (time in milliseconds) |
 
-All delegate methods are optional.
+---
 
 ## Requirements
 
@@ -278,5 +369,7 @@ To run the sample:
 2. Select a simulator or device
 3. Build and run
 
-The sample app includes a toggle to switch between the native card UI and Safari-based checkout.
-
+The sample app includes:
+- Separate URL inputs for Checkout and Modal
+- Advanced Options for Checkout (web view mode, sizing)
+- Advanced Options for Modal (drag bar, dismiss, sizing)

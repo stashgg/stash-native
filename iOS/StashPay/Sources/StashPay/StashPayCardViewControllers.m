@@ -14,6 +14,9 @@
 #pragma mark - Extern declarations (defined in StashPayCard.m)
 
 extern BOOL _usePopupPresentation;
+extern BOOL _useModalPresentation;
+extern BOOL _modalShowDragBar;
+extern BOOL _modalAllowDismiss;
 extern BOOL _useCustomPopupSize;
 extern CGFloat _customPortraitWidthMultiplier;
 extern CGFloat _customPortraitHeightMultiplier;
@@ -45,6 +48,7 @@ extern CGSize calculateiPadCardSize(CGRect screenBounds);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 extern UIInterfaceOrientation getInterfaceOrientation(void);
 extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+extern CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 
 #pragma mark - DragTrayView
@@ -160,6 +164,7 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 @property (nonatomic, assign) CGSize previousScreenSize;
+@property (nonatomic, assign) BOOL isModalPresentation;
 - (void)updateCornerRadiusMask;
 @end
 
@@ -168,7 +173,8 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     
-    if (!_usePopupPresentation) {
+    // Handle both popup and modal presentation rotation/resize
+    if (!_usePopupPresentation && !self.isModalPresentation) {
         return;
     }
     
@@ -184,15 +190,38 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
         overlayView.frame = screenBounds;
     }
     
-    CGRect newFrame = computePopupFrameForScreenBounds(screenBounds);
-
-    if (!CGRectEqualToRect(self.view.frame, newFrame)) {
-        [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
-            self.view.frame = newFrame;
-            self.customFrame = newFrame;
-        } completion:^(BOOL finished) {
-            [self updateCornerRadiusMask];
-        }];
+    // Use appropriate frame calculation based on presentation type
+    CGRect newFrame;
+    if (self.isModalPresentation) {
+        newFrame = computeModalFrameForScreenBounds(screenBounds);
+    } else {
+        newFrame = computePopupFrameForScreenBounds(screenBounds);
+    }
+    
+    // For modal, update the cardView frame; for popup, update the view frame
+    if (self.isModalPresentation) {
+        UIView *cardView = [self.view viewWithTag:kCardViewTag];
+        if (cardView && !CGRectEqualToRect(cardView.frame, newFrame)) {
+            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
+                cardView.frame = newFrame;
+                if (_modalShowDragBar) {
+                    updateDragTrayAndHandleInCardView(cardView, newFrame.size.width);
+                }
+                [cardView layoutIfNeeded];
+            } completion:^(BOOL finished) {
+                self.customFrame = newFrame;
+                [self updateCornerRadiusMask];
+            }];
+        }
+    } else {
+        if (!CGRectEqualToRect(self.view.frame, newFrame)) {
+            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
+                self.view.frame = newFrame;
+                self.customFrame = newFrame;
+            } completion:^(BOOL finished) {
+                [self updateCornerRadiusMask];
+            }];
+        }
     }
 }
 

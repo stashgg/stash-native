@@ -15,6 +15,9 @@ UIViewController *getTopPresentedViewController(void);
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
 CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 
+/// Modal frame (x, y, width, height) for given screen bounds; uses current orientation and modal ratios.
+CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
+
 /// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 
@@ -40,6 +43,7 @@ void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 @property (nonatomic, assign) CGSize previousScreenSize;
+@property (nonatomic, assign) BOOL isModalPresentation;
 - (void)updateCornerRadiusMask;
 @end
 

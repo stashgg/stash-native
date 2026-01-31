@@ -61,6 +61,55 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 
 @end
 
+#pragma mark - ModalConfig Implementation
+
+@implementation StashPayModalConfig
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _phoneWidthRatioPortrait = 0.9f;
+        _phoneHeightRatioPortrait = 0.7f;
+        _phoneWidthRatioLandscape = 0.7f;
+        _phoneHeightRatioLandscape = 0.85f;
+        _tabletWidthRatioPortrait = 0.6f;
+        _tabletHeightRatioPortrait = 0.7f;
+        _tabletWidthRatioLandscape = 0.5f;
+        _tabletHeightRatioLandscape = 0.8f;
+        _showDragBar = YES;
+        _allowDismiss = YES;
+    }
+    return self;
+}
+
+- (instancetype)initWithPhoneWidthPortrait:(CGFloat)phoneWidthPortrait
+                         phoneHeightPortrait:(CGFloat)phoneHeightPortrait
+                         phoneWidthLandscape:(CGFloat)phoneWidthLandscape
+                        phoneHeightLandscape:(CGFloat)phoneHeightLandscape
+                        tabletWidthPortrait:(CGFloat)tabletWidthPortrait
+                       tabletHeightPortrait:(CGFloat)tabletHeightPortrait
+                       tabletWidthLandscape:(CGFloat)tabletWidthLandscape
+                      tabletHeightLandscape:(CGFloat)tabletHeightLandscape
+                               showDragBar:(BOOL)showDragBar
+                              allowDismiss:(BOOL)allowDismiss {
+    self = [super init];
+    if (self) {
+        _phoneWidthRatioPortrait = phoneWidthPortrait;
+        _phoneHeightRatioPortrait = phoneHeightPortrait;
+        _phoneWidthRatioLandscape = phoneWidthLandscape;
+        _phoneHeightRatioLandscape = phoneHeightLandscape;
+        _tabletWidthRatioPortrait = tabletWidthPortrait;
+        _tabletHeightRatioPortrait = tabletHeightPortrait;
+        _tabletWidthRatioLandscape = tabletWidthLandscape;
+        _tabletHeightRatioLandscape = tabletHeightLandscape;
+        _showDragBar = showDragBar;
+        _allowDismiss = allowDismiss;
+    }
+    return self;
+}
+
+@end
+
 #pragma mark - Private State
 // Note: These statics are reset in [StashPayCardInternal cleanupCardInstance].
 // They are file-scope to this translation unit and effectively private to the SDK.
@@ -101,6 +150,20 @@ static BOOL _forceSafariViewController = NO;
 BOOL _usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
 static BOOL _showScrollbar = NO;
+
+// --- Modal configuration (reset on cleanup) ---
+// Non-static: referenced by StashPayCardViewControllers.m
+BOOL _useModalPresentation = NO;
+BOOL _modalShowDragBar = YES;
+BOOL _modalAllowDismiss = YES;
+CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
+CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
+CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
+CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
+CGFloat _modalTabletWidthRatioPortrait = 0.6f;
+CGFloat _modalTabletHeightRatioPortrait = 0.7f;
+CGFloat _modalTabletWidthRatioLandscape = 0.5f;
+CGFloat _modalTabletHeightRatioLandscape = 0.8f;
 
 #define ENABLE_IPAD_SUPPORT 1
 
@@ -271,6 +334,7 @@ static NSString * const kAssociatedKeyInitialCardHeight = @"initialCardHeight";
 BOOL isRunningOniPad(void);
 CGSize calculateiPadCardSize(CGRect screenBounds);
 CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 UIColor* getSystemBackgroundColor(void);
 CGFloat getSafeAreaTopForView(UIView *view);
 WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView);
@@ -460,6 +524,7 @@ void setOverlayToDismissAppearance(UIView *overlayView);
     _isCardExpanded = NO;
     _isCardCurrentlyPresented = NO;
     _usePopupPresentation = NO;
+    _useModalPresentation = NO;
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
@@ -477,10 +542,10 @@ void setOverlayToDismissAppearance(UIView *overlayView);
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:containerVC];
     
-    CGFloat animationDuration = _usePopupPresentation ? kDismissAnimationDurationPopup : kAnimationDurationFast;
+    CGFloat animationDuration = (_usePopupPresentation || _useModalPresentation) ? kDismissAnimationDurationPopup : kAnimationDurationFast;
     
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        if (_usePopupPresentation || isRunningOniPad()) {
+        if (_usePopupPresentation || _useModalPresentation || isRunningOniPad()) {
             // iPad/Popup: fade out and scale the cardView
             UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
@@ -1085,8 +1150,8 @@ initialSpringVelocity:kSpringVelocityCollapse
             [self cleanupCardInstance];
         }];
     } else if ([name isEqualToString:kMessageHandlerExpand]) {
-        // Tablets use fixed sizing - ignore expand/collapse messages
-        if (isRunningOniPad()) {
+        // Modal and tablets use fixed sizing - ignore expand/collapse messages
+        if (_useModalPresentation || isRunningOniPad()) {
             return;
         }
         
@@ -1107,8 +1172,8 @@ initialSpringVelocity:kSpringVelocityCollapse
             }];
         }
     } else if ([name isEqualToString:kMessageHandlerCollapse]) {
-        // Tablets use fixed sizing - ignore expand/collapse messages
-        if (isRunningOniPad()) {
+        // Modal and tablets use fixed sizing - ignore expand/collapse messages
+        if (_useModalPresentation || isRunningOniPad()) {
             return;
         }
         
@@ -1212,6 +1277,45 @@ CGRect computePopupFrameForScreenBounds(CGRect screenBounds) {
     CGFloat height = baseSize * (isLandscape ? landscapeHeightMultiplier : portraitHeightMultiplier);
     CGFloat x = (screenBounds.size.width - width) / 2.0;
     CGFloat y = (screenBounds.size.height - height) / 2.0;
+    return CGRectMake(x, y, width, height);
+}
+
+CGRect computeModalFrameForScreenBounds(CGRect screenBounds) {
+    BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
+    BOOL isTablet = isRunningOniPad();
+    
+    CGFloat widthRatio, heightRatio;
+    if (isTablet) {
+        if (isLandscape) {
+            widthRatio = _modalTabletWidthRatioLandscape;
+            heightRatio = _modalTabletHeightRatioLandscape;
+        } else {
+            widthRatio = _modalTabletWidthRatioPortrait;
+            heightRatio = _modalTabletHeightRatioPortrait;
+        }
+    } else {
+        if (isLandscape) {
+            widthRatio = _modalPhoneWidthRatioLandscape;
+            heightRatio = _modalPhoneHeightRatioLandscape;
+        } else {
+            widthRatio = _modalPhoneWidthRatioPortrait;
+            heightRatio = _modalPhoneHeightRatioPortrait;
+        }
+    }
+    
+    CGFloat width = screenBounds.size.width * widthRatio;
+    CGFloat height = screenBounds.size.height * heightRatio;
+    
+    // Apply minimum sizes
+    CGFloat minWidth = isTablet ? 400.0f : 300.0f;
+    CGFloat minHeight = isTablet ? 500.0f : 300.0f;
+    if (width < minWidth) width = minWidth;
+    if (height < minHeight) height = minHeight;
+    
+    // Center the modal
+    CGFloat x = (screenBounds.size.width - width) / 2.0;
+    CGFloat y = (screenBounds.size.height - height) / 2.0;
+    
     return CGRectMake(x, y, width, height);
 }
 
@@ -1549,6 +1653,46 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [self openURLInternal:url];
 }
 
+- (void)openModalWithURL:(NSString *)url {
+    [self openModalWithURL:url config:nil];
+}
+
+- (void)openModalWithURL:(NSString *)url config:(StashPayModalConfig *)config {
+    if (url == nil || url.length == 0) {
+        return;
+    }
+    
+    _usePopupPresentation = NO;
+    _useModalPresentation = YES;
+    
+    if (config) {
+        _modalShowDragBar = config.showDragBar;
+        _modalAllowDismiss = config.allowDismiss;
+        _modalPhoneWidthRatioPortrait = config.phoneWidthRatioPortrait;
+        _modalPhoneHeightRatioPortrait = config.phoneHeightRatioPortrait;
+        _modalPhoneWidthRatioLandscape = config.phoneWidthRatioLandscape;
+        _modalPhoneHeightRatioLandscape = config.phoneHeightRatioLandscape;
+        _modalTabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
+        _modalTabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
+        _modalTabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
+        _modalTabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+    } else {
+        // Use defaults
+        _modalShowDragBar = YES;
+        _modalAllowDismiss = YES;
+        _modalPhoneWidthRatioPortrait = 0.9f;
+        _modalPhoneHeightRatioPortrait = 0.7f;
+        _modalPhoneWidthRatioLandscape = 0.7f;
+        _modalPhoneHeightRatioLandscape = 0.85f;
+        _modalTabletWidthRatioPortrait = 0.6f;
+        _modalTabletHeightRatioPortrait = 0.7f;
+        _modalTabletWidthRatioLandscape = 0.5f;
+        _modalTabletHeightRatioLandscape = 0.8f;
+    }
+    
+    [self openURLInternal:url];
+}
+
 - (void)openURLInternal:(NSString *)url {
     if (_isCardCurrentlyPresented) {
         return;
@@ -1556,7 +1700,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     NSString *urlWithTheme = appendThemeQueryParameter(url);
     
-    if (_forceWebBasedCheckout && !_usePopupPresentation) {
+    if (_forceWebBasedCheckout && !_usePopupPresentation && !_useModalPresentation) {
         [self openInSafariViewController:urlWithTheme];
         return;
     }
@@ -1594,7 +1738,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _originalTabletHeightRatio = _tabletHeightRatioPortrait;
     
     // Dispatch to appropriate presentation method based on device type
-    if (_usePopupPresentation) {
+    if (_useModalPresentation) {
+        [self presentModalWithURL:url];
+    } else if (_usePopupPresentation) {
         [self presentPopupWithURL:url];
     } else if (isRunningOniPad()) {
         [self presentiPadModalWithURL:url];
@@ -1916,6 +2062,122 @@ NSString* appendThemeQueryParameter(NSString* url) {
         dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [overlayView addSubview:dismissButton];
         [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+    }];
+}
+
+#pragma mark - Modal Presentation (Centered, Rotatable on all devices)
+
+- (void)presentModalWithURL:(NSString *)url {
+    StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect frame = computeModalFrameForScreenBounds(screenBounds);
+    
+    // Create container view controller (allows all orientations like popup)
+    OrientationLockedViewController *containerVC = [[OrientationLockedViewController alloc] init];
+    containerVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
+    containerVC.enforcePortrait = NO;  // Allow rotation
+    containerVC.view.backgroundColor = [UIColor clearColor];
+    containerVC.customFrame = frame;
+    containerVC.isModalPresentation = YES;  // Mark this as modal for rotation handling
+    
+    // Create cardView (centered modal)
+    UIView *cardView = [[UIView alloc] initWithFrame:frame];
+    cardView.backgroundColor = getSystemBackgroundColor();
+    cardView.tag = kCardViewTag;
+    cardView.clipsToBounds = YES;
+    cardView.layer.cornerRadius = kCornerRadiusDefault;
+    cardView.alpha = 0.0; // Start hidden for fade-in
+    [containerVC.view addSubview:cardView];
+    
+    // Create WebView
+    WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
+    webView.translatesAutoresizingMaskIntoConstraints = NO;
+    webView.alpha = 0.0;
+    
+    // Create loading view
+    UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
+    loadingView.translatesAutoresizingMaskIntoConstraints = NO;
+    loadingView.alpha = 1.0;
+    
+    // Add views to cardView
+    [cardView addSubview:webView];
+    [cardView addSubview:loadingView];
+    
+    // Pin views to cardView edges
+    [NSLayoutConstraint activateConstraints:@[
+        [webView.leadingAnchor constraintEqualToAnchor:cardView.leadingAnchor],
+        [webView.trailingAnchor constraintEqualToAnchor:cardView.trailingAnchor],
+        [webView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
+        [webView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor],
+        [loadingView.leadingAnchor constraintEqualToAnchor:cardView.leadingAnchor],
+        [loadingView.trailingAnchor constraintEqualToAnchor:cardView.trailingAnchor],
+        [loadingView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
+        [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
+    ]];
+    
+    // Add visual-only drag tray if configured (modal never supports drag gestures)
+    if (_modalShowDragBar) {
+        UIView *dragTray = [internal createDragTrayVisualOnly:frame.size.width];
+        [cardView addSubview:dragTray];
+        internal.dragTrayView = dragTray;
+    }
+    
+    // Create delegates
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    webView.navigationDelegate = delegate;
+    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
+    webView.UIDelegate = uiDelegate;
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    // Load URL
+    NSURL *nsurl = [NSURL URLWithString:url];
+    if (nsurl) {
+        NSMutableURLRequest *request = requestForURL(nsurl);
+        delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
+        [webView loadRequest:request];
+    }
+    
+    // Create window
+    internal.previousKeyWindow = getKeyWindow();
+    UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+    cardWindow.windowLevel = UIWindowLevelAlert;
+    cardWindow.backgroundColor = [UIColor clearColor];
+    cardWindow.rootViewController = containerVC;
+    internal.portraitWindow = cardWindow;
+    internal.currentPresentedVC = containerVC;
+    
+    // Modal is always considered expanded (no expand/collapse)
+    _isCardExpanded = YES;
+    
+    UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
+    
+    applyCardShadowToLayer(cardView.layer, NO);
+    
+    // Show window
+    cardWindow.hidden = NO;
+    [cardWindow makeKeyAndVisible];
+    
+    // Animate: fade in overlay and cardView
+    [UIView animateWithDuration:kAnimationDurationDefault
+                          delay:0
+         usingSpringWithDamping:kSpringDampingDefault
+          initialSpringVelocity:kSpringVelocityExpand
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        cardView.alpha = 1.0;
+        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
+    } completion:^(BOOL finished) {
+        // Add dismiss button on overlay if allowDismiss is enabled
+        if (_modalAllowDismiss) {
+            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+            dismissButton.frame = overlayView.bounds;
+            dismissButton.backgroundColor = [UIColor clearColor];
+            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [overlayView addSubview:dismissButton];
+            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        }
     }];
 }
 

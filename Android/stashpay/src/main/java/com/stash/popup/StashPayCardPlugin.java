@@ -74,8 +74,12 @@ public class StashPayCardPlugin {
     /** Accessed from UI and JS threads; volatile for visibility. */
     private volatile boolean isPurchaseProcessing;
     private boolean usePopupPresentation;
+    private boolean useModalPresentation;
     private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
+    
+    // Modal configuration (used when useModalPresentation is true)
+    private StashPayCard.ModalConfig currentModalConfig;
     
     private boolean useCustomSize;
     private float customPortraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
@@ -189,6 +193,7 @@ public class StashPayCardPlugin {
     public void openCheckout(String url) {
         try {
             usePopupPresentation = false;
+            useModalPresentation = false;
             openURLInternal(url);
         } catch (Exception e) {
             Log.e(TAG, "Error in openCheckout: " + e.getMessage(), e);
@@ -199,6 +204,7 @@ public class StashPayCardPlugin {
     public void openPopup(String url) {
         try {
             usePopupPresentation = true;
+            useModalPresentation = false;
             useCustomSize = false;
             openURLInternal(url);
         } catch (Exception e) {
@@ -211,6 +217,7 @@ public class StashPayCardPlugin {
                                    float landscapeWidthMultiplier, float landscapeHeightMultiplier) {
         try {
             usePopupPresentation = true;
+            useModalPresentation = false;
             customPortraitWidthMultiplier = portraitWidthMultiplier;
             customPortraitHeightMultiplier = portraitHeightMultiplier;
             customLandscapeWidthMultiplier = landscapeWidthMultiplier;
@@ -219,6 +226,18 @@ public class StashPayCardPlugin {
             openURLInternal(url);
         } catch (Exception e) {
             Log.e(TAG, "Error in openPopupWithSize: " + e.getMessage(), e);
+            cleanupAllViews();
+        }
+    }
+    
+    public void openModal(String url, StashPayCard.ModalConfig config) {
+        try {
+            usePopupPresentation = false;
+            useModalPresentation = true;
+            currentModalConfig = config != null ? config : new StashPayCard.ModalConfig();
+            openURLInternal(url);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in openModal: " + e.getMessage(), e);
             cleanupAllViews();
         }
     }
@@ -416,7 +435,23 @@ public class StashPayCardPlugin {
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, tabletWidthRatioLandscape);
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE, tabletHeightRatioLandscape);
             intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
+            intent.putExtra(CardConstants.INTENT_EXTRA_USE_MODAL, useModalPresentation);
             intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
+            
+            // Pass modal config if in modal mode
+            if (useModalPresentation && currentModalConfig != null) {
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_SHOW_DRAG_BAR, currentModalConfig.showDragBar);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_ALLOW_DISMISS, currentModalConfig.allowDismiss);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_PORTRAIT, currentModalConfig.phoneWidthRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT, currentModalConfig.phoneHeightRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE, currentModalConfig.phoneWidthRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE, currentModalConfig.phoneHeightRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_PORTRAIT, currentModalConfig.tabletWidthRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT, currentModalConfig.tabletHeightRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE, currentModalConfig.tabletWidthRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE, currentModalConfig.tabletHeightRatioLandscape);
+            }
+            
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             
             activity.startActivity(intent);

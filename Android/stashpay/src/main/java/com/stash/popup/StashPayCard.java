@@ -111,6 +111,57 @@ public class StashPayCard {
         }
     }
     
+    /**
+     * Configuration for modal presentation.
+     * 
+     * Modal always appears centered on screen (unlike checkout which uses cards on phones).
+     * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+     */
+    public static class ModalConfig {
+        /** Phone width ratio for portrait (0.1-1.0) */
+        public float phoneWidthRatioPortrait = CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT;
+        /** Phone height ratio for portrait (0.1-1.0) */
+        public float phoneHeightRatioPortrait = CardConstants.DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT;
+        /** Phone width ratio for landscape (0.1-1.0) */
+        public float phoneWidthRatioLandscape = CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE;
+        /** Phone height ratio for landscape (0.1-1.0) */
+        public float phoneHeightRatioLandscape = CardConstants.DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE;
+        /** Tablet width ratio for portrait (0.1-1.0) */
+        public float tabletWidthRatioPortrait = CardConstants.DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT;
+        /** Tablet height ratio for portrait (0.1-1.0) */
+        public float tabletHeightRatioPortrait = CardConstants.DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT;
+        /** Tablet width ratio for landscape (0.1-1.0) */
+        public float tabletWidthRatioLandscape = CardConstants.DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE;
+        /** Tablet height ratio for landscape (0.1-1.0) */
+        public float tabletHeightRatioLandscape = CardConstants.DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE;
+        /** Whether to show drag bar at top of modal */
+        public boolean showDragBar = true;
+        /** Whether tap outside and drag gestures can dismiss the modal */
+        public boolean allowDismiss = true;
+        
+        public ModalConfig() {}
+        
+        /**
+         * Creates a modal config with all sizing ratios and behavior flags.
+         */
+        public ModalConfig(float phoneWidthPortrait, float phoneHeightPortrait,
+                          float phoneWidthLandscape, float phoneHeightLandscape,
+                          float tabletWidthPortrait, float tabletHeightPortrait,
+                          float tabletWidthLandscape, float tabletHeightLandscape,
+                          boolean showDragBar, boolean allowDismiss) {
+            this.phoneWidthRatioPortrait = phoneWidthPortrait;
+            this.phoneHeightRatioPortrait = phoneHeightPortrait;
+            this.phoneWidthRatioLandscape = phoneWidthLandscape;
+            this.phoneHeightRatioLandscape = phoneHeightLandscape;
+            this.tabletWidthRatioPortrait = tabletWidthPortrait;
+            this.tabletHeightRatioPortrait = tabletHeightPortrait;
+            this.tabletWidthRatioLandscape = tabletWidthLandscape;
+            this.tabletHeightRatioLandscape = tabletHeightLandscape;
+            this.showDragBar = showDragBar;
+            this.allowDismiss = allowDismiss;
+        }
+    }
+    
     private StashPayCard() {
         plugin = StashPayCardPlugin.getInstance();
     }
@@ -195,6 +246,35 @@ public class StashPayCard {
         } else {
             plugin.openPopup(url);
         }
+    }
+    
+    /**
+     * Opens a URL in a centered modal dialog with default configuration.
+     * 
+     * Unlike openCheckout which uses different presentations on phones vs tablets,
+     * openModal always shows a centered modal on all devices. The modal resizes
+     * seamlessly when the device rotates.
+     * 
+     * Uses default sizing ratios and shows drag bar with dismiss enabled.
+     * 
+     * @param url The URL to load in the modal
+     */
+    public void openModal(String url) {
+        plugin.openModal(url, null);
+    }
+    
+    /**
+     * Opens a URL in a centered modal dialog with custom configuration.
+     * 
+     * Unlike openCheckout which uses different presentations on phones vs tablets,
+     * openModal always shows a centered modal on all devices. The modal resizes
+     * seamlessly when the device rotates.
+     * 
+     * @param url The URL to load in the modal
+     * @param config Configuration for sizing, drag bar, and dismiss behavior (null for defaults)
+     */
+    public void openModal(String url, ModalConfig config) {
+        plugin.openModal(url, config);
     }
     
     /**
