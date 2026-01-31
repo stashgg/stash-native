@@ -200,6 +200,9 @@ const NSTimeInterval kPopupFrameAnimationDuration = 0.3;
 BOOL isRunningOniPad(void);
 CGSize calculateiPadCardSize(CGRect screenBounds);
 UIColor* getSystemBackgroundColor(void);
+CGFloat getSafeAreaTopForView(UIView *view);
+WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView);
+void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 void configureScrollViewForWebView(UIScrollView* scrollView);
 UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 void setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
@@ -223,6 +226,8 @@ NSString* appendThemeQueryParameter(NSString* url);
 - (void)dismissWithAnimation:(void (^)(void))completion;
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
+- (UIView *)cardViewForCurrentPresentation;  // Returns cardView (kCardViewTag) for iPhone/iPad; nil if none
+- (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc;
 - (UIView *)createDragTray:(CGFloat)cardWidth;
 - (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth;  // Same look, no pan gesture (for tablet modal)
 - (void)expandCardToFullScreen;
@@ -280,6 +285,21 @@ NSString* appendThemeQueryParameter(NSString* url);
                 [delegate stashPayCardDidDismiss];
             });
         }
+    }
+}
+
+- (UIView *)cardViewForCurrentPresentation {
+    if (!self.currentPresentedVC) return nil;
+    if (isRunningOniPad()) {
+        return [self.currentPresentedVC.view viewWithTag:kCardViewTag];
+    }
+    UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
+    return cardView ?: self.currentPresentedVC.view;
+}
+
+- (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc {
+    if (vc && [vc respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
+        [(id)vc setSkipLayoutDuringInitialSetup:skip];
     }
 }
 
@@ -370,10 +390,7 @@ NSString* appendThemeQueryParameter(NSString* url);
     UIViewController *containerVC = self.currentPresentedVC;
     UIView *overlayView = objc_getAssociatedObject(containerVC, "overlayView");
     
-    // Set skipLayoutDuringInitialSetup if the VC supports it
-    if ([containerVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-        [(id)containerVC setSkipLayoutDuringInitialSetup:YES];
-    }
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:containerVC];
     
     CGFloat animationDuration = _usePopupPresentation ? kDismissAnimationDurationPopup : kAnimationDurationFast;
     
@@ -387,9 +404,7 @@ NSString* appendThemeQueryParameter(NSString* url);
             targetView.transform = CGAffineTransformMakeScale(kDismissCardScale, kDismissCardScale);
         } else {
             // iPhone: slide down the cardView
-            // CardView is directly on the window (kCardViewTag)
-            UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [containerVC.view viewWithTag:kCardViewTag];
-            
+            UIView *cardView = [self cardViewForCurrentPresentation];
             if (cardView) {
                 CGRect screenBounds = [UIScreen mainScreen].bounds;
                 CGFloat dismissY = screenBounds.size.height + cardView.frame.size.height;
@@ -408,9 +423,7 @@ NSString* appendThemeQueryParameter(NSString* url);
             overlayView.backgroundColor = [UIColor colorWithWhite:kOverlayDismissAlpha alpha:kOverlayDismissAlpha];
         }
     } completion:^(BOOL finished) {
-        if ([containerVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-            [(id)containerVC setSkipLayoutDuringInitialSetup:NO];
-        }
+        [self setSkipLayoutDuringInitialSetup:NO forViewController:containerVC];
         if (completion) completion();
     }];
 }
@@ -473,57 +486,18 @@ handleView.backgroundColor = [UIColor colorWithWhite:kHandleBarGray alpha:1.0];
 }
 
 - (void)expandCardToFullScreen {
-    if (!self.currentPresentedVC) return;
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (!cardView) return;
 
     _isCardExpanded = YES;
 
-    // Get the actual cardView (kCardViewTag) for both iPhone and iPad
-    UIView *cardView;
-    if (isRunningOniPad()) {
-        cardView = [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-    } else {
-        // iPhone: cardView is directly on the window
-        cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-        if (!cardView) cardView = self.currentPresentedVC.view;
-    }
-    
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-
-    UIEdgeInsets safeAreaInsets = UIEdgeInsetsZero;
-    if (@available(iOS 11.0, *)) {
-        UIView *parentView = cardView.superview;
-        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-            safeAreaInsets = parentView.safeAreaInsets;
-        }
-    }
-
-    CGFloat safeTop = safeAreaInsets.top;
+    CGFloat safeTop = getSafeAreaTopForView(cardView);
     CGRect fullScreenFrame = CGRectMake(0, safeTop, screenBounds.size.width, screenBounds.size.height - safeTop);
 
-    // Switch webview to frame-based layout to synchronize resize with card animation
-    WKWebView *webView = nil;
-    for (UIView *subview in cardView.subviews) {
-        if ([subview isKindOfClass:[WKWebView class]]) {
-            webView = (WKWebView *)subview;
+    WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
 
-            // Remove all constraints involving the webview
-            NSMutableArray *constraintsToRemove = [NSMutableArray array];
-            for (NSLayoutConstraint *constraint in cardView.constraints) {
-                if (constraint.firstItem == webView || constraint.secondItem == webView) {
-                    [constraintsToRemove addObject:constraint];
-                }
-            }
-            [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-            
-            // Switch to frame-based layout for synchronized animation
-            webView.translatesAutoresizingMaskIntoConstraints = YES;
-            break;
-        }
-    }
-
-    if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-        [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-    }
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
     [UIView animateWithDuration:kAnimationDurationDefault
                           delay:0
@@ -538,16 +512,7 @@ initialSpringVelocity:kSpringVelocityExpand
             webView.frame = CGRectMake(0, 0, fullScreenFrame.size.width, fullScreenFrame.size.height);
         }
 
-        // Update drag tray
-        UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-        if (dragTray) {
-            dragTray.frame = CGRectMake(0, 0, fullScreenFrame.size.width, kDragTrayHeight);
-            UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-            if (handle) {
-                CGFloat handleX = (fullScreenFrame.size.width / 2.0) - kHandleBarHalfWidth;
-                handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
-            }
-        }
+        updateDragTrayAndHandleInCardView(cardView, fullScreenFrame.size.width);
         
         if ([self.currentPresentedVC respondsToSelector:@selector(setCustomFrame:)]) {
             [(id)self.currentPresentedVC setCustomFrame:fullScreenFrame];
@@ -555,36 +520,23 @@ initialSpringVelocity:kSpringVelocityExpand
         
         cardView.backgroundColor = getSystemBackgroundColor();
         
-        // Force layout to ensure all subviews are positioned correctly
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
         CGFloat radius = isRunningOniPad() ? kCornerRadiusExpanded : kCornerRadiusDefault;
         CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, radius);
         cardView.layer.mask = maskLayer;
         
-        if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-            [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-        }
+        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
     }];
 }
 
 - (void)collapseCardToOriginal {
-    if (!self.currentPresentedVC) return;
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (!cardView) return;
 
     _isCardExpanded = NO;
 
-    // Get the actual cardView (kCardViewTag) for both iPhone and iPad
-    UIView *cardView;
-    if (isRunningOniPad()) {
-        cardView = [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-    } else {
-        // iPhone: cardView is directly on the window
-        cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-        if (!cardView) cardView = self.currentPresentedVC.view;
-    }
-    
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-
     CGFloat width, height, x, finalY;
 
     if (isRunningOniPad()) {
@@ -601,32 +553,11 @@ initialSpringVelocity:kSpringVelocityExpand
         if (finalY < 0) finalY = 0;
     }
 
-    // Switch webview to frame-based layout to synchronize resize with card animation
-    WKWebView *webView = nil;
-    for (UIView *subview in cardView.subviews) {
-        if ([subview isKindOfClass:[WKWebView class]]) {
-            webView = (WKWebView *)subview;
-
-            // Remove all constraints involving the webview
-            NSMutableArray *constraintsToRemove = [NSMutableArray array];
-            for (NSLayoutConstraint *constraint in cardView.constraints) {
-                if (constraint.firstItem == webView || constraint.secondItem == webView) {
-                    [constraintsToRemove addObject:constraint];
-                }
-            }
-            [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-            
-            // Switch to frame-based layout for synchronized animation
-            webView.translatesAutoresizingMaskIntoConstraints = YES;
-            break;
-        }
-    }
+    WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
 
     CGRect collapsedFrame = CGRectMake(x, finalY, width, height);
 
-    if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-        [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-    }
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
     [UIView animateWithDuration:kAnimationDurationDefault
                           delay:0
@@ -636,35 +567,23 @@ initialSpringVelocity:kSpringVelocityCollapse
                      animations:^{
         cardView.frame = collapsedFrame;
 
-        // Update webview frame inside animation block for synchronized resize
         if (webView) {
             webView.frame = CGRectMake(0, 0, width, height);
         }
 
-        UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-        if (dragTray) {
-            dragTray.frame = CGRectMake(0, 0, width, kDragTrayHeight);
-            UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-            if (handle) {
-                CGFloat handleX = (width / 2.0) - kHandleBarHalfWidth;
-                handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
-            }
-        }
+        updateDragTrayAndHandleInCardView(cardView, width);
 
         if ([self.currentPresentedVC respondsToSelector:@selector(setCustomFrame:)]) {
             [(id)self.currentPresentedVC setCustomFrame:collapsedFrame];
         }
         
-        // Force layout to ensure all subviews are positioned correctly
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
         UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, isRunningOniPad());
         CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
 
-        if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-            [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-        }
+        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
     }];
 }
 
@@ -674,14 +593,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     progress = MAX(0.0, MIN(1.0, progress));
 
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-    UIEdgeInsets safeAreaInsets = UIEdgeInsetsZero;
-    if (@available(iOS 11.0, *)) {
-        UIView *parentView = cardView.superview;
-        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-            safeAreaInsets = parentView.safeAreaInsets;
-        }
-    }
-    CGFloat safeTop = safeAreaInsets.top;
+    CGFloat safeTop = getSafeAreaTopForView(cardView);
 
     CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
     CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
@@ -733,16 +645,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         containerVC.customFrame = cardView.frame;
     }
 
-    UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-    if (dragTray) {
-        dragTray.frame = CGRectMake(0, 0, currentWidth, kDragTrayHeight);
-
-        UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-        if (handle) {
-            CGFloat handleX = (currentWidth / 2.0) - kHandleBarHalfWidth;
-            handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
-        }
-    }
+    updateDragTrayAndHandleInCardView(cardView, currentWidth);
 
     if (isRunningOniPad()) {
         CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
@@ -808,14 +711,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     if (!self.currentPresentedVC) return;
     if (self.isPurchaseProcessing) return;
     
-    // Get the actual card view (kCardViewTag) for iPhone or iPad
-    UIView *cardView;
-    if (isRunningOniPad()) {
-        cardView = [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-    } else {
-        cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-        if (!cardView) cardView = self.currentPresentedVC.view;
-    }
+    UIView *cardView = [self cardViewForCurrentPresentation];
     if (!cardView) return;
     
     switch (gesture.state) {
@@ -846,9 +742,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         objc_setAssociatedObject(self.currentPresentedVC, "initialCardHeight", @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
-    if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-        [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-    }
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 }
     
 - (void)handleDragGestureChanged:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
@@ -872,15 +766,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     
         CGRect screenBounds = [UIScreen mainScreen].bounds;
-        UIEdgeInsets safeAreaInsets = UIEdgeInsetsZero;
-        if (@available(iOS 11.0, *)) {
-            UIView *parentView = cardView.superview;
-            if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-                safeAreaInsets = parentView.safeAreaInsets;
-            }
-        }
-        CGFloat safeTop = safeAreaInsets.top;
-        
+        CGFloat safeTop = getSafeAreaTopForView(cardView);
         CGFloat collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
         CGFloat expandedHeight = screenBounds.size.height - safeTop;
         CGFloat currentProgress = 0.0;
@@ -1022,9 +908,7 @@ if (shouldExpand) {
             [self collapseCardToOriginal];
         }];
     } else if (shouldDismiss) {
-        if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-            [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-        }
+        [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
         CGFloat animationDuration = (velocity.y > kVelocityThresholdForFastDismiss) ? kDismissAnimationDurationFast : kDismissAnimationDurationNormal;
         CGFloat finalY = self.portraitWindow ? self.portraitWindow.bounds.size.height : cardView.superview.bounds.size.height;
@@ -1050,9 +934,7 @@ if (shouldExpand) {
                 return;
             }
             
-            if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-            }
+            [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             
             UIViewController *vcToDismiss = self.currentPresentedVC;
             [vcToDismiss dismissViewControllerAnimated:NO completion:^{
@@ -1094,9 +976,7 @@ if (shouldExpand) {
                     [(id)self.currentPresentedVC setCustomFrame:cardView.frame];
                 }
             } completion:^(BOOL finished) {
-                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-                }
+                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             }];
         } else {
             // iPhone snap back
@@ -1109,9 +989,7 @@ if (shouldExpand) {
                              animations:^{
                 [self updateCardExpansionProgress:targetProgress cardView:cardView];
             } completion:^(BOOL finished) {
-                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-                }
+                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             }];
         }
     }
@@ -1173,13 +1051,9 @@ if (shouldExpand) {
         }
         
         if (!_usePopupPresentation && !_isCardExpanded && self.currentPresentedVC) {
-            // Get the actual cardView (kCardViewTag) for iPhone
-            UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-            if (!cardView) cardView = self.currentPresentedVC.view;
+            UIView *cardView = [self cardViewForCurrentPresentation];
 
-            if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-            }
+            [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
                 [UIView animateWithDuration:kAnimationDurationDefault
                                       delay:0
@@ -1191,9 +1065,7 @@ if (shouldExpand) {
                 } completion:^(BOOL finished) {
                     [self expandCardToFullScreen];
 
-                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-                    }
+                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
                 }];
         }
     } else if ([name isEqualToString:@"stashCollapse"]) {
@@ -1203,13 +1075,9 @@ if (shouldExpand) {
         }
         
         if (!_usePopupPresentation && _isCardExpanded && self.currentPresentedVC) {
-            // Get the actual cardView (kCardViewTag) for iPhone
-            UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
-            if (!cardView) cardView = self.currentPresentedVC.view;
+            UIView *cardView = [self cardViewForCurrentPresentation];
 
-            if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:YES];
-            }
+            [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
             [UIView animateWithDuration:kAnimationDurationDefault
                                   delay:0
@@ -1222,9 +1090,7 @@ if (shouldExpand) {
                 _isCardExpanded = NO;
                 [self collapseCardToOriginal];
 
-                if ([self.currentPresentedVC respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
-                    [(id)self.currentPresentedVC setSkipLayoutDuringInitialSetup:NO];
-                }
+                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             }];
         }
     }
@@ -1298,6 +1164,49 @@ UIColor* getSystemBackgroundColor(void) {
         return (currentStyle == UIUserInterfaceStyleDark) ? [UIColor blackColor] : [UIColor systemBackgroundColor];
     }
     return [UIColor whiteColor];
+}
+
+CGFloat getSafeAreaTopForView(UIView *view) {
+    if (!view) return 0;
+    if (@available(iOS 11.0, *)) {
+        UIView *parentView = view.superview;
+        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
+            return parentView.safeAreaInsets.top;
+        }
+    }
+    return 0;
+}
+
+WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
+    if (!cardView) return nil;
+    for (UIView *subview in cardView.subviews) {
+        if ([subview isKindOfClass:[WKWebView class]]) {
+            WKWebView *webView = (WKWebView *)subview;
+            NSMutableArray *constraintsToRemove = [NSMutableArray array];
+            for (NSLayoutConstraint *constraint in cardView.constraints) {
+                if (constraint.firstItem == webView || constraint.secondItem == webView) {
+                    [constraintsToRemove addObject:constraint];
+                }
+            }
+            [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
+            webView.translatesAutoresizingMaskIntoConstraints = YES;
+            return webView;
+        }
+    }
+    return nil;
+}
+
+void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
+    if (!cardView) return;
+    UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
+    if (dragTray) {
+        dragTray.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
+        UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
+        if (handle) {
+            CGFloat handleX = (cardWidth / 2.0) - kHandleBarHalfWidth;
+            handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
+        }
+    }
 }
 
 void configureScrollViewForWebView(UIScrollView* scrollView) {
