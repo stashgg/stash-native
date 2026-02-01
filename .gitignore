@@ -16,3 +16,7 @@ Icon?
 .TemporaryItems
 .DocumentRevisions-V100
 .VolumeIcon.icns
+*.d
+/build/ios/Build
+/build/ios/CompilationCache.noindex
+/build

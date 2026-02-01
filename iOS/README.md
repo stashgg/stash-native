@@ -204,10 +204,10 @@ The modal uses `StashPayModalConfig` for full control over appearance and behavi
 | `phoneHeightRatioPortrait` | CGFloat | `0.5` | iPhone height in portrait (50%) |
 | `phoneWidthRatioLandscape` | CGFloat | `0.5` | iPhone width in landscape (50%) |
 | `phoneHeightRatioLandscape` | CGFloat | `0.8` | iPhone height in landscape (80%) |
-| `tabletWidthRatioPortrait` | CGFloat | `0.6` | iPad width in portrait (60%) |
-| `tabletHeightRatioPortrait` | CGFloat | `0.7` | iPad height in portrait (70%) |
-| `tabletWidthRatioLandscape` | CGFloat | `0.5` | iPad width in landscape (50%) |
-| `tabletHeightRatioLandscape` | CGFloat | `0.8` | iPad height in landscape (80%) |
+| `tabletWidthRatioPortrait` | CGFloat | `0.4` | iPad width in portrait (40%) |
+| `tabletHeightRatioPortrait` | CGFloat | `0.3` | iPad height in portrait (30%) |
+| `tabletWidthRatioLandscape` | CGFloat | `0.3` | iPad width in landscape (30%) |
+| `tabletHeightRatioLandscape` | CGFloat | `0.4` | iPad height in landscape (40%) |
 
 ### Example: Custom Modal Sizing (Swift)
 

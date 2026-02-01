@@ -205,10 +205,10 @@ The modal uses `ModalConfig` for full control over appearance and behavior.
 | `phoneHeightRatioPortrait` | float | `0.5` | Phone height in portrait (50%) |
 | `phoneWidthRatioLandscape` | float | `0.5` | Phone width in landscape (50%) |
 | `phoneHeightRatioLandscape` | float | `0.8` | Phone height in landscape (80%) |
-| `tabletWidthRatioPortrait` | float | `0.6` | Tablet width in portrait (60%) |
-| `tabletHeightRatioPortrait` | float | `0.7` | Tablet height in portrait (70%) |
-| `tabletWidthRatioLandscape` | float | `0.5` | Tablet width in landscape (50%) |
-| `tabletHeightRatioLandscape` | float | `0.8` | Tablet height in landscape (80%) |
+| `tabletWidthRatioPortrait` | float | `0.4` | Tablet width in portrait (40%) |
+| `tabletHeightRatioPortrait` | float | `0.3` | Tablet height in portrait (30%) |
+| `tabletWidthRatioLandscape` | float | `0.3` | Tablet width in landscape (30%) |
+| `tabletHeightRatioLandscape` | float | `0.4` | Tablet height in landscape (40%) |
 
 ### Example: Custom Modal Sizing
 

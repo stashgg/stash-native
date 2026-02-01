@@ -139,9 +139,15 @@ public class StashPayCardPortraitActivity extends Activity {
             
             try {
                 if (usePopup || useModal) {
-                    // Modal and popup allow all orientations
-                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR);
+                    // Modal and popup: render in current orientation only; do not cause rotation
+                    int currentOrientation = getResources().getConfiguration().orientation;
+                    if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                    } else {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                    }
                 } else if (!cachedIsTablet) {
+                    // Checkout on phone: force portrait (only case we force rotation)
                     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
                 }
             } catch (Exception e) {

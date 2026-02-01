@@ -39,8 +39,8 @@ public class MainViewModel extends ViewModel {
     private boolean modalAllowDismiss = true;
     private int modalPhonePortraitW = 70, modalPhonePortraitH = 40;   // 80%, 50%
     private int modalPhoneLandscapeW = 40, modalPhoneLandscapeH = 70;  // 50%, 80%
-    private int modalTabletPortraitW = 50, modalTabletPortraitH = 60;  // 60%, 70%
-    private int modalTabletLandscapeW = 40, modalTabletLandscapeH = 70; // 50%, 80%
+    private int modalTabletPortraitW = 30, modalTabletPortraitH = 20;  // 40%, 30%
+    private int modalTabletLandscapeW = 20, modalTabletLandscapeH = 30; // 30%, 40%
 
     public MainViewModel() {
         status.setValue("Ready");

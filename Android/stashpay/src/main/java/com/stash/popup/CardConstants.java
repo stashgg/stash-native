@@ -175,16 +175,16 @@ public final class CardConstants {
     public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = 0.80f;
     
     /** Default modal tablet width ratio for portrait */
-    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = 0.6f;
+    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = 0.40f;
     
     /** Default modal tablet height ratio for portrait */
-    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = 0.7f;
+    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = 0.30f;
     
     /** Default modal tablet width ratio for landscape */
-    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = 0.5f;
+    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = 0.30f;
     
     /** Default modal tablet height ratio for landscape */
-    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.8f;
+    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.40f;
     
     // ============================================================================
     // Popup Size Multipliers

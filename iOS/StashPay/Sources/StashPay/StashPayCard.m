@@ -72,10 +72,10 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _phoneHeightRatioPortrait = 0.50f;
         _phoneWidthRatioLandscape = 0.50f;
         _phoneHeightRatioLandscape = 0.80f;
-        _tabletWidthRatioPortrait = 0.6f;
-        _tabletHeightRatioPortrait = 0.7f;
-        _tabletWidthRatioLandscape = 0.5f;
-        _tabletHeightRatioLandscape = 0.8f;
+        _tabletWidthRatioPortrait = 0.40f;
+        _tabletHeightRatioPortrait = 0.30f;
+        _tabletWidthRatioLandscape = 0.30f;
+        _tabletHeightRatioLandscape = 0.40f;
         _showDragBar = YES;
         _allowDismiss = YES;
     }
@@ -160,10 +160,10 @@ CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
 CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
 CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
 CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
-CGFloat _modalTabletWidthRatioPortrait = 0.6f;
-CGFloat _modalTabletHeightRatioPortrait = 0.7f;
-CGFloat _modalTabletWidthRatioLandscape = 0.5f;
-CGFloat _modalTabletHeightRatioLandscape = 0.8f;
+CGFloat _modalTabletWidthRatioPortrait = 0.40f;
+CGFloat _modalTabletHeightRatioPortrait = 0.30f;
+CGFloat _modalTabletWidthRatioLandscape = 0.30f;
+CGFloat _modalTabletHeightRatioLandscape = 0.40f;
 
 #define ENABLE_IPAD_SUPPORT 1
 
@@ -1690,10 +1690,10 @@ NSString* appendThemeQueryParameter(NSString* url) {
         _modalPhoneHeightRatioPortrait = 0.7f;
         _modalPhoneWidthRatioLandscape = 0.7f;
         _modalPhoneHeightRatioLandscape = 0.85f;
-        _modalTabletWidthRatioPortrait = 0.6f;
-        _modalTabletHeightRatioPortrait = 0.7f;
-        _modalTabletWidthRatioLandscape = 0.5f;
-        _modalTabletHeightRatioLandscape = 0.8f;
+        _modalTabletWidthRatioPortrait = 0.40f;
+        _modalTabletHeightRatioPortrait = 0.30f;
+        _modalTabletWidthRatioLandscape = 0.30f;
+        _modalTabletHeightRatioLandscape = 0.40f;
     }
     
     [self openURLInternal:url];

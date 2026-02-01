@@ -189,13 +189,13 @@ class ViewController: UIViewController {
         modalPhoneLandscapeWidthSlider.addTarget(self, action: #selector(modalPhoneLandscapeWidthChanged), for: .valueChanged)
         configureSlider(modalPhoneLandscapeHeightSlider, label: modalPhoneLandscapeHeightLabel, value: 80)
         modalPhoneLandscapeHeightSlider.addTarget(self, action: #selector(modalPhoneLandscapeHeightChanged), for: .valueChanged)
-        configureSlider(modalTabletPortraitWidthSlider, label: modalTabletPortraitWidthLabel, value: 60)
+        configureSlider(modalTabletPortraitWidthSlider, label: modalTabletPortraitWidthLabel, value: 40)
         modalTabletPortraitWidthSlider.addTarget(self, action: #selector(modalTabletPortraitWidthChanged), for: .valueChanged)
-        configureSlider(modalTabletPortraitHeightSlider, label: modalTabletPortraitHeightLabel, value: 70)
+        configureSlider(modalTabletPortraitHeightSlider, label: modalTabletPortraitHeightLabel, value: 30)
         modalTabletPortraitHeightSlider.addTarget(self, action: #selector(modalTabletPortraitHeightChanged), for: .valueChanged)
-        configureSlider(modalTabletLandscapeWidthSlider, label: modalTabletLandscapeWidthLabel, value: 50)
+        configureSlider(modalTabletLandscapeWidthSlider, label: modalTabletLandscapeWidthLabel, value: 30)
         modalTabletLandscapeWidthSlider.addTarget(self, action: #selector(modalTabletLandscapeWidthChanged), for: .valueChanged)
-        configureSlider(modalTabletLandscapeHeightSlider, label: modalTabletLandscapeHeightLabel, value: 80)
+        configureSlider(modalTabletLandscapeHeightSlider, label: modalTabletLandscapeHeightLabel, value: 40)
         modalTabletLandscapeHeightSlider.addTarget(self, action: #selector(modalTabletLandscapeHeightChanged), for: .valueChanged)
     }
     
