@@ -1422,6 +1422,15 @@ CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloa
     return maskLayer;
 }
 
+/// Attach cardWindow to the same UIWindowScene as the app (e.g. Unreal) so it renders in game engines.
+static void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWindow) {
+    if (@available(iOS 13.0, *)) {
+        if (keyWindow.windowScene) {
+            cardWindow.windowScene = keyWindow.windowScene;
+        }
+    }
+}
+
 UIWindow* getKeyWindow(void) {
     if (@available(iOS 13.0, *)) {
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
@@ -1776,6 +1785,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // Create the window - use portrait bounds directly
     // When the window becomes key with a portrait-only VC, iOS should rotate
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:portraitBounds];
+    attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
     cardWindow.hidden = YES;
@@ -1819,6 +1829,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // The portrait-only VC will help maintain the rotation
     cardWindow.hidden = NO;
     [cardWindow makeKeyAndVisible];
+    [containerVC.view setNeedsLayout];
+    [containerVC.view layoutIfNeeded];
     
     // Wait for rotation to complete before setting up UI
     NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
@@ -2035,6 +2047,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // Create window
     internal.previousKeyWindow = getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+    attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
     cardWindow.rootViewController = containerVC;
@@ -2049,27 +2062,31 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [containerVC updateCornerRadiusMaskForCardView];
     applyCardShadowToLayer(cardView.layer, NO);
     
-    // Show window
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
-    
-    // Animate: fade in overlay and cardView
-    [UIView animateWithDuration:kAnimationDurationDefault
-                          delay:0
-         usingSpringWithDamping:kSpringDampingDefault
-          initialSpringVelocity:kSpringVelocityExpand
-                        options:UIViewAnimationOptionCurveEaseOut
-                     animations:^{
-        cardView.alpha = 1.0;
-        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
-    } completion:^(BOOL finished) {
-        UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        dismissButton.frame = overlayView.bounds;
-        dismissButton.backgroundColor = [UIColor clearColor];
-        dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [overlayView addSubview:dismissButton];
-        [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
-    }];
+    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        cardWindow.hidden = NO;
+        [cardWindow makeKeyAndVisible];
+        [containerVC.view setNeedsLayout];
+        [containerVC.view layoutIfNeeded];
+        
+        // Animate: fade in overlay and cardView
+        [UIView animateWithDuration:kAnimationDurationDefault
+                              delay:0
+             usingSpringWithDamping:kSpringDampingDefault
+              initialSpringVelocity:kSpringVelocityExpand
+                            options:UIViewAnimationOptionCurveEaseOut
+                         animations:^{
+            cardView.alpha = 1.0;
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
+        } completion:^(BOOL finished) {
+            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+            dismissButton.frame = overlayView.bounds;
+            dismissButton.backgroundColor = [UIColor clearColor];
+            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [overlayView addSubview:dismissButton];
+            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        }];
+    });
 }
 
 #pragma mark - Modal Presentation (Centered, Rotatable on all devices)
@@ -2148,6 +2165,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // Create window
     internal.previousKeyWindow = getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+    attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
     cardWindow.rootViewController = containerVC;
@@ -2162,21 +2180,25 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [containerVC updateCornerRadiusMaskForCardView];
     applyCardShadowToLayer(cardView.layer, NO);
     
-    // Show window
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
-    
-    // Modal waits for page load before showing anything
-    // Both overlay and cardView stay hidden until WebViewLoadDelegate reveals them
-    // Add dismiss button on overlay if allowDismiss is enabled (button is invisible until overlay fades in)
-    if (_modalAllowDismiss) {
-        UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
-        dismissButton.frame = overlayView.bounds;
-        dismissButton.backgroundColor = [UIColor clearColor];
-        dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-        [overlayView addSubview:dismissButton];
-        [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
-    }
+    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        cardWindow.hidden = NO;
+        [cardWindow makeKeyAndVisible];
+        [containerVC.view setNeedsLayout];
+        [containerVC.view layoutIfNeeded];
+        
+        // Modal waits for page load before showing anything
+        // Both overlay and cardView stay hidden until WebViewLoadDelegate reveals them
+        // Add dismiss button on overlay if allowDismiss is enabled (button is invisible until overlay fades in)
+        if (_modalAllowDismiss) {
+            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+            dismissButton.frame = overlayView.bounds;
+            dismissButton.backgroundColor = [UIColor clearColor];
+            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+            [overlayView addSubview:dismissButton];
+            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        }
+    });
 }
 
 #pragma mark - Popup Presentation (Legacy)
@@ -2244,6 +2266,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // Create window
     internal.previousKeyWindow = getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+    attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
     cardWindow.backgroundColor = [UIColor clearColor];
     cardWindow.rootViewController = containerVC;
@@ -2256,18 +2279,22 @@ NSString* appendThemeQueryParameter(NSString* url) {
     containerVC.view.layer.cornerRadius = kCornerRadiusDefault;
     applyCardShadowToLayer(containerVC.view.layer, NO);
     
-    // Show window
-    cardWindow.hidden = NO;
-    [cardWindow makeKeyAndVisible];
-    
-    // Animate: fade in overlay and popup
-    [UIView animateWithDuration:kDismissAnimationDurationPopup delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-        containerVC.view.alpha = 1.0;
-        loadingView.alpha = 1.0;
-        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
-    } completion:^(BOOL finished) {
-        [internal startKeyboardObserving];
-    }];
+    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        cardWindow.hidden = NO;
+        [cardWindow makeKeyAndVisible];
+        [containerVC.view setNeedsLayout];
+        [containerVC.view layoutIfNeeded];
+        
+        // Animate: fade in overlay and popup
+        [UIView animateWithDuration:kDismissAnimationDurationPopup delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+            containerVC.view.alpha = 1.0;
+            loadingView.alpha = 1.0;
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
+        } completion:^(BOOL finished) {
+            [internal startKeyboardObserving];
+        }];
+    });
 }
 
 #pragma mark - WebView Creation Helper
