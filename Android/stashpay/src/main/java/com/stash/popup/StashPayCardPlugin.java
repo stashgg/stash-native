@@ -397,6 +397,7 @@ public class StashPayCardPlugin {
                     if (usePopupPresentation) {
                         createAndShowPopupDialog(finalUrl, finalActivity);
                     } else if (useModalPresentation) {
+                        // Modal always opens in-app; force web view (Chrome Custom Tabs) is for checkout only
                         createAndShowModalDialog(finalUrl, finalActivity);
                     } else if (forceSafariViewController) {
                         openWithChromeCustomTabs(finalUrl, finalActivity);

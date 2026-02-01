@@ -1706,6 +1706,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     NSString *urlWithTheme = appendThemeQueryParameter(url);
     
+    // Force web view (SFSafariViewController) is for checkout only; modal and popup always use in-app UI
     if (_forceWebBasedCheckout && !_usePopupPresentation && !_useModalPresentation) {
         [self openInSafariViewController:urlWithTheme];
         return;
