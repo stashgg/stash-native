@@ -151,7 +151,9 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 ## Presentation Methods
 
-The SDK offers two presentation methods:
+**openCheckout** is used exclusively for checkout URLs: [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration).
+
+**openModal** is used for the opt-in dialog: [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in).
 
 | Method | Phone Behavior | Tablet Behavior | Use Case |
 |--------|----------------|-----------------|----------|

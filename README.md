@@ -27,11 +27,11 @@ Pre-built binaries are available on [GitHub Releases](https://github.com/stashgg
 
 | Feature | Description |
 |---------|-------------|
-| **Checkout** | Card-style checkout (bottom sheet on phones, centered on tablets) with expand/collapse gestures |
-| **Modal** | Centered modal presentation on all devices with customizable sizing |
-| **Web-Based** | Fallback to system browser (Chrome Custom Tabs / SFSafariViewController) |
-| **Callbacks** | Events for payment success, failure, dismissal, and page load |
-| **Customization** | Configurable sizing for phones and tablets in both orientations |
+| **openCheckout** | Stash Pay checkout URLs: card-style (phone portrait-locked, tablet centered) |
+| **openModal** | Stash Pay opt-in flows: centered modal on all devices |
+| **Force web–based checkout** | openCheckout only: use system browser (Chrome Custom Tabs / SFSafariViewController) instead of in-app card |
+| **Callbacks** | Payment success, failure, dismissal, opt-in response, page load, network error |
+| **Customization** | Configurable sizing for checkout and modal (phone/tablet, portrait/landscape) |
 
 ---
 
@@ -109,10 +109,12 @@ stashPay.delegate = self;
 
 ## Presentation Methods
 
-| Method | Phone Behavior | Tablet Behavior | Use Case |
-|--------|----------------|-----------------|----------|
-| `openCheckout` | Card slides from bottom (portrait, full width) | Centered modal with rotation | Standard checkout flow |
-| `openModal` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content |
+| Method | Use | Docs |
+|--------|-----|------|
+| **openCheckout** | Stash Pay **checkout URLs** only. Phone: portrait-locked card; tablet: centered modal. | [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration) |
+| **openModal** | Stash Pay **opt-in flows** (payment channel selection, etc.). Centered modal on all devices. | [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in) |
+
+Do not use openCheckout for opt-in URLs or openModal for checkout URLs; each method is for its own URL type.
 
 ---
 
@@ -159,18 +161,20 @@ See platform-specific READMEs for full configuration options.
 
 ---
 
-## Web-Based Checkout
+## Force web–based checkout (openCheckout only)
 
-If you need to use the system browser instead of the in-app card UI:
+**Force web–based checkout** applies only to **openCheckout**. It opens Stash Pay checkout links in the system browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS) instead of the in-app card. It does not affect openModal.
 
 ```java
-// Android - Use Chrome Custom Tabs
+// Android – use before openCheckout
 stashPay.setForceWebBasedCheckout(true);
+stashPay.openCheckout(checkoutUrl);
 ```
 
 ```swift
-// iOS - Use SFSafariViewController
+// iOS – use before openCheckout
 stashPay.forceWebBasedCheckout = true
+stashPay.openCheckout(withURL: checkoutUrl)
 ```
 
 ---
