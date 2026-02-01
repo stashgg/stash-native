@@ -201,10 +201,10 @@ The modal uses `ModalConfig` for full control over appearance and behavior.
 |----------|------|---------|-------------|
 | `showDragBar` | boolean | `true` | Show visual drag bar at top of modal |
 | `allowDismiss` | boolean | `true` | Allow tap-outside to dismiss |
-| `phoneWidthRatioPortrait` | float | `0.9` | Phone width in portrait (90%) |
-| `phoneHeightRatioPortrait` | float | `0.7` | Phone height in portrait (70%) |
-| `phoneWidthRatioLandscape` | float | `0.7` | Phone width in landscape (70%) |
-| `phoneHeightRatioLandscape` | float | `0.85` | Phone height in landscape (85%) |
+| `phoneWidthRatioPortrait` | float | `0.8` | Phone width in portrait (80%) |
+| `phoneHeightRatioPortrait` | float | `0.5` | Phone height in portrait (50%) |
+| `phoneWidthRatioLandscape` | float | `0.5` | Phone width in landscape (50%) |
+| `phoneHeightRatioLandscape` | float | `0.8` | Phone height in landscape (80%) |
 | `tabletWidthRatioPortrait` | float | `0.6` | Tablet width in portrait (60%) |
 | `tabletHeightRatioPortrait` | float | `0.7` | Tablet height in portrait (70%) |
 | `tabletWidthRatioLandscape` | float | `0.5` | Tablet width in landscape (50%) |
@@ -306,6 +306,31 @@ StashPayCard.getInstance().openCheckout(url);
 | `onDialogDismissed()` | User dismissed the dialog |
 | `onOptInResponse(String optinType)` | Opt-in response received |
 | `onPageLoaded(long loadTimeMs)` | Page finished loading (time in milliseconds) |
+| `onNetworkError()` | Network error during initial page load (see below) |
+
+### Network Error Handling
+
+The `onNetworkError()` callback is triggered when the initial page load fails. This occurs in the following scenarios:
+
+- **No network connection**: Device is offline or has no internet access
+- **Page load failure**: DNS failure, connection refused, or other network issues
+- **HTTP errors**: Server returns 4xx or 5xx status codes (404, 500, etc.)
+- **Timeout**: Page does not load within 5 seconds
+
+When a network error occurs:
+1. The dialog is automatically dismissed
+2. The `onNetworkError()` callback is invoked
+3. The `onDialogDismissed()` callback is NOT called (to avoid duplicate handling)
+
+```java
+stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
+    @Override
+    public void onNetworkError() {
+        // Handle network error - show retry option, offline message, etc.
+        Toast.makeText(context, "Network error. Please check your connection.", Toast.LENGTH_LONG).show();
+    }
+});
+```
 
 ---
 

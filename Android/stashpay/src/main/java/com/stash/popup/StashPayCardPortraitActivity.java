@@ -29,7 +29,6 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import android.net.Uri;
 
 /**
@@ -42,7 +41,7 @@ public class StashPayCardPortraitActivity extends Activity {
     private View backdropView;
     private FrameLayout cardContainer;
     private WebView webView;
-    private ProgressBar loadingIndicator;
+    private View loadingView;
     private Button homeButton;
     
     private String url;
@@ -55,6 +54,13 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean callbackSent;
     private boolean googlePayRedirectHandled;
     private boolean isPurchaseProcessing;
+    private boolean modalInitialLoadComplete;
+    private boolean initialPageLoadComplete;
+    private boolean networkErrorHandled;
+    private boolean mainFrameErrorReceived;
+    private android.os.Handler networkTimeoutHandler;
+    private Runnable networkTimeoutRunnable;
+    private static final long NETWORK_TIMEOUT_MS = 5000;
     
     // Phone card: only height is configurable (card is always portrait, full width)
     private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -361,7 +367,15 @@ public class StashPayCardPortraitActivity extends Activity {
         }
         addHomeButton();
         rootLayout.addView(cardContainer);
-        animateFadeIn();
+        
+        // Modal waits for page load before showing - start completely hidden (including backdrop)
+        modalInitialLoadComplete = false;
+        cardContainer.setAlpha(0f);
+        cardContainer.setScaleX(0.9f);
+        cardContainer.setScaleY(0.9f);
+        if (backdropView != null) {
+            backdropView.setAlpha(0f);
+        }
         
         // Modal is always considered expanded
         isExpanded = true;
@@ -793,10 +807,36 @@ public class StashPayCardPortraitActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 try {
                     super.onPageFinished(view, url);
+                    
+                    // Don't mark as complete if network error already handled or main frame error received
+                    if (networkErrorHandled || mainFrameErrorReceived) {
+                        return;
+                    }
+                    
+                    // Mark initial load as complete and cancel timeout
+                    if (!initialPageLoadComplete) {
+                        initialPageLoadComplete = true;
+                        cancelNetworkTimeout();
+                    }
+                    
                     hideLoading();
                     injectSDK(view);
                     checkProvider(url);
                     checkGooglePayRedirect(url);
+                    
+                    // Modal: show card and backdrop after initial page load
+                    if (useModal && !modalInitialLoadComplete) {
+                        modalInitialLoadComplete = true;
+                        // Fade in backdrop
+                        if (backdropView != null) {
+                            backdropView.animate()
+                                .alpha(1f)
+                                .setDuration(200)
+                                .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+                                .start();
+                        }
+                        animateFadeIn();
+                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onPageFinished: " + e.getMessage(), e);
                 }
@@ -810,8 +850,33 @@ public class StashPayCardPortraitActivity extends Activity {
                     if (error != null) {
                         Log.e(TAG, "WebView error: " + error.getDescription());
                     }
+                    
+                    // Check if this is the main frame and initial load hasn't completed
+                    if (request != null && request.isForMainFrame() && !initialPageLoadComplete) {
+                        Log.e(TAG, "Network error on main frame during initial load");
+                        mainFrameErrorReceived = true;
+                        handleNetworkError();
+                    }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in onReceivedError: " + e.getMessage(), e);
+                }
+            }
+            
+            @Override
+            public void onReceivedHttpError(WebView view, android.webkit.WebResourceRequest request,
+                                           android.webkit.WebResourceResponse errorResponse) {
+                try {
+                    super.onReceivedHttpError(view, request, errorResponse);
+                    
+                    // Check if this is the main frame and initial load hasn't completed
+                    if (request != null && request.isForMainFrame() && !initialPageLoadComplete) {
+                        int statusCode = errorResponse != null ? errorResponse.getStatusCode() : 0;
+                        Log.e(TAG, "HTTP error on main frame during initial load: " + statusCode);
+                        mainFrameErrorReceived = true;
+                        handleNetworkError();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
                 }
             }
         });
@@ -833,6 +898,9 @@ public class StashPayCardPortraitActivity extends Activity {
                     urlWithTheme = url;
                 }
                 webView.loadUrl(urlWithTheme);
+                
+                // Start network timeout timer
+                startNetworkTimeout();
             } catch (Exception e) {
                 Log.e(TAG, "Error setting up WebView: " + e.getMessage(), e);
                 finish();
@@ -841,6 +909,40 @@ public class StashPayCardPortraitActivity extends Activity {
             Log.e(TAG, "Error creating WebView: " + e.getMessage(), e);
             finish();
         }
+    }
+    
+    private void startNetworkTimeout() {
+        networkTimeoutHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+        networkTimeoutRunnable = () -> {
+            if (!initialPageLoadComplete && !networkErrorHandled && !isDismissing) {
+                Log.e(TAG, "Network timeout: page did not load within " + NETWORK_TIMEOUT_MS + "ms");
+                handleNetworkError();
+            }
+        };
+        networkTimeoutHandler.postDelayed(networkTimeoutRunnable, NETWORK_TIMEOUT_MS);
+    }
+    
+    private void cancelNetworkTimeout() {
+        if (networkTimeoutHandler != null && networkTimeoutRunnable != null) {
+            networkTimeoutHandler.removeCallbacks(networkTimeoutRunnable);
+        }
+    }
+    
+    private void handleNetworkError() {
+        if (networkErrorHandled || isDismissing) return;
+        networkErrorHandled = true;
+        
+        cancelNetworkTimeout();
+        
+        // Call the network error callback
+        StashPayCard.StashPayListener listener = StashPayCard.getInstance().getListener();
+        if (listener != null) {
+            listener.onNetworkError();
+        }
+        
+        // Dismiss immediately without callback for dialog dismissed
+        callbackSent = true;  // Prevent onDialogDismissed from being called
+        finishActivityWithNoAnimation();
     }
     
     private void addHomeButton() {
@@ -951,24 +1053,33 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void showLoading() {
         runOnUiThread(() -> {
-                if (loadingIndicator != null && loadingIndicator.getParent() != null) {
-                    ((ViewGroup)loadingIndicator.getParent()).removeView(loadingIndicator);
+            if (loadingView != null && loadingView.getParent() != null) {
+                ((ViewGroup)loadingView.getParent()).removeView(loadingView);
+            }
+            
+            if (cardContainer != null) {
+                loadingView = StashWebViewUtils.createAndShowLoadingView(getApplicationContext(), cardContainer);
+                if (loadingView != null) {
+                    loadingView.setVisibility(View.VISIBLE);
                 }
-                
-                if (cardContainer != null) {
-                loadingIndicator = StashWebViewUtils.createAndShowLoading(getApplicationContext(), cardContainer);
-                        if (loadingIndicator != null) {
-                            loadingIndicator.setVisibility(View.VISIBLE);
-                            loadingIndicator.requestLayout();
-                        }
             }
         });
     }
     
     private void hideLoading() {
         runOnUiThread(() -> {
-            StashWebViewUtils.hideLoading(loadingIndicator);
-                        loadingIndicator = null;
+            if (loadingView != null) {
+                loadingView.animate()
+                    .alpha(0.0f)
+                    .setDuration(200)
+                    .withEndAction(() -> {
+                        if (loadingView != null && loadingView.getParent() != null) {
+                            ((ViewGroup)loadingView.getParent()).removeView(loadingView);
+                        }
+                        loadingView = null;
+                    })
+                    .start();
+            }
         });
     }
     
@@ -1025,8 +1136,8 @@ public class StashPayCardPortraitActivity extends Activity {
             
             boolean isTablet = cachedIsTablet;
             
-            if (usePopup || isTablet) {
-                // Use fade animation for popups and tablets
+            if (usePopup || useModal || isTablet) {
+                // Use fade animation for popups, modals, and tablets
                 try {
                     cardContainer.animate()
                         .alpha(0f)

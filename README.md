@@ -125,6 +125,7 @@ stashPay.delegate = self;
 | Dialog Dismissed | Called when the user dismisses the checkout UI |
 | Opt-In Response | Called when an opt-in response is received |
 | Page Loaded | Called when the checkout page finishes loading (with load time) |
+| Network Error | Called when initial page load fails (no connection, HTTP 4xx/5xx, timeout after 5s) |
 
 ---
 

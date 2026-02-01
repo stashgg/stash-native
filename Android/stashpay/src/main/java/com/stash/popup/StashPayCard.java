@@ -77,6 +77,13 @@ public class StashPayCard {
          * @param loadTimeMs The page load time in milliseconds
          */
         void onPageLoaded(long loadTimeMs);
+        
+        /**
+         * Called when a network error occurs during initial page load.
+         * This includes: no network connection, page load failure, or timeout (5 seconds).
+         * The dialog is automatically dismissed before this callback is invoked.
+         */
+        void onNetworkError();
     }
     
     /**
@@ -89,6 +96,7 @@ public class StashPayCard {
         @Override public void onDialogDismissed() {}
         @Override public void onOptInResponse(String optinType) {}
         @Override public void onPageLoaded(long loadTimeMs) {}
+        @Override public void onNetworkError() {}
     }
     
     /**

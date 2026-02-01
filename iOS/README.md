@@ -200,10 +200,10 @@ The modal uses `StashPayModalConfig` for full control over appearance and behavi
 |----------|------|---------|-------------|
 | `showDragBar` | BOOL | `YES` | Show visual drag bar at top of modal |
 | `allowDismiss` | BOOL | `YES` | Allow tap-outside to dismiss |
-| `phoneWidthRatioPortrait` | CGFloat | `0.9` | iPhone width in portrait (90%) |
-| `phoneHeightRatioPortrait` | CGFloat | `0.7` | iPhone height in portrait (70%) |
-| `phoneWidthRatioLandscape` | CGFloat | `0.7` | iPhone width in landscape (70%) |
-| `phoneHeightRatioLandscape` | CGFloat | `0.85` | iPhone height in landscape (85%) |
+| `phoneWidthRatioPortrait` | CGFloat | `0.8` | iPhone width in portrait (80%) |
+| `phoneHeightRatioPortrait` | CGFloat | `0.5` | iPhone height in portrait (50%) |
+| `phoneWidthRatioLandscape` | CGFloat | `0.5` | iPhone width in landscape (50%) |
+| `phoneHeightRatioLandscape` | CGFloat | `0.8` | iPhone height in landscape (80%) |
 | `tabletWidthRatioPortrait` | CGFloat | `0.6` | iPad width in portrait (60%) |
 | `tabletHeightRatioPortrait` | CGFloat | `0.7` | iPad height in portrait (70%) |
 | `tabletWidthRatioLandscape` | CGFloat | `0.5` | iPad width in landscape (50%) |
@@ -351,6 +351,37 @@ All delegate methods are optional.
 | `stashPayCardDidDismiss()` | User dismissed the dialog |
 | `stashPayCardDidReceiveOptIn(_:)` | Opt-in response received |
 | `stashPayCardDidLoadPage(_:)` | Page finished loading (time in milliseconds) |
+| `stashPayCardDidEncounterNetworkError()` | Network error during initial page load (see below) |
+
+### Network Error Handling
+
+The `stashPayCardDidEncounterNetworkError()` callback is triggered when the initial page load fails. This occurs in the following scenarios:
+
+- **No network connection**: Device is offline or has no internet access
+- **Page load failure**: DNS failure, connection refused, or other network issues
+- **HTTP errors**: Server returns 4xx or 5xx status codes (404, 500, etc.)
+- **Timeout**: Page does not load within 5 seconds
+
+When a network error occurs:
+1. The dialog is automatically dismissed
+2. The `stashPayCardDidEncounterNetworkError()` callback is invoked
+3. The `stashPayCardDidDismiss()` callback is NOT called (to avoid duplicate handling)
+
+**Swift:**
+```swift
+func stashPayCardDidEncounterNetworkError() {
+    // Handle network error - show retry option, offline message, etc.
+    showAlert(title: "Network Error", message: "Please check your connection.")
+}
+```
+
+**Objective-C:**
+```objc
+- (void)stashPayCardDidEncounterNetworkError {
+    // Handle network error
+    [self showAlertWithTitle:@"Network Error" message:@"Please check your connection."];
+}
+```
 
 ---
 

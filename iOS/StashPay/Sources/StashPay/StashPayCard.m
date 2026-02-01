@@ -68,10 +68,10 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 - (instancetype)init {
     self = [super init];
     if (self) {
-        _phoneWidthRatioPortrait = 0.9f;
-        _phoneHeightRatioPortrait = 0.7f;
-        _phoneWidthRatioLandscape = 0.7f;
-        _phoneHeightRatioLandscape = 0.85f;
+        _phoneWidthRatioPortrait = 0.80f;
+        _phoneHeightRatioPortrait = 0.50f;
+        _phoneWidthRatioLandscape = 0.50f;
+        _phoneHeightRatioLandscape = 0.80f;
         _tabletWidthRatioPortrait = 0.6f;
         _tabletHeightRatioPortrait = 0.7f;
         _tabletWidthRatioLandscape = 0.5f;
@@ -545,7 +545,13 @@ void setOverlayToDismissAppearance(UIView *overlayView);
     CGFloat animationDuration = (_usePopupPresentation || _useModalPresentation) ? kDismissAnimationDurationPopup : kAnimationDurationFast;
     
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        if (_usePopupPresentation || _useModalPresentation || isRunningOniPad()) {
+        if (_useModalPresentation) {
+            // Modal: fade out only (no scale to avoid webview shift)
+            UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
+            if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
+            UIView *targetView = cardView ? cardView : containerVC.view;
+            targetView.alpha = 0.0;
+        } else if (_usePopupPresentation || isRunningOniPad()) {
             // iPad/Popup: fade out and scale the cardView
             UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
@@ -2159,26 +2165,17 @@ NSString* appendThemeQueryParameter(NSString* url) {
     cardWindow.hidden = NO;
     [cardWindow makeKeyAndVisible];
     
-    // Animate: fade in overlay and cardView
-    [UIView animateWithDuration:kAnimationDurationDefault
-                          delay:0
-         usingSpringWithDamping:kSpringDampingDefault
-          initialSpringVelocity:kSpringVelocityExpand
-                        options:UIViewAnimationOptionCurveEaseOut
-                     animations:^{
-        cardView.alpha = 1.0;
-        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
-    } completion:^(BOOL finished) {
-        // Add dismiss button on overlay if allowDismiss is enabled
-        if (_modalAllowDismiss) {
-            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
-            dismissButton.frame = overlayView.bounds;
-            dismissButton.backgroundColor = [UIColor clearColor];
-            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-            [overlayView addSubview:dismissButton];
-            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
-        }
-    }];
+    // Modal waits for page load before showing anything
+    // Both overlay and cardView stay hidden until WebViewLoadDelegate reveals them
+    // Add dismiss button on overlay if allowDismiss is enabled (button is invisible until overlay fades in)
+    if (_modalAllowDismiss) {
+        UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        dismissButton.frame = overlayView.bounds;
+        dismissButton.backgroundColor = [UIColor clearColor];
+        dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [overlayView addSubview:dismissButton];
+        [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+    }
 }
 
 #pragma mark - Popup Presentation (Legacy)

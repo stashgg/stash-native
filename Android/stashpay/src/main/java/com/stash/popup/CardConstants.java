@@ -166,13 +166,13 @@ public final class CardConstants {
     public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.9f;
     
     /** Default modal phone height ratio for portrait */
-    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.7f;
+    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.50f;
     
     /** Default modal phone width ratio for landscape */
-    public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE = 0.7f;
+    public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE = 0.50f;
     
     /** Default modal phone height ratio for landscape */
-    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = 0.85f;
+    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = 0.80f;
     
     /** Default modal tablet width ratio for portrait */
     public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = 0.6f;

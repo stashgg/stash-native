@@ -3,7 +3,7 @@
 //  StashPaySample
 //
 //  Sample view controller demonstrating StashPayCard SDK integration.
-//  Features separate sections for Checkout and Modal with their own advanced options.
+//  Designed to match Apple’s Human Interface Guidelines and Settings-style layout.
 //
 
 import UIKit
@@ -13,21 +13,23 @@ class ViewController: UIViewController {
     
     // MARK: - Properties
     
-    private let scrollView = UIScrollView()
-    private let contentView = UIView()
+    private lazy var tableView: UITableView = {
+        let table = UITableView(frame: .zero, style: .insetGrouped)
+        table.delegate = self
+        table.dataSource = self
+        table.keyboardDismissMode = .onDrag
+        table.tableHeaderView = nil
+        return table
+    }()
+    
     private let defaultURL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html"
     
-    // URL inputs
     private let checkoutUrlTextField = UITextField()
     private let modalUrlTextField = UITextField()
     private let statusLabel = UILabel()
     
-    // Advanced options - Checkout
-    private let advancedCheckoutToggle = UIButton(type: .system)
-    private let advancedCheckoutContainer = UIStackView()
-    private let advancedCheckoutSection = UIStackView()
+    // Advanced options - Checkout (one row per option when expanded)
     private var isCheckoutAdvancedExpanded = false
-    
     private let webViewModeSwitch = UISwitch()
     private let landscapeLockSwitch = UISwitch()
     private let phoneCardHeightSlider = UISlider()
@@ -42,11 +44,7 @@ class ViewController: UIViewController {
     private let checkoutTabletLandscapeHeightLabel = UILabel()
     
     // Advanced options - Modal
-    private let advancedModalToggle = UIButton(type: .system)
-    private let advancedModalContainer = UIStackView()
-    private let advancedModalSection = UIStackView()
     private var isModalAdvancedExpanded = false
-    
     private let modalShowDragBarSwitch = UISwitch()
     private let modalAllowDismissSwitch = UISwitch()
     private let modalPhonePortraitWidthSlider = UISlider()
@@ -68,12 +66,71 @@ class ViewController: UIViewController {
     
     private var isLandscapeLocked = false
     
+    private enum Section: Int, CaseIterable {
+        case checkout
+        case modal
+        case status
+        case checkoutOptions
+        case modalOptions
+    }
+    
+    private enum CheckoutOptionRow: Int, CaseIterable {
+        case header
+        case webViewMode
+        case landscapeLock
+        case phoneCardHeight
+        case tabletPortraitWidth
+        case tabletPortraitHeight
+        case tabletLandscapeWidth
+        case tabletLandscapeHeight
+    }
+    
+    private enum ModalOptionRow: Int, CaseIterable {
+        case header
+        case showDragBar
+        case allowDismiss
+        case phonePortraitWidth
+        case phonePortraitHeight
+        case phoneLandscapeWidth
+        case phoneLandscapeHeight
+        case tabletPortraitWidth
+        case tabletPortraitHeight
+        case tabletLandscapeWidth
+        case tabletLandscapeHeight
+    }
+    
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        setupUI()
+        title = "Stash SDK"
+        view.backgroundColor = .systemGroupedBackground
+        navigationItem.largeTitleDisplayMode = .always
+        
+        setupTextFields()
+        setupCheckoutSlidersAndSwitches()
+        setupModalSlidersAndSwitches()
         setupStashPayCard()
+        
+        view.addSubview(tableView)
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+        
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        if navigationController == nil {
+            navigationController?.navigationBar.prefersLargeTitles = true
+        }
     }
     
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -82,276 +139,73 @@ class ViewController: UIViewController {
     
     // MARK: - Setup
     
-    private func setupUI() {
-        view.backgroundColor = .systemBackground
+    private func setupTextFields() {
+        checkoutUrlTextField.placeholder = "URL"
+        checkoutUrlTextField.text = defaultURL
+        checkoutUrlTextField.autocapitalizationType = .none
+        checkoutUrlTextField.autocorrectionType = .no
+        checkoutUrlTextField.keyboardType = .URL
+        checkoutUrlTextField.textAlignment = .right
+        checkoutUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
+        checkoutUrlTextField.clearButtonMode = .whileEditing
         
-        // Setup scroll view
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.alwaysBounceVertical = true
-        scrollView.keyboardDismissMode = .onDrag
-        view.addSubview(scrollView)
-        
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.addSubview(contentView)
-        
-        // Title
-        let titleLabel = UILabel()
-        titleLabel.text = "StashPay SDK Sample"
-        titleLabel.font = .systemFont(ofSize: 24, weight: .bold)
-        titleLabel.textAlignment = .center
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(titleLabel)
-        
-        // ==================== CHECKOUT SECTION ====================
-        
-        let checkoutSectionLabel = createSectionLabel("Checkout")
-        contentView.addSubview(checkoutSectionLabel)
-        
-        setupTextField(checkoutUrlTextField, placeholder: "Checkout URL")
-        contentView.addSubview(checkoutUrlTextField)
-        
-        let checkoutButton = createButton(title: "Open Checkout", filled: true)
-        checkoutButton.addTarget(self, action: #selector(openCheckoutTapped), for: .touchUpInside)
-        contentView.addSubview(checkoutButton)
-        
-        // ==================== MODAL SECTION ====================
-        
-        let modalSectionLabel = createSectionLabel("Modal")
-        contentView.addSubview(modalSectionLabel)
-        
-        setupTextField(modalUrlTextField, placeholder: "Modal URL")
-        contentView.addSubview(modalUrlTextField)
-        
-        let modalButton = createButton(title: "Open Modal", filled: false)
-        modalButton.addTarget(self, action: #selector(openModalTapped), for: .touchUpInside)
-        contentView.addSubview(modalButton)
-        
-        // ==================== STATUS ====================
+        modalUrlTextField.placeholder = "URL"
+        modalUrlTextField.text = "https://store.howlingwoods.shop/pay/channel-selection"
+        modalUrlTextField.autocapitalizationType = .none
+        modalUrlTextField.autocorrectionType = .no
+        modalUrlTextField.keyboardType = .URL
+        modalUrlTextField.textAlignment = .right
+        modalUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
+        modalUrlTextField.clearButtonMode = .whileEditing
         
         statusLabel.text = "Ready"
-        statusLabel.font = .systemFont(ofSize: 14)
+        statusLabel.font = .systemFont(ofSize: 17, weight: .regular)
         statusLabel.textColor = .secondaryLabel
-        statusLabel.textAlignment = .center
-        statusLabel.numberOfLines = 0
-        statusLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(statusLabel)
-        
-        // ==================== ADVANCED OPTIONS - CHECKOUT ====================
-        
-        advancedCheckoutToggle.setTitle("▶ Advanced Options - Checkout", for: .normal)
-        advancedCheckoutToggle.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        advancedCheckoutToggle.contentHorizontalAlignment = .left
-        advancedCheckoutToggle.addTarget(self, action: #selector(advancedCheckoutToggleTapped), for: .touchUpInside)
-        
-        setupAdvancedCheckoutContainer()
-        
-        advancedCheckoutSection.axis = .vertical
-        advancedCheckoutSection.spacing = 8
-        advancedCheckoutSection.translatesAutoresizingMaskIntoConstraints = false
-        advancedCheckoutSection.addArrangedSubview(advancedCheckoutToggle)
-        advancedCheckoutSection.addArrangedSubview(advancedCheckoutContainer)
-        contentView.addSubview(advancedCheckoutSection)
-        
-        // ==================== ADVANCED OPTIONS - MODAL ====================
-        
-        advancedModalToggle.setTitle("▶ Advanced Options - Modal", for: .normal)
-        advancedModalToggle.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        advancedModalToggle.contentHorizontalAlignment = .left
-        advancedModalToggle.addTarget(self, action: #selector(advancedModalToggleTapped), for: .touchUpInside)
-        
-        setupAdvancedModalContainer()
-        
-        advancedModalSection.axis = .vertical
-        advancedModalSection.spacing = 8
-        advancedModalSection.translatesAutoresizingMaskIntoConstraints = false
-        advancedModalSection.addArrangedSubview(advancedModalToggle)
-        advancedModalSection.addArrangedSubview(advancedModalContainer)
-        contentView.addSubview(advancedModalSection)
-        
-        // ==================== LAYOUT ====================
-        
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor),
-            
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
-            // Checkout section
-            checkoutSectionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 24),
-            checkoutSectionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            
-            checkoutUrlTextField.topAnchor.constraint(equalTo: checkoutSectionLabel.bottomAnchor, constant: 8),
-            checkoutUrlTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            checkoutUrlTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            checkoutUrlTextField.heightAnchor.constraint(equalToConstant: 44),
-            
-            checkoutButton.topAnchor.constraint(equalTo: checkoutUrlTextField.bottomAnchor, constant: 12),
-            checkoutButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            checkoutButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            checkoutButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            // Modal section
-            modalSectionLabel.topAnchor.constraint(equalTo: checkoutButton.bottomAnchor, constant: 24),
-            modalSectionLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            
-            modalUrlTextField.topAnchor.constraint(equalTo: modalSectionLabel.bottomAnchor, constant: 8),
-            modalUrlTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            modalUrlTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            modalUrlTextField.heightAnchor.constraint(equalToConstant: 44),
-            
-            modalButton.topAnchor.constraint(equalTo: modalUrlTextField.bottomAnchor, constant: 12),
-            modalButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            modalButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            modalButton.heightAnchor.constraint(equalToConstant: 50),
-            
-            // Status
-            statusLabel.topAnchor.constraint(equalTo: modalButton.bottomAnchor, constant: 16),
-            statusLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            statusLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
-            // Advanced Checkout Section
-            advancedCheckoutSection.topAnchor.constraint(equalTo: statusLabel.bottomAnchor, constant: 24),
-            advancedCheckoutSection.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            advancedCheckoutSection.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            
-            // Advanced Modal Section
-            advancedModalSection.topAnchor.constraint(equalTo: advancedCheckoutSection.bottomAnchor, constant: 12),
-            advancedModalSection.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            advancedModalSection.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            advancedModalSection.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
-        ])
-        
-        // Dismiss keyboard on tap
-        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        tapGesture.cancelsTouchesInView = false
-        view.addGestureRecognizer(tapGesture)
     }
     
-    private func setupAdvancedCheckoutContainer() {
-        advancedCheckoutContainer.axis = .vertical
-        advancedCheckoutContainer.spacing = 12
-        advancedCheckoutContainer.isHidden = true
-        
-        // Web View Mode
-        let webViewRow = createSwitchRow("Use Web View Mode (Safari)", switchView: webViewModeSwitch)
+    private func setupCheckoutSlidersAndSwitches() {
         webViewModeSwitch.addTarget(self, action: #selector(webViewModeToggled), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(webViewRow)
-        
-        // Landscape Lock
-        let landscapeRow = createSwitchRow("Lock to Landscape Mode", switchView: landscapeLockSwitch)
         landscapeLockSwitch.addTarget(self, action: #selector(landscapeLockToggled), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(landscapeRow)
-        
-        // Phone Card Height
-        advancedCheckoutContainer.addArrangedSubview(createBoldLabel("Phone Card Height"))
-        phoneCardHeightSlider.minimumValue = 10
-        phoneCardHeightSlider.maximumValue = 100
-        phoneCardHeightSlider.value = 68
-        phoneCardHeightLabel.text = "Height: 68%"
+        configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)
         phoneCardHeightSlider.addTarget(self, action: #selector(phoneCardHeightChanged), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(phoneCardHeightLabel)
-        advancedCheckoutContainer.addArrangedSubview(phoneCardHeightSlider)
-        
-        // Checkout Tablet Portrait
-        advancedCheckoutContainer.addArrangedSubview(createBoldLabel("Tablet Size (Portrait)"))
-        checkoutTabletPortraitWidthSlider.minimumValue = 10
-        checkoutTabletPortraitWidthSlider.maximumValue = 100
-        checkoutTabletPortraitWidthSlider.value = 40
-        checkoutTabletPortraitWidthLabel.text = "Width: 40%"
+        configureSlider(checkoutTabletPortraitWidthSlider, label: checkoutTabletPortraitWidthLabel, value: 40)
         checkoutTabletPortraitWidthSlider.addTarget(self, action: #selector(checkoutTabletPortraitWidthChanged), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletPortraitWidthLabel)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletPortraitWidthSlider)
-        
-        checkoutTabletPortraitHeightSlider.minimumValue = 10
-        checkoutTabletPortraitHeightSlider.maximumValue = 100
-        checkoutTabletPortraitHeightSlider.value = 50
-        checkoutTabletPortraitHeightLabel.text = "Height: 50%"
+        configureSlider(checkoutTabletPortraitHeightSlider, label: checkoutTabletPortraitHeightLabel, value: 50)
         checkoutTabletPortraitHeightSlider.addTarget(self, action: #selector(checkoutTabletPortraitHeightChanged), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletPortraitHeightLabel)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletPortraitHeightSlider)
-        
-        // Checkout Tablet Landscape
-        advancedCheckoutContainer.addArrangedSubview(createBoldLabel("Tablet Size (Landscape)"))
-        checkoutTabletLandscapeWidthSlider.minimumValue = 10
-        checkoutTabletLandscapeWidthSlider.maximumValue = 100
-        checkoutTabletLandscapeWidthSlider.value = 30
-        checkoutTabletLandscapeWidthLabel.text = "Width: 30%"
+        configureSlider(checkoutTabletLandscapeWidthSlider, label: checkoutTabletLandscapeWidthLabel, value: 30)
         checkoutTabletLandscapeWidthSlider.addTarget(self, action: #selector(checkoutTabletLandscapeWidthChanged), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletLandscapeWidthLabel)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletLandscapeWidthSlider)
-        
-        checkoutTabletLandscapeHeightSlider.minimumValue = 10
-        checkoutTabletLandscapeHeightSlider.maximumValue = 100
-        checkoutTabletLandscapeHeightSlider.value = 60
-        checkoutTabletLandscapeHeightLabel.text = "Height: 60%"
+        configureSlider(checkoutTabletLandscapeHeightSlider, label: checkoutTabletLandscapeHeightLabel, value: 60)
         checkoutTabletLandscapeHeightSlider.addTarget(self, action: #selector(checkoutTabletLandscapeHeightChanged), for: .valueChanged)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletLandscapeHeightLabel)
-        advancedCheckoutContainer.addArrangedSubview(checkoutTabletLandscapeHeightSlider)
     }
     
-    private func setupAdvancedModalContainer() {
-        advancedModalContainer.axis = .vertical
-        advancedModalContainer.spacing = 12
-        advancedModalContainer.isHidden = true
-        
-        // Modal behavior switches
+    private func setupModalSlidersAndSwitches() {
         modalShowDragBarSwitch.isOn = true
-        let showDragBarRow = createSwitchRow("Show Drag Bar", switchView: modalShowDragBarSwitch)
-        advancedModalContainer.addArrangedSubview(showDragBarRow)
-        
         modalAllowDismissSwitch.isOn = true
-        let allowDismissRow = createSwitchRow("Allow Dismiss (tap outside)", switchView: modalAllowDismissSwitch)
-        advancedModalContainer.addArrangedSubview(allowDismissRow)
-        
-        // Modal Phone Portrait
-        advancedModalContainer.addArrangedSubview(createBoldLabel("Phone Size (Portrait)"))
-        setupSlider(modalPhonePortraitWidthSlider, value: 90, label: modalPhonePortraitWidthLabel, prefix: "Width")
-        advancedModalContainer.addArrangedSubview(modalPhonePortraitWidthLabel)
-        advancedModalContainer.addArrangedSubview(modalPhonePortraitWidthSlider)
-        
-        setupSlider(modalPhonePortraitHeightSlider, value: 70, label: modalPhonePortraitHeightLabel, prefix: "Height")
-        advancedModalContainer.addArrangedSubview(modalPhonePortraitHeightLabel)
-        advancedModalContainer.addArrangedSubview(modalPhonePortraitHeightSlider)
-        
-        // Modal Phone Landscape
-        advancedModalContainer.addArrangedSubview(createBoldLabel("Phone Size (Landscape)"))
-        setupSlider(modalPhoneLandscapeWidthSlider, value: 70, label: modalPhoneLandscapeWidthLabel, prefix: "Width")
-        advancedModalContainer.addArrangedSubview(modalPhoneLandscapeWidthLabel)
-        advancedModalContainer.addArrangedSubview(modalPhoneLandscapeWidthSlider)
-        
-        setupSlider(modalPhoneLandscapeHeightSlider, value: 85, label: modalPhoneLandscapeHeightLabel, prefix: "Height")
-        advancedModalContainer.addArrangedSubview(modalPhoneLandscapeHeightLabel)
-        advancedModalContainer.addArrangedSubview(modalPhoneLandscapeHeightSlider)
-        
-        // Modal Tablet Portrait
-        advancedModalContainer.addArrangedSubview(createBoldLabel("Tablet Size (Portrait)"))
-        setupSlider(modalTabletPortraitWidthSlider, value: 60, label: modalTabletPortraitWidthLabel, prefix: "Width")
-        advancedModalContainer.addArrangedSubview(modalTabletPortraitWidthLabel)
-        advancedModalContainer.addArrangedSubview(modalTabletPortraitWidthSlider)
-        
-        setupSlider(modalTabletPortraitHeightSlider, value: 70, label: modalTabletPortraitHeightLabel, prefix: "Height")
-        advancedModalContainer.addArrangedSubview(modalTabletPortraitHeightLabel)
-        advancedModalContainer.addArrangedSubview(modalTabletPortraitHeightSlider)
-        
-        // Modal Tablet Landscape
-        advancedModalContainer.addArrangedSubview(createBoldLabel("Tablet Size (Landscape)"))
-        setupSlider(modalTabletLandscapeWidthSlider, value: 50, label: modalTabletLandscapeWidthLabel, prefix: "Width")
-        advancedModalContainer.addArrangedSubview(modalTabletLandscapeWidthLabel)
-        advancedModalContainer.addArrangedSubview(modalTabletLandscapeWidthSlider)
-        
-        setupSlider(modalTabletLandscapeHeightSlider, value: 80, label: modalTabletLandscapeHeightLabel, prefix: "Height")
-        advancedModalContainer.addArrangedSubview(modalTabletLandscapeHeightLabel)
-        advancedModalContainer.addArrangedSubview(modalTabletLandscapeHeightSlider)
+        configureSlider(modalPhonePortraitWidthSlider, label: modalPhonePortraitWidthLabel, value: 80)
+        modalPhonePortraitWidthSlider.addTarget(self, action: #selector(modalPhonePortraitWidthChanged), for: .valueChanged)
+        configureSlider(modalPhonePortraitHeightSlider, label: modalPhonePortraitHeightLabel, value: 50)
+        modalPhonePortraitHeightSlider.addTarget(self, action: #selector(modalPhonePortraitHeightChanged), for: .valueChanged)
+        configureSlider(modalPhoneLandscapeWidthSlider, label: modalPhoneLandscapeWidthLabel, value: 50)
+        modalPhoneLandscapeWidthSlider.addTarget(self, action: #selector(modalPhoneLandscapeWidthChanged), for: .valueChanged)
+        configureSlider(modalPhoneLandscapeHeightSlider, label: modalPhoneLandscapeHeightLabel, value: 80)
+        modalPhoneLandscapeHeightSlider.addTarget(self, action: #selector(modalPhoneLandscapeHeightChanged), for: .valueChanged)
+        configureSlider(modalTabletPortraitWidthSlider, label: modalTabletPortraitWidthLabel, value: 60)
+        modalTabletPortraitWidthSlider.addTarget(self, action: #selector(modalTabletPortraitWidthChanged), for: .valueChanged)
+        configureSlider(modalTabletPortraitHeightSlider, label: modalTabletPortraitHeightLabel, value: 70)
+        modalTabletPortraitHeightSlider.addTarget(self, action: #selector(modalTabletPortraitHeightChanged), for: .valueChanged)
+        configureSlider(modalTabletLandscapeWidthSlider, label: modalTabletLandscapeWidthLabel, value: 50)
+        modalTabletLandscapeWidthSlider.addTarget(self, action: #selector(modalTabletLandscapeWidthChanged), for: .valueChanged)
+        configureSlider(modalTabletLandscapeHeightSlider, label: modalTabletLandscapeHeightLabel, value: 80)
+        modalTabletLandscapeHeightSlider.addTarget(self, action: #selector(modalTabletLandscapeHeightChanged), for: .valueChanged)
+    }
+    
+    private func configureSlider(_ slider: UISlider, label: UILabel, value: Float) {
+        slider.minimumValue = 10
+        slider.maximumValue = 100
+        slider.value = value
+        label.text = "\(Int(value))%"
+        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.textColor = .secondaryLabel
     }
     
     private func setupStashPayCard() {
@@ -363,74 +217,31 @@ class ViewController: UIViewController {
         StashPayCard.sharedInstance().tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
     }
     
-    // MARK: - Helper Methods
+    // MARK: - Helpers
     
-    private func createSectionLabel(_ text: String) -> UILabel {
-        let label = UILabel()
-        label.text = text
-        label.font = .systemFont(ofSize: 18, weight: .semibold)
-        label.textColor = .label
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
+    private func systemImage(_ name: String) -> UIImage? {
+        UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .regular))
     }
     
-    private func setupTextField(_ textField: UITextField, placeholder: String) {
-        textField.placeholder = placeholder
-        textField.text = defaultURL
-        textField.borderStyle = .roundedRect
-        textField.autocapitalizationType = .none
-        textField.autocorrectionType = .no
-        textField.keyboardType = .URL
-        textField.translatesAutoresizingMaskIntoConstraints = false
-    }
-    
-    private func createButton(title: String, filled: Bool) -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle(title, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        if filled {
-            button.backgroundColor = .systemBlue
-            button.setTitleColor(.white, for: .normal)
-        } else {
-            button.backgroundColor = .clear
-            button.setTitleColor(.systemBlue, for: .normal)
-            button.layer.borderWidth = 1
-            button.layer.borderColor = UIColor.systemBlue.cgColor
-        }
-        button.layer.cornerRadius = 8
-        button.translatesAutoresizingMaskIntoConstraints = false
-        return button
-    }
-    
-    private func createSwitchRow(_ text: String, switchView: UISwitch) -> UIStackView {
+    private func makeSliderCellContent(title: String, valueLabel: UILabel, slider: UISlider) -> UIView {
         let stack = UIStackView()
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = 12
-        
-        let label = UILabel()
-        label.text = text
-        label.font = .systemFont(ofSize: 16)
-        stack.addArrangedSubview(label)
-        stack.addArrangedSubview(switchView)
-        
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        let topRow = UIStackView()
+        topRow.axis = .horizontal
+        topRow.distribution = .equalSpacing
+        topRow.alignment = .center
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.textColor = .label
+        valueLabel.setContentHuggingPriority(.required, for: .horizontal)
+        topRow.addArrangedSubview(titleLabel)
+        topRow.addArrangedSubview(valueLabel)
+        stack.addArrangedSubview(topRow)
+        stack.addArrangedSubview(slider)
         return stack
-    }
-    
-    private func createBoldLabel(_ text: String) -> UILabel {
-        let label = UILabel()
-        label.text = text
-        label.font = .systemFont(ofSize: 14, weight: .bold)
-        return label
-    }
-    
-    private func setupSlider(_ slider: UISlider, value: Float, label: UILabel, prefix: String) {
-        slider.minimumValue = 10
-        slider.maximumValue = 100
-        slider.value = value
-        label.text = "\(prefix): \(Int(value))%"
-        label.font = .systemFont(ofSize: 14)
-        label.textColor = .secondaryLabel
     }
     
     // MARK: - Actions
@@ -471,7 +282,7 @@ class ViewController: UIViewController {
     
     @objc private func webViewModeToggled() {
         StashPayCard.sharedInstance().forceWebBasedCheckout = webViewModeSwitch.isOn
-        statusLabel.text = "Mode: \(webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI")"
+        statusLabel.text = webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI"
     }
     
     @objc private func landscapeLockToggled() {
@@ -492,54 +303,43 @@ class ViewController: UIViewController {
     }
     
     @objc private func advancedCheckoutToggleTapped() {
-        isCheckoutAdvancedExpanded = !isCheckoutAdvancedExpanded
-        UIView.animate(withDuration: 0.25) {
-            self.advancedCheckoutContainer.isHidden = !self.isCheckoutAdvancedExpanded
-            self.advancedCheckoutToggle.setTitle(
-                self.isCheckoutAdvancedExpanded ? "▼ Advanced Options - Checkout" : "▶ Advanced Options - Checkout",
-                for: .normal
-            )
-            self.view.layoutIfNeeded()
-        }
+        isCheckoutAdvancedExpanded.toggle()
+        tableView.reloadSections(IndexSet(integer: Section.checkoutOptions.rawValue), with: .automatic)
     }
     
     @objc private func advancedModalToggleTapped() {
-        isModalAdvancedExpanded = !isModalAdvancedExpanded
-        UIView.animate(withDuration: 0.25) {
-            self.advancedModalContainer.isHidden = !self.isModalAdvancedExpanded
-            self.advancedModalToggle.setTitle(
-                self.isModalAdvancedExpanded ? "▼ Advanced Options - Modal" : "▶ Advanced Options - Modal",
-                for: .normal
-            )
-            self.view.layoutIfNeeded()
-        }
+        isModalAdvancedExpanded.toggle()
+        tableView.reloadSections(IndexSet(integer: Section.modalOptions.rawValue), with: .automatic)
     }
     
-    // Checkout slider handlers
     @objc private func phoneCardHeightChanged() {
-        phoneCardHeightLabel.text = "Height: \(Int(phoneCardHeightSlider.value))%"
+        phoneCardHeightLabel.text = "\(Int(phoneCardHeightSlider.value))%"
         StashPayCard.sharedInstance().cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
     }
-    
     @objc private func checkoutTabletPortraitWidthChanged() {
-        checkoutTabletPortraitWidthLabel.text = "Width: \(Int(checkoutTabletPortraitWidthSlider.value))%"
+        checkoutTabletPortraitWidthLabel.text = "\(Int(checkoutTabletPortraitWidthSlider.value))%"
         StashPayCard.sharedInstance().tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
     }
-    
     @objc private func checkoutTabletPortraitHeightChanged() {
-        checkoutTabletPortraitHeightLabel.text = "Height: \(Int(checkoutTabletPortraitHeightSlider.value))%"
+        checkoutTabletPortraitHeightLabel.text = "\(Int(checkoutTabletPortraitHeightSlider.value))%"
         StashPayCard.sharedInstance().tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
     }
-    
     @objc private func checkoutTabletLandscapeWidthChanged() {
-        checkoutTabletLandscapeWidthLabel.text = "Width: \(Int(checkoutTabletLandscapeWidthSlider.value))%"
+        checkoutTabletLandscapeWidthLabel.text = "\(Int(checkoutTabletLandscapeWidthSlider.value))%"
         StashPayCard.sharedInstance().tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
     }
-    
     @objc private func checkoutTabletLandscapeHeightChanged() {
-        checkoutTabletLandscapeHeightLabel.text = "Height: \(Int(checkoutTabletLandscapeHeightSlider.value))%"
+        checkoutTabletLandscapeHeightLabel.text = "\(Int(checkoutTabletLandscapeHeightSlider.value))%"
         StashPayCard.sharedInstance().tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
     }
+    @objc private func modalPhonePortraitWidthChanged() { modalPhonePortraitWidthLabel.text = "\(Int(modalPhonePortraitWidthSlider.value))%" }
+    @objc private func modalPhonePortraitHeightChanged() { modalPhonePortraitHeightLabel.text = "\(Int(modalPhonePortraitHeightSlider.value))%" }
+    @objc private func modalPhoneLandscapeWidthChanged() { modalPhoneLandscapeWidthLabel.text = "\(Int(modalPhoneLandscapeWidthSlider.value))%" }
+    @objc private func modalPhoneLandscapeHeightChanged() { modalPhoneLandscapeHeightLabel.text = "\(Int(modalPhoneLandscapeHeightSlider.value))%" }
+    @objc private func modalTabletPortraitWidthChanged() { modalTabletPortraitWidthLabel.text = "\(Int(modalTabletPortraitWidthSlider.value))%" }
+    @objc private func modalTabletPortraitHeightChanged() { modalTabletPortraitHeightLabel.text = "\(Int(modalTabletPortraitHeightSlider.value))%" }
+    @objc private func modalTabletLandscapeWidthChanged() { modalTabletLandscapeWidthLabel.text = "\(Int(modalTabletLandscapeWidthSlider.value))%" }
+    @objc private func modalTabletLandscapeHeightChanged() { modalTabletLandscapeHeightLabel.text = "\(Int(modalTabletLandscapeHeightSlider.value))%" }
     
     @objc private func dismissKeyboard() {
         view.endEditing(true)
@@ -552,41 +352,330 @@ class ViewController: UIViewController {
     }
 }
 
+// MARK: - UITableViewDataSource, UITableViewDelegate
+
+extension ViewController: UITableViewDataSource, UITableViewDelegate {
+    
+    func numberOfSections(in tableView: UITableView) -> Int {
+        Section.allCases.count
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        switch Section(rawValue: section)! {
+        case .checkout: return 2
+        case .modal: return 2
+        case .status: return 1
+        case .checkoutOptions: return isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 1
+        case .modalOptions: return isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 1
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
+        let title: String?
+        switch Section(rawValue: section)! {
+        case .checkout: title = "CHECKOUT"
+        case .modal: title = "MODAL"
+        case .status: title = "STATUS"
+        case .checkoutOptions: title = "CHECKOUT OPTIONS"
+        case .modalOptions: title = "MODAL OPTIONS"
+        }
+        guard let t = title else { return nil }
+        let label = UILabel()
+        label.text = t
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.textColor = .secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let container = UIView()
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6),
+        ])
+        return container
+    }
+    
+    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        let text: String?
+        switch Section(rawValue: section)! {
+        case .checkout: text = "Open a full-screen checkout experience."
+        case .modal: text = "Open a modal sheet for channel or payment selection."
+        default: text = nil
+        }
+        guard let t = text else { return nil }
+        let label = UILabel()
+        label.text = t
+        label.font = .systemFont(ofSize: 13, weight: .regular)
+        label.textColor = .secondaryLabel
+        label.numberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        let container = UIView()
+        container.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
+            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
+            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -18),
+        ])
+        return container
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        switch Section(rawValue: indexPath.section)! {
+        case .checkout:
+            if indexPath.row == 0 {
+                return urlCell(textField: checkoutUrlTextField, label: "URL", imageName: "link")
+            } else {
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.textLabel?.text = "Open Checkout"
+                cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+                cell.textLabel?.textColor = .systemBlue
+                cell.imageView?.image = systemImage("creditcard.fill")
+                cell.imageView?.tintColor = .secondaryLabel
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+        case .modal:
+            if indexPath.row == 0 {
+                return urlCell(textField: modalUrlTextField, label: "URL", imageName: "link")
+            } else {
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.textLabel?.text = "Open Modal"
+                cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+                cell.textLabel?.textColor = .systemBlue
+                cell.imageView?.image = systemImage("rectangle.stack.fill")
+                cell.imageView?.tintColor = .secondaryLabel
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+        case .status:
+            let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+            cell.selectionStyle = .none
+            cell.textLabel?.text = "Status"
+            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.detailTextLabel?.text = statusLabel.text
+            cell.detailTextLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.detailTextLabel?.textColor = .secondaryLabel
+            cell.imageView?.image = systemImage("antenna.radiowaves.left.and.right")
+            cell.imageView?.tintColor = .secondaryLabel
+            return cell
+        case .checkoutOptions:
+            return checkoutOptionCell(for: indexPath)
+        case .modalOptions:
+            return modalOptionCell(for: indexPath)
+        }
+    }
+    
+    private func urlCell(textField: UITextField, label: String, imageName: String) -> UITableViewCell {
+        let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
+        cell.selectionStyle = .none
+        cell.textLabel?.text = label
+        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.textColor = .label
+        cell.imageView?.image = systemImage(imageName)
+        cell.imageView?.tintColor = .secondaryLabel
+        cell.detailTextLabel?.text = nil
+        if textField.superview != cell.contentView {
+            textField.removeFromSuperview()
+            textField.translatesAutoresizingMaskIntoConstraints = false
+            cell.contentView.addSubview(textField)
+            NSLayoutConstraint.activate([
+                textField.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 120),
+                textField.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -36),
+                textField.centerYAnchor.constraint(equalTo: cell.contentView.centerYAnchor),
+                textField.heightAnchor.constraint(equalToConstant: 22),
+            ])
+        }
+        return cell
+    }
+    
+    private func checkoutOptionCell(for indexPath: IndexPath) -> UITableViewCell {
+        let row = CheckoutOptionRow(rawValue: indexPath.row)!
+        switch row {
+        case .header:
+            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.text = "Checkout Options"
+            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.textLabel?.textColor = .label
+            cell.accessoryType = isCheckoutAdvancedExpanded ? .detailButton : .disclosureIndicator
+            cell.imageView?.image = systemImage("slider.horizontal.3")
+            cell.imageView?.tintColor = .secondaryLabel
+            return cell
+        case .webViewMode:
+            return switchCell(title: "Use Web View Mode", subtitle: "Open in Safari", switchView: webViewModeSwitch)
+        case .landscapeLock:
+            return switchCell(title: "Lock to Landscape", subtitle: nil, switchView: landscapeLockSwitch)
+        case .phoneCardHeight:
+            return sliderCell(title: "Phone Card Height", valueLabel: phoneCardHeightLabel, slider: phoneCardHeightSlider)
+        case .tabletPortraitWidth:
+            return sliderCell(title: "Tablet Portrait Width", valueLabel: checkoutTabletPortraitWidthLabel, slider: checkoutTabletPortraitWidthSlider)
+        case .tabletPortraitHeight:
+            return sliderCell(title: "Tablet Portrait Height", valueLabel: checkoutTabletPortraitHeightLabel, slider: checkoutTabletPortraitHeightSlider)
+        case .tabletLandscapeWidth:
+            return sliderCell(title: "Tablet Landscape Width", valueLabel: checkoutTabletLandscapeWidthLabel, slider: checkoutTabletLandscapeWidthSlider)
+        case .tabletLandscapeHeight:
+            return sliderCell(title: "Tablet Landscape Height", valueLabel: checkoutTabletLandscapeHeightLabel, slider: checkoutTabletLandscapeHeightSlider)
+        }
+    }
+    
+    private func modalOptionCell(for indexPath: IndexPath) -> UITableViewCell {
+        let row = ModalOptionRow(rawValue: indexPath.row)!
+        switch row {
+        case .header:
+            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.text = "Modal Options"
+            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.textLabel?.textColor = .label
+            cell.accessoryType = isModalAdvancedExpanded ? .none : .disclosureIndicator
+            cell.imageView?.image = systemImage("rectangle.inset.filled")
+            cell.imageView?.tintColor = .secondaryLabel
+            return cell
+        case .showDragBar:
+            return switchCell(title: "Show Drag Bar", subtitle: nil, switchView: modalShowDragBarSwitch)
+        case .allowDismiss:
+            return switchCell(title: "Allow Dismiss", subtitle: "Tap outside to close", switchView: modalAllowDismissSwitch)
+        case .phonePortraitWidth:
+            return sliderCell(title: "Phone Portrait Width", valueLabel: modalPhonePortraitWidthLabel, slider: modalPhonePortraitWidthSlider)
+        case .phonePortraitHeight:
+            return sliderCell(title: "Phone Portrait Height", valueLabel: modalPhonePortraitHeightLabel, slider: modalPhonePortraitHeightSlider)
+        case .phoneLandscapeWidth:
+            return sliderCell(title: "Phone Landscape Width", valueLabel: modalPhoneLandscapeWidthLabel, slider: modalPhoneLandscapeWidthSlider)
+        case .phoneLandscapeHeight:
+            return sliderCell(title: "Phone Landscape Height", valueLabel: modalPhoneLandscapeHeightLabel, slider: modalPhoneLandscapeHeightSlider)
+        case .tabletPortraitWidth:
+            return sliderCell(title: "Tablet Portrait Width", valueLabel: modalTabletPortraitWidthLabel, slider: modalTabletPortraitWidthSlider)
+        case .tabletPortraitHeight:
+            return sliderCell(title: "Tablet Portrait Height", valueLabel: modalTabletPortraitHeightLabel, slider: modalTabletPortraitHeightSlider)
+        case .tabletLandscapeWidth:
+            return sliderCell(title: "Tablet Landscape Width", valueLabel: modalTabletLandscapeWidthLabel, slider: modalTabletLandscapeWidthSlider)
+        case .tabletLandscapeHeight:
+            return sliderCell(title: "Tablet Landscape Height", valueLabel: modalTabletLandscapeHeightLabel, slider: modalTabletLandscapeHeightSlider)
+        }
+    }
+    
+    private func switchCell(title: String, subtitle: String?, switchView: UISwitch) -> UITableViewCell {
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
+        cell.selectionStyle = .none
+        cell.textLabel?.text = title
+        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.textColor = .label
+        cell.detailTextLabel?.text = subtitle
+        cell.detailTextLabel?.font = .systemFont(ofSize: 13, weight: .regular)
+        cell.detailTextLabel?.textColor = .secondaryLabel
+        cell.accessoryView = switchView
+        return cell
+    }
+    
+    private func sliderCell(title: String, valueLabel: UILabel, slider: UISlider) -> UITableViewCell {
+        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        cell.selectionStyle = .none
+        cell.contentView.subviews.forEach { $0.removeFromSuperview() }
+        let content = makeSliderCellContent(title: title, valueLabel: valueLabel, slider: slider)
+        cell.contentView.addSubview(content)
+        NSLayoutConstraint.activate([
+            content.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 12),
+            content.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 20),
+            content.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -20),
+            content.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12),
+        ])
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if case .status = Section(rawValue: indexPath.section) {
+            cell.detailTextLabel?.text = statusLabel.text
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        switch Section(rawValue: indexPath.section)! {
+        case .checkout where indexPath.row == 1:
+            openCheckoutTapped()
+        case .modal where indexPath.row == 1:
+            openModalTapped()
+        case .checkoutOptions where indexPath.row == 0:
+            advancedCheckoutToggleTapped()
+        case .modalOptions where indexPath.row == 0:
+            advancedModalToggleTapped()
+        default:
+            break
+        }
+    }
+    
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        switch Section(rawValue: indexPath.section)! {
+        case .checkoutOptions:
+            if isCheckoutAdvancedExpanded, indexPath.row > 0 {
+                let row = CheckoutOptionRow(rawValue: indexPath.row)!
+                switch row {
+                case .phoneCardHeight, .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
+                    return 72
+                default: return 44
+                }
+            }
+        case .modalOptions:
+            if isModalAdvancedExpanded, indexPath.row > 0 {
+                let row = ModalOptionRow(rawValue: indexPath.row)!
+                switch row {
+                case .phonePortraitWidth, .phonePortraitHeight, .phoneLandscapeWidth, .phoneLandscapeHeight,
+                     .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
+                    return 72
+                default: return 44
+                }
+            }
+        default: break
+        }
+        return UITableView.automaticDimension
+    }
+    
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        44
+    }
+}
+
 // MARK: - StashPayCardDelegate
 
 extension ViewController: StashPayCardDelegate {
     
     func stashPayCardDidCompletePayment() {
-        print("Payment successful")
         DispatchQueue.main.async {
             self.statusLabel.text = "Payment Success"
+            self.tableView.reloadData()
             self.showAlert(title: "Success", message: "Payment completed successfully")
         }
     }
     
     func stashPayCardDidFailPayment() {
-        print("Payment failed")
         DispatchQueue.main.async {
             self.statusLabel.text = "Payment Failed"
+            self.tableView.reloadData()
             self.showAlert(title: "Failed", message: "Payment failed")
         }
     }
     
     func stashPayCardDidDismiss() {
-        print("Dialog dismissed")
         DispatchQueue.main.async {
             self.statusLabel.text = "Dialog dismissed"
+            self.tableView.reloadData()
         }
     }
     
     func stashPayCardDidReceiveOpt(in optinType: String) {
-        print("Opt-in response: \(optinType)")
         DispatchQueue.main.async {
             self.statusLabel.text = "Opt-in: \(optinType)"
+            self.tableView.reloadData()
         }
     }
     
-    func stashPayCardDidLoadPage(_ loadTimeMs: Double) {
-        print("Page loaded in \(loadTimeMs)ms")
+    func stashPayCardDidLoadPage(_ loadTimeMs: Double) {}
+    
+    func stashPayCardDidEncounterNetworkError() {
+        DispatchQueue.main.async {
+            self.statusLabel.text = "Network Error"
+            self.tableView.reloadData()
+            self.showAlert(title: "Network Error", message: "Could not load page. Please check your connection.")
+        }
     }
 }
