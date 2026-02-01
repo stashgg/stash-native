@@ -826,7 +826,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification {
-    if (_usePopupPresentation || isRunningOniPad()) return;
+    if (_usePopupPresentation || _useModalPresentation || isRunningOniPad()) return;
     if (_isCardExpanded) return;
     
     if (!self.currentPresentedVC) return;
@@ -2079,13 +2079,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGRect frame = computeModalFrameForScreenBounds(screenBounds);
     
-    // Create container view controller (allows all orientations like popup)
-    OrientationLockedViewController *containerVC = [[OrientationLockedViewController alloc] init];
+    // Window-based presentation (same pattern as iPad checkout): no portrait lock, works in game engines
+    ModalViewController *containerVC = [[ModalViewController alloc] init];
     containerVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
-    containerVC.enforcePortrait = NO;  // Allow rotation
     containerVC.view.backgroundColor = [UIColor clearColor];
+    containerVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     containerVC.customFrame = frame;
-    containerVC.isModalPresentation = YES;  // Mark this as modal for rotation handling
     
     // Create cardView (centered modal)
     UIView *cardView = [[UIView alloc] initWithFrame:frame];
@@ -2160,6 +2159,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
     
+    [containerVC updateCornerRadiusMaskForCardView];
     applyCardShadowToLayer(cardView.layer, NO);
     
     // Show window

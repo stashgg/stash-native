@@ -157,7 +157,60 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
 
 @end
 
-#pragma mark - OrientationLockedViewController (Modal / Popup rotation)
+#pragma mark - ModalViewController (Window-based modal, no portrait lock; same pattern as iPad checkout)
+
+@interface ModalViewController : UIViewController
+@property (nonatomic, assign) CGRect customFrame;
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+- (void)updateCornerRadiusMaskForCardView;
+@end
+
+@implementation ModalViewController
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskAll;
+}
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    
+    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
+    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashPayAssociatedKeyOverlayView);
+    CGRect newCardFrame = computeModalFrameForScreenBounds(targetBounds);
+    UIView *cardView = [self.view viewWithTag:kCardViewTag];
+    
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        if (overlayView) {
+            overlayView.frame = targetBounds;
+        }
+        if (cardView) {
+            cardView.frame = newCardFrame;
+            if (_modalShowDragBar) {
+                updateDragTrayAndHandleInCardView(cardView, newCardFrame.size.width);
+            }
+            [cardView layoutIfNeeded];
+        }
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        self.customFrame = newCardFrame;
+        [self updateCornerRadiusMaskForCardView];
+    }];
+}
+
+- (void)updateCornerRadiusMaskForCardView {
+    UIView *cardView = [self.view viewWithTag:kCardViewTag];
+    if (!cardView) return;
+    
+    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+    cardView.layer.mask = maskLayer;
+}
+
+@end
+
+#pragma mark - OrientationLockedViewController (Popup rotation only; modal uses ModalViewController)
 
 @interface OrientationLockedViewController : UIViewController
 @property (nonatomic, assign) CGRect customFrame;

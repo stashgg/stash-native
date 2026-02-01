@@ -38,6 +38,13 @@ void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 - (void)updateCornerRadiusMaskForCardView;
 @end
 
+/// Window-based modal (same pattern as iPad checkout); no portrait lock, works in game engines.
+@interface ModalViewController : UIViewController
+@property (nonatomic, assign) CGRect customFrame;
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+- (void)updateCornerRadiusMaskForCardView;
+@end
+
 @interface OrientationLockedViewController : UIViewController
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL enforcePortrait;

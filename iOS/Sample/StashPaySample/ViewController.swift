@@ -150,7 +150,7 @@ class ViewController: UIViewController {
         checkoutUrlTextField.clearButtonMode = .whileEditing
         
         modalUrlTextField.placeholder = "URL"
-        modalUrlTextField.text = "https://store.howlingwoods.shop/pay/channel-selection"
+        modalUrlTextField.text = defaultURL
         modalUrlTextField.autocapitalizationType = .none
         modalUrlTextField.autocorrectionType = .no
         modalUrlTextField.keyboardType = .URL
@@ -400,7 +400,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         let text: String?
         switch Section(rawValue: section)! {
         case .checkout: text = "Open a full-screen checkout experience."
-        case .modal: text = "Open a modal sheet for channel or payment selection."
+        case .modal: text = "Open a window-based modal (no portrait lock; works in game engines). Same test URL as checkout by default."
         default: text = nil
         }
         guard let t = text else { return nil }
