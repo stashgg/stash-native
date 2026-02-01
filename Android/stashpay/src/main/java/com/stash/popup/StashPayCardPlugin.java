@@ -74,8 +74,12 @@ public class StashPayCardPlugin {
     /** Accessed from UI and JS threads; volatile for visibility. */
     private volatile boolean isPurchaseProcessing;
     private boolean usePopupPresentation;
+    private boolean useModalPresentation;
     private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
+    
+    // Modal configuration (used when useModalPresentation is true)
+    private StashPayCard.ModalConfig currentModalConfig;
     
     private boolean useCustomSize;
     private float customPortraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
@@ -189,6 +193,7 @@ public class StashPayCardPlugin {
     public void openCheckout(String url) {
         try {
             usePopupPresentation = false;
+            useModalPresentation = false;
             openURLInternal(url);
         } catch (Exception e) {
             Log.e(TAG, "Error in openCheckout: " + e.getMessage(), e);
@@ -199,6 +204,7 @@ public class StashPayCardPlugin {
     public void openPopup(String url) {
         try {
             usePopupPresentation = true;
+            useModalPresentation = false;
             useCustomSize = false;
             openURLInternal(url);
         } catch (Exception e) {
@@ -211,6 +217,7 @@ public class StashPayCardPlugin {
                                    float landscapeWidthMultiplier, float landscapeHeightMultiplier) {
         try {
             usePopupPresentation = true;
+            useModalPresentation = false;
             customPortraitWidthMultiplier = portraitWidthMultiplier;
             customPortraitHeightMultiplier = portraitHeightMultiplier;
             customLandscapeWidthMultiplier = landscapeWidthMultiplier;
@@ -219,6 +226,18 @@ public class StashPayCardPlugin {
             openURLInternal(url);
         } catch (Exception e) {
             Log.e(TAG, "Error in openPopupWithSize: " + e.getMessage(), e);
+            cleanupAllViews();
+        }
+    }
+    
+    public void openModal(String url, StashPayCard.ModalConfig config) {
+        try {
+            usePopupPresentation = false;
+            useModalPresentation = true;
+            currentModalConfig = config != null ? config : new StashPayCard.ModalConfig();
+            openURLInternal(url);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in openModal: " + e.getMessage(), e);
             cleanupAllViews();
         }
     }
@@ -377,6 +396,8 @@ public class StashPayCardPlugin {
                 try {
                     if (usePopupPresentation) {
                         createAndShowPopupDialog(finalUrl, finalActivity);
+                    } else if (useModalPresentation) {
+                        createAndShowModalDialog(finalUrl, finalActivity);
                     } else if (forceSafariViewController) {
                         openWithChromeCustomTabs(finalUrl, finalActivity);
                     } else {
@@ -416,7 +437,23 @@ public class StashPayCardPlugin {
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, tabletWidthRatioLandscape);
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE, tabletHeightRatioLandscape);
             intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
+            intent.putExtra(CardConstants.INTENT_EXTRA_USE_MODAL, useModalPresentation);
             intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
+            
+            // Pass modal config if in modal mode
+            if (useModalPresentation && currentModalConfig != null) {
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_SHOW_DRAG_BAR, currentModalConfig.showDragBar);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_ALLOW_DISMISS, currentModalConfig.allowDismiss);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_PORTRAIT, currentModalConfig.phoneWidthRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT, currentModalConfig.phoneHeightRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE, currentModalConfig.phoneWidthRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE, currentModalConfig.phoneHeightRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_PORTRAIT, currentModalConfig.tabletWidthRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT, currentModalConfig.tabletHeightRatioPortrait);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE, currentModalConfig.tabletWidthRatioLandscape);
+                intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE, currentModalConfig.tabletHeightRatioLandscape);
+            }
+            
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             
             activity.startActivity(intent);
@@ -444,7 +481,9 @@ public class StashPayCardPlugin {
                         lastOrientation = currentOrientation;
                         
                         try {
-                            int[] newDimensions = calculatePopupDimensions(activity);
+                            int[] newDimensions = useModalPresentation
+                                ? calculateModalDimensions(activity)
+                                : calculatePopupDimensions(activity);
                             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
                             
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -636,6 +675,161 @@ public class StashPayCardPlugin {
         }
     }
     
+    private void createAndShowModalDialog(String url, final Activity activity) {
+        if (activity == null || url == null || url.isEmpty()) {
+            Log.e(TAG, "Invalid activity or URL in createAndShowModalDialog");
+            return;
+        }
+        if (currentModalConfig == null) {
+            currentModalConfig = new StashPayCard.ModalConfig();
+        }
+
+        cleanupAllViews();
+        useModalPresentation = true;
+        paymentSuccessHandled = false;
+
+        try {
+            currentDialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
+            currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+            FrameLayout mainFrame = new FrameLayout(activity);
+            try {
+                mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
+                mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
+            }
+
+            mainFrame.setOnClickListener(v -> {
+                try {
+                    if (currentModalConfig.allowDismiss && !isPurchaseProcessing && currentDialog != null && currentDialog.isShowing() && v == mainFrame) {
+                        currentDialog.dismiss();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in click handler: " + e.getMessage(), e);
+                }
+            });
+
+            int[] dimensions;
+            try {
+                dimensions = calculateModalDimensions(activity);
+            } catch (Exception e) {
+                Log.e(TAG, "Error calculating modal dimensions: " + e.getMessage(), e);
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                dimensions = new int[]{
+                    (int)(metrics.widthPixels * 0.9f),
+                    (int)(metrics.heightPixels * 0.5f)
+                };
+            }
+
+            currentContainer = new FrameLayout(activity);
+            FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(dimensions[0], dimensions[1]);
+            containerParams.gravity = Gravity.CENTER;
+            currentContainer.setLayoutParams(containerParams);
+
+            try {
+                lastOrientation = activity.getResources().getConfiguration().orientation;
+            } catch (Exception e) {
+                Log.e(TAG, "Error getting orientation: " + e.getMessage(), e);
+                lastOrientation = Configuration.ORIENTATION_PORTRAIT;
+            }
+
+            orientationChangeListener = new PopupOrientationListener(activity);
+            try {
+                mainFrame.getViewTreeObserver().addOnGlobalLayoutListener(orientationChangeListener);
+            } catch (Exception e) {
+                Log.e(TAG, "Error adding layout listener: " + e.getMessage(), e);
+            }
+
+            try {
+                GradientDrawable popupBg = new GradientDrawable();
+                popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
+                float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
+                popupBg.setCornerRadius(radius);
+                currentContainer.setBackground(popupBg);
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
+                    currentContainer.setOutlineProvider(new ViewOutlineProvider() {
+                        @Override
+                        public void getOutline(View view, Outline outline) {
+                            try {
+                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error setting outline: " + e.getMessage(), e);
+                            }
+                        }
+                    });
+                    currentContainer.setClipToOutline(true);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting container background: " + e.getMessage(), e);
+            }
+
+            try {
+                webView = new WebView(activity);
+                FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+                webView.setLayoutParams(webViewParams);
+                currentContainer.addView(webView);
+
+                setupPopupWebView(webView, url, activity);
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating WebView: " + e.getMessage(), e);
+                cleanupAllViews();
+                return;
+            }
+
+            mainFrame.addView(currentContainer);
+            currentDialog.setContentView(mainFrame);
+
+            Window window = currentDialog.getWindow();
+            if (window != null) {
+                try {
+                    window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                    window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                                   WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+                    window.setBackgroundDrawableResource(android.R.color.transparent);
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                    WindowManager.LayoutParams windowParams = window.getAttributes();
+                    windowParams.dimAmount = 0.3f;
+                    window.setAttributes(windowParams);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
+                }
+            }
+
+            currentContainer.setOnClickListener(v -> {});
+
+            currentDialog.setCanceledOnTouchOutside(currentModalConfig.allowDismiss && !isPurchaseProcessing);
+            currentDialog.setCancelable(!isPurchaseProcessing);
+
+            currentDialog.setOnDismissListener(dialog -> {
+                try {
+                    if (!paymentSuccessHandled && listener != null) {
+                        listener.onDialogDismissed();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in dismiss listener: " + e.getMessage(), e);
+                }
+                cleanupAllViews();
+                isCurrentlyPresented = false;
+            });
+
+            try {
+                currentDialog.show();
+                animateFadeIn();
+                isCurrentlyPresented = true;
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing modal dialog: " + e.getMessage(), e);
+                cleanupAllViews();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating modal: " + e.getMessage(), e);
+            cleanupAllViews();
+        }
+    }
+
     private void animateFadeIn() {
         try {
             if (currentContainer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -944,6 +1138,7 @@ public class StashPayCardPlugin {
         
         isPurchaseProcessing = false;
         usePopupPresentation = false;
+        useModalPresentation = false;
     }
     
     private int[] calculatePopupDimensions(Activity activity) {
@@ -981,6 +1176,57 @@ public class StashPayCardPlugin {
                 return new int[]{
                     (int)(metrics.widthPixels * 0.9f),
                     (int)(metrics.heightPixels * 0.7f)
+                };
+            } catch (Exception e2) {
+                Log.e(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
+                return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
+            }
+        }
+    }
+
+    private int[] calculateModalDimensions(Activity activity) {
+        if (activity == null || currentModalConfig == null) {
+            Log.e(TAG, "Activity or modal config is null in calculateModalDimensions");
+            return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
+        }
+
+        try {
+            DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+            int screenWidth = metrics.widthPixels;
+            int screenHeight = metrics.heightPixels;
+            boolean isLandscape = screenWidth > screenHeight;
+            boolean isTablet = StashWebViewUtils.isTablet(activity);
+
+            float widthRatio, heightRatio;
+            if (isTablet) {
+                widthRatio = isLandscape ? currentModalConfig.tabletWidthRatioLandscape : currentModalConfig.tabletWidthRatioPortrait;
+                heightRatio = isLandscape ? currentModalConfig.tabletHeightRatioLandscape : currentModalConfig.tabletHeightRatioPortrait;
+            } else {
+                widthRatio = isLandscape ? currentModalConfig.phoneWidthRatioLandscape : currentModalConfig.phoneWidthRatioPortrait;
+                heightRatio = isLandscape ? currentModalConfig.phoneHeightRatioLandscape : currentModalConfig.phoneHeightRatioPortrait;
+            }
+
+            int cardWidth = (int) (screenWidth * widthRatio);
+            int cardHeight = (int) (screenHeight * heightRatio);
+
+            int minWidthPx = isTablet
+                ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP)
+                : StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+            int minHeightPx = isTablet
+                ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP)
+                : StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+
+            if (cardWidth < minWidthPx) cardWidth = minWidthPx;
+            if (cardHeight < minHeightPx) cardHeight = minHeightPx;
+
+            return new int[]{cardWidth, cardHeight};
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating modal dimensions: " + e.getMessage(), e);
+            try {
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                return new int[]{
+                    (int) (metrics.widthPixels * 0.9f),
+                    (int) (metrics.heightPixels * 0.5f)
                 };
             } catch (Exception e2) {
                 Log.e(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);

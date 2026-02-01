@@ -159,6 +159,34 @@ public final class CardConstants {
     public static final float DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE = 0.3f;
     
     // ============================================================================
+    // Modal Default Size Ratios (openModal always shows centered modal)
+    // ============================================================================
+    
+    /** Default modal phone width ratio for portrait */
+    public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.9f;
+    
+    /** Default modal phone height ratio for portrait */
+    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.50f;
+    
+    /** Default modal phone width ratio for landscape */
+    public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE = 0.50f;
+    
+    /** Default modal phone height ratio for landscape */
+    public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = 0.80f;
+    
+    /** Default modal tablet width ratio for portrait */
+    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = 0.40f;
+    
+    /** Default modal tablet height ratio for portrait */
+    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = 0.30f;
+    
+    /** Default modal tablet width ratio for landscape */
+    public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = 0.30f;
+    
+    /** Default modal tablet height ratio for landscape */
+    public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.40f;
+    
+    // ============================================================================
     // Popup Size Multipliers
     // ============================================================================
     
@@ -235,6 +263,19 @@ public final class CardConstants {
     public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT = "tabletHeightRatioPortrait";
     public static final String INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE = "tabletWidthRatioLandscape";
     public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE = "tabletHeightRatioLandscape";
+    
+    // Modal-specific intent extras
+    public static final String INTENT_EXTRA_USE_MODAL = "useModal";
+    public static final String INTENT_EXTRA_MODAL_SHOW_DRAG_BAR = "modalShowDragBar";
+    public static final String INTENT_EXTRA_MODAL_ALLOW_DISMISS = "modalAllowDismiss";
+    public static final String INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = "modalPhoneWidthRatioPortrait";
+    public static final String INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = "modalPhoneHeightRatioPortrait";
+    public static final String INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE = "modalPhoneWidthRatioLandscape";
+    public static final String INTENT_EXTRA_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = "modalPhoneHeightRatioLandscape";
+    public static final String INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = "modalTabletWidthRatioPortrait";
+    public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = "modalTabletHeightRatioPortrait";
+    public static final String INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = "modalTabletWidthRatioLandscape";
+    public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = "modalTabletHeightRatioLandscape";
 
     /** Message types for notifyListenerAndDismiss (success/failure/optin). */
     public static final String MESSAGE_TYPE_SUCCESS = "success";

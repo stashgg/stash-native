@@ -143,6 +143,51 @@ public class StashWebViewUtils {
         return isDarkTheme(context) ? Color.parseColor(COLOR_DARK_BG) : Color.WHITE;
     }
 
+    public static View createAndShowLoadingView(Context context, ViewGroup container) {
+        if (context == null || container == null) return null;
+        
+        try {
+            boolean isDark = isDarkTheme(context);
+            
+            // Create background container that covers the entire card
+            FrameLayout loadingContainer = new FrameLayout(context);
+            loadingContainer.setBackgroundColor(isDark ? Color.parseColor(COLOR_DARK_BG) : Color.WHITE);
+            FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+            loadingContainer.setLayoutParams(containerParams);
+            
+            // Create spinner
+            ProgressBar loadingIndicator = new ProgressBar(context);
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                loadingIndicator.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            }
+            
+            loadingIndicator.setIndeterminate(true);
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                loadingIndicator.setIndeterminateTintList(
+                    android.content.res.ColorStateList.valueOf(isDark ? Color.WHITE : Color.DKGRAY));
+            }
+            
+            FrameLayout.LayoutParams spinnerParams = new FrameLayout.LayoutParams(
+                dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP), 
+                dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP));
+            spinnerParams.gravity = Gravity.CENTER;
+            loadingIndicator.setLayoutParams(spinnerParams);
+            
+            loadingContainer.addView(loadingIndicator);
+            container.addView(loadingContainer);
+            loadingContainer.bringToFront();
+            
+            return loadingContainer;
+        } catch (Exception e) {
+            Log.e(TAG, "Error showing loading: " + e.getMessage());
+            return null;
+        }
+    }
+    
+    @Deprecated
     public static ProgressBar createAndShowLoading(Context context, ViewGroup container) {
         if (context == null || container == null) return null;
         

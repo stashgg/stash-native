@@ -14,6 +14,9 @@
 #pragma mark - Extern declarations (defined in StashPayCard.m)
 
 extern BOOL _usePopupPresentation;
+extern BOOL _useModalPresentation;
+extern BOOL _modalShowDragBar;
+extern BOOL _modalAllowDismiss;
 extern BOOL _useCustomPopupSize;
 extern CGFloat _customPortraitWidthMultiplier;
 extern CGFloat _customPortraitHeightMultiplier;
@@ -45,6 +48,7 @@ extern CGSize calculateiPadCardSize(CGRect screenBounds);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 extern UIInterfaceOrientation getInterfaceOrientation(void);
 extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+extern CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 
 #pragma mark - DragTrayView
@@ -153,46 +157,108 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
 
 @end
 
-#pragma mark - OrientationLockedViewController
+#pragma mark - OrientationLockedViewController (Modal / Popup rotation)
 
 @interface OrientationLockedViewController : UIViewController
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 @property (nonatomic, assign) CGSize previousScreenSize;
+@property (nonatomic, assign) BOOL isModalPresentation;
 - (void)updateCornerRadiusMask;
 @end
 
 @implementation OrientationLockedViewController
 
-- (void)viewWillLayoutSubviews {
-    [super viewWillLayoutSubviews];
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     
-    if (!_usePopupPresentation) {
+    if (!self.isModalPresentation && !_usePopupPresentation) {
         return;
     }
     
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
+    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashPayAssociatedKeyOverlayView);
+    CGRect newCardFrame = self.isModalPresentation
+        ? computeModalFrameForScreenBounds(targetBounds)
+        : computePopupFrameForScreenBounds(targetBounds);
+    UIView *cardView = self.isModalPresentation ? [self.view viewWithTag:kCardViewTag] : nil;
+    
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        if (overlayView) {
+            overlayView.frame = targetBounds;
+        }
+        if (self.isModalPresentation && cardView) {
+            cardView.frame = newCardFrame;
+            if (_modalShowDragBar) {
+                updateDragTrayAndHandleInCardView(cardView, newCardFrame.size.width);
+            }
+            [cardView layoutIfNeeded];
+        } else if (_usePopupPresentation) {
+            self.view.frame = newCardFrame;
+            self.customFrame = newCardFrame;
+        }
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        self.customFrame = newCardFrame;
+        [self updateCornerRadiusMask];
+    }];
+}
+
+- (void)viewWillLayoutSubviews {
+    [super viewWillLayoutSubviews];
+    
+    // Handle both popup and modal presentation rotation/resize
+    if (!_usePopupPresentation && !self.isModalPresentation) {
+        return;
+    }
+    
+    CGRect containerBounds = self.view.bounds;
     UIWindow *cardWindow = self.view.window;
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
     
     if (cardWindow && !CGRectEqualToRect(cardWindow.frame, screenBounds)) {
         cardWindow.frame = screenBounds;
     }
     
+    // Use container view bounds for overlay so it stays in sync during rotation
+    // (screen bounds can swap at a different time than the view hierarchy, causing rotation artifacts)
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashPayAssociatedKeyOverlayView);
-    if (overlayView && !CGRectEqualToRect(overlayView.frame, screenBounds)) {
-        overlayView.frame = screenBounds;
+    if (overlayView && !CGRectEqualToRect(overlayView.frame, containerBounds)) {
+        overlayView.frame = containerBounds;
     }
     
-    CGRect newFrame = computePopupFrameForScreenBounds(screenBounds);
-
-    if (!CGRectEqualToRect(self.view.frame, newFrame)) {
-        [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
-            self.view.frame = newFrame;
-            self.customFrame = newFrame;
-        } completion:^(BOOL finished) {
-            [self updateCornerRadiusMask];
-        }];
+    // Use appropriate frame calculation based on presentation type
+    CGRect newFrame;
+    if (self.isModalPresentation) {
+        newFrame = computeModalFrameForScreenBounds(containerBounds);
+    } else {
+        newFrame = computePopupFrameForScreenBounds(containerBounds);
+    }
+    
+    // For modal, update the cardView frame; for popup, update the view frame
+    if (self.isModalPresentation) {
+        UIView *cardView = [self.view viewWithTag:kCardViewTag];
+        if (cardView && !CGRectEqualToRect(cardView.frame, newFrame)) {
+            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
+                cardView.frame = newFrame;
+                if (_modalShowDragBar) {
+                    updateDragTrayAndHandleInCardView(cardView, newFrame.size.width);
+                }
+                [cardView layoutIfNeeded];
+            } completion:^(BOOL finished) {
+                self.customFrame = newFrame;
+                [self updateCornerRadiusMask];
+            }];
+        }
+    } else {
+        if (!CGRectEqualToRect(self.view.frame, newFrame)) {
+            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
+                self.view.frame = newFrame;
+                self.customFrame = newFrame;
+            } completion:^(BOOL finished) {
+                [self updateCornerRadiusMask];
+            }];
+        }
     }
 }
 

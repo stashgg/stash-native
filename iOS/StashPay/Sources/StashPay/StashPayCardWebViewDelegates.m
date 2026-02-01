@@ -14,6 +14,7 @@
 
 static const NSTimeInterval kPageReadyCheckInterval = 0.1;
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.2;
+static const NSTimeInterval kNetworkTimeoutInterval = 5.0;
 static NSString * const kForceDarkBackgroundJS =
     @"document.documentElement.style.backgroundColor = 'black'; "
     @"document.body.style.backgroundColor = 'black'; "
@@ -24,6 +25,7 @@ static NSString * const kForceDarkBackgroundJS =
 #pragma mark - Extern declarations (defined in StashPayCard.m)
 
 extern BOOL _usePopupPresentation;
+extern BOOL _useModalPresentation;
 extern BOOL isRunningOniPad(void);
 extern UIColor* getSystemBackgroundColor(void);
 extern UIViewController *getTopPresentedViewController(void);
@@ -44,6 +46,9 @@ extern UIViewController *getTopPresentedViewController(void);
 #endif
     UIView* _loadingView;
     NSTimer* _timeoutTimer;
+    NSTimer* _networkTimeoutTimer;
+    BOOL _initialLoadComplete;
+    BOOL _networkErrorHandled;
 }
 
 - (instancetype)initWithWebView:(WKWebView*)webView loadingView:(UIView*)loadingView {
@@ -52,14 +57,61 @@ extern UIViewController *getTopPresentedViewController(void);
         _webView = webView;
         self.webView = webView;
         _loadingView = loadingView;
+        _initialLoadComplete = NO;
+        _networkErrorHandled = NO;
         
         _timeoutTimer = [NSTimer scheduledTimerWithTimeInterval:kPageReadyCheckInterval
                                                         target:self
                                                       selector:@selector(handleTimeout:)
                                                       userInfo:nil
                                                        repeats:NO];
+        
+        // Start network timeout timer (5 seconds)
+        _networkTimeoutTimer = [NSTimer scheduledTimerWithTimeInterval:kNetworkTimeoutInterval
+                                                                target:self
+                                                              selector:@selector(handleNetworkTimeout:)
+                                                              userInfo:nil
+                                                               repeats:NO];
     }
     return self;
+}
+
+- (void)handleNetworkTimeout:(NSTimer*)timer {
+    if (!_initialLoadComplete && !_networkErrorHandled) {
+        NSLog(@"StashPay: Network timeout - page did not load within %.0f seconds", kNetworkTimeoutInterval);
+        [self handleNetworkError];
+    }
+}
+
+- (void)handleNetworkError {
+    if (_networkErrorHandled) return;
+    _networkErrorHandled = YES;
+    
+    // Cancel timers
+    [_timeoutTimer invalidate];
+    _timeoutTimer = nil;
+    [_networkTimeoutTimer invalidate];
+    _networkTimeoutTimer = nil;
+    
+    // Call the network error callback
+    id<StashPayCardDelegate> delegate = [StashPayCard sharedInstance].delegate;
+    if (delegate && [delegate respondsToSelector:@selector(stashPayCardDidEncounterNetworkError)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [delegate stashPayCardDidEncounterNetworkError];
+        });
+    }
+    
+    // Dismiss the dialog without calling onDismiss
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[StashPayCard sharedInstance] resetPresentationState];
+    });
+}
+
+- (void)cancelNetworkTimeout {
+    if (_networkTimeoutTimer) {
+        [_networkTimeoutTimer invalidate];
+        _networkTimeoutTimer = nil;
+    }
 }
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
@@ -85,7 +137,32 @@ extern UIViewController *getTopPresentedViewController(void);
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
+- (void)webView:(WKWebView *)webView decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
+    
+    // Check for HTTP error status codes on initial load
+    if (!_initialLoadComplete && navigationResponse.isForMainFrame) {
+        if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)navigationResponse.response;
+            NSInteger statusCode = httpResponse.statusCode;
+            
+            // Treat 4xx and 5xx status codes as errors
+            if (statusCode >= 400) {
+                NSLog(@"StashPay: HTTP error on main frame during initial load: %ld", (long)statusCode);
+                decisionHandler(WKNavigationResponsePolicyCancel);
+                [self handleNetworkError];
+                return;
+            }
+        }
+    }
+    
+    decisionHandler(WKNavigationResponsePolicyAllow);
+}
+
 - (void)handleTimeout:(NSTimer*)timer {
+    // For modal presentations, don't reveal on timeout - wait for actual page load
+    if (_useModalPresentation) {
+        return;
+    }
     [self showWebViewAndRemoveLoading];
 }
 
@@ -93,6 +170,12 @@ extern UIViewController *getTopPresentedViewController(void);
     if (_timeoutTimer) {
         [_timeoutTimer invalidate];
         _timeoutTimer = nil;
+    }
+    
+    // Mark initial load as complete and cancel network timeout
+    if (!_initialLoadComplete) {
+        _initialLoadComplete = YES;
+        [self cancelNetworkTimeout];
     }
     
     if (_webView.alpha < 0.01) {
@@ -109,9 +192,30 @@ extern UIViewController *getTopPresentedViewController(void);
             }
         }
         
+        // For modal: also reveal the cardView (parent) and overlay which start hidden
+        UIView *cardView = _useModalPresentation ? _webView.superview : nil;
+        UIView *overlayView = nil;
+        if (_useModalPresentation && cardView) {
+            // The overlay is the first subview of the container view (cardView's parent)
+            UIView *containerView = cardView.superview;
+            if (containerView && containerView.subviews.count > 0) {
+                UIView *firstSubview = containerView.subviews.firstObject;
+                // Overlay has tag 0 and is not the cardView
+                if (firstSubview != cardView) {
+                    overlayView = firstSubview;
+                }
+            }
+        }
+        
         [UIView animateWithDuration:kLoadingRevealAnimationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self->_loadingView.alpha = 0.0;
             self->_webView.alpha = 1.0;
+            if (cardView) {
+                cardView.alpha = 1.0;
+            }
+            if (overlayView) {
+                overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+            }
         } completion:^(BOOL finished) {
             [self->_loadingView removeFromSuperview];
         }];
@@ -203,14 +307,28 @@ extern UIViewController *getTopPresentedViewController(void);
     if (error.code == NSURLErrorCancelled) {
         return;
     }
-    [[StashPayCard sharedInstance] dismiss];
+    
+    // If initial load hasn't completed, treat as network error
+    if (!_initialLoadComplete) {
+        NSLog(@"StashPay: Navigation failed during initial load: %@", error.localizedDescription);
+        [self handleNetworkError];
+    } else {
+        [[StashPayCard sharedInstance] dismiss];
+    }
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     if (error.code == NSURLErrorCancelled) {
         return;
     }
-    [[StashPayCard sharedInstance] dismiss];
+    
+    // If initial load hasn't completed, treat as network error
+    if (!_initialLoadComplete) {
+        NSLog(@"StashPay: Provisional navigation failed during initial load: %@", error.localizedDescription);
+        [self handleNetworkError];
+    } else {
+        [[StashPayCard sharedInstance] dismiss];
+    }
 }
 
 - (void)dealloc {
