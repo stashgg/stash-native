@@ -119,9 +119,62 @@ stashPay.delegate = self;
 
 ---
 
+
+## Checkout Configuration
+
+### Force portrait checkout
+
+**Force portrait on checkout** controls how the checkout card appears on phones:
+
+- **Enabled**  
+  When enabled, checkout opens **portrait-locked**: a separate activity on Android and a portrait-only view on iOS. The device automatically rotates to portrait mode during checkout for a consistent payment experience, similar to native purchase dialogs. Make sure your app supports portrait orientation or can unlock to portrait while checkout is active, as this library cannot always force the portrait mode due to platform limitations.
+
+- **Disabled (default)**  
+  Checkout appears in the **current orientation** as an card on top of your app and does not enforce rotation to potrait mode.
+
+```java
+// Android
+StashPayCard stashPay = StashPayCard.getInstance();
+stashPay.setForcePortraitOnCheckout(false);   // Allow all orientations
+stashPay.setCardHeightRatioPortrait(0.68f);    // Portrait: full width, 68% height
+stashPay.setCardWidthRatioLandscape(0.9f);    // Landscape: 90% width
+stashPay.setCardHeightRatioLandscape(0.6f);   // Landscape: 60% height
+stashPay.openCheckout(url);
+```
+
+```swift
+// iOS
+let stashPay = StashPayCard.sharedInstance()
+stashPay.forcePortraitOnCheckout = false      // Allow all orientations
+stashPay.cardHeightRatioPortrait = 0.68       // Portrait: full width, 68% height
+stashPay.cardWidthRatioLandscape = 0.9        // Landscape: 90% width
+stashPay.cardHeightRatioLandscape = 0.6       // Landscape: 60% height
+stashPay.openCheckout(withURL: url)
+```
+
+See the Android and iOS READMEs for full checkout configuration and API details.
+
+### Force web–based checkout
+
+**Force web–based checkout** opens Stash Pay checkout links in the system browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS) instead of the in-app card.
+
+```java
+// Android – use before openCheckout
+stashPay.setForceWebBasedCheckout(true);
+stashPay.openCheckout(checkoutUrl);
+```
+
+```swift
+// iOS – use before openCheckout
+stashPay.forceWebBasedCheckout = true
+stashPay.openCheckout(withURL: checkoutUrl)
+```
+
+---
+
 ## Modal Configuration
 
-The modal supports extensive customization:
+The modal supports sizing customization:
 
 ```java
 // Android
@@ -148,58 +201,6 @@ stashPay.openModal(withURL: url, config: config)
 See platform-specific READMEs for full configuration options.
 
 ---
-
-## Force portrait & landscape checkout (openCheckout only)
-
-**Force portrait on checkout** controls how the checkout card appears on phones:
-
-- **Enabled (default: off)**  
-  Checkout opens in a **portrait-locked** screen (separate activity on Android, portrait-only view on iOS). The device is rotated to portrait when opening checkout. Card uses full width and a configurable height ratio.
-
-- **Disabled**  
-  Checkout appears in the **current orientation** as an overlay in your app. The card resizes on rotation and supports **expand/collapse** (drag the bar or callbacks from the web page). In **portrait**, the card uses full width and a height ratio. In **landscape**, the card size is controlled by **landscape width and height ratios**.
-
-Configure landscape size only when force portrait is off:
-
-```java
-// Android
-StashPayCard stashPay = StashPayCard.getInstance();
-stashPay.setForcePortraitOnCheckout(false);   // Allow all orientations
-stashPay.setCardHeightRatioPortrait(0.68f);    // Portrait: full width, 68% height
-stashPay.setCardWidthRatioLandscape(0.9f);    // Landscape: 90% width
-stashPay.setCardHeightRatioLandscape(0.6f);   // Landscape: 60% height
-stashPay.openCheckout(url);
-```
-
-```swift
-// iOS
-let stashPay = StashPayCard.sharedInstance()
-stashPay.forcePortraitOnCheckout = false      // Allow all orientations
-stashPay.cardHeightRatioPortrait = 0.68       // Portrait: full width, 68% height
-stashPay.cardWidthRatioLandscape = 0.9        // Landscape: 90% width
-stashPay.cardHeightRatioLandscape = 0.6       // Landscape: 60% height
-stashPay.openCheckout(withURL: url)
-```
-
-See the Android and iOS READMEs for full checkout configuration and API details.
-
----
-
-## Force web–based checkout (openCheckout only)
-
-**Force web–based checkout** applies only to **openCheckout**. It opens Stash Pay checkout links in the system browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS) instead of the in-app card. It does not affect openModal.
-
-```java
-// Android – use before openCheckout
-stashPay.setForceWebBasedCheckout(true);
-stashPay.openCheckout(checkoutUrl);
-```
-
-```swift
-// iOS – use before openCheckout
-stashPay.forceWebBasedCheckout = true
-stashPay.openCheckout(withURL: checkoutUrl)
-```
 
 ---
 
