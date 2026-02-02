@@ -15,6 +15,8 @@
 static const NSTimeInterval kPageReadyCheckInterval = 0.1;
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.2;
 static const NSTimeInterval kNetworkTimeoutInterval = 5.0;
+/// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
+static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
 static NSString * const kForceDarkBackgroundJS =
     @"document.documentElement.style.backgroundColor = 'black'; "
     @"document.body.style.backgroundColor = 'black'; "
@@ -47,6 +49,7 @@ extern UIViewController *getTopPresentedViewController(void);
     UIView* _loadingView;
     NSTimer* _timeoutTimer;
     NSTimer* _networkTimeoutTimer;
+    NSTimer* _modalFallbackTimer;
     BOOL _initialLoadComplete;
     BOOL _networkErrorHandled;
 }
@@ -72,6 +75,16 @@ extern UIViewController *getTopPresentedViewController(void);
                                                               selector:@selector(handleNetworkTimeout:)
                                                               userInfo:nil
                                                                repeats:NO];
+        // Modal fallback: reveal after N seconds if didCommit/didFinish never fire (e.g. Unreal)
+        if (_useModalPresentation) {
+            _modalFallbackTimer = [NSTimer scheduledTimerWithTimeInterval:kModalFallbackRevealInterval
+                                                                  target:self
+                                                                selector:@selector(handleModalFallbackReveal:)
+                                                                userInfo:nil
+                                                                 repeats:NO];
+        } else {
+            _modalFallbackTimer = nil;
+        }
     }
     return self;
 }
@@ -92,6 +105,8 @@ extern UIViewController *getTopPresentedViewController(void);
     _timeoutTimer = nil;
     [_networkTimeoutTimer invalidate];
     _networkTimeoutTimer = nil;
+    [_modalFallbackTimer invalidate];
+    _modalFallbackTimer = nil;
     
     // Call the network error callback
     id<StashPayCardDelegate> delegate = [StashPayCard sharedInstance].delegate;
@@ -159,17 +174,28 @@ extern UIViewController *getTopPresentedViewController(void);
 }
 
 - (void)handleTimeout:(NSTimer*)timer {
-    // For modal presentations, don't reveal on timeout - wait for actual page load
+    // For modal presentations, don't reveal on short (0.1s) timeout - wait for didCommit/didFinish or fallback timer
     if (_useModalPresentation) {
         return;
     }
     [self showWebViewAndRemoveLoading];
 }
 
+- (void)handleModalFallbackReveal:(NSTimer*)timer {
+    _modalFallbackTimer = nil;
+    if (!_initialLoadComplete && !_networkErrorHandled) {
+        [self showWebViewAndRemoveLoading];
+    }
+}
+
 - (void)showWebViewAndRemoveLoading {
     if (_timeoutTimer) {
         [_timeoutTimer invalidate];
         _timeoutTimer = nil;
+    }
+    if (_modalFallbackTimer) {
+        [_modalFallbackTimer invalidate];
+        _modalFallbackTimer = nil;
     }
     
     // Mark initial load as complete and cancel network timeout
@@ -298,7 +324,8 @@ extern UIViewController *getTopPresentedViewController(void);
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
-    if (!_usePopupPresentation && !isRunningOniPad()) {
+    // iPhone checkout: reveal on commit. Modal: also reveal on commit (Unreal etc. may never get didFinish)
+    if ((!_usePopupPresentation && !isRunningOniPad()) || _useModalPresentation) {
         [self showWebViewAndRemoveLoading];
     }
 }
@@ -335,6 +362,10 @@ extern UIViewController *getTopPresentedViewController(void);
     if (_timeoutTimer) {
         [_timeoutTimer invalidate];
         _timeoutTimer = nil;
+    }
+    if (_modalFallbackTimer) {
+        [_modalFallbackTimer invalidate];
+        _modalFallbackTimer = nil;
     }
 }
 
