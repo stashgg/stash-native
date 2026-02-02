@@ -128,8 +128,11 @@ static CGFloat _originalTabletWidthRatio = 0.8;
 static CGFloat _originalTabletHeightRatio = 0.75;
 
 // --- User-configurable sizing (persists across presentations) ---
-// Phone card: only height is configurable (card is always portrait, full width)
+static BOOL _forcePortraitOnCheckout = NO;
+// Phone card: portrait = full width + height ratio; landscape = width/height ratios when not forcing portrait
 static CGFloat _cardHeightRatioPortrait = 0.68;
+static CGFloat _cardWidthRatioLandscape = 0.9f;
+static CGFloat _cardHeightRatioLandscape = 0.6f;
 
 // Orientation-specific tablet (iPad) card configuration
 static CGFloat _tabletWidthRatioPortrait = 0.4;
@@ -199,8 +202,8 @@ const CGFloat kHandleHitAreaInset = 15.0f;
 static const CGFloat kOverlayDismissAlpha = 0.0f;
 static const CGFloat kDismissCardAlpha = 0.0f;
 static const CGFloat kDismissCardScale = 0.9f;
-static const CGFloat kOverlayOpacityPhone = 0.35f;
-static const CGFloat kOverlayOpacityTablet = 0.25f;
+static const CGFloat kOverlayOpacity = 0.4f;  /* Unified overlay dim (40%) - same on all modes and as Android */
+static const CGFloat kIPhoneLandscapeExpandedHeightRatio = 0.9f;  /* Expand = 90% screen height in landscape */
 static const NSTimeInterval kOverlayFadeInDuration = 0.15;
 
 #pragma mark - Snap-Back / Entry Animation
@@ -350,6 +353,8 @@ void runWithoutImplicitAnimations(void (^block)(void));
 UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 void setOverlayToDismissAppearance(UIView *overlayView);
+CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
+void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 
 #pragma mark - StashPayCardInternal
 
@@ -377,6 +382,7 @@ void setOverlayToDismissAppearance(UIView *overlayView);
 - (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView;
 - (void)startKeyboardObserving;
 - (void)stopKeyboardObserving;
+- (BOOL)isIPhoneLandscapeCurrentOrientation;
 
 @end
 
@@ -437,6 +443,13 @@ void setOverlayToDismissAppearance(UIView *overlayView);
     }
     UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
     return cardView ?: self.currentPresentedVC.view;
+}
+
+- (BOOL)isIPhoneLandscapeCurrentOrientation {
+    if (!self.currentPresentedVC) return NO;
+    if (![self.currentPresentedVC isKindOfClass:[IPhoneCardCurrentOrientationViewController class]]) return NO;
+    CGRect b = [UIScreen mainScreen].bounds;
+    return b.size.width > b.size.height;
 }
 
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc {
@@ -633,7 +646,21 @@ void setOverlayToDismissAppearance(UIView *overlayView);
 
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
-    CGRect fullScreenFrame = CGRectMake(0, safeTop, screenBounds.size.width, screenBounds.size.height - safeTop);
+    CGRect fullScreenFrame;
+    if ([self isIPhoneLandscapeCurrentOrientation]) {
+        // Height-only expand in landscape: same card width, 90% screen height
+        CGFloat cardWidth = screenBounds.size.width * _cardWidthRatioLandscape;
+        CGFloat minPhone = 300.0f;
+        if (cardWidth < minPhone) cardWidth = minPhone;
+        CGFloat expW = cardWidth;
+        CGFloat expH = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
+        CGFloat expX = (screenBounds.size.width - expW) / 2.0f;
+        CGFloat expY = screenBounds.size.height - expH;
+        if (expY < safeTop) expY = safeTop;
+        fullScreenFrame = CGRectMake(expX, expY, expW, expH);
+    } else {
+        fullScreenFrame = CGRectMake(0, safeTop, screenBounds.size.width, screenBounds.size.height - safeTop);
+    }
 
     WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
 
@@ -745,6 +772,19 @@ initialSpringVelocity:kSpringVelocityCollapse
         collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
         collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
         collapsedY = (screenBounds.size.height - collapsedHeight) / 2;
+    } else if ([self isIPhoneLandscapeCurrentOrientation]) {
+        // Height-only expand in landscape: same width, expand = 90% screen height
+        collapsedWidth = screenBounds.size.width * _originalCardWidthRatio;
+        collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
+        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
+        collapsedY = screenBounds.size.height * _originalCardVerticalPosition - collapsedHeight;
+        if (collapsedY < 0) collapsedY = 0;
+
+        expandedWidth = collapsedWidth;  // same width
+        expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
+        expandedX = collapsedX;
+        expandedY = screenBounds.size.height - expandedHeight;
+        if (expandedY < safeTop) expandedY = safeTop;
     } else {
         collapsedWidth = screenBounds.size.width * _originalCardWidthRatio;
         collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
@@ -780,6 +820,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         OrientationLockedViewController *containerVC = (OrientationLockedViewController *)self.currentPresentedVC;
         containerVC.customFrame = cardView.frame;
     }
+    [self updateCustomFrameIfSupported:cardView.frame forViewController:nil];
 
     updateDragTrayAndHandleInCardView(cardView, currentWidth);
 
@@ -901,7 +942,10 @@ initialSpringVelocity:kSpringVelocityCollapse
         CGRect screenBounds = [UIScreen mainScreen].bounds;
         CGFloat safeTop = getSafeAreaTopForView(cardView);
         CGFloat collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
-        CGFloat expandedHeight = screenBounds.size.height - safeTop;
+        BOOL landscapeHeightOnly = [self isIPhoneLandscapeCurrentOrientation];
+        CGFloat expandedHeight = landscapeHeightOnly ? (screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio) : (screenBounds.size.height - safeTop);
+        CGFloat collapsedWidth = landscapeHeightOnly ? (screenBounds.size.width * _originalCardWidthRatio) : screenBounds.size.width;
+        CGFloat collapsedX = landscapeHeightOnly ? ((screenBounds.size.width - collapsedWidth) / 2.0f) : 0;
         CGFloat currentProgress = 0.0;
         
         if (currentTravel < 0) {
@@ -921,7 +965,7 @@ initialSpringVelocity:kSpringVelocityCollapse
                 if (currentProgress <= 0.0 && currentTravel > height * kDragDismissTravelRatioForProgress) {
                     CGFloat newY = MIN(screenHeight, screenBounds.size.height - collapsedHeight + (currentTravel - heightRange));
                     runWithoutImplicitAnimations(^{
-                        cardView.frame = CGRectMake(0, newY, screenBounds.size.width, collapsedHeight);
+                        cardView.frame = CGRectMake(collapsedX, newY, collapsedWidth, collapsedHeight);
                     });
                 [self updateCustomFrameIfSupported:cardView.frame forViewController:nil];
                     runWithoutImplicitAnimations(^{
@@ -1344,6 +1388,41 @@ CGFloat getSafeAreaTopForView(UIView *view) {
     return 0;
 }
 
+CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape) {
+    CGFloat cardWidth, cardHeight, cardX, cardY;
+    const CGFloat minPhone = 300.0f;
+    if (isLandscape) {
+        cardWidth = bounds.size.width * _cardWidthRatioLandscape;
+        cardHeight = bounds.size.height * _cardHeightRatioLandscape;
+        if (cardWidth < minPhone) cardWidth = minPhone;
+        if (cardHeight < minPhone) cardHeight = minPhone;
+        cardX = (bounds.size.width - cardWidth) / 2.0f;
+        cardY = bounds.size.height - cardHeight;
+    } else {
+        cardWidth = bounds.size.width;
+        cardHeight = bounds.size.height * _cardHeightRatioPortrait;
+        cardX = 0;
+        cardY = bounds.size.height - cardHeight;
+    }
+    if (cardY < 0) cardY = 0;
+    return CGRectMake(cardX, cardY, cardWidth, cardHeight);
+}
+
+void updateOriginalCardRatiosForOrientation(BOOL isLandscape) {
+    if (isLandscape) {
+        _originalCardWidthRatio = _cardWidthRatioLandscape;
+        _originalCardHeightRatio = _cardHeightRatioLandscape;
+    } else {
+        _originalCardWidthRatio = 1.0f;
+        _originalCardHeightRatio = _cardHeightRatioPortrait;
+    }
+    _originalCardVerticalPosition = 1.0f;
+}
+
+void resetCardExpandedStateAfterRotation(void) {
+    _isCardExpanded = NO;
+}
+
 WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
     if (!cardView) return nil;
     for (UIView *subview in cardView.subviews) {
@@ -1361,6 +1440,19 @@ WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
         }
     }
     return nil;
+}
+
+/// Sets the WebView (and other fill-the-card subviews) to cardView.bounds so the card and WebView stay in sync after rotation or any card frame change.
+void layoutCardContentToBounds(UIView *cardView) {
+    if (!cardView) return;
+    CGRect bounds = cardView.bounds;
+    for (UIView *subview in cardView.subviews) {
+        if ([subview isKindOfClass:[WKWebView class]]) {
+            subview.frame = bounds;
+            break;
+        }
+    }
+    updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
 }
 
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
@@ -1595,6 +1687,32 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _originalCardHeightRatio = clampedRatio;
 }
 
+- (BOOL)forcePortraitOnCheckout {
+    return _forcePortraitOnCheckout;
+}
+
+- (void)setForcePortraitOnCheckout:(BOOL)force {
+    _forcePortraitOnCheckout = force ? YES : NO;
+}
+
+- (CGFloat)cardWidthRatioLandscape {
+    return _cardWidthRatioLandscape;
+}
+
+- (void)setCardWidthRatioLandscape:(CGFloat)ratio {
+    CGFloat clampedRatio = clampRatio(ratio);
+    _cardWidthRatioLandscape = clampedRatio;
+}
+
+- (CGFloat)cardHeightRatioLandscape {
+    return _cardHeightRatioLandscape;
+}
+
+- (void)setCardHeightRatioLandscape:(CGFloat)ratio {
+    CGFloat clampedRatio = clampRatio(ratio);
+    _cardHeightRatioLandscape = clampedRatio;
+}
+
 // ============================================================================
 // Orientation-Specific Tablet (iPad) Card Size Configuration
 // ============================================================================
@@ -1747,11 +1865,32 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _isCardExpanded = NO;
     
     // Store original (collapsed) configuration from orientation-specific values
-    _originalCardHeightRatio = _cardHeightRatioPortrait;
-    _originalCardVerticalPosition = 1.0;
-    _originalCardWidthRatio = 1.0;  // Phone card is always full width
     _originalTabletWidthRatio = _tabletWidthRatioPortrait;
     _originalTabletHeightRatio = _tabletHeightRatioPortrait;
+    
+    if (isRunningOniPad()) {
+        // Tablet uses portrait ratios for initial store; not used for phone path
+        _originalCardHeightRatio = _cardHeightRatioPortrait;
+        _originalCardVerticalPosition = 1.0;
+        _originalCardWidthRatio = 1.0;
+    } else if (_forcePortraitOnCheckout) {
+        _originalCardHeightRatio = _cardHeightRatioPortrait;
+        _originalCardVerticalPosition = 1.0;
+        _originalCardWidthRatio = 1.0;  // Phone card is always full width in portrait
+    } else {
+        // Current-orientation path: set originals from current screen orientation
+        CGRect screenBounds = [UIScreen mainScreen].bounds;
+        BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
+        if (isLandscape) {
+            _originalCardWidthRatio = _cardWidthRatioLandscape;
+            _originalCardHeightRatio = _cardHeightRatioLandscape;
+            _originalCardVerticalPosition = 1.0;
+        } else {
+            _originalCardWidthRatio = 1.0;
+            _originalCardHeightRatio = _cardHeightRatioPortrait;
+            _originalCardVerticalPosition = 1.0;
+        }
+    }
     
     // Dispatch to appropriate presentation method based on device type
     if (_useModalPresentation) {
@@ -1760,8 +1899,10 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [self presentPopupWithURL:url];
     } else if (isRunningOniPad()) {
         [self presentiPadModalWithURL:url];
-    } else {
+    } else if (_forcePortraitOnCheckout) {
         [self presentIPhoneCardWithURL:url];
+    } else {
+        [self presentIPhoneCardInCurrentOrientationWithURL:url];
     }
 }
 
@@ -1937,7 +2078,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         
         // Animate overlay fade in
         [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
-            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityPhone];
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:nil];
         
         // Animate card sliding UP from BOTTOM
@@ -1967,6 +2108,143 @@ NSString* appendThemeQueryParameter(NSString* url) {
             containerVC.skipLayoutDuringInitialSetup = NO;
         }];
     });
+}
+
+#pragma mark - iPhone Card Presentation (Current Orientation, No Rotation)
+
+- (void)presentIPhoneCardInCurrentOrientationWithURL:(NSString *)url {
+    StashPayCardInternal *internal = [StashPayCardInternal sharedInstance];
+    
+    internal.previousKeyWindow = getKeyWindow();
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
+    
+    UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
+    attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
+    cardWindow.windowLevel = UIWindowLevelAlert;
+    cardWindow.backgroundColor = [UIColor clearColor];
+    cardWindow.hidden = YES;
+    internal.portraitWindow = cardWindow;
+    
+    IPhoneCardCurrentOrientationViewController *containerVC = [[IPhoneCardCurrentOrientationViewController alloc] init];
+    containerVC.modalPresentationStyle = UIModalPresentationFullScreen;
+    containerVC.view.backgroundColor = [UIColor clearColor];
+    containerVC.view.frame = screenBounds;
+    containerVC.skipLayoutDuringInitialSetup = YES;
+    
+    cardWindow.rootViewController = containerVC;
+    internal.currentPresentedVC = containerVC;
+    
+    cardWindow.hidden = NO;
+    [cardWindow makeKeyAndVisible];
+    [containerVC.view setNeedsLayout];
+    [containerVC.view layoutIfNeeded];
+    
+    CGRect actualBounds = screenBounds;
+    CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
+    
+    if (isLandscape) {
+        cardWidth = actualBounds.size.width * _cardWidthRatioLandscape;
+        cardHeight = actualBounds.size.height * _cardHeightRatioLandscape;
+        CGFloat minPhone = 300.0f;
+        if (cardWidth < minPhone) cardWidth = minPhone;
+        if (cardHeight < minPhone) cardHeight = minPhone;
+        cardX = (actualBounds.size.width - cardWidth) / 2.0f;
+        cardFinalY = actualBounds.size.height - cardHeight;
+        startY = actualBounds.size.height + cardHeight;
+    } else {
+        cardWidth = actualBounds.size.width;
+        cardHeight = actualBounds.size.height * _cardHeightRatioPortrait;
+        cardX = 0;
+        cardFinalY = actualBounds.size.height - cardHeight;
+        startY = actualBounds.size.height + cardHeight;
+    }
+    
+    if (cardFinalY < 0) cardFinalY = 0;
+    
+    UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
+    
+    UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
+    cardView.backgroundColor = getSystemBackgroundColor();
+    cardView.clipsToBounds = YES;
+    cardView.tag = kCardViewTag;
+    [cardWindow addSubview:cardView];
+    
+    containerVC.cardFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+    containerVC.customFrame = CGRectMake(cardX, startY, cardWidth, cardHeight);
+    
+    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+    cardView.layer.mask = maskLayer;
+    
+    cardView.layer.shadowColor = [UIColor blackColor].CGColor;
+    cardView.layer.shadowOffset = CGSizeMake(0, kShadowOffsetYPhone);
+    cardView.layer.shadowOpacity = kShadowOpacityPhone;
+    cardView.layer.shadowRadius = kShadowRadiusPhone;
+    
+    WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
+    webView.translatesAutoresizingMaskIntoConstraints = NO;
+    webView.alpha = 0.0;
+    
+    UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
+    loadingView.translatesAutoresizingMaskIntoConstraints = NO;
+    loadingView.alpha = 1.0;
+    
+    [cardView addSubview:webView];
+    [cardView addSubview:loadingView];
+    
+    [NSLayoutConstraint activateConstraints:@[
+        [webView.leadingAnchor constraintEqualToAnchor:cardView.leadingAnchor],
+        [webView.trailingAnchor constraintEqualToAnchor:cardView.trailingAnchor],
+        [webView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
+        [webView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor],
+        [loadingView.leadingAnchor constraintEqualToAnchor:cardView.leadingAnchor],
+        [loadingView.trailingAnchor constraintEqualToAnchor:cardView.trailingAnchor],
+        [loadingView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
+        [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
+    ]];
+    
+    UIView *dragTray = [internal createDragTray:cardWidth];
+    [cardView addSubview:dragTray];
+    internal.dragTrayView = dragTray;
+    
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    webView.navigationDelegate = delegate;
+    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
+    webView.UIDelegate = uiDelegate;
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    NSURL *nsurl = [NSURL URLWithString:url];
+    if (nsurl) {
+        NSMutableURLRequest *request = requestForURL(nsurl);
+        delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
+        [webView loadRequest:request];
+    }
+    
+    [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
+        overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
+    } completion:nil];
+    
+    [UIView animateWithDuration:kEntryAnimationDuration
+                          delay:kEntryAnimationDelay
+         usingSpringWithDamping:kSpringDampingTight
+          initialSpringVelocity:kSpringVelocityExpand
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        cardView.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+        containerVC.customFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+        CAShapeLayer *newMaskLayer = createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+        cardView.layer.mask = newMaskLayer;
+    } completion:^(BOOL finished) {
+        UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+        dismissButton.frame = overlayView.bounds;
+        dismissButton.backgroundColor = [UIColor clearColor];
+        dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        [overlayView addSubview:dismissButton];
+        [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        [internal startKeyboardObserving];
+        containerVC.skipLayoutDuringInitialSetup = NO;
+    }];
 }
 
 #pragma mark - iPad Modal Presentation (Centered, Rotatable)
@@ -2077,7 +2355,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
                             options:UIViewAnimationOptionCurveEaseOut
                          animations:^{
             cardView.alpha = 1.0;
-            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:^(BOOL finished) {
             UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
             dismissButton.frame = overlayView.bounds;
@@ -2290,7 +2568,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [UIView animateWithDuration:kDismissAnimationDurationPopup delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
             containerVC.view.alpha = 1.0;
             loadingView.alpha = 1.0;
-            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacityTablet];
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:^(BOOL finished) {
             [internal startKeyboardObserving];
         }];

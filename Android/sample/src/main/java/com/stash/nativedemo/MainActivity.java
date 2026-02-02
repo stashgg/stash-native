@@ -1,6 +1,5 @@
 package com.stash.nativedemo;
 
-import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -44,14 +43,6 @@ public class MainActivity extends AppCompatActivity {
                 openModal();
             }
 
-            @Override
-            public void onLandscapeLockChanged(boolean locked) {
-                if (locked) {
-                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-                } else {
-                    setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-                }
-            }
         });
 
         binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -118,7 +109,10 @@ public class MainActivity extends AppCompatActivity {
     private void syncViewModelToStashPayCard() {
         StashPayCard card = StashPayCard.getInstance();
         card.setForceWebBasedCheckout(viewModel.isWebViewMode());
+        card.setForcePortraitOnCheckout(viewModel.isForcePortraitOnCheckout());
         card.setCardHeightRatioPortrait((viewModel.getPhoneCardHeight() + 10) / 100f);
+        card.setCardWidthRatioLandscape((viewModel.getCheckoutPhoneLandscapeW() + 10) / 100f);
+        card.setCardHeightRatioLandscape((viewModel.getCheckoutPhoneLandscapeH() + 10) / 100f);
         card.setTabletWidthRatioPortrait((viewModel.getCheckoutTabletPortraitW() + 10) / 100f);
         card.setTabletHeightRatioPortrait((viewModel.getCheckoutTabletPortraitH() + 10) / 100f);
         card.setTabletWidthRatioLandscape((viewModel.getCheckoutTabletLandscapeW() + 10) / 100f);
@@ -133,11 +127,6 @@ public class MainActivity extends AppCompatActivity {
         }
         viewModel.setStatus("Opening checkout...");
         syncViewModelToStashPayCard();
-        if (viewModel.isLandscapeLock()) {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-        } else {
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
-        }
         StashPayCard.getInstance().openCheckout(url.trim());
     }
 

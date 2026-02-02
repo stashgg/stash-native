@@ -62,8 +62,11 @@ public class StashPayCardPortraitActivity extends Activity {
     private Runnable networkTimeoutRunnable;
     private static final long NETWORK_TIMEOUT_MS = 5000;
     
-    // Phone card: only height is configurable (card is always portrait, full width)
+    // Phone card: portrait = full width + height ratio; landscape = width/height ratios when not forcing portrait
     private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
+    private boolean forcePortraitOnCheckout = false;
+    private float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
+    private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
     
     // Modal configuration
     private boolean modalShowDragBar = true;
@@ -106,6 +109,9 @@ public class StashPayCardPortraitActivity extends Activity {
             wasLandscapeBeforePortrait = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, false);
             
             cardHeightRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, CardConstants.DEFAULT_CARD_HEIGHT_RATIO);
+            forcePortraitOnCheckout = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_FORCE_PORTRAIT_ON_CHECKOUT, false);
+            cardWidthRatioLandscape = intent.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_WIDTH_RATIO_LANDSCAPE, CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE);
+            cardHeightRatioLandscape = intent.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_LANDSCAPE, CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE);
             tabletWidthRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT, CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT);
             tabletHeightRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT, CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT);
             tabletWidthRatioLandscape = intent.getFloatExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE);
@@ -146,9 +152,17 @@ public class StashPayCardPortraitActivity extends Activity {
                     } else {
                         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
                     }
-                } else if (!cachedIsTablet) {
-                    // Checkout on phone: force portrait (only case we force rotation)
+                } else if (!cachedIsTablet && forcePortraitOnCheckout) {
+                    // Checkout on phone: force portrait only when enabled
                     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                } else if (!cachedIsTablet && !forcePortraitOnCheckout) {
+                    // Checkout on phone without force portrait: lock to current orientation
+                    int currentOrientation = getResources().getConfiguration().orientation;
+                    if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                    } else {
+                        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                    }
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Error setting orientation: " + e.getMessage(), e);
@@ -319,17 +333,29 @@ public class StashPayCardPortraitActivity extends Activity {
             cardHeight = cardSize[1];
             isExpanded = true;
         } else {
-            float effectiveHeightRatio;
-            if (wasLandscapeBeforePortrait) {
-                effectiveHeightRatio = CardConstants.EXPANDED_CARD_HEIGHT_RATIO;
+            boolean isLandscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+            if (isLandscape && !forcePortraitOnCheckout) {
+                // Phone checkout in landscape without forcing portrait: use landscape ratios
+                int w = (int)(metrics.widthPixels * cardWidthRatioLandscape);
+                int h = (int)(metrics.heightPixels * cardHeightRatioLandscape);
+                int minPx = (int) StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+                if (w < minPx) w = minPx;
+                if (h < minPx) h = minPx;
+                cardWidth = w;
+                cardHeight = h;
                 isExpanded = true;
             } else {
-                effectiveHeightRatio = cardHeightRatioPortrait;
-                isExpanded = false;
+                float effectiveHeightRatio;
+                if (wasLandscapeBeforePortrait) {
+                    effectiveHeightRatio = CardConstants.EXPANDED_CARD_HEIGHT_RATIO;
+                    isExpanded = true;
+                } else {
+                    effectiveHeightRatio = cardHeightRatioPortrait;
+                    isExpanded = false;
+                }
+                cardHeight = (int)(metrics.heightPixels * effectiveHeightRatio);
+                cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
             }
-            cardHeight = (int)(metrics.heightPixels * effectiveHeightRatio);
-            // Phone card is always full width
-            cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
         }
         
         configureCardContainer(isTablet, cardWidth, cardHeight);
@@ -1397,6 +1423,9 @@ public class StashPayCardPortraitActivity extends Activity {
             if (isTablet) {
                 // Seamless animation for tablet rotation
                 animateTabletRotation();
+            } else if (!forcePortraitOnCheckout) {
+                // Phone checkout without force portrait: resize card to orientation-specific dimensions
+                animatePhoneCheckoutRotation();
             } else {
                 if (wasLandscapeBeforePortrait) {
                     if (!isExpanded) {
@@ -1488,6 +1517,87 @@ public class StashPayCardPortraitActivity extends Activity {
                 if (cardContainer != null) {
                     FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
                     p.height = (int) animation.getAnimatedValue();
+                    cardContainer.setLayoutParams(p);
+                }
+            });
+            heightAnim.start();
+        }
+    }
+    
+    /**
+     * Computes phone checkout card dimensions for current orientation (portrait or landscape).
+     * Used by createCard() and animatePhoneCheckoutRotation().
+     */
+    private int[] calculatePhoneCheckoutCardSize(DisplayMetrics metrics) {
+        boolean isLandscape = getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+        int screenWidth = metrics.widthPixels;
+        int screenHeight = metrics.heightPixels;
+        int cardWidth;
+        int cardHeight;
+        if (isLandscape) {
+            int w = (int)(screenWidth * cardWidthRatioLandscape);
+            int h = (int)(screenHeight * cardHeightRatioLandscape);
+            int minPx = (int) StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+            if (w < minPx) w = minPx;
+            if (h < minPx) h = minPx;
+            cardWidth = w;
+            cardHeight = h;
+        } else {
+            cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
+            cardHeight = (int)(screenHeight * cardHeightRatioPortrait);
+        }
+        return new int[]{cardWidth, cardHeight};
+    }
+    
+    private void animatePhoneCheckoutRotation() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int[] newSize = calculatePhoneCheckoutCardSize(metrics);
+        int newWidth = newSize[0];
+        int newHeight = newSize[1];
+        
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        int currentWidth = params.width;
+        int currentHeight = params.height;
+        
+        // MATCH_PARENT is -1; use actual measured width for animation
+        if (currentWidth == FrameLayout.LayoutParams.MATCH_PARENT && rootLayout != null && rootLayout.getWidth() > 0) {
+            currentWidth = rootLayout.getWidth();
+        }
+        
+        if (newWidth == FrameLayout.LayoutParams.MATCH_PARENT && rootLayout != null) {
+            newWidth = metrics.widthPixels;
+        }
+        
+        params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        if (currentWidth == newWidth && currentHeight == newHeight) {
+            cardContainer.setLayoutParams(params);
+            return;
+        }
+        
+        if (currentWidth != newWidth) {
+            ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
+            widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
+            widthAnim.setInterpolator(new SpringInterpolator());
+            widthAnim.addUpdateListener(animation -> {
+                if (cardContainer != null) {
+                    FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+                    p.width = (int) animation.getAnimatedValue();
+                    p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                    cardContainer.setLayoutParams(p);
+                }
+            });
+            widthAnim.start();
+        }
+        
+        if (currentHeight != newHeight) {
+            ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
+            heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
+            heightAnim.setInterpolator(new SpringInterpolator());
+            heightAnim.addUpdateListener(animation -> {
+                if (cardContainer != null) {
+                    FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+                    p.height = (int) animation.getAnimatedValue();
+                    p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
                     cardContainer.setLayoutParams(p);
                 }
             });

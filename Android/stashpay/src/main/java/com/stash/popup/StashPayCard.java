@@ -359,6 +359,56 @@ public class StashPayCard {
         plugin.setCardHeightRatioPortrait(ratio);
     }
     
+    /**
+     * Gets whether checkout on phone forces portrait orientation.
+     * @return true if portrait is forced (default)
+     */
+    public boolean isForcePortraitOnCheckout() {
+        return plugin.isForcePortraitOnCheckout();
+    }
+    
+    /**
+     * Sets whether to force portrait orientation on phone checkout.
+     * When false, checkout is shown in current orientation (slide from bottom); in landscape
+     * uses cardWidthRatioLandscape and cardHeightRatioLandscape.
+     * @param force true to force portrait (default), false to use current orientation
+     */
+    public void setForcePortraitOnCheckout(boolean force) {
+        plugin.setForcePortraitOnCheckout(force);
+    }
+    
+    /**
+     * Gets the phone card width ratio in landscape (when not forcing portrait).
+     * @return Width ratio (0.1 to 1.0). Default is 0.9.
+     */
+    public float getCardWidthRatioLandscape() {
+        return plugin.getCardWidthRatioLandscape();
+    }
+    
+    /**
+     * Sets the phone card width ratio in landscape (when not forcing portrait).
+     * @param ratio Width ratio (0.1 to 1.0). Default is 0.9.
+     */
+    public void setCardWidthRatioLandscape(float ratio) {
+        plugin.setCardWidthRatioLandscape(ratio);
+    }
+    
+    /**
+     * Gets the phone card height ratio in landscape (when not forcing portrait).
+     * @return Height ratio (0.1 to 1.0). Default is 0.6.
+     */
+    public float getCardHeightRatioLandscape() {
+        return plugin.getCardHeightRatioLandscape();
+    }
+    
+    /**
+     * Sets the phone card height ratio in landscape (when not forcing portrait).
+     * @param ratio Height ratio (0.1 to 1.0). Default is 0.6.
+     */
+    public void setCardHeightRatioLandscape(float ratio) {
+        plugin.setCardHeightRatioLandscape(ratio);
+    }
+    
     // ============================================================================
     // Orientation-Specific Tablet Card Size Configuration
     // ============================================================================

@@ -157,22 +157,45 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 | Method | Phone Behavior | Tablet Behavior | Use Case |
 |--------|----------------|-----------------|----------|
-| `openCheckout()` | Card slides from bottom (portrait, full width) with expand/collapse gestures | Centered modal with rotation support | Standard checkout flow |
+| `openCheckout()` | Card: portrait-locked activity or overlay in current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
 | `openModal()` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content, no card behavior |
 
 ---
 
 ## Checkout Configuration
 
-### Phone Card Size
+### Force portrait on checkout (phone)
 
-The phone card **always forces portrait** and **uses full screen width**. Only the height is configurable:
+By default, checkout on phones **does not** force portrait. You can lock checkout to portrait or allow all orientations:
+
+- **Force portrait on**  
+  Checkout opens in a **separate portrait-locked activity**. The device rotates to portrait when opening. The card uses full width and a configurable height ratio. Expand/collapse is supported via drag.
+
+- **Force portrait off (default)**  
+  Checkout appears as an **overlay in your activity** in the current orientation. The card resizes on rotation and supports expand/collapse (drag or WebView callbacks). In portrait the card uses full width and a height ratio; in landscape it uses configurable width and height ratios.
 
 ```java
 StashPayCard stashPay = StashPayCard.getInstance();
 
-// Phone: only height is configurable (default: 68%)
+// Lock checkout to portrait (separate activity) or allow current orientation (overlay)
+stashPay.setForcePortraitOnCheckout(false);   // default: allow all orientations
+```
+
+### Phone card size
+
+**Portrait** (and when force portrait is on): the card uses **full screen width**. Only the height ratio is configurable.
+
+**Landscape** (only when force portrait is off): the card size is controlled by width and height ratios of the screen.
+
+```java
+StashPayCard stashPay = StashPayCard.getInstance();
+
+// Portrait: full width, height as ratio of screen height (default: 68%)
 stashPay.setCardHeightRatioPortrait(0.68f);
+
+// Landscape (only when force portrait is off): width and height as ratio of screen
+stashPay.setCardWidthRatioLandscape(0.9f);    // default: 90% width
+stashPay.setCardHeightRatioLandscape(0.6f);  // default: 60% height
 ```
 
 ### Tablet Card Size
@@ -276,11 +299,14 @@ StashPayCard.getInstance().openCheckout(url);
 | `isCurrentlyPresented()` | Returns `true` if a dialog is currently shown |
 | `isPurchaseProcessing()` | Returns `true` if a payment is in progress |
 
-### Checkout Sizing (Phone)
+### Checkout: force portrait & sizing (Phone)
 
 | Method | Default | Description |
 |--------|---------|-------------|
-| `setCardHeightRatioPortrait(float)` | `0.68` | Card height as ratio of screen height (0.1-1.0) |
+| `setForcePortraitOnCheckout(boolean)` | `false` | If true, open checkout in a portrait-locked activity; if false, overlay in current orientation with rotation and expand/collapse |
+| `setCardHeightRatioPortrait(float)` | `0.68` | Card height as ratio of screen height in portrait (0.1-1.0) |
+| `setCardWidthRatioLandscape(float)` | `0.9` | Card width as ratio of screen width in landscape (0.1-1.0); used only when force portrait is off |
+| `setCardHeightRatioLandscape(float)` | `0.6` | Card height as ratio of screen height in landscape (0.1-1.0); used only when force portrait is off |
 
 ### Checkout Sizing (Tablet)
 
@@ -361,5 +387,5 @@ cd Android
 
 The sample app includes:
 - Separate URL inputs for Checkout and Modal
-- Advanced Options for Checkout (web view mode, sizing)
+- Advanced Options for Checkout (web view mode, force portrait, landscape sizing)
 - Advanced Options for Modal (drag bar, dismiss, sizing)

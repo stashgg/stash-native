@@ -18,13 +18,30 @@ CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 /// Modal frame (x, y, width, height) for given screen bounds; uses current orientation and modal ratios.
 CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 
+/// Phone card frame (x, y, width, height) for given bounds and orientation; used by current-orientation presentation and rotation.
+CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
+/// Updates _originalCard* in StashPayCard.m for the given orientation (used after rotation in IPhoneCardCurrentOrientationViewController).
+void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
+/// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
+void resetCardExpandedStateAfterRotation(void);
+
 /// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
+/// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
+void layoutCardContentToBounds(UIView *cardView);
 
 @interface DragTrayView : UIView
 @end
 
 @interface IPhoneCardViewController : UIViewController
+@property (nonatomic, assign) CGRect cardFrame;
+@property (nonatomic, assign) CGRect customFrame;
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+- (void)updateCornerRadiusMask;
+@end
+
+/// Phone card in current orientation (no rotation); allows all orientations.
+@interface IPhoneCardCurrentOrientationViewController : UIViewController
 @property (nonatomic, assign) CGRect cardFrame;
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;

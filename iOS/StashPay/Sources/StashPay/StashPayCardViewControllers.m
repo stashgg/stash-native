@@ -50,6 +50,10 @@ extern UIInterfaceOrientation getInterfaceOrientation(void);
 extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 extern CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
+extern void layoutCardContentToBounds(UIView *cardView);
+extern CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
+extern void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
+extern void resetCardExpandedStateAfterRotation(void);
 
 #pragma mark - DragTrayView
 
@@ -100,6 +104,74 @@ extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidt
     UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
     CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
+}
+
+@end
+
+#pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
+
+@interface IPhoneCardCurrentOrientationViewController : UIViewController
+@property (nonatomic, assign) CGRect cardFrame;
+@property (nonatomic, assign) CGRect customFrame;
+@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+- (void)updateCornerRadiusMask;
+@end
+
+@implementation IPhoneCardCurrentOrientationViewController
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskAll;
+}
+
+- (BOOL)shouldAutorotate {
+    return YES;
+}
+
+- (void)updateCornerRadiusMask {
+    UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
+    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
+    self.view.layer.mask = maskLayer;
+}
+
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    
+    UIWindow *window = self.view.window;
+    if (!window) return;
+    UIView *cardView = [window viewWithTag:kCardViewTag];
+    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashPayAssociatedKeyOverlayView);
+    
+    if (!cardView) return;
+    
+    resetCardExpandedStateAfterRotation();
+    
+    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
+    BOOL isLandscape = size.width > size.height;
+    CGRect newCardFrame = computePhoneCardFrameForBoundsAndOrientation(targetBounds, isLandscape);
+    
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        if (overlayView) {
+            overlayView.frame = targetBounds;
+        }
+        cardView.frame = newCardFrame;
+        layoutCardContentToBounds(cardView);
+        [cardView layoutIfNeeded];
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        cardView.frame = newCardFrame;
+        self.cardFrame = newCardFrame;
+        self.customFrame = newCardFrame;
+        updateOriginalCardRatiosForOrientation(isLandscape);
+        resetCardExpandedStateAfterRotation();
+        layoutCardContentToBounds(cardView);
+        [cardView setNeedsLayout];
+        [cardView layoutIfNeeded];
+        for (UIView *subview in cardView.subviews) {
+            [subview setNeedsLayout];
+            [subview layoutIfNeeded];
+        }
+        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+        cardView.layer.mask = maskLayer;
+    }];
 }
 
 @end

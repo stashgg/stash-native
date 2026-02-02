@@ -156,22 +156,45 @@ extension ViewController: StashPayCardDelegate {
 
 | Method | iPhone Behavior | iPad Behavior | Use Case |
 |--------|-----------------|---------------|----------|
-| `openCheckout(withURL:)` | Card slides from bottom (portrait, full width) with expand/collapse gestures | Centered modal with rotation support | Standard checkout flow |
+| `openCheckout(withURL:)` | Card: portrait-only or current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
 | `openModal(withURL:config:)` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content, no card behavior |
 
 ---
 
 ## Checkout Configuration
 
-### iPhone Card Size
+### Force portrait on checkout (iPhone)
 
-The iPhone card **always forces portrait** and **uses full screen width**. Only the height is configurable:
+By default, checkout on iPhone **does not** force portrait. You can lock checkout to portrait or allow all orientations:
+
+- **Force portrait on**  
+  Checkout is shown in a **portrait-only** view. The card uses full width and a configurable height ratio. Expand/collapse is supported via drag.
+
+- **Force portrait off (default)**  
+  Checkout appears in the **current orientation**. The card resizes on rotation and supports expand/collapse (drag or WebView callbacks). In **portrait** the card uses full width and a height ratio; in **landscape** it uses configurable width and height ratios.
 
 ```swift
 let stashPay = StashPayCard.sharedInstance()
 
-// iPhone: only height is configurable (default: 68%)
+// Lock checkout to portrait or allow current orientation
+stashPay.forcePortraitOnCheckout = false   // default: allow all orientations
+```
+
+### iPhone card size
+
+**Portrait** (and when force portrait is on): the card uses **full screen width**. Only the height ratio is configurable.
+
+**Landscape** (only when force portrait is off): the card size is controlled by width and height ratios of the screen.
+
+```swift
+let stashPay = StashPayCard.sharedInstance()
+
+// Portrait: full width, height as ratio of screen height (default: 68%)
 stashPay.cardHeightRatioPortrait = 0.68
+
+// Landscape (only when force portrait is off): width and height as ratio of screen
+stashPay.cardWidthRatioLandscape = 0.9   // default: 90% width
+stashPay.cardHeightRatioLandscape = 0.6  // default: 60% height
 ```
 
 ### iPad Card Size
@@ -319,11 +342,14 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `isCurrentlyPresented` | Returns `true` if a dialog is currently shown |
 | `isPurchaseProcessing` | Returns `true` if a payment is in progress |
 
-### Checkout Sizing (iPhone)
+### Checkout: force portrait & sizing (iPhone)
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `cardHeightRatioPortrait` | `0.68` | Card height as ratio of screen height (0.1-1.0) |
+| `forcePortraitOnCheckout` | `false` | If true, show checkout in portrait only; if false, allow all orientations with rotation and expand/collapse |
+| `cardHeightRatioPortrait` | `0.68` | Card height as ratio of screen height in portrait (0.1-1.0) |
+| `cardWidthRatioLandscape` | `0.9` | Card width as ratio of screen width in landscape (0.1-1.0); used only when force portrait is off |
+| `cardHeightRatioLandscape` | `0.6` | Card height as ratio of screen height in landscape (0.1-1.0); used only when force portrait is off |
 
 ### Checkout Sizing (iPad)
 
@@ -404,5 +430,5 @@ To run the sample:
 
 The sample app includes:
 - Separate URL inputs for Checkout and Modal
-- Advanced Options for Checkout (web view mode, sizing)
+- Advanced Options for Checkout (web view mode, force portrait, landscape sizing)
 - Advanced Options for Modal (drag bar, dismiss, sizing)

@@ -31,7 +31,7 @@ class ViewController: UIViewController {
     // Advanced options - Checkout (one row per option when expanded)
     private var isCheckoutAdvancedExpanded = false
     private let webViewModeSwitch = UISwitch()
-    private let landscapeLockSwitch = UISwitch()
+    private let forcePortraitOnCheckoutSwitch = UISwitch()
     private let phoneCardHeightSlider = UISlider()
     private let phoneCardHeightLabel = UILabel()
     private let checkoutTabletPortraitWidthSlider = UISlider()
@@ -42,6 +42,10 @@ class ViewController: UIViewController {
     private let checkoutTabletLandscapeWidthLabel = UILabel()
     private let checkoutTabletLandscapeHeightSlider = UISlider()
     private let checkoutTabletLandscapeHeightLabel = UILabel()
+    private let checkoutPhoneLandscapeWidthSlider = UISlider()
+    private let checkoutPhoneLandscapeWidthLabel = UILabel()
+    private let checkoutPhoneLandscapeHeightSlider = UISlider()
+    private let checkoutPhoneLandscapeHeightLabel = UILabel()
     
     // Advanced options - Modal
     private var isModalAdvancedExpanded = false
@@ -64,8 +68,6 @@ class ViewController: UIViewController {
     private let modalTabletLandscapeHeightSlider = UISlider()
     private let modalTabletLandscapeHeightLabel = UILabel()
     
-    private var isLandscapeLocked = false
-    
     private enum Section: Int, CaseIterable {
         case checkout
         case modal
@@ -77,8 +79,10 @@ class ViewController: UIViewController {
     private enum CheckoutOptionRow: Int, CaseIterable {
         case header
         case webViewMode
-        case landscapeLock
+        case forcePortraitOnCheckout
         case phoneCardHeight
+        case phoneLandscapeWidth
+        case phoneLandscapeHeight
         case tabletPortraitWidth
         case tabletPortraitHeight
         case tabletLandscapeWidth
@@ -134,7 +138,7 @@ class ViewController: UIViewController {
     }
     
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        return isLandscapeLocked ? .landscape : .all
+        return .all
     }
     
     // MARK: - Setup
@@ -165,9 +169,14 @@ class ViewController: UIViewController {
     
     private func setupCheckoutSlidersAndSwitches() {
         webViewModeSwitch.addTarget(self, action: #selector(webViewModeToggled), for: .valueChanged)
-        landscapeLockSwitch.addTarget(self, action: #selector(landscapeLockToggled), for: .valueChanged)
+        forcePortraitOnCheckoutSwitch.isOn = false
+        forcePortraitOnCheckoutSwitch.addTarget(self, action: #selector(forcePortraitOnCheckoutToggled), for: .valueChanged)
         configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)
         phoneCardHeightSlider.addTarget(self, action: #selector(phoneCardHeightChanged), for: .valueChanged)
+        configureSlider(checkoutPhoneLandscapeWidthSlider, label: checkoutPhoneLandscapeWidthLabel, value: 90)
+        checkoutPhoneLandscapeWidthSlider.addTarget(self, action: #selector(checkoutPhoneLandscapeWidthChanged), for: .valueChanged)
+        configureSlider(checkoutPhoneLandscapeHeightSlider, label: checkoutPhoneLandscapeHeightLabel, value: 60)
+        checkoutPhoneLandscapeHeightSlider.addTarget(self, action: #selector(checkoutPhoneLandscapeHeightChanged), for: .valueChanged)
         configureSlider(checkoutTabletPortraitWidthSlider, label: checkoutTabletPortraitWidthLabel, value: 40)
         checkoutTabletPortraitWidthSlider.addTarget(self, action: #selector(checkoutTabletPortraitWidthChanged), for: .valueChanged)
         configureSlider(checkoutTabletPortraitHeightSlider, label: checkoutTabletPortraitHeightLabel, value: 50)
@@ -210,7 +219,10 @@ class ViewController: UIViewController {
     
     private func setupStashPayCard() {
         StashPayCard.sharedInstance().delegate = self
+        StashPayCard.sharedInstance().forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
         StashPayCard.sharedInstance().cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
+        StashPayCard.sharedInstance().cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
+        StashPayCard.sharedInstance().cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
         StashPayCard.sharedInstance().tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
         StashPayCard.sharedInstance().tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
         StashPayCard.sharedInstance().tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
@@ -252,7 +264,20 @@ class ViewController: UIViewController {
             return
         }
         statusLabel.text = "Opening checkout..."
+        syncCheckoutToStashPayCard()
         StashPayCard.sharedInstance().openCheckout(withURL: url)
+    }
+    
+    private func syncCheckoutToStashPayCard() {
+        let card = StashPayCard.sharedInstance()
+        card.forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
+        card.cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
+        card.cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
+        card.cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
+        card.tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
+        card.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
+        card.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
+        card.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
     }
     
     @objc private func openModalTapped() {
@@ -285,21 +310,9 @@ class ViewController: UIViewController {
         statusLabel.text = webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI"
     }
     
-    @objc private func landscapeLockToggled() {
-        isLandscapeLocked = landscapeLockSwitch.isOn
-        if isLandscapeLocked {
-            if #available(iOS 16.0, *) {
-                setNeedsUpdateOfSupportedInterfaceOrientations()
-                guard let windowScene = view.window?.windowScene else { return }
-                windowScene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape))
-            }
-            statusLabel.text = "Locked to Landscape"
-        } else {
-            if #available(iOS 16.0, *) {
-                setNeedsUpdateOfSupportedInterfaceOrientations()
-            }
-            statusLabel.text = "Orientation Unlocked"
-        }
+    @objc private func forcePortraitOnCheckoutToggled() {
+        StashPayCard.sharedInstance().forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
+        statusLabel.text = forcePortraitOnCheckoutSwitch.isOn ? "Checkout: force portrait" : "Checkout: current orientation"
     }
     
     @objc private func advancedCheckoutToggleTapped() {
@@ -331,6 +344,14 @@ class ViewController: UIViewController {
     @objc private func checkoutTabletLandscapeHeightChanged() {
         checkoutTabletLandscapeHeightLabel.text = "\(Int(checkoutTabletLandscapeHeightSlider.value))%"
         StashPayCard.sharedInstance().tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+    }
+    @objc private func checkoutPhoneLandscapeWidthChanged() {
+        checkoutPhoneLandscapeWidthLabel.text = "\(Int(checkoutPhoneLandscapeWidthSlider.value))%"
+        StashPayCard.sharedInstance().cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
+    }
+    @objc private func checkoutPhoneLandscapeHeightChanged() {
+        checkoutPhoneLandscapeHeightLabel.text = "\(Int(checkoutPhoneLandscapeHeightSlider.value))%"
+        StashPayCard.sharedInstance().cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
     }
     @objc private func modalPhonePortraitWidthChanged() { modalPhonePortraitWidthLabel.text = "\(Int(modalPhonePortraitWidthSlider.value))%" }
     @objc private func modalPhonePortraitHeightChanged() { modalPhonePortraitHeightLabel.text = "\(Int(modalPhonePortraitHeightSlider.value))%" }
@@ -504,10 +525,14 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             return cell
         case .webViewMode:
             return switchCell(title: "Use Web View Mode", subtitle: "Open in Safari", switchView: webViewModeSwitch)
-        case .landscapeLock:
-            return switchCell(title: "Lock to Landscape", subtitle: nil, switchView: landscapeLockSwitch)
+        case .forcePortraitOnCheckout:
+            return switchCell(title: "Force Portrait on Checkout", subtitle: "Rotate to portrait when opening checkout", switchView: forcePortraitOnCheckoutSwitch)
         case .phoneCardHeight:
             return sliderCell(title: "Phone Card Height", valueLabel: phoneCardHeightLabel, slider: phoneCardHeightSlider)
+        case .phoneLandscapeWidth:
+            return sliderCell(title: "Phone Landscape Width", valueLabel: checkoutPhoneLandscapeWidthLabel, slider: checkoutPhoneLandscapeWidthSlider)
+        case .phoneLandscapeHeight:
+            return sliderCell(title: "Phone Landscape Height", valueLabel: checkoutPhoneLandscapeHeightLabel, slider: checkoutPhoneLandscapeHeightSlider)
         case .tabletPortraitWidth:
             return sliderCell(title: "Tablet Portrait Width", valueLabel: checkoutTabletPortraitWidthLabel, slider: checkoutTabletPortraitWidthSlider)
         case .tabletPortraitHeight:
@@ -610,7 +635,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
             if isCheckoutAdvancedExpanded, indexPath.row > 0 {
                 let row = CheckoutOptionRow(rawValue: indexPath.row)!
                 switch row {
-                case .phoneCardHeight, .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
+                case .phoneCardHeight, .phoneLandscapeWidth, .phoneLandscapeHeight, .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
                     return 72
                 default: return 44
                 }

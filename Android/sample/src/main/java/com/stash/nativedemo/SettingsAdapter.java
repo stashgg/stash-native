@@ -41,7 +41,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public interface Callbacks {
         void onOpenCheckout();
         void onOpenModal();
-        void onLandscapeLockChanged(boolean locked);
     }
 
     public SettingsAdapter(MainViewModel viewModel, Callbacks callbacks) {
@@ -352,9 +351,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             b.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (item.titleRes == R.string.option_web_view_mode) {
                     viewModel.setWebViewMode(isChecked);
-                } else if (item.titleRes == R.string.option_landscape_lock) {
-                    viewModel.setLandscapeLock(isChecked);
-                    callbacks.onLandscapeLockChanged(isChecked);
+                } else if (item.titleRes == R.string.option_force_portrait_on_checkout) {
+                    viewModel.setForcePortraitOnCheckout(isChecked);
                 } else if (item.titleRes == R.string.option_show_drag_bar) {
                     viewModel.setModalShowDragBar(isChecked);
                 } else if (item.titleRes == R.string.option_allow_dismiss) {
@@ -382,6 +380,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     if (!fromUser) return;
                     int titleRes = item.titleRes;
                     if (titleRes == R.string.phone_card_height) viewModel.setPhoneCardHeight(progress);
+                    else if (titleRes == R.string.checkout_phone_landscape_width) viewModel.setCheckoutPhoneLandscapeWidth(progress);
+                    else if (titleRes == R.string.checkout_phone_landscape_height) viewModel.setCheckoutPhoneLandscapeHeight(progress);
                     else if (titleRes == R.string.tablet_portrait_width) viewModel.setCheckoutTabletPortraitWidth(progress);
                     else if (titleRes == R.string.tablet_portrait_height) viewModel.setCheckoutTabletPortraitHeight(progress);
                     else if (titleRes == R.string.tablet_landscape_width) viewModel.setCheckoutTabletLandscapeWidth(progress);

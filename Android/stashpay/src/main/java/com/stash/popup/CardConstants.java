@@ -109,14 +109,14 @@ public final class CardConstants {
     public static final float TOUCH_TARGET_MIN_DP = 120f;
     
     // ============================================================================
-    // Overlay Opacity
+    // Overlay Opacity (unified across all modes and platforms: 40%)
     // ============================================================================
     
-    /** Phone overlay opacity (0-255) */
-    public static final int OVERLAY_OPACITY_PHONE = 90; // ~35%
+    /** Overlay dim alpha 0-1 (used consistently everywhere) */
+    public static final float OVERLAY_ALPHA = 0.4f;
     
-    /** Tablet overlay opacity (0-255) */
-    public static final int OVERLAY_OPACITY_TABLET = 64; // ~25%
+    /** Overlay dim color 40% black - use for all overlay/dim backgrounds */
+    public static final String COLOR_OVERLAY_DIM = "#66000000";
     
     // ============================================================================
     // Default Size Ratios
@@ -127,6 +127,12 @@ public final class CardConstants {
     
     /** Default phone card width ratio */
     public static final float DEFAULT_CARD_WIDTH_RATIO = 1.0f;
+    
+    /** Default phone card width ratio in landscape (when not forcing portrait) */
+    public static final float DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE = 0.9f;
+    
+    /** Default phone card height ratio in landscape (when not forcing portrait) */
+    public static final float DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE = 0.6f;
     
     /** Expanded phone card height ratio */
     public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
@@ -259,6 +265,9 @@ public final class CardConstants {
     public static final String INTENT_EXTRA_USE_POPUP = "usePopup";
     public static final String INTENT_EXTRA_WAS_LANDSCAPE = "wasLandscape";
     public static final String INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT = "cardHeightRatioPortrait";
+    public static final String INTENT_EXTRA_FORCE_PORTRAIT_ON_CHECKOUT = "forcePortraitOnCheckout";
+    public static final String INTENT_EXTRA_CARD_WIDTH_RATIO_LANDSCAPE = "cardWidthRatioLandscape";
+    public static final String INTENT_EXTRA_CARD_HEIGHT_RATIO_LANDSCAPE = "cardHeightRatioLandscape";
     public static final String INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT = "tabletWidthRatioPortrait";
     public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT = "tabletHeightRatioPortrait";
     public static final String INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE = "tabletWidthRatioLandscape";
@@ -286,8 +295,8 @@ public final class CardConstants {
     // Colors
     // ============================================================================
     
-    /** Background dim color (50% alpha). Used as fallback when StashWebViewUtils.COLOR_BACKGROUND_DIM parse fails. */
-    public static final String COLOR_BACKGROUND_DIM = "#80000000";
+    /** Background dim color (40% alpha). Same as COLOR_OVERLAY_DIM for consistency. */
+    public static final String COLOR_BACKGROUND_DIM = COLOR_OVERLAY_DIM;
     
     public static final String COLOR_LIGHT_BG = "#F2F2F7";
     public static final String COLOR_DARK_BG = "#000000";

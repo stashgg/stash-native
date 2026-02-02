@@ -240,7 +240,7 @@ extern UIViewController *getTopPresentedViewController(void);
                 cardView.alpha = 1.0;
             }
             if (overlayView) {
-                overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+                overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.4];
             }
         } completion:^(BOOL finished) {
             [self->_loadingView removeFromSuperview];

@@ -31,8 +31,8 @@ public class StashWebViewUtils {
     public static final String THEME_DARK = "dark";
     public static final String THEME_LIGHT = "light";
     
-    /** Lighter overlay dim (12.5% alpha). Fallback when parse fails: CardConstants.COLOR_BACKGROUND_DIM (50%). */
-    public static final String COLOR_BACKGROUND_DIM = "#20000000";
+    /** Overlay dim (40% alpha). Must match CardConstants.COLOR_OVERLAY_DIM. */
+    public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
     public static final String COLOR_DARK_BG = "#1C1C1E";
     
     public static final String JS_SDK_SCRIPT = "(function() {" +

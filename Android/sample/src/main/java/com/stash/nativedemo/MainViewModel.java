@@ -29,8 +29,9 @@ public class MainViewModel extends ViewModel {
 
     // Checkout options
     private boolean webViewMode = false;
-    private boolean landscapeLock = false;
+    private boolean forcePortraitOnCheckout = false;
     private int phoneCardHeight = 58;       // 68%
+    private int checkoutPhoneLandscapeW = 80, checkoutPhoneLandscapeH = 50; // 90%, 60% (progress 0–90 → display 10–100%)
     private int checkoutTabletPortraitW = 30, checkoutTabletPortraitH = 40;  // 40%, 50%
     private int checkoutTabletLandscapeW = 20, checkoutTabletLandscapeH = 50; // 30%, 60%
 
@@ -101,8 +102,8 @@ public class MainViewModel extends ViewModel {
         refreshList();
     }
 
-    public void setLandscapeLock(boolean on) {
-        landscapeLock = on;
+    public void setForcePortraitOnCheckout(boolean on) {
+        forcePortraitOnCheckout = on;
         refreshList();
     }
 
@@ -138,6 +139,16 @@ public class MainViewModel extends ViewModel {
 
     public void setCheckoutTabletLandscapeHeight(int progress) {
         checkoutTabletLandscapeH = progress;
+        refreshList();
+    }
+
+    public void setCheckoutPhoneLandscapeWidth(int progress) {
+        checkoutPhoneLandscapeW = progress;
+        refreshList();
+    }
+
+    public void setCheckoutPhoneLandscapeHeight(int progress) {
+        checkoutPhoneLandscapeH = progress;
         refreshList();
     }
 
@@ -182,7 +193,7 @@ public class MainViewModel extends ViewModel {
     }
 
     public boolean isWebViewMode() { return webViewMode; }
-    public boolean isLandscapeLock() { return landscapeLock; }
+    public boolean isForcePortraitOnCheckout() { return forcePortraitOnCheckout; }
     public boolean isModalShowDragBar() { return modalShowDragBar; }
     public boolean isModalAllowDismiss() { return modalAllowDismiss; }
     public int getPhoneCardHeight() { return phoneCardHeight; }
@@ -190,6 +201,8 @@ public class MainViewModel extends ViewModel {
     public int getCheckoutTabletPortraitH() { return checkoutTabletPortraitH; }
     public int getCheckoutTabletLandscapeW() { return checkoutTabletLandscapeW; }
     public int getCheckoutTabletLandscapeH() { return checkoutTabletLandscapeH; }
+    public int getCheckoutPhoneLandscapeW() { return checkoutPhoneLandscapeW; }
+    public int getCheckoutPhoneLandscapeH() { return checkoutPhoneLandscapeH; }
     public int getModalPhonePortraitW() { return modalPhonePortraitW; }
     public int getModalPhonePortraitH() { return modalPhonePortraitH; }
     public int getModalPhoneLandscapeW() { return modalPhoneLandscapeW; }
@@ -226,8 +239,10 @@ public class MainViewModel extends ViewModel {
                 checkoutOptionsExpanded, R.drawable.ic_tune, false, !checkoutOptionsExpanded));
         if (checkoutOptionsExpanded) {
             list.add(SettingsItem.switchPreference(R.string.option_web_view_mode, R.string.option_web_view_mode_supporting, webViewMode, false, false));
-            list.add(SettingsItem.switchPreference(R.string.option_landscape_lock, 0, landscapeLock, false, false));
+            list.add(SettingsItem.switchPreference(R.string.option_force_portrait_on_checkout, R.string.option_force_portrait_on_checkout_supporting, forcePortraitOnCheckout, false, false));
             list.add(SettingsItem.sliderPreference(R.string.phone_card_height, phoneCardHeight, false, false));
+            list.add(SettingsItem.sliderPreference(R.string.checkout_phone_landscape_width, checkoutPhoneLandscapeW, false, false));
+            list.add(SettingsItem.sliderPreference(R.string.checkout_phone_landscape_height, checkoutPhoneLandscapeH, false, false));
             list.add(SettingsItem.sliderPreference(R.string.tablet_portrait_width, checkoutTabletPortraitW, false, false));
             list.add(SettingsItem.sliderPreference(R.string.tablet_portrait_height, checkoutTabletPortraitH, false, false));
             list.add(SettingsItem.sliderPreference(R.string.tablet_landscape_width, checkoutTabletLandscapeW, false, false));

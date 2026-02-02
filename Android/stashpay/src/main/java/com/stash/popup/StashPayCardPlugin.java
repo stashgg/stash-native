@@ -1,5 +1,6 @@
 package com.stash.popup;
 
+import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Dialog;
@@ -15,6 +16,7 @@ import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +31,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.net.Uri;
 
@@ -58,8 +61,11 @@ public class StashPayCardPlugin {
     private ProgressBar loadingIndicator;
     private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
     
-    // Phone card: only height is configurable (card is always portrait, full width)
+    // Phone card: only height is configurable in portrait (full width); landscape ratios when not forcing portrait
     private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
+    private boolean forcePortraitOnCheckout = false;
+    private float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
+    private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
     
     // Orientation-specific tablet card configuration
     private float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
@@ -75,6 +81,9 @@ public class StashPayCardPlugin {
     private volatile boolean isPurchaseProcessing;
     private boolean usePopupPresentation;
     private boolean useModalPresentation;
+    private boolean useCheckoutOverlayPresentation;
+    /** When true, checkout overlay (no force portrait) is expanded to ~95% height. Reset on rotation. */
+    private boolean isCheckoutOverlayExpanded = false;
     private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
     
@@ -159,7 +168,38 @@ public class StashPayCardPlugin {
                 if (listener != null) listener.onOptInResponse(optinType != null ? optinType : "");
             });
         }
-        
+
+        @JavascriptInterface
+        public void expand() {
+            runOnMainSafely(() -> {
+                try {
+                    if (!useCheckoutOverlayPresentation) return;
+                    Activity a = getActivity();
+                    if (a == null || currentContainer == null || currentDialog == null || !currentDialog.isShowing()) return;
+                    if (!isCheckoutOverlayExpanded) {
+                        animateCheckoutOverlayExpand(a);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in expand from WebView: " + e.getMessage(), e);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void collapse() {
+            runOnMainSafely(() -> {
+                try {
+                    if (!useCheckoutOverlayPresentation) return;
+                    Activity a = getActivity();
+                    if (a == null || currentContainer == null || currentDialog == null || !currentDialog.isShowing()) return;
+                    if (isCheckoutOverlayExpanded) {
+                        animateCheckoutOverlayCollapse(a);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in collapse from WebView: " + e.getMessage(), e);
+                }
+            });
+        }
     }
     
     public static StashPayCardPlugin getInstance() {
@@ -289,6 +329,38 @@ public class StashPayCardPlugin {
         }
     }
     
+    public boolean isForcePortraitOnCheckout() {
+        return forcePortraitOnCheckout;
+    }
+    
+    public void setForcePortraitOnCheckout(boolean force) {
+        this.forcePortraitOnCheckout = force;
+    }
+    
+    public float getCardWidthRatioLandscape() {
+        return cardWidthRatioLandscape;
+    }
+    
+    public void setCardWidthRatioLandscape(float ratio) {
+        try {
+            this.cardWidthRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardWidthRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
+    public float getCardHeightRatioLandscape() {
+        return cardHeightRatioLandscape;
+    }
+    
+    public void setCardHeightRatioLandscape(float ratio) {
+        try {
+            this.cardHeightRatioLandscape = clampRatio(ratio);
+        } catch (Exception e) {
+            Log.e(TAG, "Error in setCardHeightRatioLandscape: " + e.getMessage(), e);
+        }
+    }
+    
     // ============================================================================
     // Orientation-Specific Tablet Card Size Configuration
     // ============================================================================
@@ -402,7 +474,17 @@ public class StashPayCardPlugin {
                     } else if (forceSafariViewController) {
                         openWithChromeCustomTabs(finalUrl, finalActivity);
                     } else {
-                        launchPortraitActivity(finalUrl, finalActivity);
+                        boolean isTablet = false;
+                        try {
+                            isTablet = StashWebViewUtils.isTablet(finalActivity);
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error checking tablet: " + e.getMessage(), e);
+                        }
+                        if (!isTablet && !forcePortraitOnCheckout) {
+                            createAndShowCheckoutOverlay(finalUrl, finalActivity);
+                        } else {
+                            launchPortraitActivity(finalUrl, finalActivity);
+                        }
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Error in UI thread operation: " + e.getMessage(), e);
@@ -433,6 +515,9 @@ public class StashPayCardPlugin {
             intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
             intent.putExtra(CardConstants.INTENT_EXTRA_INITIAL_URL, url);
             intent.putExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, cardHeightRatioPortrait);
+            intent.putExtra(CardConstants.INTENT_EXTRA_FORCE_PORTRAIT_ON_CHECKOUT, forcePortraitOnCheckout);
+            intent.putExtra(CardConstants.INTENT_EXTRA_CARD_WIDTH_RATIO_LANDSCAPE, cardWidthRatioLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_LANDSCAPE, cardHeightRatioLandscape);
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_PORTRAIT, tabletWidthRatioPortrait);
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_PORTRAIT, tabletHeightRatioPortrait);
             intent.putExtra(CardConstants.INTENT_EXTRA_TABLET_WIDTH_RATIO_LANDSCAPE, tabletWidthRatioLandscape);
@@ -482,12 +567,23 @@ public class StashPayCardPlugin {
                         lastOrientation = currentOrientation;
                         
                         try {
-                            int[] newDimensions = useModalPresentation
-                                ? calculateModalDimensions(activity)
-                                : calculatePopupDimensions(activity);
+                            int[] newDimensions;
+                            if (useCheckoutOverlayPresentation) {
+                                newDimensions = calculateCheckoutOverlayDimensions(activity);
+                            } else if (useModalPresentation) {
+                                newDimensions = calculateModalDimensions(activity);
+                            } else {
+                                newDimensions = calculatePopupDimensions(activity);
+                            }
                             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
                             
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                            if (useCheckoutOverlayPresentation) {
+                                isCheckoutOverlayExpanded = false;
+                                params.width = newDimensions[0];
+                                params.height = newDimensions[1];
+                                params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+                                currentContainer.setLayoutParams(params);
+                            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                                 currentContainer.animate()
                                     .scaleX(0.95f)
                                     .scaleY(0.95f)
@@ -521,6 +617,221 @@ public class StashPayCardPlugin {
                 Log.e(TAG, "Error in onGlobalLayout: " + e.getMessage(), e);
             }
         }
+    }
+
+    /**
+     * Touch listener for checkout overlay drag bar: expand (drag up), collapse (drag down when expanded), dismiss (drag down when collapsed).
+     */
+    private class CheckoutOverlayDragTouchListener implements View.OnTouchListener {
+        private final Activity activity;
+        private float initialY;
+        private int initialHeight;
+        private boolean isDragging;
+        private long lastMoveTime;
+        private float lastMoveY;
+        private float velocity;
+        private DisplayMetrics displayMetrics;
+
+        CheckoutOverlayDragTouchListener(Activity activity) {
+            this.activity = activity;
+        }
+
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            if (currentContainer == null || currentDialog == null || !currentDialog.isShowing() || !useCheckoutOverlayPresentation) return false;
+            if (isPurchaseProcessing) return false;
+
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    initialY = event.getRawY();
+                    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+                    initialHeight = params.height;
+                    isDragging = false;
+                    lastMoveTime = System.currentTimeMillis();
+                    lastMoveY = event.getRawY();
+                    velocity = 0;
+                    displayMetrics = activity.getResources().getDisplayMetrics();
+                    return true;
+
+                case MotionEvent.ACTION_MOVE:
+                    float deltaY = event.getRawY() - initialY;
+                    long currentTime = System.currentTimeMillis();
+                    float timeDelta = (currentTime - lastMoveTime) / 1000f;
+                    if (timeDelta > 0) velocity = (event.getRawY() - lastMoveY) / timeDelta;
+                    lastMoveTime = currentTime;
+                    lastMoveY = event.getRawY();
+
+                    if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(activity, 10)) {
+                        isDragging = true;
+                        if (deltaY > 0) {
+                            if (isCheckoutOverlayExpanded) {
+                                float cardHeight = currentContainer.getHeight();
+                                float collapseThreshold = cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
+                                float progress = Math.min(deltaY / collapseThreshold, 1.0f);
+                                int[] collapsed = calculateCheckoutOverlayDimensions(activity);
+                                int expandedHeight = (int)(displayMetrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+                                int newHeight = (int)(expandedHeight - progress * (expandedHeight - collapsed[1]));
+                                params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+                                params.height = Math.max(newHeight, collapsed[1]);
+                                currentContainer.setLayoutParams(params);
+                            } else {
+                                float newTranslationY = deltaY;
+                                currentContainer.setTranslationY(newTranslationY);
+                                float progress = Math.min(deltaY / displayMetrics.heightPixels, 1.0f);
+                                currentContainer.setAlpha(1.0f - (progress * CardConstants.ALPHA_FADE_MULTIPLIER));
+                            }
+                        } else if (!isCheckoutOverlayExpanded) {
+                            float cardHeight = currentContainer.getHeight();
+                            float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                            float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                                currentContainer.setScaleX(1.0f + (dragProgress * 0.02f));
+                                currentContainer.setScaleY(1.0f + (dragProgress * 0.02f));
+                            }
+                        }
+                    }
+                    return true;
+
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (isDragging) {
+                        float finalDeltaY = event.getRawY() - initialY;
+                        DisplayMetrics metrics = displayMetrics != null ? activity.getResources().getDisplayMetrics() : activity.getResources().getDisplayMetrics();
+                        int cardHeight = currentContainer.getHeight();
+
+                        if (finalDeltaY > 0) {
+                            if (isCheckoutOverlayExpanded) {
+                                float dismissThreshold = metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_TABLET;
+                                float collapseThreshold = cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
+                                if (finalDeltaY > dismissThreshold && velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                                    animateCheckoutOverlayDismiss();
+                                } else if (finalDeltaY > collapseThreshold || velocity > CardConstants.COLLAPSE_VELOCITY_THRESHOLD) {
+                                    animateCheckoutOverlayCollapse(activity);
+                                } else {
+                                    animateCheckoutOverlaySnapBackExpand(activity);
+                                }
+                            } else {
+                                float dismissThreshold = metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
+                                if (finalDeltaY > dismissThreshold || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                                    animateCheckoutOverlayDismiss();
+                                } else {
+                                    animateCheckoutOverlaySnapBackCollapsed(activity);
+                                }
+                            }
+                        } else if (finalDeltaY < 0 && !isCheckoutOverlayExpanded) {
+                            float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                            if (Math.abs(finalDeltaY) > expandThreshold || velocity < CardConstants.EXPAND_VELOCITY_THRESHOLD) {
+                                animateCheckoutOverlayExpand(activity);
+                            } else {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                                    currentContainer.animate().scaleX(1f).scaleY(1f).setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK).setInterpolator(new SpringInterpolator()).start();
+                                }
+                            }
+                        } else {
+                            if (isCheckoutOverlayExpanded) {
+                                animateCheckoutOverlaySnapBackExpand(activity);
+                            } else {
+                                animateCheckoutOverlaySnapBackCollapsed(activity);
+                            }
+                        }
+                    }
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    private void animateCheckoutOverlayExpand(Activity activity) {
+        if (currentContainer == null || activity == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            currentContainer.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
+        }
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+        int expandedHeight = (int)(activity.getResources().getDisplayMetrics().heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+        ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, expandedHeight);
+        heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_EXPAND);
+        heightAnimator.setInterpolator(new SpringInterpolator());
+        heightAnimator.addUpdateListener(animation -> {
+            if (currentContainer != null) {
+                FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+                p.height = (Integer) animation.getAnimatedValue();
+                currentContainer.setLayoutParams(p);
+            }
+        });
+        heightAnimator.start();
+        currentContainer.setTranslationY(0);
+        currentContainer.setAlpha(1f);
+        isCheckoutOverlayExpanded = true;
+    }
+
+    private void animateCheckoutOverlayCollapse(Activity activity) {
+        if (currentContainer == null || activity == null || !isCheckoutOverlayExpanded) return;
+        int[] dims = calculateCheckoutOverlayDimensions(activity);
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+        ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, dims[1]);
+        heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_COLLAPSE);
+        heightAnimator.setInterpolator(new SpringInterpolator());
+        heightAnimator.addUpdateListener(animation -> {
+            if (currentContainer != null) {
+                FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+                p.height = (Integer) animation.getAnimatedValue();
+                currentContainer.setLayoutParams(p);
+            }
+        });
+        heightAnimator.start();
+        currentContainer.setTranslationY(0);
+        currentContainer.setAlpha(1f);
+        isCheckoutOverlayExpanded = false;
+    }
+
+    private void animateCheckoutOverlaySnapBackExpand(Activity activity) {
+        if (currentContainer == null) return;
+        int expandedHeight = (int)(activity.getResources().getDisplayMetrics().heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+        ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, expandedHeight);
+        heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK);
+        heightAnimator.setInterpolator(new SpringInterpolator());
+        heightAnimator.addUpdateListener(animation -> {
+            if (currentContainer != null) {
+                FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
+                p.height = (Integer) animation.getAnimatedValue();
+                currentContainer.setLayoutParams(p);
+            }
+        });
+        heightAnimator.start();
+        currentContainer.setTranslationY(0);
+        currentContainer.setAlpha(1f);
+    }
+
+    private void animateCheckoutOverlaySnapBackCollapsed(Activity activity) {
+        if (currentContainer == null || activity == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            currentContainer.animate().scaleX(1f).scaleY(1f).setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK).setInterpolator(new SpringInterpolator()).start();
+        }
+        currentContainer.setTranslationY(0);
+        currentContainer.setAlpha(1f);
+    }
+
+    private void animateCheckoutOverlayDismiss() {
+        if (currentDialog == null || currentContainer == null) return;
+        Activity a = getActivity();
+        int height = currentContainer.getHeight();
+        if (height <= 0 && a != null) height = (int)(a.getResources().getDisplayMetrics().heightPixels * cardHeightRatioPortrait);
+        if (height <= 0) height = 800;
+        final int finalHeight = height;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            currentContainer.animate()
+                .translationY(finalHeight)
+                .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+                .setInterpolator(new android.view.animation.AccelerateInterpolator())
+                .withEndAction(() -> {
+                    if (currentDialog != null) currentDialog.dismiss();
+                })
+                .start();
+        } else {
+            currentDialog.dismiss();
+        }
+        isCheckoutOverlayExpanded = false;
     }
 
     private void createAndShowPopupDialog(String url, final Activity activity) {
@@ -638,7 +949,7 @@ public class StashPayCardPlugin {
                     window.setBackgroundDrawableResource(android.R.color.transparent);
                     window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                     WindowManager.LayoutParams windowParams = window.getAttributes();
-                    windowParams.dimAmount = 0.3f;
+                    windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
                     window.setAttributes(windowParams);
                 } catch (Exception e) {
                     Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
@@ -773,7 +1084,9 @@ public class StashPayCardPlugin {
                     FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
                 webView.setLayoutParams(webViewParams);
                 currentContainer.addView(webView);
-
+                if (currentModalConfig.showDragBar) {
+                    addVisualDragBarToContainer(activity, currentContainer);
+                }
                 setupPopupWebView(webView, url, activity);
             } catch (Exception e) {
                 Log.e(TAG, "Error creating WebView: " + e.getMessage(), e);
@@ -793,7 +1106,7 @@ public class StashPayCardPlugin {
                     window.setBackgroundDrawableResource(android.R.color.transparent);
                     window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                     WindowManager.LayoutParams windowParams = window.getAttributes();
-                    windowParams.dimAmount = 0.3f;
+                    windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
                     window.setAttributes(windowParams);
                 } catch (Exception e) {
                     Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
@@ -1083,6 +1396,7 @@ public class StashPayCardPlugin {
     
     private void cleanupAllViews() {
         try {
+            useCheckoutOverlayPresentation = false;
             if (loadingIndicator != null) {
                 try {
                     if (loadingIndicator.getParent() != null) {
@@ -1233,6 +1547,219 @@ public class StashPayCardPlugin {
                 Log.e(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
                 return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
             }
+        }
+    }
+    
+    private int[] calculateCheckoutOverlayDimensions(Activity activity) {
+        if (activity == null) {
+            return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
+        }
+        try {
+            DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+            int screenWidth = metrics.widthPixels;
+            int screenHeight = metrics.heightPixels;
+            boolean isLandscape = activity.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+            int cardWidth;
+            int cardHeight;
+            if (isLandscape) {
+                int w = (int)(screenWidth * cardWidthRatioLandscape);
+                int h = (int)(screenHeight * cardHeightRatioLandscape);
+                int minPx = StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+                if (w < minPx) w = minPx;
+                if (h < minPx) h = minPx;
+                cardWidth = w;
+                cardHeight = h;
+            } else {
+                cardWidth = screenWidth;
+                cardHeight = (int)(screenHeight * cardHeightRatioPortrait);
+            }
+            return new int[]{cardWidth, cardHeight};
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating checkout overlay dimensions: " + e.getMessage(), e);
+            try {
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                return new int[]{
+                    metrics.widthPixels,
+                    (int)(metrics.heightPixels * CardConstants.DEFAULT_CARD_HEIGHT_RATIO)
+                };
+            } catch (Exception e2) {
+                return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
+            }
+        }
+    }
+    
+    private void createAndShowCheckoutOverlay(String url, final Activity activity) {
+        if (activity == null || url == null || url.isEmpty()) {
+            Log.e(TAG, "Invalid activity or URL in createAndShowCheckoutOverlay");
+            return;
+        }
+        cleanupAllViews();
+        useCheckoutOverlayPresentation = true;
+        paymentSuccessHandled = false;
+        try {
+            currentDialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
+            currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            FrameLayout mainFrame = new FrameLayout(activity);
+            try {
+                mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
+            } catch (Exception e) {
+                mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
+            }
+            mainFrame.setOnClickListener(v -> {
+                try {
+                    if (!isPurchaseProcessing && currentDialog != null && currentDialog.isShowing() && v == mainFrame) {
+                        currentDialog.dismiss();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in checkout overlay click handler: " + e.getMessage(), e);
+                }
+            });
+            int[] dimensions;
+            try {
+                dimensions = calculateCheckoutOverlayDimensions(activity);
+            } catch (Exception e) {
+                Log.e(TAG, "Error calculating checkout overlay dimensions: " + e.getMessage(), e);
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                dimensions = new int[]{
+                    metrics.widthPixels,
+                    (int)(metrics.heightPixels * cardHeightRatioPortrait)
+                };
+            }
+            currentContainer = new FrameLayout(activity);
+            FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(dimensions[0], dimensions[1]);
+            containerParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            currentContainer.setLayoutParams(containerParams);
+            try {
+                lastOrientation = activity.getResources().getConfiguration().orientation;
+            } catch (Exception e) {
+                lastOrientation = Configuration.ORIENTATION_PORTRAIT;
+            }
+            orientationChangeListener = new PopupOrientationListener(activity);
+            try {
+                mainFrame.getViewTreeObserver().addOnGlobalLayoutListener(orientationChangeListener);
+            } catch (Exception e) {
+                Log.e(TAG, "Error adding orientation listener: " + e.getMessage(), e);
+            }
+            try {
+                GradientDrawable popupBg = new GradientDrawable();
+                popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
+                float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
+                popupBg.setCornerRadius(radius);
+                currentContainer.setBackground(popupBg);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    currentContainer.setElevation(StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
+                    currentContainer.setOutlineProvider(new ViewOutlineProvider() {
+                        @Override
+                        public void getOutline(View view, Outline outline) {
+                            try {
+                                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error setting outline: " + e.getMessage(), e);
+                            }
+                        }
+                    });
+                    currentContainer.setClipToOutline(true);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error setting container background: " + e.getMessage(), e);
+            }
+            try {
+                webView = new WebView(activity);
+                FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
+                webView.setLayoutParams(webViewParams);
+                currentContainer.addView(webView);
+                addCheckoutOverlayDragBar(activity);
+                View dragArea = currentContainer.getChildCount() > 0 ? currentContainer.getChildAt(currentContainer.getChildCount() - 1) : null;
+                if (dragArea != null) {
+                    dragArea.setOnTouchListener(new CheckoutOverlayDragTouchListener(activity));
+                }
+                setupPopupWebView(webView, url, activity);
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating WebView in checkout overlay: " + e.getMessage(), e);
+                cleanupAllViews();
+                return;
+            }
+            mainFrame.addView(currentContainer);
+            currentDialog.setContentView(mainFrame);
+            Window window = currentDialog.getWindow();
+            if (window != null) {
+                try {
+                    window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                    window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                            WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+                    window.setBackgroundDrawableResource(android.R.color.transparent);
+                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                    WindowManager.LayoutParams windowParams = window.getAttributes();
+                    windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
+                    window.setAttributes(windowParams);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error configuring checkout overlay window: " + e.getMessage(), e);
+                }
+            }
+            currentContainer.setOnClickListener(v -> {});
+            currentDialog.setCanceledOnTouchOutside(!isPurchaseProcessing);
+            currentDialog.setCancelable(!isPurchaseProcessing);
+            currentDialog.setOnDismissListener(dialog -> {
+                try {
+                    if (!paymentSuccessHandled && listener != null) {
+                        listener.onDialogDismissed();
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in checkout overlay dismiss listener: " + e.getMessage(), e);
+                }
+                cleanupAllViews();
+                isCurrentlyPresented = false;
+            });
+            currentDialog.show();
+            DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+            currentContainer.setTranslationY(metrics.heightPixels);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+                currentContainer.animate()
+                    .translationY(0)
+                    .setDuration(CardConstants.ANIMATION_DURATION_DEFAULT)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
+            } else {
+                currentContainer.setTranslationY(0);
+            }
+            isCurrentlyPresented = true;
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating checkout overlay: " + e.getMessage(), e);
+            cleanupAllViews();
+        }
+    }
+    
+    /** Adds the same visual drag bar as Activity cards (no touch handling) so checkout overlay matches other modes. */
+    private void addCheckoutOverlayDragBar(Activity activity) {
+        addVisualDragBarToContainer(activity, currentContainer);
+    }
+
+    /** Adds a visual-only drag bar to the given container (modal or overlay). No touch handling. */
+    private void addVisualDragBarToContainer(Activity activity, FrameLayout container) {
+        if (container == null || activity == null) return;
+        try {
+            LinearLayout dragArea = new LinearLayout(activity);
+            dragArea.setOrientation(LinearLayout.VERTICAL);
+            dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
+            dragArea.setPadding(StashWebViewUtils.dpToPx(activity, 20), StashWebViewUtils.dpToPx(activity, 16), StashWebViewUtils.dpToPx(activity, 20), StashWebViewUtils.dpToPx(activity, 16));
+            View handle = new View(activity);
+            GradientDrawable handleBg = new GradientDrawable();
+            handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
+            handleBg.setCornerRadius(StashWebViewUtils.dpToPx(activity, 2));
+            handle.setBackground(handleBg);
+            handle.setLayoutParams(new LinearLayout.LayoutParams(StashWebViewUtils.dpToPx(activity, 36), StashWebViewUtils.dpToPx(activity, 5)));
+            dragArea.addView(handle);
+            FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                StashWebViewUtils.dpToPx(activity, 120), FrameLayout.LayoutParams.WRAP_CONTENT);
+            params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+            dragArea.setLayoutParams(params);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                dragArea.setElevation(StashWebViewUtils.dpToPx(activity, 8));
+            }
+            container.addView(dragArea);
+        } catch (Exception e) {
+            Log.e(TAG, "Error adding visual drag bar: " + e.getMessage(), e);
         }
     }
 }
