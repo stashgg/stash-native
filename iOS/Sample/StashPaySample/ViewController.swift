@@ -26,10 +26,9 @@ class ViewController: UIViewController {
     
     private let checkoutUrlTextField = UITextField()
     private let modalUrlTextField = UITextField()
-    private let statusLabel = UILabel()
-    
-    // Advanced options - Checkout (one row per option when expanded)
+    // Presentation options: two separate expandables under one category
     private var isCheckoutAdvancedExpanded = false
+    private var isModalAdvancedExpanded = false
     private let webViewModeSwitch = UISwitch()
     private let forcePortraitOnCheckoutSwitch = UISwitch()
     private let phoneCardHeightSlider = UISlider()
@@ -47,8 +46,6 @@ class ViewController: UIViewController {
     private let checkoutPhoneLandscapeHeightSlider = UISlider()
     private let checkoutPhoneLandscapeHeightLabel = UILabel()
     
-    // Advanced options - Modal
-    private var isModalAdvancedExpanded = false
     private let modalShowDragBarSwitch = UISwitch()
     private let modalAllowDismissSwitch = UISwitch()
     private let modalPhonePortraitWidthSlider = UISlider()
@@ -71,13 +68,12 @@ class ViewController: UIViewController {
     private enum Section: Int, CaseIterable {
         case checkout
         case modal
-        case status
-        case checkoutOptions
-        case modalOptions
+        case presentationOptions
+        case checkoutGenerationSettings
     }
     
+    /// Checkout option rows (when checkout expandable is expanded).
     private enum CheckoutOptionRow: Int, CaseIterable {
-        case header
         case webViewMode
         case forcePortraitOnCheckout
         case phoneCardHeight
@@ -88,26 +84,33 @@ class ViewController: UIViewController {
         case tabletLandscapeWidth
         case tabletLandscapeHeight
     }
-    
+    /// Modal option rows (when modal expandable is expanded).
     private enum ModalOptionRow: Int, CaseIterable {
-        case header
         case showDragBar
         case allowDismiss
-        case phonePortraitWidth
-        case phonePortraitHeight
-        case phoneLandscapeWidth
-        case phoneLandscapeHeight
-        case tabletPortraitWidth
-        case tabletPortraitHeight
-        case tabletLandscapeWidth
-        case tabletLandscapeHeight
+        case modalPhonePortraitWidth
+        case modalPhonePortraitHeight
+        case modalPhoneLandscapeWidth
+        case modalPhoneLandscapeHeight
+        case modalTabletPortraitWidth
+        case modalTabletPortraitHeight
+        case modalTabletLandscapeWidth
+        case modalTabletLandscapeHeight
     }
+    
+    // Checkout Generation Settings
+    private static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
+    private static let userDefaultsApiKeyKey = "StashApiKey"
+    private var stashApiKey = ViewController.defaultStashApiKey
+    private var useTestApi = true
+    private let apiKeyTextField = UITextField()
+    private let useTestApiSwitch = UISwitch()
     
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Stash SDK"
+        title = "Stash SDK Sample"
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .always
         
@@ -162,9 +165,25 @@ class ViewController: UIViewController {
         modalUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
         modalUrlTextField.clearButtonMode = .whileEditing
         
-        statusLabel.text = "Ready"
-        statusLabel.font = .systemFont(ofSize: 17, weight: .regular)
-        statusLabel.textColor = .secondaryLabel
+        apiKeyTextField.placeholder = "API Key"
+        if let saved = UserDefaults.standard.string(forKey: ViewController.userDefaultsApiKeyKey), !saved.isEmpty {
+            stashApiKey = saved
+            apiKeyTextField.text = saved
+        } else {
+            apiKeyTextField.text = ViewController.defaultStashApiKey
+        }
+        apiKeyTextField.autocapitalizationType = .none
+        apiKeyTextField.autocorrectionType = .no
+        apiKeyTextField.textAlignment = .right
+        apiKeyTextField.font = .systemFont(ofSize: 17, weight: .regular)
+        apiKeyTextField.clearButtonMode = .whileEditing
+        apiKeyTextField.addTarget(self, action: #selector(apiKeyEditingDidEnd), for: .editingDidEnd)
+        useTestApiSwitch.isOn = true
+    }
+    
+    @objc private func apiKeyEditingDidEnd() {
+        let key = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        UserDefaults.standard.set(key.isEmpty ? nil : key, forKey: ViewController.userDefaultsApiKeyKey)
     }
     
     private func setupCheckoutSlidersAndSwitches() {
@@ -263,7 +282,6 @@ class ViewController: UIViewController {
             showAlert(title: "Error", message: "Please enter a checkout URL")
             return
         }
-        statusLabel.text = "Opening checkout..."
         syncCheckoutToStashPayCard()
         StashPayCard.sharedInstance().openCheckout(withURL: url)
     }
@@ -285,7 +303,6 @@ class ViewController: UIViewController {
             showAlert(title: "Error", message: "Please enter a modal URL")
             return
         }
-        statusLabel.text = "Opening modal..."
         let config = buildModalConfig()
         StashPayCard.sharedInstance().openModal(withURL: url, config: config)
     }
@@ -307,22 +324,20 @@ class ViewController: UIViewController {
     
     @objc private func webViewModeToggled() {
         StashPayCard.sharedInstance().forceWebBasedCheckout = webViewModeSwitch.isOn
-        statusLabel.text = webViewModeSwitch.isOn ? "Web View (Safari)" : "Card UI"
     }
     
     @objc private func forcePortraitOnCheckoutToggled() {
         StashPayCard.sharedInstance().forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
-        statusLabel.text = forcePortraitOnCheckoutSwitch.isOn ? "Checkout: force portrait" : "Checkout: current orientation"
     }
     
-    @objc private func advancedCheckoutToggleTapped() {
+    @objc private func checkoutOptionsToggleTapped() {
         isCheckoutAdvancedExpanded.toggle()
-        tableView.reloadSections(IndexSet(integer: Section.checkoutOptions.rawValue), with: .automatic)
+        tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
     }
     
-    @objc private func advancedModalToggleTapped() {
+    @objc private func modalOptionsToggleTapped() {
         isModalAdvancedExpanded.toggle()
-        tableView.reloadSections(IndexSet(integer: Section.modalOptions.rawValue), with: .automatic)
+        tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
     }
     
     @objc private func phoneCardHeightChanged() {
@@ -371,6 +386,61 @@ class ViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
+    
+    @objc private func generateCheckoutTapped() {
+        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
+        let urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url"
+        guard let url = URL(string: urlString) else {
+            showAlert(title: "Error", message: "Failed to generate checkout URL")
+            return
+        }
+        let apiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ViewController.defaultStashApiKey
+        if !apiKey.isEmpty {
+            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
+        let body: [String: Any] = [
+            "user": [
+                "id": "test.user",
+                "validatedEmail": "test@stash.gg",
+                "platform": "IOS"
+            ],
+            "item": [
+                "id": "test-item",
+                "name": "Test Purchase",
+                "pricePerItem": "0.99",
+                "quantity": 1,
+                "imageUrl": "https://api.braincloudservers.com/files/portal/g/15152/metadata/products/potion_pack.png",
+                "description": "This is a test item purchase."
+            ],
+            "currency": "USD"
+        ]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+            showAlert(title: "Error", message: "Failed to generate checkout URL")
+            return
+        }
+        request.httpBody = bodyData
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self = self else { return }
+            let ok = (response as? HTTPURLResponse)?.statusCode ?? 0 >= 200 && (response as? HTTPURLResponse)?.statusCode ?? 0 < 300
+            guard ok, let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let checkoutUrl = json["url"] as? String, !checkoutUrl.isEmpty else {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Error", message: "Failed to generate checkout URL")
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                self.syncCheckoutToStashPayCard()
+                StashPayCard.sharedInstance().openCheckout(withURL: checkoutUrl)
+            }
+        }.resume()
+    }
 }
 
 // MARK: - UITableViewDataSource, UITableViewDelegate
@@ -383,11 +453,10 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .checkout: return 2
+        case .checkout: return 3
         case .modal: return 2
-        case .status: return 1
-        case .checkoutOptions: return isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 1
-        case .modalOptions: return isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 1
+        case .presentationOptions: return 1 + (isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0) + 1 + (isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 0)
+        case .checkoutGenerationSettings: return 2
         }
     }
     
@@ -396,9 +465,8 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         switch Section(rawValue: section)! {
         case .checkout: title = "CHECKOUT"
         case .modal: title = "MODAL"
-        case .status: title = "STATUS"
-        case .checkoutOptions: title = "CHECKOUT OPTIONS"
-        case .modalOptions: title = "MODAL OPTIONS"
+        case .presentationOptions: title = "PRESENTATION OPTIONS"
+        case .checkoutGenerationSettings: title = "CHECKOUT GENERATION SETTINGS"
         }
         guard let t = title else { return nil }
         let label = UILabel()
@@ -420,8 +488,8 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
         let text: String?
         switch Section(rawValue: section)! {
-        case .checkout: text = "Open a full-screen checkout experience."
-        case .modal: text = "Open a window-based modal (no portrait lock; works in game engines). Same test URL as checkout by default."
+        case .checkout: text = "Drawer style dialog that slides from the bottom of the screen used for checkouts or optionally other opt-in mechanics."
+        case .modal: text = "Shows centered modal window used for opt-in flows or as an alternative checkout presentation."
         default: text = nil
         }
         guard let t = text else { return nil }
@@ -447,9 +515,18 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         case .checkout:
             if indexPath.row == 0 {
                 return urlCell(textField: checkoutUrlTextField, label: "URL", imageName: "link")
+            } else if indexPath.row == 1 {
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.textLabel?.text = "Open URL in Checkout Card"
+                cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+                cell.textLabel?.textColor = .systemBlue
+                cell.imageView?.image = systemImage("creditcard.fill")
+                cell.imageView?.tintColor = .secondaryLabel
+                cell.accessoryType = .disclosureIndicator
+                return cell
             } else {
                 let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-                cell.textLabel?.text = "Open Checkout"
+                cell.textLabel?.text = "Generate Checkout"
                 cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
                 cell.textLabel?.textColor = .systemBlue
                 cell.imageView?.image = systemImage("creditcard.fill")
@@ -462,7 +539,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 return urlCell(textField: modalUrlTextField, label: "URL", imageName: "link")
             } else {
                 let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-                cell.textLabel?.text = "Open Modal"
+                cell.textLabel?.text = "Open URL in Modal Dialog"
                 cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
                 cell.textLabel?.textColor = .systemBlue
                 cell.imageView?.image = systemImage("rectangle.stack.fill")
@@ -470,21 +547,19 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
-        case .status:
-            let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
-            cell.selectionStyle = .none
-            cell.textLabel?.text = "Status"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.detailTextLabel?.text = statusLabel.text
-            cell.detailTextLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.detailTextLabel?.textColor = .secondaryLabel
-            cell.imageView?.image = systemImage("antenna.radiowaves.left.and.right")
-            cell.imageView?.tintColor = .secondaryLabel
-            return cell
-        case .checkoutOptions:
-            return checkoutOptionCell(for: indexPath)
-        case .modalOptions:
-            return modalOptionCell(for: indexPath)
+        case .presentationOptions:
+            return presentationOptionCell(for: indexPath)
+        case .checkoutGenerationSettings:
+            if indexPath.row == 0 {
+                let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
+                cell.selectionStyle = .none
+                cell.textLabel?.text = "Use test API"
+                cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+                cell.accessoryView = useTestApiSwitch
+                return cell
+            } else {
+                return urlCell(textField: apiKeyTextField, label: "API Key", imageName: "key")
+            }
         }
     }
     
@@ -511,72 +586,61 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         return cell
     }
     
-    private func checkoutOptionCell(for indexPath: IndexPath) -> UITableViewCell {
-        let row = CheckoutOptionRow(rawValue: indexPath.row)!
-        switch row {
-        case .header:
+    private func presentationOptionCell(for indexPath: IndexPath) -> UITableViewCell {
+        let r = indexPath.row
+        let checkoutCount = isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0
+        let modalHeaderIndex = 1 + checkoutCount
+
+        if r == 0 {
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Checkout Options"
+            cell.textLabel?.text = isCheckoutAdvancedExpanded ? "Hide Checkout options" : "Show Checkout options"
             cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
             cell.textLabel?.textColor = .label
             cell.accessoryType = isCheckoutAdvancedExpanded ? .detailButton : .disclosureIndicator
             cell.imageView?.image = systemImage("slider.horizontal.3")
             cell.imageView?.tintColor = .secondaryLabel
             return cell
-        case .webViewMode:
-            return switchCell(title: "Use Web View Mode", subtitle: "Open in Safari", switchView: webViewModeSwitch)
-        case .forcePortraitOnCheckout:
-            return switchCell(title: "Force Portrait on Checkout", subtitle: "Rotate to portrait when opening checkout", switchView: forcePortraitOnCheckoutSwitch)
-        case .phoneCardHeight:
-            return sliderCell(title: "Phone Card Height", valueLabel: phoneCardHeightLabel, slider: phoneCardHeightSlider)
-        case .phoneLandscapeWidth:
-            return sliderCell(title: "Phone Landscape Width", valueLabel: checkoutPhoneLandscapeWidthLabel, slider: checkoutPhoneLandscapeWidthSlider)
-        case .phoneLandscapeHeight:
-            return sliderCell(title: "Phone Landscape Height", valueLabel: checkoutPhoneLandscapeHeightLabel, slider: checkoutPhoneLandscapeHeightSlider)
-        case .tabletPortraitWidth:
-            return sliderCell(title: "Tablet Portrait Width", valueLabel: checkoutTabletPortraitWidthLabel, slider: checkoutTabletPortraitWidthSlider)
-        case .tabletPortraitHeight:
-            return sliderCell(title: "Tablet Portrait Height", valueLabel: checkoutTabletPortraitHeightLabel, slider: checkoutTabletPortraitHeightSlider)
-        case .tabletLandscapeWidth:
-            return sliderCell(title: "Tablet Landscape Width", valueLabel: checkoutTabletLandscapeWidthLabel, slider: checkoutTabletLandscapeWidthSlider)
-        case .tabletLandscapeHeight:
-            return sliderCell(title: "Tablet Landscape Height", valueLabel: checkoutTabletLandscapeHeightLabel, slider: checkoutTabletLandscapeHeightSlider)
         }
-    }
-    
-    private func modalOptionCell(for indexPath: IndexPath) -> UITableViewCell {
-        let row = ModalOptionRow(rawValue: indexPath.row)!
-        switch row {
-        case .header:
+        if isCheckoutAdvancedExpanded && r >= 1 && r < 1 + checkoutCount {
+            let row = CheckoutOptionRow(rawValue: r - 1)!
+            switch row {
+            case .webViewMode: return switchCell(title: "Use Web View Mode", subtitle: "Open in Safari", switchView: webViewModeSwitch)
+            case .forcePortraitOnCheckout: return switchCell(title: "Force Portrait on Checkout", subtitle: "Rotate to portrait when opening checkout", switchView: forcePortraitOnCheckoutSwitch)
+            case .phoneCardHeight: return sliderCell(title: "Phone Card Height", valueLabel: phoneCardHeightLabel, slider: phoneCardHeightSlider)
+            case .phoneLandscapeWidth: return sliderCell(title: "Phone Landscape Width", valueLabel: checkoutPhoneLandscapeWidthLabel, slider: checkoutPhoneLandscapeWidthSlider)
+            case .phoneLandscapeHeight: return sliderCell(title: "Phone Landscape Height", valueLabel: checkoutPhoneLandscapeHeightLabel, slider: checkoutPhoneLandscapeHeightSlider)
+            case .tabletPortraitWidth: return sliderCell(title: "Tablet Portrait Width", valueLabel: checkoutTabletPortraitWidthLabel, slider: checkoutTabletPortraitWidthSlider)
+            case .tabletPortraitHeight: return sliderCell(title: "Tablet Portrait Height", valueLabel: checkoutTabletPortraitHeightLabel, slider: checkoutTabletPortraitHeightSlider)
+            case .tabletLandscapeWidth: return sliderCell(title: "Tablet Landscape Width", valueLabel: checkoutTabletLandscapeWidthLabel, slider: checkoutTabletLandscapeWidthSlider)
+            case .tabletLandscapeHeight: return sliderCell(title: "Tablet Landscape Height", valueLabel: checkoutTabletLandscapeHeightLabel, slider: checkoutTabletLandscapeHeightSlider)
+            }
+        }
+        if r == modalHeaderIndex {
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Modal Options"
+            cell.textLabel?.text = isModalAdvancedExpanded ? "Hide Modal options" : "Show Modal options"
             cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
             cell.textLabel?.textColor = .label
-            cell.accessoryType = isModalAdvancedExpanded ? .none : .disclosureIndicator
+            cell.accessoryType = isModalAdvancedExpanded ? .detailButton : .disclosureIndicator
             cell.imageView?.image = systemImage("rectangle.inset.filled")
             cell.imageView?.tintColor = .secondaryLabel
             return cell
-        case .showDragBar:
-            return switchCell(title: "Show Drag Bar", subtitle: nil, switchView: modalShowDragBarSwitch)
-        case .allowDismiss:
-            return switchCell(title: "Allow Dismiss", subtitle: "Tap outside to close", switchView: modalAllowDismissSwitch)
-        case .phonePortraitWidth:
-            return sliderCell(title: "Phone Portrait Width", valueLabel: modalPhonePortraitWidthLabel, slider: modalPhonePortraitWidthSlider)
-        case .phonePortraitHeight:
-            return sliderCell(title: "Phone Portrait Height", valueLabel: modalPhonePortraitHeightLabel, slider: modalPhonePortraitHeightSlider)
-        case .phoneLandscapeWidth:
-            return sliderCell(title: "Phone Landscape Width", valueLabel: modalPhoneLandscapeWidthLabel, slider: modalPhoneLandscapeWidthSlider)
-        case .phoneLandscapeHeight:
-            return sliderCell(title: "Phone Landscape Height", valueLabel: modalPhoneLandscapeHeightLabel, slider: modalPhoneLandscapeHeightSlider)
-        case .tabletPortraitWidth:
-            return sliderCell(title: "Tablet Portrait Width", valueLabel: modalTabletPortraitWidthLabel, slider: modalTabletPortraitWidthSlider)
-        case .tabletPortraitHeight:
-            return sliderCell(title: "Tablet Portrait Height", valueLabel: modalTabletPortraitHeightLabel, slider: modalTabletPortraitHeightSlider)
-        case .tabletLandscapeWidth:
-            return sliderCell(title: "Tablet Landscape Width", valueLabel: modalTabletLandscapeWidthLabel, slider: modalTabletLandscapeWidthSlider)
-        case .tabletLandscapeHeight:
-            return sliderCell(title: "Tablet Landscape Height", valueLabel: modalTabletLandscapeHeightLabel, slider: modalTabletLandscapeHeightSlider)
         }
+        if isModalAdvancedExpanded && r > modalHeaderIndex {
+            let row = ModalOptionRow(rawValue: r - modalHeaderIndex - 1)!
+            switch row {
+            case .showDragBar: return switchCell(title: "Show Drag Bar", subtitle: nil, switchView: modalShowDragBarSwitch)
+            case .allowDismiss: return switchCell(title: "Allow Dismiss", subtitle: "Tap outside to close", switchView: modalAllowDismissSwitch)
+            case .modalPhonePortraitWidth: return sliderCell(title: "Phone Portrait Width", valueLabel: modalPhonePortraitWidthLabel, slider: modalPhonePortraitWidthSlider)
+            case .modalPhonePortraitHeight: return sliderCell(title: "Phone Portrait Height", valueLabel: modalPhonePortraitHeightLabel, slider: modalPhonePortraitHeightSlider)
+            case .modalPhoneLandscapeWidth: return sliderCell(title: "Phone Landscape Width", valueLabel: modalPhoneLandscapeWidthLabel, slider: modalPhoneLandscapeWidthSlider)
+            case .modalPhoneLandscapeHeight: return sliderCell(title: "Phone Landscape Height", valueLabel: modalPhoneLandscapeHeightLabel, slider: modalPhoneLandscapeHeightSlider)
+            case .modalTabletPortraitWidth: return sliderCell(title: "Tablet Portrait Width", valueLabel: modalTabletPortraitWidthLabel, slider: modalTabletPortraitWidthSlider)
+            case .modalTabletPortraitHeight: return sliderCell(title: "Tablet Portrait Height", valueLabel: modalTabletPortraitHeightLabel, slider: modalTabletPortraitHeightSlider)
+            case .modalTabletLandscapeWidth: return sliderCell(title: "Tablet Landscape Width", valueLabel: modalTabletLandscapeWidthLabel, slider: modalTabletLandscapeWidthSlider)
+            case .modalTabletLandscapeHeight: return sliderCell(title: "Tablet Landscape Height", valueLabel: modalTabletLandscapeHeightLabel, slider: modalTabletLandscapeHeightSlider)
+            }
+        }
+        return UITableViewCell()
     }
     
     private func switchCell(title: String, subtitle: String?, switchView: UISwitch) -> UITableViewCell {
@@ -607,23 +671,23 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         return cell
     }
     
-    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-        if case .status = Section(rawValue: indexPath.section) {
-            cell.detailTextLabel?.text = statusLabel.text
-        }
-    }
-    
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
         case .checkout where indexPath.row == 1:
             openCheckoutTapped()
+        case .checkout where indexPath.row == 2:
+            generateCheckoutTapped()
         case .modal where indexPath.row == 1:
             openModalTapped()
-        case .checkoutOptions where indexPath.row == 0:
-            advancedCheckoutToggleTapped()
-        case .modalOptions where indexPath.row == 0:
-            advancedModalToggleTapped()
+        case .presentationOptions:
+            let checkoutCount = isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0
+            let modalHeaderIndex = 1 + checkoutCount
+            if indexPath.row == 0 {
+                checkoutOptionsToggleTapped()
+            } else if indexPath.row == modalHeaderIndex {
+                modalOptionsToggleTapped()
+            }
         default:
             break
         }
@@ -631,21 +695,22 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         switch Section(rawValue: indexPath.section)! {
-        case .checkoutOptions:
-            if isCheckoutAdvancedExpanded, indexPath.row > 0 {
-                let row = CheckoutOptionRow(rawValue: indexPath.row)!
+        case .presentationOptions:
+            let r = indexPath.row
+            let checkoutCount = isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0
+            let modalHeaderIndex = 1 + checkoutCount
+            if r > 0 && r < 1 + checkoutCount {
+                let row = CheckoutOptionRow(rawValue: r - 1)!
                 switch row {
                 case .phoneCardHeight, .phoneLandscapeWidth, .phoneLandscapeHeight, .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
                     return 72
                 default: return 44
                 }
             }
-        case .modalOptions:
-            if isModalAdvancedExpanded, indexPath.row > 0 {
-                let row = ModalOptionRow(rawValue: indexPath.row)!
+            if r > modalHeaderIndex {
+                let row = ModalOptionRow(rawValue: r - modalHeaderIndex - 1)!
                 switch row {
-                case .phonePortraitWidth, .phonePortraitHeight, .phoneLandscapeWidth, .phoneLandscapeHeight,
-                     .tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight:
+                case .modalPhonePortraitWidth, .modalPhonePortraitHeight, .modalPhoneLandscapeWidth, .modalPhoneLandscapeHeight, .modalTabletPortraitWidth, .modalTabletPortraitHeight, .modalTabletLandscapeWidth, .modalTabletLandscapeHeight:
                     return 72
                 default: return 44
                 }
@@ -666,41 +731,27 @@ extension ViewController: StashPayCardDelegate {
     
     func stashPayCardDidCompletePayment() {
         DispatchQueue.main.async {
-            self.statusLabel.text = "Payment Success"
-            self.tableView.reloadData()
-            self.showAlert(title: "Success", message: "Payment completed successfully")
+            self.showAlert(title: "Success", message: "Purchase Successful")
         }
     }
     
     func stashPayCardDidFailPayment() {
         DispatchQueue.main.async {
-            self.statusLabel.text = "Payment Failed"
-            self.tableView.reloadData()
-            self.showAlert(title: "Failed", message: "Payment failed")
+            self.showAlert(title: "Payment Failed", message: "Purchase Failed")
         }
     }
     
-    func stashPayCardDidDismiss() {
-        DispatchQueue.main.async {
-            self.statusLabel.text = "Dialog dismissed"
-            self.tableView.reloadData()
-        }
-    }
+    func stashPayCardDidDismiss() {}
     
     func stashPayCardDidReceiveOpt(in optinType: String) {
         DispatchQueue.main.async {
-            self.statusLabel.text = "Opt-in: \(optinType)"
-            self.tableView.reloadData()
+            self.showAlert(title: "Opt-in", message: "Opt-in Selected: \(optinType)")
         }
     }
     
     func stashPayCardDidLoadPage(_ loadTimeMs: Double) {}
     
     func stashPayCardDidEncounterNetworkError() {
-        DispatchQueue.main.async {
-            self.statusLabel.text = "Network Error"
-            self.tableView.reloadData()
-            self.showAlert(title: "Network Error", message: "Could not load page. Please check your connection.")
-        }
+        // No outcome row for network error per plan
     }
 }

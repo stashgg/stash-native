@@ -1,25 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">StashPay SDK Sample</string>
-    <string name="header_title">Stash SDK</string>
+    <string name="header_title">Stash SDK Sample</string>
     <string name="header_subtitle"></string>
     <string name="section_checkout">Checkout</string>
     <string name="section_modal">Modal</string>
-    <string name="section_status">Status</string>
-    <string name="section_checkout_options">Checkout options</string>
-    <string name="section_modal_options">Modal options</string>
-    <string name="footer_checkout">Open a full-screen checkout experience.</string>
-    <string name="footer_modal">Open a modal sheet for channel or payment selection.</string>
+    <string name="section_presentation_options">Presentation options</string>
+    <string name="section_checkout_generation_settings">Checkout Generation Settings</string>
+    <string name="footer_checkout">Drawer style dialog that slides from the bottom of the screen used for checkouts or optionally other opt-in mechanics.</string>
+    <string name="footer_modal">Shows centered modal window used for opt-in flows or as an alternative checkout presentation.</string>
     <string name="hint_checkout_url">Checkout URL</string>
     <string name="hint_modal_url">Modal URL</string>
-    <string name="open_checkout">Open Checkout</string>
-    <string name="open_modal">Open Modal</string>
-    <string name="status_label">Status</string>
-    <string name="status_ready">Ready</string>
+    <string name="open_checkout">Open URL in Checkout Card</string>
+    <string name="open_modal">Open URL in Modal Dialog</string>
+    <string name="generate_checkout">Generate Checkout</string>
     <string name="show_checkout_options">Show Checkout options</string>
     <string name="hide_checkout_options">Hide Checkout options</string>
     <string name="show_modal_options">Show Modal options</string>
     <string name="hide_modal_options">Hide Modal options</string>
+    <string name="option_use_test_api">Use test API</string>
+    <string name="hint_api_key">API Key</string>
+    <string name="error_generate_checkout_url">Failed to generate checkout URL</string>
     <string name="option_web_view_mode">Use Web View mode</string>
     <string name="option_web_view_mode_supporting">Open in Chrome</string>
     <string name="option_force_portrait_on_checkout">Force portrait on checkout</string>

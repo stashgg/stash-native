@@ -20,7 +20,6 @@ import com.stash.nativedemo.databinding.ItemSectionHeaderBinding;
 import com.stash.nativedemo.databinding.ItemSectionFooterBinding;
 import com.stash.nativedemo.databinding.ItemPreferenceUrlBinding;
 import com.stash.nativedemo.databinding.ItemPreferenceActionBinding;
-import com.stash.nativedemo.databinding.ItemStatusBinding;
 import com.stash.nativedemo.databinding.ItemExpandableHeaderBinding;
 import com.stash.nativedemo.databinding.ItemPreferenceSwitchBinding;
 import com.stash.nativedemo.databinding.ItemPreferenceSliderBinding;
@@ -41,6 +40,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     public interface Callbacks {
         void onOpenCheckout();
         void onOpenModal();
+        void onGenerateCheckout();
     }
 
     public SettingsAdapter(MainViewModel viewModel, Callbacks callbacks) {
@@ -73,8 +73,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                 return new UrlPreferenceVH(ItemPreferenceUrlBinding.inflate(inflater, parent, false));
             case SettingsItem.TYPE_ACTION_PREFERENCE:
                 return new ActionPreferenceVH(ItemPreferenceActionBinding.inflate(inflater, parent, false));
-            case SettingsItem.TYPE_STATUS:
-                return new StatusVH(ItemStatusBinding.inflate(inflater, parent, false));
             case SettingsItem.TYPE_EXPANDABLE_HEADER:
                 return new ExpandableHeaderVH(ItemExpandableHeaderBinding.inflate(inflater, parent, false));
             case SettingsItem.TYPE_SWITCH_PREFERENCE:
@@ -104,9 +102,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                 break;
             case SettingsItem.TYPE_ACTION_PREFERENCE:
                 ((ActionPreferenceVH) holder).bind(item, position);
-                break;
-            case SettingsItem.TYPE_STATUS:
-                ((StatusVH) holder).bind(item);
                 break;
             case SettingsItem.TYPE_EXPANDABLE_HEADER:
                 ((ExpandableHeaderVH) holder).bind(item);
@@ -177,6 +172,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                 int titleRes = it.titleRes;
                 if (titleRes == R.string.open_checkout) return 0;
                 if (titleRes == R.string.open_modal) return 1;
+                if (titleRes == R.string.generate_checkout) return 2;
             }
         }
         return -1;
@@ -268,6 +264,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     viewModel.setCheckoutUrl(text);
                 } else if (boundTitleRes == R.string.hint_modal_url) {
                     viewModel.setModalUrl(text);
+                } else if (boundTitleRes == R.string.hint_api_key) {
+                    viewModel.setStashApiKey(text);
                 }
             }
         };
@@ -289,23 +287,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     callbacks.onOpenCheckout();
                 } else if (item.titleRes == R.string.open_modal) {
                     callbacks.onOpenModal();
+                } else if (item.titleRes == R.string.generate_checkout) {
+                    callbacks.onGenerateCheckout();
                 }
             });
-        }
-    }
-
-    static class StatusVH extends RecyclerView.ViewHolder {
-        private final ItemStatusBinding b;
-
-        StatusVH(ItemStatusBinding b) {
-            super(b.getRoot());
-            this.b = b;
-        }
-
-        void bind(SettingsItem item) {
-            b.statusIcon.setImageResource(item.iconRes);
-            b.statusLabel.setText(item.titleRes);
-            b.statusValue.setText(item.value);
         }
     }
 
@@ -322,11 +307,13 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             b.expandableTitle.setText(item.titleRes);
             b.expandableChevron.setRotation(item.expanded ? 90f : 0f);
             b.expandableRow.setOnClickListener(v -> {
-                if (item.titleRes == R.string.show_checkout_options || item.titleRes == R.string.hide_checkout_options) {
-                    viewModel.toggleCheckoutOptions();
-                } else {
-                    viewModel.toggleModalOptions();
-                }
+                v.post(() -> {
+                    if (item.titleRes == R.string.show_checkout_options || item.titleRes == R.string.hide_checkout_options) {
+                        viewModel.toggleCheckoutOptions();
+                    } else if (item.titleRes == R.string.show_modal_options || item.titleRes == R.string.hide_modal_options) {
+                        viewModel.toggleModalOptions();
+                    }
+                });
             });
         }
     }
@@ -347,6 +334,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             } else {
                 b.switchSupporting.setVisibility(View.GONE);
             }
+            b.switchPreference.setOnCheckedChangeListener(null);
             b.switchPreference.setChecked(item.checked);
             b.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
                 if (item.titleRes == R.string.option_web_view_mode) {
@@ -357,6 +345,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                     viewModel.setModalShowDragBar(isChecked);
                 } else if (item.titleRes == R.string.option_allow_dismiss) {
                     viewModel.setModalAllowDismiss(isChecked);
+                } else if (item.titleRes == R.string.option_use_test_api) {
+                    viewModel.setUseTestApi(isChecked);
                 }
             });
         }

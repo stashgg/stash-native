@@ -13,7 +13,6 @@ public final class SettingsItem {
     public static final int TYPE_SECTION_FOOTER = 1;
     public static final int TYPE_URL_PREFERENCE = 2;
     public static final int TYPE_ACTION_PREFERENCE = 3;
-    public static final int TYPE_STATUS = 4;
     public static final int TYPE_EXPANDABLE_HEADER = 5;
     public static final int TYPE_SWITCH_PREFERENCE = 6;
     public static final int TYPE_SLIDER_PREFERENCE = 7;
@@ -80,14 +79,6 @@ public final class SettingsItem {
 
     public static SettingsItem actionPreference(@StringRes int titleRes, int iconRes, boolean firstInCard, boolean lastInCard) {
         return new SettingsItem(TYPE_ACTION_PREFERENCE, titleRes, 0, null, false, 0, false, iconRes, firstInCard, lastInCard);
-    }
-
-    public static SettingsItem status(String value, int iconRes) {
-        return new SettingsItem(TYPE_STATUS, R.string.status_label, 0, value, false, 0, false, iconRes, false, false);
-    }
-
-    public static SettingsItem status(String value, int iconRes, boolean firstInCard, boolean lastInCard) {
-        return new SettingsItem(TYPE_STATUS, R.string.status_label, 0, value, false, 0, false, iconRes, firstInCard, lastInCard);
     }
 
     public static SettingsItem expandableHeader(@StringRes int titleRes, boolean expanded, int iconRes) {
