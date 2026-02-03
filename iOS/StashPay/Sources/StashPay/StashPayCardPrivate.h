@@ -29,6 +29,8 @@ void resetCardExpandedStateAfterRotation(void);
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 /// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
 void layoutCardContentToBounds(UIView *cardView);
+/// Switches the card's WebView from Auto Layout to frame-based layout; call before animating card frame (e.g. rotation) so WebView resizes with the card.
+WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
 
 @interface DragTrayView : UIView
 @end

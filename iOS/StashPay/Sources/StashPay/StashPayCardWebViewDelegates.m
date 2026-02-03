@@ -10,10 +10,10 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 
-#pragma mark - Loading / Reveal Constants
+#pragma mark - Loading / Reveal Constants (aligned with card animation timing)
 
 static const NSTimeInterval kPageReadyCheckInterval = 0.1;
-static const NSTimeInterval kLoadingRevealAnimationDuration = 0.2;
+static const NSTimeInterval kLoadingRevealAnimationDuration = 0.35;
 static const NSTimeInterval kNetworkTimeoutInterval = 5.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;

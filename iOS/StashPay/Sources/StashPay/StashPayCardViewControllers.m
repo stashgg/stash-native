@@ -8,8 +8,12 @@
 
 #import "StashPayCard.h"
 #import <UIKit/UIKit.h>
+#import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
+
+static const void *kRotationResizeCardViewKey = &kRotationResizeCardViewKey;
+static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKey;
 
 #pragma mark - Extern declarations (defined in StashPayCard.m)
 
@@ -51,6 +55,7 @@ extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 extern CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 extern void layoutCardContentToBounds(UIView *cardView);
+extern WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
 extern CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 extern void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 extern void resetCardExpandedStateAfterRotation(void);
@@ -133,6 +138,13 @@ extern void resetCardExpandedStateAfterRotation(void);
     self.view.layer.mask = maskLayer;
 }
 
+- (void)rotationResizeTick:(CADisplayLink *)link {
+    UIView *cardView = objc_getAssociatedObject(self, kRotationResizeCardViewKey);
+    if (cardView) {
+        layoutCardContentToBounds(cardView);
+    }
+}
+
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     
@@ -150,13 +162,22 @@ extern void resetCardExpandedStateAfterRotation(void);
     CGRect newCardFrame = computePhoneCardFrameForBoundsAndOrientation(targetBounds, isLandscape);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        switchWebViewToFrameLayoutInCardView(cardView);
         if (overlayView) {
             overlayView.frame = targetBounds;
         }
         cardView.frame = newCardFrame;
         layoutCardContentToBounds(cardView);
         [cardView layoutIfNeeded];
+        objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
+        objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, resizeLink, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        [resizeLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        CADisplayLink *resizeLink = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
+        [resizeLink invalidate];
+        objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        objc_setAssociatedObject(self, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         cardView.frame = newCardFrame;
         self.cardFrame = newCardFrame;
         self.customFrame = newCardFrame;

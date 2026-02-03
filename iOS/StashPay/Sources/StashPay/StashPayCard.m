@@ -170,12 +170,17 @@ CGFloat _modalTabletHeightRatioLandscape = 0.40f;
 
 #define ENABLE_IPAD_SUPPORT 1
 
-#pragma mark - Animation Constants
+#pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
 
-static const CGFloat kSpringDampingDefault = 0.85f;
-static const CGFloat kSpringDampingTight = 0.9f;
-static const CGFloat kAnimationDurationDefault = 0.4f;
-static const CGFloat kAnimationDurationFast = 0.25f;
+/// Primary duration for all card motion (present, expand, collapse, snap-back). Matches system sheet feel.
+static const NSTimeInterval kCardAnimationDuration = 0.5;
+/// Spring damping for card animations. 0.82 = subtle bounce, Apple-like.
+static const CGFloat kSpringDampingCard = 0.82f;
+/// Legacy names for call sites that expect these symbols
+static const CGFloat kSpringDampingDefault = 0.82f;
+static const CGFloat kSpringDampingTight = 0.82f;
+static const CGFloat kAnimationDurationDefault = 0.5f;
+static const CGFloat kAnimationDurationFast = 0.5f;
 // Non-static for StashPayCardViewControllers.m
 const CGFloat kCornerRadiusDefault = 20.0f;
 static const CGFloat kCornerRadiusExpanded = 24.0f;
@@ -204,14 +209,29 @@ static const CGFloat kDismissCardAlpha = 0.0f;
 static const CGFloat kDismissCardScale = 0.9f;
 static const CGFloat kOverlayOpacity = 0.4f;  /* Unified overlay dim (40%) - same on all modes and as Android */
 static const CGFloat kIPhoneLandscapeExpandedHeightRatio = 0.9f;  /* Expand = 90% screen height in landscape */
-static const NSTimeInterval kOverlayFadeInDuration = 0.15;
+static const NSTimeInterval kOverlayFadeInDuration = 0.25;
 
-#pragma mark - Snap-Back / Entry Animation
+#pragma mark - Snap-Back / Entry Animation (same timing as card animations)
 
-static const CGFloat kSpringDampingSnapBack = 0.92f;
-static const NSTimeInterval kSnapBackAnimationDuration = 0.32;
-static const NSTimeInterval kEntryAnimationDuration = 0.45;
+static const CGFloat kSpringDampingSnapBack = 0.82f;
+static const NSTimeInterval kSnapBackAnimationDuration = 0.45;
+static const NSTimeInterval kEntryAnimationDuration = 0.5;
+/// Ease-out-back constant for display-link expand/collapse.
+static const CGFloat kEaseOutBackOvershoot = 1.70158f;
+/// Stronger overshoot for snap-back when dismiss gesture does not hit threshold (smooth spring back).
+static const CGFloat kEaseOutBackSnapBackOvershoot = 2.4f;
 static const NSTimeInterval kEntryAnimationDelay = 0.05;
+
+static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
+    if (t <= 0.0f) return 0.0f;
+    if (t >= 1.0f) return 1.0f;
+    CGFloat k = overshoot;
+    CGFloat u = t - 1.0f;
+    return 1.0f + (k + 1.0f) * u * u * u + k * u * u;
+}
+static inline CGFloat easeOutBack(CGFloat t) {
+    return easeOutBackWithOvershoot(t, kEaseOutBackOvershoot);
+}
 static const NSTimeInterval kRotationDelayAfterLandscape = 0.35;
 
 #pragma mark - Shadow (iPhone card vs iPad/popup)
@@ -256,7 +276,7 @@ static NSMutableURLRequest *requestForURL(NSURL *url) {
 #pragma mark - Timing
 
 static const NSTimeInterval kWebViewRemoveDelaySeconds = 0.05;
-static const NSTimeInterval kDismissAnimationDurationPopup = 0.18;
+static const NSTimeInterval kDismissAnimationDurationPopup = 0.35;
 
 #pragma mark - Spring Velocities (expand/collapse)
 
@@ -290,13 +310,13 @@ static const CGFloat kDismissDistanceFromBottomThreshold = 10.0f;
 static const CGFloat kDismissTravelRatioThresholdIPad = 0.325f;
 static const CGFloat kDismissVelocityThresholdIPad = 1040.0f;
 
-#pragma mark - Gesture-Driven Animation
+#pragma mark - Gesture-Driven Animation (same duration as card animations)
 
-static const NSTimeInterval kExpandAnimationDuration = 0.4;
-static const NSTimeInterval kCollapseAnimationDurationDefault = 0.38;
-static const NSTimeInterval kCollapseAnimationDurationFast = 0.3;
-static const NSTimeInterval kDismissAnimationDurationFast = 0.22;
-static const NSTimeInterval kDismissAnimationDurationNormal = 0.35;
+static const NSTimeInterval kExpandAnimationDuration = 0.45;
+static const NSTimeInterval kCollapseAnimationDurationDefault = 0.45;
+static const NSTimeInterval kCollapseAnimationDurationFast = 0.45;
+static const NSTimeInterval kDismissAnimationDurationFast = 0.35;
+static const NSTimeInterval kDismissAnimationDurationNormal = 0.45;
 static const CGFloat kVelocityDivisorForSpring = 1000.0f;
 static const CGFloat kVelocityDivisorForSpringFast = 800.0f;
 static const CGFloat kVelocityThresholdForFastCollapse = 600.0f;
@@ -312,7 +332,7 @@ const CGFloat kPopupBaseSizeMax = 500.0f;
 static const CGFloat kFallbackTabletCardWidth = 600.0f;
 static const CGFloat kFallbackTabletCardHeight = 700.0f;
 static const CGFloat kTabletMinHeight = 500.0f;
-const NSTimeInterval kPopupFrameAnimationDuration = 0.3;
+const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 
 #pragma mark - Message Handler Names (WKScriptMessageHandler)
 
@@ -368,6 +388,17 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 @property (nonatomic, assign) BOOL isObservingKeyboard;
 @property (nonatomic, assign) BOOL isPurchaseProcessing;
 @property (nonatomic, strong) SFSafariViewController *currentSafariViewController;
+@property (nonatomic, strong) CADisplayLink *collapseDisplayLink;
+@property (nonatomic, assign) CFTimeInterval collapseStartTime;
+@property (nonatomic, assign) NSTimeInterval collapseDuration;
+@property (nonatomic, copy) void (^collapseCompletion)(void);
+@property (nonatomic, strong) CADisplayLink *expandDisplayLink;
+@property (nonatomic, assign) CFTimeInterval expandStartTime;
+@property (nonatomic, assign) NSTimeInterval expandDuration;
+@property (nonatomic, assign) CGFloat expandInitialProgress;
+@property (nonatomic, assign) CGFloat collapseInitialProgress;
+@property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // 0 = default; set for snap-back for stronger spring
+@property (nonatomic, copy) void (^expandCompletion)(void);
 
 + (instancetype)sharedInstance;
 - (void)dismissWithAnimation:(void (^)(void))completion;
@@ -379,7 +410,10 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 - (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth;  // Same look, no pan gesture (for tablet modal)
 - (void)expandCardToFullScreen;
 - (void)collapseCardToOriginal;
+- (void)animateCollapseWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion;
+- (void)animateExpandWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion;
 - (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView;
+- (CGFloat)currentExpansionProgressForCardView:(UIView *)cardView;
 - (void)startKeyboardObserving;
 - (void)stopKeyboardObserving;
 - (BOOL)isIPhoneLandscapeCurrentOrientation;
@@ -468,6 +502,17 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 - (void)cleanupCardInstance {
     [self stopKeyboardObserving];
     
+    if (self.collapseDisplayLink) {
+        [self.collapseDisplayLink invalidate];
+        self.collapseDisplayLink = nil;
+        self.collapseCompletion = nil;
+    }
+    if (self.expandDisplayLink) {
+        [self.expandDisplayLink invalidate];
+        self.expandDisplayLink = nil;
+        self.expandCompletion = nil;
+    }
+    
     if (self.dragTrayView) {
         [self.dragTrayView removeFromSuperview];
         self.dragTrayView = nil;
@@ -555,7 +600,7 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:containerVC];
     
-    CGFloat animationDuration = (_usePopupPresentation || _useModalPresentation) ? kDismissAnimationDurationPopup : kAnimationDurationFast;
+    CGFloat animationDuration = (_usePopupPresentation || _useModalPresentation) ? kDismissAnimationDurationPopup : kDismissAnimationDurationNormal;
     
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         if (_useModalPresentation) {
@@ -648,11 +693,9 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     CGFloat safeTop = getSafeAreaTopForView(cardView);
     CGRect fullScreenFrame;
     if ([self isIPhoneLandscapeCurrentOrientation]) {
-        // Height-only expand in landscape: same card width, 90% screen height
-        CGFloat cardWidth = screenBounds.size.width * _cardWidthRatioLandscape;
-        CGFloat minPhone = 300.0f;
-        if (cardWidth < minPhone) cardWidth = minPhone;
-        CGFloat expW = cardWidth;
+        // Height-only expand in landscape: use same canonical collapsed frame (includes min clamp)
+        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, YES);
+        CGFloat expW = collapsedFrame.size.width;
         CGFloat expH = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
         CGFloat expX = (screenBounds.size.width - expW) / 2.0f;
         CGFloat expY = screenBounds.size.height - expH;
@@ -704,23 +747,23 @@ initialSpringVelocity:kSpringVelocityExpand
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGFloat width, height, x, finalY;
 
+    CGRect collapsedFrame;
     if (isRunningOniPad()) {
         CGSize cardSize = calculateiPadCardSize(screenBounds);
         width = cardSize.width;
         height = cardSize.height;
         x = (screenBounds.size.width - width) / 2;
         finalY = (screenBounds.size.height - height) / 2;
+        collapsedFrame = CGRectMake(x, finalY, width, height);
     } else {
-        width = screenBounds.size.width * _originalCardWidthRatio;
-        height = screenBounds.size.height * _originalCardHeightRatio;
-        x = (screenBounds.size.width - width) / 2;
-        finalY = screenBounds.size.height * _originalCardVerticalPosition - height;
-        if (finalY < 0) finalY = 0;
+        collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        width = collapsedFrame.size.width;
+        height = collapsedFrame.size.height;
+        x = collapsedFrame.origin.x;
+        finalY = collapsedFrame.origin.y;
     }
 
     WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
-
-    CGRect collapsedFrame = CGRectMake(x, finalY, width, height);
 
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
@@ -750,6 +793,110 @@ initialSpringVelocity:kSpringVelocityCollapse
     }];
 }
 
+- (void)collapseDisplayLinkTick:(CADisplayLink *)link {
+    CFTimeInterval elapsed = CACurrentMediaTime() - self.collapseStartTime;
+    NSTimeInterval duration = self.collapseDuration;
+    CGFloat t = (duration > 0 && elapsed < duration) ? (CGFloat)(elapsed / duration) : 1.0f;
+    CGFloat overshoot = self.expandCollapseEaseOvershoot > 0.0f ? self.expandCollapseEaseOvershoot : kEaseOutBackOvershoot;
+    CGFloat ease = easeOutBackWithOvershoot(t, overshoot);
+    CGFloat progress = self.collapseInitialProgress * (1.0f - ease);
+    if (progress < 0.0f) progress = 0.0f;
+
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (cardView) {
+        [self updateCardExpansionProgress:progress cardView:cardView];
+    }
+
+    if (t >= 1.0f || progress <= 0.0f) {
+        self.expandCollapseEaseOvershoot = 0.0f;
+        [self.collapseDisplayLink invalidate];
+        self.collapseDisplayLink = nil;
+        _isCardExpanded = NO;
+        if (cardView) {
+            UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, isRunningOniPad());
+            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
+            cardView.layer.mask = maskLayer;
+        }
+        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
+        void (^completion)(void) = self.collapseCompletion;
+        self.collapseCompletion = nil;
+        if (completion) completion();
+    }
+}
+
+- (void)animateCollapseWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion {
+    if (self.collapseDisplayLink) {
+        [self.collapseDisplayLink invalidate];
+        self.collapseDisplayLink = nil;
+        self.collapseCompletion = nil;
+    }
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (!cardView) {
+        _isCardExpanded = NO;
+        if (completion) completion();
+        return;
+    }
+    self.collapseInitialProgress = [self currentExpansionProgressForCardView:cardView];
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
+    self.collapseStartTime = CACurrentMediaTime();
+    self.collapseDuration = duration;
+    self.collapseCompletion = completion;
+    self.collapseDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(collapseDisplayLinkTick:)];
+    [self.collapseDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
+- (void)expandDisplayLinkTick:(CADisplayLink *)link {
+    CFTimeInterval elapsed = CACurrentMediaTime() - self.expandStartTime;
+    NSTimeInterval duration = self.expandDuration;
+    CGFloat t = (duration > 0 && elapsed < duration) ? (CGFloat)(elapsed / duration) : 1.0f;
+    CGFloat overshoot = self.expandCollapseEaseOvershoot > 0.0f ? self.expandCollapseEaseOvershoot : kEaseOutBackOvershoot;
+    CGFloat ease = easeOutBackWithOvershoot(t, overshoot);
+    CGFloat progress = self.expandInitialProgress + (1.0f - self.expandInitialProgress) * ease;
+    if (progress > 1.0f) progress = 1.0f;
+
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (cardView) {
+        [self updateCardExpansionProgress:progress cardView:cardView];
+    }
+
+    if (t >= 1.0f || progress >= 1.0f) {
+        self.expandCollapseEaseOvershoot = 0.0f;
+        [self.expandDisplayLink invalidate];
+        self.expandDisplayLink = nil;
+        _isCardExpanded = YES;
+        if (cardView) {
+            CGFloat radius = isRunningOniPad() ? kCornerRadiusExpanded : kCornerRadiusDefault;
+            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, radius);
+            cardView.layer.mask = maskLayer;
+        }
+        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
+        void (^completion)(void) = self.expandCompletion;
+        self.expandCompletion = nil;
+        if (completion) completion();
+    }
+}
+
+- (void)animateExpandWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion {
+    if (self.expandDisplayLink) {
+        [self.expandDisplayLink invalidate];
+        self.expandDisplayLink = nil;
+        self.expandCompletion = nil;
+    }
+    UIView *cardView = [self cardViewForCurrentPresentation];
+    if (!cardView) {
+        _isCardExpanded = YES;
+        if (completion) completion();
+        return;
+    }
+    self.expandInitialProgress = [self currentExpansionProgressForCardView:cardView];
+    [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
+    self.expandStartTime = CACurrentMediaTime();
+    self.expandDuration = duration;
+    self.expandCompletion = completion;
+    self.expandDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(expandDisplayLinkTick:)];
+    [self.expandDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+}
+
 - (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
     if (!cardView) return;
 
@@ -772,36 +919,39 @@ initialSpringVelocity:kSpringVelocityCollapse
         collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
         collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
         collapsedY = (screenBounds.size.height - collapsedHeight) / 2;
-    } else if ([self isIPhoneLandscapeCurrentOrientation]) {
-        // Height-only expand in landscape: same width, expand = 90% screen height
-        collapsedWidth = screenBounds.size.width * _originalCardWidthRatio;
-        collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
-        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
-        collapsedY = screenBounds.size.height * _originalCardVerticalPosition - collapsedHeight;
-        if (collapsedY < 0) collapsedY = 0;
-
-        expandedWidth = collapsedWidth;  // same width
-        expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
-        expandedX = collapsedX;
-        expandedY = screenBounds.size.height - expandedHeight;
-        if (expandedY < safeTop) expandedY = safeTop;
     } else {
-        collapsedWidth = screenBounds.size.width * _originalCardWidthRatio;
-        collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
-        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
-        collapsedY = screenBounds.size.height * _originalCardVerticalPosition - collapsedHeight;
-        if (collapsedY < 0) collapsedY = 0;
+        // iPhone: use same canonical collapsed frame as initial present (includes min clamp)
+        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        collapsedWidth = collapsedFrame.size.width;
+        collapsedHeight = collapsedFrame.size.height;
+        collapsedX = collapsedFrame.origin.x;
+        collapsedY = collapsedFrame.origin.y;
 
-        expandedWidth = screenBounds.size.width;
-        expandedHeight = screenBounds.size.height - safeTop;
-        expandedX = 0;
-        expandedY = safeTop;
+        if ([self isIPhoneLandscapeCurrentOrientation]) {
+            // Height-only expand in landscape: same width, expand = 90% screen height
+            expandedWidth = collapsedWidth;
+            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
+            expandedX = collapsedX;
+            expandedY = screenBounds.size.height - expandedHeight;
+            if (expandedY < safeTop) expandedY = safeTop;
+        } else {
+            expandedWidth = screenBounds.size.width;
+            expandedHeight = screenBounds.size.height - safeTop;
+            expandedX = 0;
+            expandedY = safeTop;
+        }
     }
 
     CGFloat currentWidth = collapsedWidth + (expandedWidth - collapsedWidth) * progress;
     CGFloat currentHeight = collapsedHeight + (expandedHeight - collapsedHeight) * progress;
     CGFloat currentX = collapsedX + (expandedX - collapsedX) * progress;
-    CGFloat currentY = collapsedY + (expandedY - collapsedY) * progress;
+    CGFloat currentY;
+    if (isRunningOniPad()) {
+        currentY = collapsedY + (expandedY - collapsedY) * progress;
+    } else {
+        // iPhone: keep bottom of card anchored to bottom of screen every frame (no gap)
+        currentY = screenBounds.size.height - currentHeight;
+    }
 
     cardView.frame = CGRectMake(currentX, currentY, currentWidth, currentHeight);
 
@@ -842,6 +992,79 @@ initialSpringVelocity:kSpringVelocityCollapse
             cardView.layer.mask = maskLayer;
         }
     }
+}
+
+- (CGFloat)currentExpansionProgressForCardView:(UIView *)cardView {
+    if (!cardView) return 0.0f;
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGFloat safeTop = getSafeAreaTopForView(cardView);
+    CGFloat collapsedHeight, expandedHeight;
+    if (isRunningOniPad()) {
+        CGSize cardSize = calculateiPadCardSize(screenBounds);
+        expandedHeight = cardSize.height;
+        collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
+    } else {
+        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        collapsedHeight = collapsedFrame.size.height;
+        if ([self isIPhoneLandscapeCurrentOrientation]) {
+            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
+        } else {
+            expandedHeight = screenBounds.size.height - safeTop;
+        }
+    }
+    CGFloat currentHeight = cardView.frame.size.height;
+    CGFloat heightRange = expandedHeight - collapsedHeight;
+    if (heightRange <= 0.0f) return 0.0f;
+    CGFloat progress = (currentHeight - collapsedHeight) / heightRange;
+    return (CGFloat)MAX(0.0, MIN(1.0, (double)progress));
+}
+
+- (CGRect)frameForExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
+    if (!cardView) return CGRectZero;
+    progress = (CGFloat)MAX(0.0, MIN(1.0, (double)progress));
+    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGFloat safeTop = getSafeAreaTopForView(cardView);
+    CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
+    CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
+    if (isRunningOniPad()) {
+        CGSize cardSize = calculateiPadCardSize(screenBounds);
+        expandedWidth = cardSize.width;
+        expandedHeight = cardSize.height;
+        expandedX = (screenBounds.size.width - expandedWidth) / 2;
+        expandedY = (screenBounds.size.height - expandedHeight) / 2;
+        collapsedWidth = expandedWidth * kIPadCollapsedSizeRatio;
+        collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
+        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
+        collapsedY = (screenBounds.size.height - collapsedHeight) / 2;
+    } else {
+        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        collapsedWidth = collapsedFrame.size.width;
+        collapsedHeight = collapsedFrame.size.height;
+        collapsedX = collapsedFrame.origin.x;
+        collapsedY = collapsedFrame.origin.y;
+        if ([self isIPhoneLandscapeCurrentOrientation]) {
+            expandedWidth = collapsedWidth;
+            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
+            expandedX = collapsedX;
+            expandedY = screenBounds.size.height - expandedHeight;
+            if (expandedY < safeTop) expandedY = safeTop;
+        } else {
+            expandedWidth = screenBounds.size.width;
+            expandedHeight = screenBounds.size.height - safeTop;
+            expandedX = 0;
+            expandedY = safeTop;
+        }
+    }
+    CGFloat w = collapsedWidth + (expandedWidth - collapsedWidth) * progress;
+    CGFloat h = collapsedHeight + (expandedHeight - collapsedHeight) * progress;
+    CGFloat x = collapsedX + (expandedX - collapsedX) * progress;
+    CGFloat y;
+    if (isRunningOniPad()) {
+        y = collapsedY + (expandedY - collapsedY) * progress;
+    } else {
+        y = screenBounds.size.height - h;
+    }
+    return CGRectMake(x, y, w, h);
 }
 
 - (void)startKeyboardObserving {
@@ -917,6 +1140,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     
     if (!isRunningOniPad()) {
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        switchWebViewToFrameLayoutInCardView(cardView);
     }
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
@@ -941,11 +1165,12 @@ initialSpringVelocity:kSpringVelocityCollapse
     
         CGRect screenBounds = [UIScreen mainScreen].bounds;
         CGFloat safeTop = getSafeAreaTopForView(cardView);
-        CGFloat collapsedHeight = screenBounds.size.height * _originalCardHeightRatio;
         BOOL landscapeHeightOnly = [self isIPhoneLandscapeCurrentOrientation];
+        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
+        CGFloat collapsedWidth = collapsedFrame.size.width;
+        CGFloat collapsedHeight = collapsedFrame.size.height;
+        CGFloat collapsedX = collapsedFrame.origin.x;
         CGFloat expandedHeight = landscapeHeightOnly ? (screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio) : (screenBounds.size.height - safeTop);
-        CGFloat collapsedWidth = landscapeHeightOnly ? (screenBounds.size.width * _originalCardWidthRatio) : screenBounds.size.width;
-        CGFloat collapsedX = landscapeHeightOnly ? ((screenBounds.size.width - collapsedWidth) / 2.0f) : 0;
         CGFloat currentProgress = 0.0;
         
         if (currentTravel < 0) {
@@ -984,6 +1209,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         }
         runWithoutImplicitAnimations(^{
             [self updateCardExpansionProgress:currentProgress cardView:cardView];
+            [cardView layoutIfNeeded];
         });
 }
     
@@ -1038,36 +1264,13 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     
     if (shouldExpand) {
-        [UIView animateWithDuration:kExpandAnimationDuration
-                              delay:0 
-             usingSpringWithDamping:kSpringDampingTight 
-              initialSpringVelocity:fabs(velocity.y) / kVelocityDivisorForSpring
-                            options:UIViewAnimationOptionCurveEaseOut 
-                         animations:^{
-            [self updateCardExpansionProgress:kProgressFullyExpanded cardView:cardView];
-        } completion:^(BOOL finished) {
-            _isCardExpanded = YES;
-            [self expandCardToFullScreen];
-        }];
+        [self animateExpandWithDuration:kExpandAnimationDuration completion:nil];
     } else if (shouldCollapse) {
-        CGFloat animationDuration = kCollapseAnimationDurationDefault;
-        CGFloat springVelocity = velocity.y / kVelocityDivisorForSpring;
+        NSTimeInterval animationDuration = kCollapseAnimationDurationDefault;
         if (velocity.y > kVelocityThresholdForFastCollapse) {
             animationDuration = kCollapseAnimationDurationFast;
-            springVelocity = velocity.y / kVelocityDivisorForSpringFast;
         }
-        
-        [UIView animateWithDuration:animationDuration 
-                              delay:0 
-             usingSpringWithDamping:kSpringDampingTight 
-              initialSpringVelocity:springVelocity 
-                            options:UIViewAnimationOptionCurveEaseOut 
-                         animations:^{
-            [self updateCardExpansionProgress:kProgressFullyCollapsed cardView:cardView];
-        } completion:^(BOOL finished) {
-            _isCardExpanded = NO;
-            [self collapseCardToOriginal];
-        }];
+        [self animateCollapseWithDuration:animationDuration completion:nil];
     } else if (shouldDismiss) {
         [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
         
@@ -1134,18 +1337,37 @@ initialSpringVelocity:kSpringVelocityCollapse
                 [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             }];
         } else {
-            // iPhone snap back
-            CGFloat targetProgress = _isCardExpanded ? 1.0 : 0.0;
-            [UIView animateWithDuration:kSnapBackAnimationDuration 
-                                  delay:0 
-                 usingSpringWithDamping:kSpringDampingSnapBack 
-                  initialSpringVelocity:fabs(velocity.y) / kVelocityDivisorForSpring 
-                                options:UIViewAnimationOptionCurveEaseOut 
-                             animations:^{
-                [self updateCardExpansionProgress:targetProgress cardView:cardView];
-            } completion:^(BOOL finished) {
-                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
-            }];
+            // iPhone snap back: use display-link expand/collapse so every frame is bottom-anchored (no gap), with stronger spring
+            if (_isCardExpanded) {
+                self.expandCollapseEaseOvershoot = kEaseOutBackSnapBackOvershoot;
+                [self animateExpandWithDuration:kSnapBackAnimationDuration completion:^{
+                    [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
+                }];
+            } else {
+                // Collapsed card may have been dragged down (only Y changed); progress is still 0 so display-link collapse would do nothing.
+                // Spring the frame back to canonical collapsed position for a native Apple-like feel.
+                CGRect targetFrame = [self frameForExpansionProgress:kProgressFullyCollapsed cardView:cardView];
+                BOOL needsSpringBack = (fabs(cardView.frame.origin.y - targetFrame.origin.y) > 0.5f);
+                if (needsSpringBack) {
+                    [UIView animateWithDuration:kSnapBackAnimationDuration
+                                          delay:0
+                     usingSpringWithDamping:kSpringDampingSnapBack
+                      initialSpringVelocity:fabs(velocity.y) / kVelocityDivisorForSpring
+                                    options:UIViewAnimationOptionCurveEaseOut
+                                 animations:^{
+                        cardView.frame = targetFrame;
+                        [self updateCustomFrameIfSupported:cardView.frame forViewController:nil];
+                    } completion:^(BOOL finished) {
+                        [self updateCardExpansionProgress:kProgressFullyCollapsed cardView:cardView];
+                        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
+                    }];
+                } else {
+                    self.expandCollapseEaseOvershoot = kEaseOutBackSnapBackOvershoot;
+                    [self animateCollapseWithDuration:kSnapBackAnimationDuration completion:^{
+                        [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
+                    }];
+                }
+            }
         }
     }
 }
@@ -1206,20 +1428,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         }
         
         if (!_usePopupPresentation && !_isCardExpanded && self.currentPresentedVC) {
-            UIView *cardView = [self cardViewForCurrentPresentation];
-            [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
-
-            [UIView animateWithDuration:kAnimationDurationDefault
-                                  delay:0
-                 usingSpringWithDamping:kSpringDampingDefault
-                  initialSpringVelocity:0.5
-                                options:UIViewAnimationOptionCurveEaseOut
-                             animations:^{
-                [self updateCardExpansionProgress:1.0 cardView:cardView];
-            } completion:^(BOOL finished) {
-                [self expandCardToFullScreen];
-                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
-            }];
+            [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
         }
     } else if ([name isEqualToString:kMessageHandlerCollapse]) {
         // Modal and tablets use fixed sizing - ignore expand/collapse messages
@@ -1228,23 +1437,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         }
         
         if (!_usePopupPresentation && _isCardExpanded && self.currentPresentedVC) {
-            UIView *cardView = [self cardViewForCurrentPresentation];
-
-            [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
-
-            [UIView animateWithDuration:kAnimationDurationDefault
-                                  delay:0
-                 usingSpringWithDamping:kSpringDampingDefault
-                  initialSpringVelocity:0.3
-                                options:UIViewAnimationOptionCurveEaseOut
-                             animations:^{
-                [self updateCardExpansionProgress:kProgressFullyCollapsed cardView:cardView];
-            } completion:^(BOOL finished) {
-                _isCardExpanded = NO;
-                [self collapseCardToOriginal];
-
-                [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
-            }];
+            [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
         }
     }
 }
