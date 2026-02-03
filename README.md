@@ -1,13 +1,6 @@
-# Stash Pay for Android / iOS [Preview]
+# Stash Pay for Android / iOS 
 
-Standalone packages that enable Stash Pay checkout flows within native Android and iOS applications. 
-They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/stash-unity) to work directly with native applications.
-
-> [!WARNING]
-> This repository is currently being actively built. Information may be incorrect or outdated. Please reach out to developers@stash.gg if you have any issues.
-
-> [!WARNING]
-> Stash primarily maintains the Unity version. Changes and patches may be propagated slowly to the standalone versions.
+Standalone packages that enable Stash Pay in-app checkout flows within Android and iOS applications. 
 
 ## Platforms
 
@@ -18,7 +11,7 @@ They are adapted from the [Stash Pay Unity plugin](https://github.com/stashgg/st
 
 ## Downloads
 
-Pre-built binaries are available on [GitHub Releases](https://github.com/stashgg/stash-native/releases):
+Pre-built binaries are available on [Repository Releases Page](https://github.com/stashgg/stash-native/releases):
 
 - **Android**: `stashpay-release.aar`
 - **iOS**: `StashPay.xcframework.zip`
