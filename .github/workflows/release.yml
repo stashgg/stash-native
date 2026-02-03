@@ -10,6 +10,10 @@ on:
         description: 'Tag to release (e.g. v1.0.0)'
         required: false
         type: string
+      changelog:
+        description: 'Optional changelog for this release (Markdown supported)'
+        required: false
+        type: string
 
 jobs:
   build-android:
@@ -183,29 +187,47 @@ jobs:
           echo "Renamed artifacts:"
           ls -la
       
+      - name: Prepare release body
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          # Optional changelog (only when run manually with changelog input)
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ inputs.changelog }}" ]; then
+            {
+              echo "## What's changed"
+              echo ""
+              printf '%s\n' "${{ inputs.changelog }}"
+              echo ""
+              echo "---"
+              echo ""
+            } >> release_body.md
+          fi
+          # Default release notes (no leading spaces so markdown renders correctly)
+          {
+            echo "## StashPay SDK ${TAG}"
+            echo ""
+            echo "### Android"
+            echo "Download \`StashPay-${TAG}.aar\` and add to your project's \`libs\` folder."
+            echo ""
+            echo "\`\`\`groovy"
+            echo "dependencies {"
+            echo "    implementation files('libs/StashPay-${TAG}.aar')"
+            echo "    implementation 'androidx.appcompat:appcompat:1.6.1'"
+            echo "    implementation 'androidx.browser:browser:1.7.0'"
+            echo "}"
+            echo "\`\`\`"
+            echo ""
+            echo "### iOS"
+            echo "Download \`StashPay-${TAG}.xcframework.zip\`, unzip, and add \`StashPay.xcframework\` to your Xcode project."
+            echo ""
+            echo "Alternatively, use Swift Package Manager with this repository URL."
+          } >> release_body.md
+      
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
-          body: |
-            ## StashPay SDK ${{ steps.version.outputs.tag }}
-            
-            ### Android
-            Download `StashPay-${{ steps.version.outputs.tag }}.aar` and add to your project's `libs` folder.
-            
-            ```groovy
-            dependencies {
-                implementation files('libs/StashPay-${{ steps.version.outputs.tag }}.aar')
-                implementation 'androidx.appcompat:appcompat:1.6.1'
-                implementation 'androidx.browser:browser:1.7.0'
-            }
-            ```
-            
-            ### iOS
-            Download `StashPay-${{ steps.version.outputs.tag }}.xcframework.zip`, unzip, and add `StashPay.xcframework` to your Xcode project.
-            
-            Alternatively, use Swift Package Manager with this repository URL.
+          body_path: release_body.md
           files: |
             release-artifacts/StashPay-${{ steps.version.outputs.tag }}.aar
             release-artifacts/StashPay-${{ steps.version.outputs.tag }}.xcframework.zip
