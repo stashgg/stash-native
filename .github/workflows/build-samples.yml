@@ -1,4 +1,4 @@
-name: Build and Upload Sample Apps
+name: Build & Deploy
 
 on:
   push:
