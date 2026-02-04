@@ -1,4 +1,4 @@
-package com.stash.nativedemo;
+package com.stash.stashsdk;
 
 import androidx.annotation.StringRes;
 

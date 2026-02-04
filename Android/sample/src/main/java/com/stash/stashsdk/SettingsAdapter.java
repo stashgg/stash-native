@@ -1,4 +1,4 @@
-package com.stash.nativedemo;
+package com.stash.stashsdk;
 
 import android.content.Context;
 import android.text.Editable;
@@ -15,14 +15,14 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.TextInputEditText;
-import com.stash.nativedemo.databinding.ItemHeaderBinding;
-import com.stash.nativedemo.databinding.ItemSectionHeaderBinding;
-import com.stash.nativedemo.databinding.ItemSectionFooterBinding;
-import com.stash.nativedemo.databinding.ItemPreferenceUrlBinding;
-import com.stash.nativedemo.databinding.ItemPreferenceActionBinding;
-import com.stash.nativedemo.databinding.ItemExpandableHeaderBinding;
-import com.stash.nativedemo.databinding.ItemPreferenceSwitchBinding;
-import com.stash.nativedemo.databinding.ItemPreferenceSliderBinding;
+import com.stash.stashsdk.databinding.ItemHeaderBinding;
+import com.stash.stashsdk.databinding.ItemSectionHeaderBinding;
+import com.stash.stashsdk.databinding.ItemSectionFooterBinding;
+import com.stash.stashsdk.databinding.ItemPreferenceUrlBinding;
+import com.stash.stashsdk.databinding.ItemPreferenceActionBinding;
+import com.stash.stashsdk.databinding.ItemExpandableHeaderBinding;
+import com.stash.stashsdk.databinding.ItemPreferenceSwitchBinding;
+import com.stash.stashsdk.databinding.ItemPreferenceSliderBinding;
 
 import java.util.ArrayList;
 import java.util.List;

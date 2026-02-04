@@ -1,4 +1,4 @@
-package com.stash.nativedemo;
+package com.stash.stashsdk;
 
 import android.app.AlertDialog;
 import android.os.Bundle;
@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.stash.popup.StashPayCard;
 
-import com.stash.nativedemo.databinding.ActivityMainBinding;
+import com.stash.stashsdk.databinding.ActivityMainBinding;
 
 import org.json.JSONObject;
 
