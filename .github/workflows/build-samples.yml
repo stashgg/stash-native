@@ -1,4 +1,4 @@
-name: Build Sample Apps
+name: Build and Upload Sample Apps
 
 on:
   push:
@@ -32,17 +32,24 @@ jobs:
         working-directory: Android
         run: ./gradlew :sample:assembleRelease
       
+      - name: Build Android Sample Debug APK (signed for Appetize)
+        working-directory: Android
+        run: ./gradlew :sample:assembleDebug
+      
       - name: Find APK file
         id: find-apk
         run: |
-          APK_PATH=$(find Android/sample/build/outputs/apk -name "*.apk" -type f | head -1)
+          APK_PATH=$(find Android/sample/build/outputs/apk/release -name "*.apk" -type f 2>/dev/null | head -1)
+          if [ -z "$APK_PATH" ]; then
+            APK_PATH=$(find Android/sample/build/outputs/apk -name "*.apk" -type f | head -1)
+          fi
           if [ -z "$APK_PATH" ]; then
             echo "APK not found! Searching in Android/sample/build/outputs/apk:"
             ls -la Android/sample/build/outputs/apk/ || true
             find Android/sample/build/outputs -name "*.apk" || true
             exit 1
           fi
-          echo "Found APK at: $APK_PATH"
+          echo "Found release APK at: $APK_PATH"
           echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
       
       - name: Upload APK artifact
@@ -70,12 +77,13 @@ jobs:
 
       - name: Upload APK to Appetize
         run: |
-          APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
-          if [ ! -f "$APK_PATH" ]; then
-            echo "Error: APK file not found at $APK_PATH"
+          # Appetize requires a signed APK; use debug build (signed with debug keystore)
+          APK_PATH=$(find Android/sample/build/outputs/apk/debug -name "*.apk" -type f 2>/dev/null | head -1)
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "Error: Debug APK not found (Appetize requires signed APK)"
             exit 1
           fi
-          echo "Uploading APK to Appetize (Android app id: b_3l3fzg5qiahx6p2xpwp3kcirhy)..."
+          echo "Uploading signed (debug) APK to Appetize (Android app id: b_3l3fzg5qiahx6p2xpwp3kcirhy)..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.appetize.io/v1/apps/b_3l3fzg5qiahx6p2xpwp3kcirhy" \
             -H "X-API-KEY: ${{ secrets.APPETIZE_API_KEY }}" \
             -F "file=@$APK_PATH" \
@@ -163,17 +171,49 @@ jobs:
           echo "BrowserStack iOS Upload Response:"
           echo "$RESPONSE"
 
-      - name: Upload IPA to Appetize
+      - name: Build iOS Sample for Simulator
+        working-directory: iOS/Sample
         run: |
-          IPA_PATH="iOS/Sample/build/StashNativeDemo.ipa"
-          if [ ! -f "$IPA_PATH" ]; then
-            echo "Error: IPA file not found at $IPA_PATH"
+          xcodebuild build \
+            -project StashPaySample.xcodeproj \
+            -scheme StashPaySample \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build/DerivedData \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Create iOS Simulator zip
+        working-directory: iOS/Sample
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release-iphonesimulator/StashNativeDemo.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Error: Simulator app bundle not found at $APP_PATH"
+            find build/DerivedData -name "*.app" -type d || true
             exit 1
           fi
-          echo "Uploading IPA to Appetize (iOS app id: b_qbywqclhrfl6lk3i3ehovfqa2m)..."
+          RUN_DIR=$(pwd)
+          cd build/DerivedData/Build/Products/Release-iphonesimulator
+          zip -r ../../../../StashNativeDemo-simulator.zip StashNativeDemo.app
+          cd "$RUN_DIR"
+          if [ ! -f "build/StashNativeDemo-simulator.zip" ]; then
+            echo "Error: Simulator zip was not created"
+            exit 1
+          fi
+          echo "Simulator zip created at build/StashNativeDemo-simulator.zip"
+
+      - name: Upload iOS Simulator build to Appetize
+        run: |
+          SIM_ZIP="iOS/Sample/build/StashNativeDemo-simulator.zip"
+          if [ ! -f "$SIM_ZIP" ]; then
+            echo "Error: iOS simulator zip not found at $SIM_ZIP"
+            exit 1
+          fi
+          echo "Uploading iOS simulator build to Appetize (iOS app id: b_qbywqclhrfl6lk3i3ehovfqa2m)..."
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.appetize.io/v1/apps/b_qbywqclhrfl6lk3i3ehovfqa2m" \
             -H "X-API-KEY: ${{ secrets.APPETIZE_API_KEY }}" \
-            -F "file=@$IPA_PATH" \
+            -F "file=@$SIM_ZIP" \
             -F "platform=ios" \
             -F "note=Commit: ${{ github.sha }}")
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
@@ -181,8 +221,8 @@ jobs:
           echo "Appetize response status: $HTTP_CODE"
           echo "Appetize response body: $BODY"
           if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "iOS sample uploaded successfully to Appetize"
+            echo "iOS simulator sample uploaded successfully to Appetize"
           else
-            echo "Failed to upload iOS sample to Appetize (HTTP $HTTP_CODE)"
+            echo "Failed to upload iOS simulator sample to Appetize (HTTP $HTTP_CODE)"
             exit 1
           fi
