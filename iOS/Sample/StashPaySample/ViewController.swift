@@ -110,7 +110,7 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Stash SDK Sample"
+        title = "Stash Native"
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .always
         

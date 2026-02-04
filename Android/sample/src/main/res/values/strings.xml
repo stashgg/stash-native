@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">StashPay SDK Sample</string>
-    <string name="header_title">Stash SDK Sample</string>
+    <string name="app_name">Stash Native</string>
+    <string name="header_title">Stash Native</string>
     <string name="header_subtitle"></string>
+    <string name="app_company">Stash Interactive Inc.</string>
+    <string name="app_description">Sample app for Stash Native libraries.</string>
     <string name="section_checkout">Checkout</string>
     <string name="section_modal">Modal</string>
     <string name="section_presentation_options">Presentation options</string>
