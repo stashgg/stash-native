@@ -1,4 +1,4 @@
-# Stash for Android / iOS [![Build and Upload Sample Apps](https://github.com/stashgg/stash-native/actions/workflows/build-samples.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/build-samples.yml)
+# Stash for Android / iOS [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application.
 
