@@ -130,6 +130,7 @@ StashPayCard.getInstance().openModal("https://your-modal-url.com");
 StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();
 config.showDragBar = true;      // Show visual drag bar at top
 config.allowDismiss = true;     // Allow tap-outside to dismiss
+// Sizing: phoneWidthRatioPortrait, phoneHeightRatioPortrait, phoneWidthRatioLandscape, phoneHeightRatioLandscape, tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see Modal Configuration below)
 
 StashPayCard.getInstance().openModal("https://your-modal-url.com", config);
 ```
@@ -179,6 +180,7 @@ StashPayCard stashPay = StashPayCard.getInstance();
 
 // Lock checkout to portrait (separate activity) or allow current orientation (overlay)
 stashPay.setForcePortraitOnCheckout(false);   // default: allow all orientations
+// Tablet sizing: setTabletWidthRatioPortrait, setTabletHeightRatioPortrait, setTabletWidthRatioLandscape, setTabletHeightRatioLandscape (see Checkout Sizing (Tablet) below)
 ```
 
 ### Phone card size
