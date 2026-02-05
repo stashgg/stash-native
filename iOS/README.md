@@ -65,6 +65,7 @@ class ViewController: UIViewController {
         let config = StashPayModalConfig()
         config.showDragBar = true
         config.allowDismiss = true
+        // Sizing: phoneWidthRatioPortrait, phoneHeightRatioPortrait, phoneWidthRatioLandscape, phoneHeightRatioLandscape, tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see Modal Configuration below)
         StashPayCard.sharedInstance().openModal(withURL: "https://your-modal-url.com", config: config)
     }
 }
@@ -178,6 +179,7 @@ let stashPay = StashPayCard.sharedInstance()
 
 // Lock checkout to portrait or allow current orientation
 stashPay.forcePortraitOnCheckout = false   // default: allow all orientations
+// iPad sizing: tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see iPad Card Size below)
 ```
 
 ### iPhone card size
