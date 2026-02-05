@@ -11,8 +11,7 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Wrappers
 
-If you are developing with one of the game engines below, we maintain wrappers for this library.
-These wrappers provide pre-made interface to use Stash features in your game project.
+If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools—such as full flow testing directly in the Unity Editor.
 
 |                                                                                             | Engine        | Repository                                              | Compatibility                   |
 | ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------- |
