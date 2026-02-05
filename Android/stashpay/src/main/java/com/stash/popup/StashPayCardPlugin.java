@@ -6,7 +6,11 @@ import android.app.ActivityManager;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import com.stash.popup.keepalive.StashKeepAliveManager;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
@@ -525,6 +529,7 @@ public class StashPayCardPlugin {
             intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
             intent.putExtra(CardConstants.INTENT_EXTRA_USE_MODAL, useModalPresentation);
             intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
+            intent.putExtra(CardConstants.INTENT_EXTRA_FORCE_SAFARI_VIEW_CONTROLLER, forceSafariViewController);
             
             // Pass modal config if in modal mode
             if (useModalPresentation && currentModalConfig != null) {
@@ -1329,6 +1334,12 @@ public class StashPayCardPlugin {
     
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
+            // Start keep-alive service only if forceSafariViewController is enabled
+            if (forceSafariViewController) {
+                requestNotificationPermissionIfNeeded(activity);
+                StashKeepAliveManager.start(activity, "checkout", 30000L);
+            }
+            
             if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening URL with Chrome Custom Tabs");
                 StashWebViewUtils.openWithChromeCustomTabs(activity, url);
@@ -1363,6 +1374,12 @@ public class StashPayCardPlugin {
         }
 
         try {
+            // Start keep-alive service only if forceSafariViewController is enabled
+            if (forceSafariViewController) {
+                requestNotificationPermissionIfNeeded(activity);
+                StashKeepAliveManager.start(activity, "checkout", 30000L);
+            }
+            
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             activity.startActivity(browserIntent);
@@ -1735,6 +1752,25 @@ public class StashPayCardPlugin {
         addVisualDragBarToContainer(activity, currentContainer);
     }
 
+    /**
+     * Requests POST_NOTIFICATIONS permission on Android 13+ if not already granted.
+     * This is required for the keep-alive service notification to be visible.
+     */
+    private void requestNotificationPermissionIfNeeded(Activity activity) {
+        if (activity == null) return;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(activity, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // Request permission if not granted
+                // Note: This will show a system dialog. If user denies, service still runs but notification may not be visible.
+                ActivityCompat.requestPermissions(activity,
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    1001);
+            }
+        }
+    }
+    
     /** Adds a visual-only drag bar to the given container (modal or overlay). No touch handling. */
     private void addVisualDragBarToContainer(Activity activity, FrameLayout container) {
         if (container == null || activity == null) return;

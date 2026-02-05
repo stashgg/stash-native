@@ -285,6 +285,7 @@ public final class CardConstants {
     public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = "modalTabletHeightRatioPortrait";
     public static final String INTENT_EXTRA_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = "modalTabletWidthRatioLandscape";
     public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = "modalTabletHeightRatioLandscape";
+    public static final String INTENT_EXTRA_FORCE_SAFARI_VIEW_CONTROLLER = "forceSafariViewController";
 
     /** Message types for notifyListenerAndDismiss (success/failure/optin). */
     public static final String MESSAGE_TYPE_SUCCESS = "success";

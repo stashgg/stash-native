@@ -4,7 +4,11 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import com.stash.popup.keepalive.StashKeepAliveManager;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.drawable.ColorDrawable;
@@ -50,6 +54,7 @@ public class StashPayCardPortraitActivity extends Activity {
     private boolean useModal;
     private boolean isExpanded;
     private boolean wasLandscapeBeforePortrait;
+    private boolean forceSafariViewController;
     private boolean isDismissing;
     private boolean callbackSent;
     private boolean googlePayRedirectHandled;
@@ -107,6 +112,7 @@ public class StashPayCardPortraitActivity extends Activity {
             usePopup = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_USE_POPUP, false);
             useModal = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_USE_MODAL, false);
             wasLandscapeBeforePortrait = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, false);
+            forceSafariViewController = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_FORCE_SAFARI_VIEW_CONTROLLER, false);
             
             cardHeightRatioPortrait = intent.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, CardConstants.DEFAULT_CARD_HEIGHT_RATIO);
             forcePortraitOnCheckout = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_FORCE_PORTRAIT_ON_CHECKOUT, false);
@@ -1055,6 +1061,12 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
+            // Start keep-alive service only if forceSafariViewController is enabled
+            if (forceSafariViewController) {
+                requestNotificationPermissionIfNeeded(activity);
+                StashKeepAliveManager.start(activity, "checkout", 30000L);
+            }
+            
             if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
                 StashWebViewUtils.openWithChromeCustomTabs(activity, url);
@@ -1074,6 +1086,12 @@ public class StashPayCardPortraitActivity extends Activity {
     
     private void openInSystemBrowser(String url) {
         try {
+            // Start keep-alive service only if forceSafariViewController is enabled
+            if (forceSafariViewController) {
+                requestNotificationPermissionIfNeeded(this);
+                StashKeepAliveManager.start(this, "checkout", 30000L);
+            }
+            
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(browserIntent);
@@ -1364,9 +1382,31 @@ public class StashPayCardPortraitActivity extends Activity {
         }
     }
     
+    /**
+     * Requests POST_NOTIFICATIONS permission on Android 13+ if not already granted.
+     * This is required for the keep-alive service notification to be visible.
+     */
+    private void requestNotificationPermissionIfNeeded(Activity activity) {
+        if (activity == null) return;
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(activity, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                // Request permission if not granted
+                // Note: This will show a system dialog. If user denies, service still runs but notification may not be visible.
+                ActivityCompat.requestPermissions(activity,
+                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
+                    1001);
+            }
+        }
+    }
+    
     @Override
     protected void onResume() {
         super.onResume();
+        // Stop keep-alive service when app regains focus
+        StashKeepAliveManager.stop(this);
+        
         if (webView != null) {
             webView.onResume();
         }
@@ -1376,6 +1416,9 @@ public class StashPayCardPortraitActivity extends Activity {
     protected void onDestroy() {
         try {
             super.onDestroy();
+            
+            // Stop keep-alive service as safety measure
+            StashKeepAliveManager.stop(this);
             
             if (webView != null) {
                 try {
