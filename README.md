@@ -1,4 +1,4 @@
-# Stash Pay for Android / iOS 
+# Stash Pay for Android / iOS [![Build and Upload Sample Apps](https://github.com/stashgg/stash-native/actions/workflows/build-samples.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/build-samples.yml)
 
 Standalone packages that enable Stash Pay in-app checkout flows within Android and iOS applications. 
 
