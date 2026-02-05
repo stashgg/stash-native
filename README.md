@@ -193,8 +193,6 @@ stashPay.tabletHeightRatioLandscape = 0.6     // Tablet landscape: 60% height
 stashPay.openCheckout(withURL: url)
 ```
 
-See the Android and iOS READMEs for full checkout configuration and API details.
-
 ### Force Chrome Custom Tab / Safari View Controller.
 
 You can require the checkout dialog to use Chrome Custom Tabs on Android or Safari View Controller on iOS. Instead of displaying the URL inside your game or app, the Stash native library will present the checkout experience in the device’s secure browser tab. This is useful for meeting regulatory requirements in certain regions and saves you from having to implement your own out-of-app or fallback checkout solution.
@@ -255,8 +253,6 @@ config.tabletWidthRatioLandscape = 0.3
 config.tabletHeightRatioLandscape = 0.4
 stashPay.openModal(withURL: url, config: config)
 ```
-
-See platform-specific READMEs for full configuration options.
 
 ---
 
