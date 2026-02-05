@@ -1,13 +1,19 @@
 # Stash for Android / iOS [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
+
+<p align="left">
+  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_native.png" width="128" height="128" alt="Stash Unity Logo"/>
+</p>
+
+
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application.
 
 ## Platforms
 
-|                                                                                            | Platform | Readme                             | Description                  |
-| ------------------------------------------------------------------------------------------ | -------- | ---------------------------------- | ---------------------------- |
-| <img src=".github/assets/stash_native.png" alt="Stash Native Icon" width="64" height="64"> | Android  | [Android SDK](./Android/README.md) | Android library (AAR).       |
-| <img src=".github/assets/stash_native.png" alt="Stash Native Icon" width="64" height="64"> | iOS      | [iOS SDK](./iOS/README.md)         | iOS framework (XCFramework). |
+| Platform | Readme                             | Description                  |
+| -------- | ---------------------------------- | ---------------------------- |
+| Android  | [Android SDK](./Android/README.md) | Android library (AAR).       |
+| iOS      | [iOS SDK](./iOS/README.md)         | iOS framework (XCFramework). |
 
 ## Wrappers
 
