@@ -3,7 +3,6 @@ package com.stash.popup.keepalive;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Build;
@@ -143,27 +142,9 @@ public class StashKeepAliveService extends Service {
     }
     
     private Notification createNotification() {
-        // Create a pending intent that opens the app's launcher activity
-        Intent intent = getPackageManager().getLaunchIntentForPackage(getPackageName());
-        if (intent != null) {
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        } else {
-            // Fallback: create a generic intent
-            intent = new Intent();
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        }
-        
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT
-        );
-        
-        // Use app icon, fallback to system icon if not available
+        // Notification is not clickable; it only indicates the session is active
         int icon = getApplicationInfo().icon;
         if (icon == 0) {
-            // Fallback to a simple system icon
             icon = android.R.drawable.ic_menu_info_details;
         }
         
@@ -175,7 +156,6 @@ public class StashKeepAliveService extends Service {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setAutoCancel(false)
-            .setContentIntent(pendingIntent)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setSilent(true) // No sound or vibration
             .build();

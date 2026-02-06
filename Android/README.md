@@ -325,6 +325,8 @@ StashPayCard.getInstance().openCheckout(url);
 |--------|-------------|
 | `setForceWebBasedCheckout(boolean)` | Use Chrome Custom Tabs instead of in-app UI |
 
+When checkout opens in Chrome Custom Tabs or the system browser, an optional **keep-alive** foreground service can run to reduce the chance the app is killed while the user is in the browser. See [KEEP_ALIVE.md](KEEP_ALIVE.md) for how it works, timeouts, and notification behavior.
+
 ---
 
 ## Callbacks (StashPayListener)

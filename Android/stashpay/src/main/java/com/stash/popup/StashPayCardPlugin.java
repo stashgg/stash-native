@@ -3,6 +3,7 @@ package com.stash.popup;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.Application;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
@@ -1332,6 +1333,54 @@ public class StashPayCardPlugin {
         }
     }
     
+    /**
+     * Registers activity lifecycle callbacks to log when the app goes to background
+     * (e.g. CCT/browser in foreground) and when the user returns. Unregisters automatically
+     * when the launch activity is started again or destroyed.
+     */
+    private void registerBrowserLifecycleLogging(Activity launchActivity, String source) {
+        if (launchActivity == null) return;
+        Application app = launchActivity.getApplication();
+        if (app == null) return;
+        final Activity activity = launchActivity;
+        final String sourceLabel = source;
+        Application.ActivityLifecycleCallbacks callbacks = new Application.ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(Activity a, android.os.Bundle savedInstanceState) {}
+            @Override
+            public void onActivityStarted(Activity a) {
+                if (a == activity) {
+                    Log.d(TAG, "App resumed (returned from " + sourceLabel + ")");
+                    app.unregisterActivityLifecycleCallbacks(this);
+                }
+            }
+            @Override
+            public void onActivityResumed(Activity a) {}
+            @Override
+            public void onActivityPaused(Activity a) {
+                if (a == activity) {
+                    Log.d(TAG, "App paused (" + sourceLabel + " in foreground)");
+                }
+            }
+            @Override
+            public void onActivityStopped(Activity a) {
+                if (a == activity) {
+                    Log.d(TAG, "App in background (" + sourceLabel + " visible)");
+                }
+            }
+            @Override
+            public void onActivitySaveInstanceState(Activity a, android.os.Bundle outState) {}
+            @Override
+            public void onActivityDestroyed(Activity a) {
+                if (a == activity) {
+                    Log.d(TAG, "Launch activity destroyed, unregistering " + sourceLabel + " lifecycle logging");
+                    app.unregisterActivityLifecycleCallbacks(this);
+                }
+            }
+        };
+        app.registerActivityLifecycleCallbacks(callbacks);
+    }
+    
     private void openWithChromeCustomTabs(String url, Activity activity) {
         try {
             // Start keep-alive service only if forceSafariViewController is enabled
@@ -1343,6 +1392,7 @@ public class StashPayCardPlugin {
             if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
                 Log.d(TAG, "Opening URL with Chrome Custom Tabs");
                 StashWebViewUtils.openWithChromeCustomTabs(activity, url);
+                registerBrowserLifecycleLogging(activity, "CCT");
                 isCurrentlyPresented = true;
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
                     try {
@@ -1383,6 +1433,7 @@ public class StashPayCardPlugin {
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             activity.startActivity(browserIntent);
+            registerBrowserLifecycleLogging(activity, "browser");
             isCurrentlyPresented = true;
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
