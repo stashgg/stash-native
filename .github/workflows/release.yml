@@ -38,15 +38,15 @@ jobs:
       
       - name: Build Android AAR
         working-directory: Android
-        run: ./gradlew :stashpay:assembleRelease
+        run: ./gradlew :stashnative:assembleRelease
       
       - name: Find AAR file
         id: find-aar
         run: |
-          AAR_PATH=$(find Android/stashpay/build/outputs/aar -name "*.aar" -type f | head -1)
+          AAR_PATH=$(find Android/stashnative/build/outputs/aar -name "*.aar" -type f | head -1)
           if [ -z "$AAR_PATH" ]; then
             echo "AAR not found!"
-            find Android/stashpay/build/outputs -name "*.aar" || true
+            find Android/stashnative/build/outputs -name "*.aar" || true
             exit 1
           fi
           echo "Found AAR at: $AAR_PATH"
@@ -55,7 +55,7 @@ jobs:
       - name: Upload AAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stashpay-android-aar
+          name: stashnative-android-aar
           path: ${{ steps.find-aar.outputs.aar_path }}
           retention-days: 7
 
@@ -74,7 +74,7 @@ jobs:
       
       - name: Build XCFramework
         run: |
-          cd iOS/StashPay
+          cd iOS/StashNative
           
           # Create build directory
           mkdir -p build
@@ -82,51 +82,51 @@ jobs:
           # Archive for iOS device
           echo "Building for iOS device..."
           xcodebuild archive \
-            -project StashPay.xcodeproj \
-            -scheme StashPay \
+            -project StashNative.xcodeproj \
+            -scheme StashNative \
             -destination 'generic/platform=iOS' \
-            -archivePath build/StashPay-iOS.xcarchive \
+            -archivePath build/StashNative-iOS.xcarchive \
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES
           
           # Archive for iOS Simulator
           echo "Building for iOS Simulator..."
           xcodebuild archive \
-            -project StashPay.xcodeproj \
-            -scheme StashPay \
+            -project StashNative.xcodeproj \
+            -scheme StashNative \
             -destination 'generic/platform=iOS Simulator' \
-            -archivePath build/StashPay-Sim.xcarchive \
+            -archivePath build/StashNative-Sim.xcarchive \
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES
           
           # Create XCFramework
           echo "Creating XCFramework..."
           xcodebuild -create-xcframework \
-            -framework "build/StashPay-iOS.xcarchive/Products/Library/Frameworks/StashPay.framework" \
-            -framework "build/StashPay-Sim.xcarchive/Products/Library/Frameworks/StashPay.framework" \
-            -output build/StashPay.xcframework
+            -framework "build/StashNative-iOS.xcarchive/Products/Library/Frameworks/StashNative.framework" \
+            -framework "build/StashNative-Sim.xcarchive/Products/Library/Frameworks/StashNative.framework" \
+            -output build/StashNative.xcframework
           
           # Verify XCFramework was created
-          if [ ! -d "build/StashPay.xcframework" ]; then
+          if [ ! -d "build/StashNative.xcframework" ]; then
             echo "Failed to create XCFramework"
             exit 1
           fi
           
           echo "XCFramework created successfully"
-          ls -la build/StashPay.xcframework
+          ls -la build/StashNative.xcframework
       
       - name: Zip XCFramework
         run: |
-          cd iOS/StashPay/build
-          zip -r StashPay.xcframework.zip StashPay.xcframework
-          echo "Created StashPay.xcframework.zip"
-          ls -la StashPay.xcframework.zip
+          cd iOS/StashNative/build
+          zip -r StashNative.xcframework.zip StashNative.xcframework
+          echo "Created StashNative.xcframework.zip"
+          ls -la StashNative.xcframework.zip
       
       - name: Upload XCFramework artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stashpay-ios-xcframework
-          path: iOS/StashPay/build/StashPay.xcframework.zip
+          name: stashnative-ios-xcframework
+          path: iOS/StashNative/build/StashNative.xcframework.zip
           retention-days: 7
 
   create-release:
@@ -143,13 +143,13 @@ jobs:
       - name: Download Android AAR
         uses: actions/download-artifact@v4
         with:
-          name: stashpay-android-aar
+          name: stashnative-android-aar
           path: release-artifacts
       
       - name: Download iOS XCFramework
         uses: actions/download-artifact@v4
         with:
-          name: stashpay-ios-xcframework
+          name: stashnative-ios-xcframework
           path: release-artifacts
       
       - name: List artifacts
@@ -176,12 +176,12 @@ jobs:
           # Rename AAR
           AAR_FILE=$(find . -name "*.aar" | head -1)
           if [ -n "$AAR_FILE" ]; then
-            mv "$AAR_FILE" "StashPay-${TAG}.aar"
+            mv "$AAR_FILE" "StashNative-${TAG}.aar"
           fi
           
           # Rename XCFramework zip
-          if [ -f "StashPay.xcframework.zip" ]; then
-            mv "StashPay.xcframework.zip" "StashPay-${TAG}.xcframework.zip"
+          if [ -f "StashNative.xcframework.zip" ]; then
+            mv "StashNative.xcframework.zip" "StashNative-${TAG}.xcframework.zip"
           fi
           
           echo "Renamed artifacts:"
@@ -203,21 +203,21 @@ jobs:
           fi
           # Default release notes (no leading spaces so markdown renders correctly)
           {
-            echo "## StashPay SDK ${TAG}"
+            echo "## StashNative SDK ${TAG}"
             echo ""
             echo "### Android"
-            echo "Download \`StashPay-${TAG}.aar\` and add to your project's \`libs\` folder."
+            echo "Download \`StashNative-${TAG}.aar\` and add to your project's \`libs\` folder."
             echo ""
             echo "\`\`\`groovy"
             echo "dependencies {"
-            echo "    implementation files('libs/StashPay-${TAG}.aar')"
+            echo "    implementation files('libs/StashNative-${TAG}.aar')"
             echo "    implementation 'androidx.appcompat:appcompat:1.6.1'"
             echo "    implementation 'androidx.browser:browser:1.7.0'"
             echo "}"
             echo "\`\`\`"
             echo ""
             echo "### iOS"
-            echo "Download \`StashPay-${TAG}.xcframework.zip\`, unzip, and add \`StashPay.xcframework\` to your Xcode project."
+            echo "Download \`StashNative-${TAG}.xcframework.zip\`, unzip, and add \`StashNative.xcframework\` to your Xcode project."
             echo ""
             echo "Alternatively, use Swift Package Manager with this repository URL."
           } >> release_body.md
@@ -229,7 +229,7 @@ jobs:
           name: Release ${{ steps.version.outputs.tag }}
           body_path: release_body.md
           files: |
-            release-artifacts/StashPay-${{ steps.version.outputs.tag }}.aar
-            release-artifacts/StashPay-${{ steps.version.outputs.tag }}.xcframework.zip
+            release-artifacts/StashNative-${{ steps.version.outputs.tag }}.aar
+            release-artifacts/StashNative-${{ steps.version.outputs.tag }}.xcframework.zip
           draft: false
           prerelease: false

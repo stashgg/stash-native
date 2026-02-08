@@ -21,7 +21,7 @@
             android:id="@+id/switchTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.StashPay.TitleMedium"
+            android:textAppearance="@style/TextAppearance.StashNative.TitleMedium"
             tools:text="Use Web View mode" />
 
         <TextView
@@ -29,7 +29,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textAppearance="@style/TextAppearance.StashPay.BodySmall"
+            android:textAppearance="@style/TextAppearance.StashNative.BodySmall"
             android:visibility="gone"
             tools:text="Open in Chrome"
             tools:visibility="visible" />

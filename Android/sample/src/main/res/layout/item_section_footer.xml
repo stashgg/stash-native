@@ -8,6 +8,6 @@
     android:paddingEnd="20dp"
     android:paddingTop="6dp"
     android:paddingBottom="20dp"
-    android:textAppearance="@style/TextAppearance.StashPay.BodySmall"
+    android:textAppearance="@style/TextAppearance.StashNative.BodySmall"
     android:maxLines="3"
     tools:text="Open a full-screen checkout experience." />

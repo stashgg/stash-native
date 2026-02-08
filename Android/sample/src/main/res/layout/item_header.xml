@@ -12,7 +12,7 @@
         android:id="@+id/headerTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.StashPay.HeadlineMedium"
+        android:textAppearance="@style/TextAppearance.StashNative.HeadlineMedium"
         android:text="@string/header_title" />
 
     <TextView
@@ -20,6 +20,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:textAppearance="@style/TextAppearance.StashPay.BodyLarge"
+        android:textAppearance="@style/TextAppearance.StashNative.BodyLarge"
         android:text="@string/header_subtitle" />
 </LinearLayout>

@@ -20,14 +20,14 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textAppearance="@style/TextAppearance.StashPay.TitleMedium"
+            android:textAppearance="@style/TextAppearance.StashNative.TitleMedium"
             tools:text="Phone card height" />
 
         <TextView
             android:id="@+id/sliderValue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.StashPay.BodySmall"
+            android:textAppearance="@style/TextAppearance.StashNative.BodySmall"
             tools:text="68%" />
     </LinearLayout>
 

@@ -29,15 +29,15 @@ If you're using one of the game engines listed below, we offer dedicated wrapper
 
 Latest pre-built binaries are always available on [Releases Page](https://github.com/stashgg/stash-native/releases):
 
-- **Android**: `stashpay-release.aar`
-- **iOS**: `StashPay.xcframework.zip`
+- **Android**: `stashnative-release.aar` (or `StashNative-<tag>.aar` from releases)
+- **iOS**: `StashNative.xcframework.zip`
 
 ## Sample Apps
 
 Both platforms contain up-to-date sample apps that demonstrate the library usage and functions. You can run them from source 
 
 - **Android**: `./Android/sample/` - Run with `./gradlew :sample:installDebug`
-- **iOS**: `./iOS/Sample/` - Open `StashPaySample.xcodeproj` in Xcode
+- **iOS**: `./iOS/Sample/` - Open `StashNativeSample.xcodeproj` in Xcode
 
 or try them instantly in your browser using the Appetize online emulator:
 
@@ -50,26 +50,26 @@ or try them instantly in your browser using the Appetize online emulator:
 
 ### Android
 
-1. Download `stashpay-release.aar` from [GitHub Releases](https://github.com/stashgg/stash-native/releases) and add it to your project (e.g. `libs/`).
+1. Download `StashNative-<tag>.aar` from [GitHub Releases](https://github.com/stashgg/stash-native/releases) and add it to your project (e.g. `libs/`).
 2. In your app's `build.gradle`:
 
 ```groovy
 dependencies {
-    implementation files('libs/stashpay-release.aar')
+    implementation files('libs/StashNative-<tag>.aar')
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.browser:browser:1.7.0'
 }
 ```
 
-To build the AAR locally: `cd Android && ./gradlew :stashpay:assembleRelease` (output in `stashpay/build/outputs/aar/`).
+To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
 
 ### iOS
 
-**XCFramework (recommended):** Download `StashPay.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, add `StashPay.xcframework` to your Xcode project, and under **Frameworks, Libraries, and Embedded Content** set it to **Embed & Sign**.
+**XCFramework (recommended):** Download `StashNative.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, add `StashNative.xcframework` to your Xcode project, and under **Frameworks, Libraries, and Embedded Content** set it to **Embed & Sign**.
 
-**Swift Package Manager:** In Xcode choose File → Add Packages... and add `https://github.com/stashgg/stash-native.git`, then select the StashPay package for your target.
+**Swift Package Manager:** In Xcode choose File → Add Packages... and add `https://github.com/stashgg/stash-native.git`, then select the StashNative package for your target.
 
-**Manual integration:** Copy all files from `StashPay/Sources/StashPay/` into your project, add them to your target, and link **SafariServices.framework** and **WebKit.framework**.
+**Manual integration:** Copy all files from `StashNative/Sources/StashNative/` into your project, add them to your target, and link **SafariServices.framework** and **WebKit.framework**.
 
 ---
 
@@ -86,22 +86,22 @@ Drawer-style card: slides up from the bottom on phones, centered on tablets. Sui
 **Android**
 
 ```java
-StashPayCard.CardConfig config = new StashPayCard.CardConfig();  // or null for defaults
-StashPayCard.getInstance().openCard("https://your-url.com", config);
+StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();  // or null for defaults
+StashNativeCard.getInstance().openCard("https://your-url.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
-let config = StashPayCardConfig()  // or nil for defaults
-StashPayCard.sharedInstance().openCard(withURL: "https://your-url.com", config: config)
+let config = StashNativeCardConfig()  // or nil for defaults
+StashNativeCard.sharedInstance().openCard(withURL: "https://your-url.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
-StashPayCardConfig *config = [[StashPayCardConfig alloc] init];  // or nil for defaults
-[[StashPayCard sharedInstance] openCardWithURL:@"https://your-url.com" config:config];
+StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil for defaults
+[[StashNativeCard sharedInstance] openCardWithURL:@"https://your-url.com" config:config];
 ```
 
 #### Config
@@ -119,21 +119,21 @@ Pass a `CardConfig` (or `nil`/`null`) to control orientation and sizing. Pass `n
 **Android**
 
 ```java
-StashPayCard.CardConfig config = new StashPayCard.CardConfig();
+StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
 config.forcePortrait = false;
 config.cardHeightRatioPortrait = 0.68f;
 // ... tabletWidthRatioPortrait, tabletHeightRatioPortrait, etc. (see table above)
-stashPay.openCard(url, config);
+stashNative.openCard(url, config);
 ```
 
 **iOS (Swift)**
 
 ```swift
-let config = StashPayCardConfig()
+let config = StashNativeCardConfig()
 config.forcePortrait = false
 config.cardHeightRatioPortrait = 0.68
 // ... tabletWidthRatioPortrait, tabletHeightRatioPortrait, etc. (see table above)
-stashPay.openCard(withURL: url, config: config)
+stashNative.openCard(withURL: url, config: config)
 ```
 
 #### Callbacks
@@ -160,22 +160,22 @@ Centered modal on all devices. Same layout on phone and tablet; resizes on rotat
 **Android**
 
 ```java
-StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();  // or null for defaults
-StashPayCard.getInstance().openModal("https://your-url.com", config);
+StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();  // or null for defaults
+StashNativeCard.getInstance().openModal("https://your-url.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
-let config = StashPayModalConfig()  // or nil for defaults
-StashPayCard.sharedInstance().openModal(withURL: "https://your-url.com", config: config)
+let config = StashNativeModalConfig()  // or nil for defaults
+StashNativeCard.sharedInstance().openModal(withURL: "https://your-url.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
-StashPayModalConfig *config = [[StashPayModalConfig alloc] init];  // or nil for defaults
-[[StashPayCard sharedInstance] openModalWithURL:@"https://your-url.com" config:config];
+StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or nil for defaults
+[[StashNativeCard sharedInstance] openModalWithURL:@"https://your-url.com" config:config];
 ```
 
 #### Config
@@ -191,21 +191,21 @@ Pass a `ModalConfig` (or `nil`/`null`) to control drag bar, dismiss behavior, an
 **Android**
 
 ```java
-StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();
+StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();
 config.showDragBar = true;
 config.allowDismiss = true;
 // ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
-stashPay.openModal(url, config);
+stashNative.openModal(url, config);
 ```
 
 **iOS (Swift)**
 
 ```swift
-let config = StashPayModalConfig()
+let config = StashNativeModalConfig()
 config.showDragBar = true
 config.allowDismiss = true
 // ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
-stashPay.openModal(withURL: url, config: config)
+stashNative.openModal(withURL: url, config: config)
 ```
 
 #### Callbacks
@@ -223,23 +223,23 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 **Android**
 
 ```java
-StashPayCard.getInstance().openBrowser("https://your-url.com");
+StashNativeCard.getInstance().openBrowser("https://your-url.com");
 ```
 
 **iOS (Swift)**
 
 ```swift
-StashPayCard.sharedInstance().openBrowser(withURL: "https://your-url.com")
+StashNativeCard.sharedInstance().openBrowser(withURL: "https://your-url.com")
 // Optionally dismiss when handling a deeplink:
-StashPayCard.sharedInstance().closeBrowser()
+StashNativeCard.sharedInstance().closeBrowser()
 ```
 
 **iOS (Objective-C)**
 
 ```objc
-[[StashPayCard sharedInstance] openBrowserWithURL:@"https://your-url.com"];
+[[StashNativeCard sharedInstance] openBrowserWithURL:@"https://your-url.com"];
 // Optionally dismiss when handling a deeplink:
-[[StashPayCard sharedInstance] closeBrowser];
+[[StashNativeCard sharedInstance] closeBrowser];
 ```
 
 On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser()** is a no-op (Chrome Custom Tabs cannot be closed by the app).

@@ -8,5 +8,5 @@
     android:paddingEnd="20dp"
     android:paddingTop="24dp"
     android:paddingBottom="8dp"
-    android:textAppearance="@style/TextAppearance.StashPay.LabelLarge"
+    android:textAppearance="@style/TextAppearance.StashNative.LabelLarge"
     tools:text="CHECKOUT" />

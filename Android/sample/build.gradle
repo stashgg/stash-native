@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.stash.stashsdk'
+    namespace 'com.stash.stashnative.sample'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.stash.stashsdk"
+        applicationId "com.stash.stashnative.sample"
         minSdk 21
         targetSdk 34
         versionCode 1
@@ -32,7 +32,7 @@ android {
 }
 
 dependencies {
-    implementation project(':stashpay')
+    implementation project(':stashnative')
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'

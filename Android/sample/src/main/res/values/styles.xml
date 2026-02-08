@@ -1,28 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Material 3 type scale - section labels (label large) -->
-    <style name="TextAppearance.StashPay.LabelLarge" parent="TextAppearance.MaterialComponents.Body2">
+    <style name="TextAppearance.StashNative.LabelLarge" parent="TextAppearance.MaterialComponents.Body2">
         <item name="android:textSize">14sp</item>
         <item name="android:letterSpacing">0.1</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>
     <!-- List item primary (title medium) -->
-    <style name="TextAppearance.StashPay.TitleMedium" parent="TextAppearance.MaterialComponents.Body1">
+    <style name="TextAppearance.StashNative.TitleMedium" parent="TextAppearance.MaterialComponents.Body1">
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
     <!-- List item supporting (body small) -->
-    <style name="TextAppearance.StashPay.BodySmall" parent="TextAppearance.MaterialComponents.Body2">
+    <style name="TextAppearance.StashNative.BodySmall" parent="TextAppearance.MaterialComponents.Body2">
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>
     <!-- Headline for header -->
-    <style name="TextAppearance.StashPay.HeadlineMedium" parent="TextAppearance.MaterialComponents.Headline6">
+    <style name="TextAppearance.StashNative.HeadlineMedium" parent="TextAppearance.MaterialComponents.Headline6">
         <item name="android:textSize">28sp</item>
         <item name="android:textColor">?attr/colorOnSurface</item>
     </style>
-    <style name="TextAppearance.StashPay.BodyLarge" parent="TextAppearance.MaterialComponents.Body1">
+    <style name="TextAppearance.StashNative.BodyLarge" parent="TextAppearance.MaterialComponents.Body1">
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>

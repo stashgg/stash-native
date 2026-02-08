@@ -30,7 +30,7 @@ jobs:
         run: |
           java -jar checkstyle.jar -c Android/checkstyle.xml \
             -f plain \
-            Android/stashpay/src/main/java/
+            Android/stashnative/src/main/java/
 
   lint-android-sample:
     name: Lint Android Sample (Checkstyle)
@@ -66,10 +66,10 @@ jobs:
       - name: Run Static Analysis on iOS Library
         run: |
           # Run Clang Static Analyzer on Objective-C library
-          cd iOS/StashPay
+          cd iOS/StashNative
           xcodebuild analyze \
-            -project StashPay.xcodeproj \
-            -scheme StashPay \
+            -project StashNative.xcodeproj \
+            -scheme StashNative \
             -sdk iphonesimulator \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
             GCC_TREAT_WARNINGS_AS_ERRORS=YES \
@@ -89,5 +89,5 @@ jobs:
 
       - name: Run SwiftLint on Sample
         run: |
-          swiftlint lint iOS/Sample/StashPaySample --strict --config .swiftlint.yml
+          swiftlint lint iOS/Sample/StashNativeSample --strict --config .swiftlint.yml
         continue-on-error: false

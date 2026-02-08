@@ -22,11 +22,11 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:textAppearance="@style/TextAppearance.StashPay.TitleMedium" />
+        android:textAppearance="@style/TextAppearance.StashNative.TitleMedium" />
 
     <TextView
         android:id="@+id/statusValue"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.StashPay.BodySmall" />
+        android:textAppearance="@style/TextAppearance.StashNative.BodySmall" />
 </LinearLayout>
