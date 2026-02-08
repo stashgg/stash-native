@@ -226,7 +226,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.tag }}
+          name: Stash Natuve ${{ steps.version.outputs.tag }}
           body_path: release_body.md
           files: |
             release-artifacts/StashNative-${{ steps.version.outputs.tag }}.aar
