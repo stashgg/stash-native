@@ -77,6 +77,8 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 The library provides three distinct ways to present Stash URLs within your app or game: **openCard**, **openModal**, and **openBrowser**. Each method lets you present different types of Stash experiences—such as Stash Pay checkout, Stash Web Shop, or Stash Opt-in—in a style that best fits your user flow. Details for each option are provided below.
 
+> **Tip:** Point modal or card to testcard.stashpreview.com to open a testing webpage to simulate different callbacks during development.
+
 [![](https://mermaid.ink/img/pako:eNp1lE2PmzAQhv-K5XOSBsImwKFSS9QqqlKtlE0PhR4cmARUsJFtut1m8993-Ejw0sDBGpjH8_Vin2ksEqA-PUlWpuRpHXGCj6oO7YdKgfxUliTEJc9ipjPByQfylRXwq0Xrh5XlOyDAmJ0beNIag8BKM5Xu1t9IuKst8h13_gHyyOLf7GTGFiXwgMkkvBoD31YkLA9v1sD7WYpnbCE0bIOIc6HgipgvBmPQmDwQ_JidwuBmGmRR5--AbW-Pxtpvwg2f4uxIHY48SlDAdTPBYdQebQKPsYe2eqR3X3bsyGT2I4NnLENLkecgUbkglaIAElRKi4I8sYO6L1Sdazr9-BpLYBrUq9H9CGC0PyBYnqP_qt-os2lt1Nspc9dvSmc20dfc0CVTChKixbAYo_R7oFFYu153t3CrRTei_aZHWq3eM52cPdSVPcBuSnaNGA02ZJKpIsMi_0f7zvcbMp11QzrguUIW52Z0PAZEnE5oAbJgWYJXw7neElGdQgER9dFM4MiqXEc04hdEWaXF7oXH1NeyggmVojql1D-yXOFbVSb4g6wzhge_uH0tGf8pRHHdAkmmhdy2d1FzJU3wSqrTdyHx9wQZiIpr6q9ctwlA_TP9S33LsWauNXddx7JXi8X84WFCX6hve97M8jzXsh3HW9qes7xM6L8m53y2Wi7ntrWwLNvFxVpe3gBB4KOU?type=png)](https://mermaid.live/edit#pako:eNp1lE2PmzAQhv-K5XOSBsImwKFSS9QqqlKtlE0PhR4cmARUsJFtut1m8993-Ejw0sDBGpjH8_Vin2ksEqA-PUlWpuRpHXGCj6oO7YdKgfxUliTEJc9ipjPByQfylRXwq0Xrh5XlOyDAmJ0beNIag8BKM5Xu1t9IuKst8h13_gHyyOLf7GTGFiXwgMkkvBoD31YkLA9v1sD7WYpnbCE0bIOIc6HgipgvBmPQmDwQ_JidwuBmGmRR5--AbW-Pxtpvwg2f4uxIHY48SlDAdTPBYdQebQKPsYe2eqR3X3bsyGT2I4NnLENLkecgUbkglaIAElRKi4I8sYO6L1Sdazr9-BpLYBrUq9H9CGC0PyBYnqP_qt-os2lt1Nspc9dvSmc20dfc0CVTChKixbAYo_R7oFFYu153t3CrRTei_aZHWq3eM52cPdSVPcBuSnaNGA02ZJKpIsMi_0f7zvcbMp11QzrguUIW52Z0PAZEnE5oAbJgWYJXw7neElGdQgER9dFM4MiqXEc04hdEWaXF7oXH1NeyggmVojql1D-yXOFbVSb4g6wzhge_uH0tGf8pRHHdAkmmhdy2d1FzJU3wSqrTdyHx9wQZiIpr6q9ctwlA_TP9S33LsWauNXddx7JXi8X84WFCX6hve97M8jzXsh3HW9qes7xM6L8m53y2Wi7ntrWwLNvFxVpe3gBB4KOU)
 
 ### openCard
@@ -89,21 +91,21 @@ Drawer-style card: slides up from the bottom on phones, centered on tablets. Sui
 
 ```java
 StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();  // or null for defaults
-StashNativeCard.getInstance().openCard("https://your-url.com", config);
+StashNativeCard.getInstance().openCard("https://testcard.stashpreview.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
 let config = StashNativeCardConfig()  // or nil for defaults
-StashNativeCard.sharedInstance().openCard(withURL: "https://your-url.com", config: config)
+StashNativeCard.sharedInstance().openCard(withURL: "https://testcard.stashpreview.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
 StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil for defaults
-[[StashNativeCard sharedInstance] openCardWithURL:@"https://your-url.com" config:config];
+[[StashNativeCard sharedInstance] openCardWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
 #### Config
@@ -163,21 +165,21 @@ Centered modal on all devices. Same layout on phone and tablet; resizes on rotat
 
 ```java
 StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();  // or null for defaults
-StashNativeCard.getInstance().openModal("https://your-url.com", config);
+StashNativeCard.getInstance().openModal("https://testcard.stashpreview.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
 let config = StashNativeModalConfig()  // or nil for defaults
-StashNativeCard.sharedInstance().openModal(withURL: "https://your-url.com", config: config)
+StashNativeCard.sharedInstance().openModal(withURL: "https://testcard.stashpreview.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
 StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or nil for defaults
-[[StashNativeCard sharedInstance] openModalWithURL:@"https://your-url.com" config:config];
+[[StashNativeCard sharedInstance] openModalWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
 #### Config
@@ -225,13 +227,13 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 **Android**
 
 ```java
-StashNativeCard.getInstance().openBrowser("https://your-url.com");
+StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
 ```
 
 **iOS (Swift)**
 
 ```swift
-StashNativeCard.sharedInstance().openBrowser(withURL: "https://your-url.com")
+StashNativeCard.sharedInstance().openBrowser(withURL: "https://testcard.stashpreview.com")
 // Optionally dismiss when handling a deeplink:
 StashNativeCard.sharedInstance().closeBrowser()
 ```
@@ -239,7 +241,7 @@ StashNativeCard.sharedInstance().closeBrowser()
 **iOS (Objective-C)**
 
 ```objc
-[[StashNativeCard sharedInstance] openBrowserWithURL:@"https://your-url.com"];
+[[StashNativeCard sharedInstance] openBrowserWithURL:@"https://testcard.stashpreview.com"];
 // Optionally dismiss when handling a deeplink:
 [[StashNativeCard sharedInstance] closeBrowser];
 ```
