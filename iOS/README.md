@@ -55,18 +55,24 @@ class ViewController: UIViewController {
         StashPayCard.sharedInstance().delegate = self
     }
     
-    func openCheckout() {
-        // Open checkout card (slides up from bottom on iPhone, centered on iPad)
-        StashPayCard.sharedInstance().openCheckout(withURL: "https://your-checkout-url.com")
+    func openCard() {
+        // Open card (slides up from bottom on iPhone, centered on iPad). Pass nil for default config.
+        let config = StashPayCardConfig()
+        StashPayCard.sharedInstance().openCard(withURL: "https://your-checkout-url.com", config: config)
     }
     
     func openModal() {
-        // Open centered modal (same on iPhone and iPad)
+        // Open centered modal (same on iPhone and iPad). Pass nil for default config.
         let config = StashPayModalConfig()
         config.showDragBar = true
         config.allowDismiss = true
         // Sizing: phoneWidthRatioPortrait, phoneHeightRatioPortrait, phoneWidthRatioLandscape, phoneHeightRatioLandscape, tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see Modal Configuration below)
         StashPayCard.sharedInstance().openModal(withURL: "https://your-modal-url.com", config: config)
+    }
+    
+    func openBrowser() {
+        // Open URL in SFSafariViewController (no callbacks). Call closeBrowser() to dismiss when handling deeplinks.
+        StashPayCard.sharedInstance().openBrowser(withURL: "https://your-url.com")
     }
 }
 
@@ -111,8 +117,9 @@ extension ViewController: StashPayCardDelegate {
     [StashPayCard sharedInstance].delegate = self;
 }
 
-- (void)openCheckout {
-    [[StashPayCard sharedInstance] openCheckoutWithURL:@"https://your-checkout-url.com"];
+- (void)openCard {
+    StashPayCardConfig *config = [[StashPayCardConfig alloc] init];
+    [[StashPayCard sharedInstance] openCardWithURL:@"https://your-checkout-url.com" config:config];
 }
 
 - (void)openModal {
@@ -120,6 +127,11 @@ extension ViewController: StashPayCardDelegate {
     config.showDragBar = YES;
     config.allowDismiss = YES;
     [[StashPayCard sharedInstance] openModalWithURL:@"https://your-modal-url.com" config:config];
+}
+
+- (void)openBrowser {
+    [[StashPayCard sharedInstance] openBrowserWithURL:@"https://your-url.com"];
+    // Call closeBrowser to dismiss when handling deeplinks
 }
 
 #pragma mark - StashPayCardDelegate
@@ -151,68 +163,37 @@ extension ViewController: StashPayCardDelegate {
 
 ## Presentation Methods
 
-**openCheckout** is used exclusively for checkout URLs: [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration).
+**openCard** is used for checkout or other URLs in a card: [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration).
 
 **openModal** is used for the opt-in dialog: [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in).
 
 | Method | iPhone Behavior | iPad Behavior | Use Case |
 |--------|-----------------|---------------|----------|
-| `openCheckout(withURL:)` | Card: portrait-only or current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
+| `openCard(withURL:config:)` | Card: portrait-only or current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
 | `openModal(withURL:config:)` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content, no card behavior |
 
 ---
 
 ## Checkout Configuration
 
-### Force portrait on checkout (iPhone)
+### Card configuration (StashPayCardConfig)
 
-By default, checkout on iPhone **does not** force portrait. You can lock checkout to portrait or allow all orientations:
+Card sizing and orientation are set via **StashPayCardConfig** passed to `openCard(withURL:config:)`. Pass `nil` for defaults.
 
-- **Force portrait on**  
-  Checkout is shown in a **portrait-only** view. The card uses full width and a configurable height ratio. Expand/collapse is supported via drag.
-
-- **Force portrait off (default)**  
-  Checkout appears in the **current orientation**. The card resizes on rotation and supports expand/collapse (drag or WebView callbacks). In **portrait** the card uses full width and a height ratio; in **landscape** it uses configurable width and height ratios.
+- **forcePortrait = true** — Card is shown in a **portrait-only** view (full width, configurable height ratio).
+- **forcePortrait = false (default)** — Card appears in the **current orientation** with expand/collapse.
 
 ```swift
-let stashPay = StashPayCard.sharedInstance()
-
-// Lock checkout to portrait or allow current orientation
-stashPay.forcePortraitOnCheckout = false   // default: allow all orientations
-// iPad sizing: tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see iPad Card Size below)
-```
-
-### iPhone card size
-
-**Portrait** (and when force portrait is on): the card uses **full screen width**. Only the height ratio is configurable.
-
-**Landscape** (only when force portrait is off): the card size is controlled by width and height ratios of the screen.
-
-```swift
-let stashPay = StashPayCard.sharedInstance()
-
-// Portrait: full width, height as ratio of screen height (default: 68%)
-stashPay.cardHeightRatioPortrait = 0.68
-
-// Landscape (only when force portrait is off): width and height as ratio of screen
-stashPay.cardWidthRatioLandscape = 0.9   // default: 90% width
-stashPay.cardHeightRatioLandscape = 0.6  // default: 60% height
-```
-
-### iPad Card Size
-
-On iPad, the checkout card is centered and supports rotation. Configure width and height for both orientations:
-
-```swift
-let stashPay = StashPayCard.sharedInstance()
-
-// Portrait orientation
-stashPay.tabletWidthRatioPortrait = 0.4   // 40% width (default)
-stashPay.tabletHeightRatioPortrait = 0.5  // 50% height (default)
-
-// Landscape orientation
-stashPay.tabletWidthRatioLandscape = 0.3  // 30% width (default)
-stashPay.tabletHeightRatioLandscape = 0.6 // 60% height (default)
+let config = StashPayCardConfig()
+config.forcePortrait = false
+config.cardHeightRatioPortrait = 0.68
+config.cardWidthRatioLandscape = 0.9
+config.cardHeightRatioLandscape = 0.6
+config.tabletWidthRatioPortrait = 0.4
+config.tabletHeightRatioPortrait = 0.5
+config.tabletWidthRatioLandscape = 0.3
+config.tabletHeightRatioLandscape = 0.6
+StashPayCard.sharedInstance().openCard(withURL: url, config: config)
 ```
 
 ---
@@ -292,7 +273,7 @@ To use SFSafariViewController instead of the in-app UI:
 
 ```swift
 StashPayCard.sharedInstance().forceWebBasedCheckout = true
-StashPayCard.sharedInstance().openCheckout(withURL: url)
+StashPayCard.sharedInstance().openCard(withURL: url, config: config)
 ```
 
 ## Handling Deep Links
@@ -329,13 +310,15 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 
 | Method | Description |
 |--------|-------------|
-| `openCheckout(withURL:)` | Open checkout card (bottom sheet on iPhone, centered on iPad) |
+| `openCard(withURL:config:)` | Open card (bottom sheet on iPhone, centered on iPad). Pass nil for default config. |
+| `openBrowser(withURL:)` | Open URL in SFSafariViewController (no callbacks). |
+| `closeBrowser` | Dismiss the Safari view (e.g. when handling deeplinks). |
 | `openModal(withURL:)` | Open centered modal with default configuration |
 | `openModal(withURL:config:)` | Open centered modal with custom configuration |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset internal state and dismiss |
-| `dismissSafariViewController()` | Dismiss Safari VC (web-based checkout) |
-| `dismissSafariViewController(withResult:)` | Dismiss Safari VC with success/failure |
+| `closeBrowser` | Dismiss the Safari view (e.g. when handling deeplinks). |
+| `dismissSafariViewControllerWithResult(_:)` | Dismiss Safari VC and fire success/failure callback (advanced). |
 
 ### State Properties
 
@@ -344,11 +327,11 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `isCurrentlyPresented` | Returns `true` if a dialog is currently shown |
 | `isPurchaseProcessing` | Returns `true` if a payment is in progress |
 
-### Checkout: force portrait & sizing (iPhone)
+### StashPayCardConfig (for openCard)
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `forcePortraitOnCheckout` | `false` | If true, show checkout in portrait only; if false, allow all orientations with rotation and expand/collapse |
+| `forcePortrait` | `false` | If true, show card in portrait only; if false, allow all orientations with rotation and expand/collapse |
 | `cardHeightRatioPortrait` | `0.68` | Card height as ratio of screen height in portrait (0.1-1.0) |
 | `cardWidthRatioLandscape` | `0.9` | Card width as ratio of screen width in landscape (0.1-1.0); used only when force portrait is off |
 | `cardHeightRatioLandscape` | `0.6` | Card height as ratio of screen height in landscape (0.1-1.0); used only when force portrait is off |
@@ -362,11 +345,9 @@ func application(_ app: UIApplication, open url: URL, options: [UIApplication.Op
 | `tabletWidthRatioLandscape` | `0.3` | Card width in landscape (0.1-1.0) |
 | `tabletHeightRatioLandscape` | `0.6` | Card height in landscape (0.1-1.0) |
 
-### Other Settings
+### Other
 
-| Property | Description |
-|----------|-------------|
-| `forceWebBasedCheckout` | Use SFSafariViewController instead of in-app UI |
+Use `openBrowser(withURL:)` to open a URL in SFSafariViewController (no callbacks). Use `closeBrowser` to dismiss it (e.g. when handling deeplinks).
 
 ---
 

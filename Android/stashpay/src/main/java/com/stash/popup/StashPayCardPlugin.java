@@ -84,7 +84,6 @@ public class StashPayCardPlugin {
     private boolean useCheckoutOverlayPresentation;
     /** When true, checkout overlay (no force portrait) is expanded to ~95% height. Reset on rotation. */
     private boolean isCheckoutOverlayExpanded = false;
-    private boolean forceSafariViewController;
     private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
     
     // Modal configuration (used when useModalPresentation is true)
@@ -230,14 +229,57 @@ public class StashPayCardPlugin {
         this.listener = listener;
     }
     
-    public void openCheckout(String url) {
+    public void openCard(String url, StashPayCard.CardConfig config) {
         try {
+            if (config != null) {
+                this.forcePortraitOnCheckout = config.forcePortrait;
+                this.cardHeightRatioPortrait = clampRatio(config.cardHeightRatioPortrait);
+                this.cardWidthRatioLandscape = clampRatio(config.cardWidthRatioLandscape);
+                this.cardHeightRatioLandscape = clampRatio(config.cardHeightRatioLandscape);
+                this.tabletWidthRatioPortrait = clampRatio(config.tabletWidthRatioPortrait);
+                this.tabletHeightRatioPortrait = clampRatio(config.tabletHeightRatioPortrait);
+                this.tabletWidthRatioLandscape = clampRatio(config.tabletWidthRatioLandscape);
+                this.tabletHeightRatioLandscape = clampRatio(config.tabletHeightRatioLandscape);
+            }
             usePopupPresentation = false;
             useModalPresentation = false;
             openURLInternal(url);
         } catch (Exception e) {
-            Log.e(TAG, "Error in openCheckout: " + e.getMessage(), e);
+            Log.e(TAG, "Error in openCard: " + e.getMessage(), e);
             cleanupAllViews();
+        }
+    }
+    
+    public void openBrowser(String url) {
+        try {
+            Activity activity = getActivity();
+            if (activity == null || url == null || url.isEmpty()) {
+                Log.e(TAG, "Invalid activity or URL for openBrowser");
+                return;
+            }
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                url = "https://" + url;
+            }
+            try {
+                url = StashWebViewUtils.appendThemeQueryParameter(url, StashWebViewUtils.isDarkTheme(activity));
+            } catch (Exception e) {
+                Log.e(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+            }
+            final String finalUrl = url;
+            final Activity finalActivity = activity;
+            activity.runOnUiThread(() -> {
+                try {
+                    if (StashWebViewUtils.isChromeCustomTabsAvailable(finalActivity)) {
+                        StashWebViewUtils.openWithChromeCustomTabs(finalActivity, finalUrl);
+                    } else {
+                        StashWebViewUtils.openInSystemBrowser(finalActivity, finalUrl);
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Error in openBrowser: " + e.getMessage(), e);
+                }
+            });
+        } catch (Exception e) {
+            Log.e(TAG, "Error in openBrowser: " + e.getMessage(), e);
         }
     }
     
@@ -317,121 +359,8 @@ public class StashPayCardPlugin {
     // Orientation-Specific Phone Card Size Configuration
     // ============================================================================
     
-    public float getCardHeightRatioPortrait() {
-        return cardHeightRatioPortrait;
-    }
-    
-    public void setCardHeightRatioPortrait(float ratio) {
-        try {
-            this.cardHeightRatioPortrait = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardHeightRatioPortrait: " + e.getMessage(), e);
-        }
-    }
-    
-    public boolean isForcePortraitOnCheckout() {
-        return forcePortraitOnCheckout;
-    }
-    
-    public void setForcePortraitOnCheckout(boolean force) {
-        this.forcePortraitOnCheckout = force;
-    }
-    
-    public float getCardWidthRatioLandscape() {
-        return cardWidthRatioLandscape;
-    }
-    
-    public void setCardWidthRatioLandscape(float ratio) {
-        try {
-            this.cardWidthRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardWidthRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getCardHeightRatioLandscape() {
-        return cardHeightRatioLandscape;
-    }
-    
-    public void setCardHeightRatioLandscape(float ratio) {
-        try {
-            this.cardHeightRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setCardHeightRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
-    // ============================================================================
-    // Orientation-Specific Tablet Card Size Configuration
-    // ============================================================================
-    
-    public float getTabletWidthRatioPortrait() {
-        return tabletWidthRatioPortrait;
-    }
-    
-    public void setTabletWidthRatioPortrait(float ratio) {
-        try {
-            this.tabletWidthRatioPortrait = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletWidthRatioPortrait: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getTabletHeightRatioPortrait() {
-        return tabletHeightRatioPortrait;
-    }
-    
-    public void setTabletHeightRatioPortrait(float ratio) {
-        try {
-            this.tabletHeightRatioPortrait = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletHeightRatioPortrait: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getTabletWidthRatioLandscape() {
-        return tabletWidthRatioLandscape;
-    }
-    
-    public void setTabletWidthRatioLandscape(float ratio) {
-        try {
-            this.tabletWidthRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletWidthRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
-    public float getTabletHeightRatioLandscape() {
-        return tabletHeightRatioLandscape;
-    }
-    
-    public void setTabletHeightRatioLandscape(float ratio) {
-        try {
-            this.tabletHeightRatioLandscape = clampRatio(ratio);
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setTabletHeightRatioLandscape: " + e.getMessage(), e);
-        }
-    }
-    
     private float clampRatio(float ratio) {
         return Math.max(0.1f, Math.min(1.0f, ratio));
-    }
-    
-    public void setForceSafariViewController(boolean force) {
-        try {
-            this.forceSafariViewController = force;
-        } catch (Exception e) {
-            Log.e(TAG, "Error in setForceSafariViewController: " + e.getMessage(), e);
-        }
-    }
-    
-    public boolean getForceSafariViewController() {
-        try {
-            return forceSafariViewController;
-        } catch (Exception e) {
-            Log.e(TAG, "Error in getForceSafariViewController: " + e.getMessage(), e);
-            return false;
-        }
     }
     
     public boolean isPurchaseProcessing() {
@@ -469,10 +398,7 @@ public class StashPayCardPlugin {
                     if (usePopupPresentation) {
                         createAndShowPopupDialog(finalUrl, finalActivity);
                     } else if (useModalPresentation) {
-                        // Modal always opens in-app; force web view (Chrome Custom Tabs) is for checkout only
                         createAndShowModalDialog(finalUrl, finalActivity);
-                    } else if (forceSafariViewController) {
-                        openWithChromeCustomTabs(finalUrl, finalActivity);
                     } else {
                         boolean isTablet = false;
                         try {

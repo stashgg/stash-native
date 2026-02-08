@@ -28,6 +28,7 @@ public class MainViewModel extends AndroidViewModel {
 
     // URLs (user-edited)
     private String checkoutUrl = DEFAULT_CHECKOUT_URL;
+    private String browserUrl = DEFAULT_CHECKOUT_URL;
     private String modalUrl = DEFAULT_MODAL_URL;
 
     // Presentation options: two separate expandables under one category
@@ -39,7 +40,6 @@ public class MainViewModel extends AndroidViewModel {
     private boolean useTestApi = true;
 
     // Checkout options
-    private boolean webViewMode = false;
     private boolean forcePortraitOnCheckout = false;
     private int phoneCardHeight = 58;       // 68%
     private int checkoutPhoneLandscapeW = 80, checkoutPhoneLandscapeH = 50; // 90%, 60% (progress 0–90 → display 10–100%)
@@ -78,12 +78,20 @@ public class MainViewModel extends AndroidViewModel {
         // Don't refresh list on every keystroke
     }
 
+    public void setBrowserUrl(String url) {
+        this.browserUrl = url != null ? url : "";
+    }
+
     public String getCheckoutUrl() {
         return checkoutUrl;
     }
 
     public String getModalUrl() {
         return modalUrl;
+    }
+
+    public String getBrowserUrl() {
+        return browserUrl;
     }
 
     public void toggleCheckoutOptions() {
@@ -120,11 +128,6 @@ public class MainViewModel extends AndroidViewModel {
 
     public boolean isUseTestApi() {
         return useTestApi;
-    }
-
-    public void setWebViewMode(boolean on) {
-        webViewMode = on;
-        refreshList();
     }
 
     public void setForcePortraitOnCheckout(boolean on) {
@@ -217,7 +220,6 @@ public class MainViewModel extends AndroidViewModel {
         refreshList();
     }
 
-    public boolean isWebViewMode() { return webViewMode; }
     public boolean isForcePortraitOnCheckout() { return forcePortraitOnCheckout; }
     public boolean isModalShowDragBar() { return modalShowDragBar; }
     public boolean isModalAllowDismiss() { return modalAllowDismiss; }
@@ -241,26 +243,31 @@ public class MainViewModel extends AndroidViewModel {
     public void refreshList() {
         List<SettingsItem> list = new ArrayList<>();
 
-        // Checkout card (bubble)
-        list.add(SettingsItem.sectionHeader(R.string.section_checkout, true, false));
-        list.add(SettingsItem.urlPreference(R.string.hint_checkout_url, checkoutUrl, R.drawable.ic_credit_card, false, false));
-        list.add(SettingsItem.actionPreference(R.string.open_checkout, R.drawable.ic_credit_card, false, false));
-        list.add(SettingsItem.actionPreference(R.string.generate_checkout, R.drawable.ic_credit_card, false, false));
-        list.add(SettingsItem.sectionFooter(R.string.footer_checkout, false, true));
+        // Card section
+        list.add(SettingsItem.sectionHeader(R.string.section_card, true, false));
+        list.add(SettingsItem.urlPreference(R.string.hint_checkout_url, checkoutUrl, android.R.drawable.sym_contact_card, false, false));
+        list.add(SettingsItem.actionPreference(R.string.open_card, android.R.drawable.sym_contact_card, false, false));
+        list.add(SettingsItem.actionPreference(R.string.generate_checkout, android.R.drawable.sym_contact_card, false, false));
+        list.add(SettingsItem.sectionFooter(R.string.footer_card, false, true));
 
-        // Modal card (bubble)
+        // Modal section
         list.add(SettingsItem.sectionHeader(R.string.section_modal, true, false));
-        list.add(SettingsItem.urlPreference(R.string.hint_modal_url, modalUrl, R.drawable.ic_layers, false, false));
-        list.add(SettingsItem.actionPreference(R.string.open_modal, R.drawable.ic_layers, false, false));
+        list.add(SettingsItem.urlPreference(R.string.hint_modal_url, modalUrl, android.R.drawable.ic_menu_sort_by_size, false, false));
+        list.add(SettingsItem.actionPreference(R.string.open_modal, android.R.drawable.ic_menu_sort_by_size, false, false));
         list.add(SettingsItem.sectionFooter(R.string.footer_modal, false, true));
+
+        // Browser section (under Modal)
+        list.add(SettingsItem.sectionHeader(R.string.section_browser, true, false));
+        list.add(SettingsItem.urlPreference(R.string.hint_browser_url, browserUrl, android.R.drawable.ic_menu_compass, false, false));
+        list.add(SettingsItem.actionPreference(R.string.open_browser, android.R.drawable.ic_menu_compass, false, false));
+        list.add(SettingsItem.sectionFooter(R.string.footer_browser, false, true));
 
         // Presentation options card (Checkout options + Modal options under one category; no gap between the two expandables)
         list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
         list.add(SettingsItem.expandableHeader(
                 checkoutOptionsExpanded ? R.string.hide_checkout_options : R.string.show_checkout_options,
-                checkoutOptionsExpanded, R.drawable.ic_tune, false, false));
+                checkoutOptionsExpanded, android.R.drawable.ic_menu_preferences, false, false));
         if (checkoutOptionsExpanded) {
-            list.add(SettingsItem.switchPreference(R.string.option_web_view_mode, R.string.option_web_view_mode_supporting, webViewMode, false, false));
             list.add(SettingsItem.switchPreference(R.string.option_force_portrait_on_checkout, R.string.option_force_portrait_on_checkout_supporting, forcePortraitOnCheckout, false, false));
             list.add(SettingsItem.sliderPreference(R.string.phone_card_height, phoneCardHeight, false, false));
             list.add(SettingsItem.sliderPreference(R.string.checkout_phone_landscape_width, checkoutPhoneLandscapeW, false, false));
@@ -272,7 +279,7 @@ public class MainViewModel extends AndroidViewModel {
         }
         list.add(SettingsItem.expandableHeader(
                 modalOptionsExpanded ? R.string.hide_modal_options : R.string.show_modal_options,
-                modalOptionsExpanded, R.drawable.ic_tune, false, !modalOptionsExpanded));
+                modalOptionsExpanded, android.R.drawable.ic_menu_preferences, false, !modalOptionsExpanded));
         if (modalOptionsExpanded) {
             list.add(SettingsItem.switchPreference(R.string.option_show_drag_bar, 0, modalShowDragBar, false, false));
             list.add(SettingsItem.switchPreference(R.string.option_allow_dismiss, R.string.option_allow_dismiss_supporting, modalAllowDismiss, false, false));
@@ -289,7 +296,8 @@ public class MainViewModel extends AndroidViewModel {
         // Checkout Generation Settings card
         list.add(SettingsItem.sectionHeader(R.string.section_checkout_generation_settings, true, false));
         list.add(SettingsItem.switchPreference(R.string.option_use_test_api, 0, useTestApi, false, false));
-        list.add(SettingsItem.urlPreference(R.string.hint_api_key, stashApiKey, R.drawable.ic_tune, false, true));
+        list.add(SettingsItem.urlPreference(R.string.hint_api_key, stashApiKey, android.R.drawable.ic_lock_lock, false, false));
+        list.add(SettingsItem.sectionFooter(R.string.footer_checkout_generation_settings, false, true));
 
         items.setValue(list);
     }

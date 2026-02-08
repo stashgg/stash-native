@@ -38,7 +38,7 @@ import android.app.Activity;
  *     }
  * });
  * 
- * StashPayCard.getInstance().openCheckout("https://your-checkout-url.com");
+ * StashPayCard.getInstance().openCard("https://your-checkout-url.com", null);
  * </pre>
  */
 public class StashPayCard {
@@ -170,6 +170,33 @@ public class StashPayCard {
         }
     }
     
+    /**
+     * Configuration for card presentation (openCard).
+     *
+     * Card slides up from bottom on phones; centered on tablets.
+     * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+     */
+    public static class CardConfig {
+        /** When true, phone card forces portrait orientation. Default false. */
+        public boolean forcePortrait = false;
+        /** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
+        public float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
+        /** Phone card width ratio in landscape (0.1-1.0). Default 0.9. */
+        public float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
+        /** Phone card height ratio in landscape (0.1-1.0). Default 0.6. */
+        public float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
+        /** Tablet width ratio in portrait (0.1-1.0). Default 0.4. */
+        public float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+        /** Tablet height ratio in portrait (0.1-1.0). Default 0.5. */
+        public float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+        /** Tablet width ratio in landscape (0.1-1.0). Default 0.3. */
+        public float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+        /** Tablet height ratio in landscape (0.1-1.0). Default 0.6. */
+        public float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
+
+        public CardConfig() {}
+    }
+    
     private StashPayCard() {
         plugin = StashPayCardPlugin.getInstance();
     }
@@ -215,15 +242,16 @@ public class StashPayCard {
     }
     
     /**
-     * Opens a Stash Pay checkout URL in a sliding card UI.
-     * 
-     * The card slides up from the bottom of the screen and displays the checkout page.
-     * On tablets, the card appears centered on screen.
-     * 
-     * @param url The Stash Pay checkout URL to load
+     * Opens a URL in a sliding card UI.
+     *
+     * The card slides up from the bottom of the screen. On tablets, the card appears centered.
+     * Pass null for config to use default sizing and behavior.
+     *
+     * @param url The URL to load in the card
+     * @param config Card sizing and orientation configuration (null for defaults)
      */
-    public void openCheckout(String url) {
-        plugin.openCheckout(url);
+    public void openCard(String url, CardConfig config) {
+        plugin.openCard(url, config);
     }
     
     /**
@@ -308,23 +336,22 @@ public class StashPayCard {
     }
     
     /**
-     * Gets whether web-based checkout (Chrome Custom Tabs) is forced.
-     * @return true if Chrome Custom Tabs is forced
+     * Opens a URL in Chrome Custom Tabs (platform browser).
+     * No callbacks or configuration - simple browser presentation.
+     *
+     * @param url The URL to open in the browser
      */
-    public boolean isForceWebBasedCheckout() {
-        return plugin.getForceSafariViewController();
+    public void openBrowser(String url) {
+        plugin.openBrowser(url);
     }
     
     /**
-     * Sets whether to force web-based checkout using Chrome Custom Tabs.
-     * 
-     * When enabled, checkout URLs open in Chrome Custom Tabs instead of 
-     * the in-app card UI.
-     * 
-     * @param force true to use Chrome Custom Tabs, false for in-app card UI
+     * Attempts to close the Chrome Custom Tabs browser.
+     * Chrome Custom Tabs cannot be programmatically dismissed on Android.
+     * This method exists for API consistency with iOS but has no effect on Android.
      */
-    public void setForceWebBasedCheckout(boolean force) {
-        plugin.setForceSafariViewController(force);
+    public void closeBrowser() {
+        // No-op on Android
     }
     
     /**
@@ -339,141 +366,4 @@ public class StashPayCard {
         return plugin.isPurchaseProcessing();
     }
     
-    // ============================================================================
-    // Orientation-Specific Phone Card Size Configuration
-    // ============================================================================
-    
-    /**
-     * Gets the card height ratio for portrait orientation on phones.
-     * @return Height ratio (0.1 to 1.0) relative to screen height
-     */
-    public float getCardHeightRatioPortrait() {
-        return plugin.getCardHeightRatioPortrait();
-    }
-    
-    /**
-     * Sets the card height ratio for portrait orientation on phones.
-     * @param ratio Height ratio (0.1 to 1.0). Default is 0.68.
-     */
-    public void setCardHeightRatioPortrait(float ratio) {
-        plugin.setCardHeightRatioPortrait(ratio);
-    }
-    
-    /**
-     * Gets whether checkout on phone forces portrait orientation.
-     * @return true if portrait is forced (default)
-     */
-    public boolean isForcePortraitOnCheckout() {
-        return plugin.isForcePortraitOnCheckout();
-    }
-    
-    /**
-     * Sets whether to force portrait orientation on phone checkout.
-     * When false, checkout is shown in current orientation (slide from bottom); in landscape
-     * uses cardWidthRatioLandscape and cardHeightRatioLandscape.
-     * @param force true to force portrait (default), false to use current orientation
-     */
-    public void setForcePortraitOnCheckout(boolean force) {
-        plugin.setForcePortraitOnCheckout(force);
-    }
-    
-    /**
-     * Gets the phone card width ratio in landscape (when not forcing portrait).
-     * @return Width ratio (0.1 to 1.0). Default is 0.9.
-     */
-    public float getCardWidthRatioLandscape() {
-        return plugin.getCardWidthRatioLandscape();
-    }
-    
-    /**
-     * Sets the phone card width ratio in landscape (when not forcing portrait).
-     * @param ratio Width ratio (0.1 to 1.0). Default is 0.9.
-     */
-    public void setCardWidthRatioLandscape(float ratio) {
-        plugin.setCardWidthRatioLandscape(ratio);
-    }
-    
-    /**
-     * Gets the phone card height ratio in landscape (when not forcing portrait).
-     * @return Height ratio (0.1 to 1.0). Default is 0.6.
-     */
-    public float getCardHeightRatioLandscape() {
-        return plugin.getCardHeightRatioLandscape();
-    }
-    
-    /**
-     * Sets the phone card height ratio in landscape (when not forcing portrait).
-     * @param ratio Height ratio (0.1 to 1.0). Default is 0.6.
-     */
-    public void setCardHeightRatioLandscape(float ratio) {
-        plugin.setCardHeightRatioLandscape(ratio);
-    }
-    
-    // ============================================================================
-    // Orientation-Specific Tablet Card Size Configuration
-    // ============================================================================
-    
-    /**
-     * Gets the tablet width ratio for portrait orientation.
-     * @return Width ratio (0.1 to 1.0) relative to screen width
-     */
-    public float getTabletWidthRatioPortrait() {
-        return plugin.getTabletWidthRatioPortrait();
-    }
-    
-    /**
-     * Sets the tablet width ratio for portrait orientation.
-     * @param ratio Width ratio (0.1 to 1.0). Default is 0.6.
-     */
-    public void setTabletWidthRatioPortrait(float ratio) {
-        plugin.setTabletWidthRatioPortrait(ratio);
-    }
-    
-    /**
-     * Gets the tablet height ratio for portrait orientation.
-     * @return Height ratio (0.1 to 1.0) relative to screen height
-     */
-    public float getTabletHeightRatioPortrait() {
-        return plugin.getTabletHeightRatioPortrait();
-    }
-    
-    /**
-     * Sets the tablet height ratio for portrait orientation.
-     * @param ratio Height ratio (0.1 to 1.0). Default is 0.8.
-     */
-    public void setTabletHeightRatioPortrait(float ratio) {
-        plugin.setTabletHeightRatioPortrait(ratio);
-    }
-    
-    /**
-     * Gets the tablet width ratio for landscape orientation.
-     * @return Width ratio (0.1 to 1.0) relative to screen width
-     */
-    public float getTabletWidthRatioLandscape() {
-        return plugin.getTabletWidthRatioLandscape();
-    }
-    
-    /**
-     * Sets the tablet width ratio for landscape orientation.
-     * @param ratio Width ratio (0.1 to 1.0). Default is 0.8.
-     */
-    public void setTabletWidthRatioLandscape(float ratio) {
-        plugin.setTabletWidthRatioLandscape(ratio);
-    }
-    
-    /**
-     * Gets the tablet height ratio for landscape orientation.
-     * @return Height ratio (0.1 to 1.0) relative to screen height
-     */
-    public float getTabletHeightRatioLandscape() {
-        return plugin.getTabletHeightRatioLandscape();
-    }
-    
-    /**
-     * Sets the tablet height ratio for landscape orientation.
-     * @param ratio Height ratio (0.1 to 1.0). Default is 0.65.
-     */
-    public void setTabletHeightRatioLandscape(float ratio) {
-        plugin.setTabletHeightRatioLandscape(ratio);
-    }
 }

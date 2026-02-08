@@ -38,7 +38,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     private final Callbacks callbacks;
 
     public interface Callbacks {
-        void onOpenCheckout();
+        void onOpenCard();
+        void onOpenBrowser();
         void onOpenModal();
         void onGenerateCheckout();
     }
@@ -170,9 +171,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             SettingsItem it = items.get(i);
             if (it.type == SettingsItem.TYPE_ACTION_PREFERENCE) {
                 int titleRes = it.titleRes;
-                if (titleRes == R.string.open_checkout) return 0;
-                if (titleRes == R.string.open_modal) return 1;
-                if (titleRes == R.string.generate_checkout) return 2;
+                if (titleRes == R.string.open_card) return 0;
+                if (titleRes == R.string.open_browser) return 1;
+                if (titleRes == R.string.open_modal) return 2;
+                if (titleRes == R.string.generate_checkout) return 3;
             }
         }
         return -1;
@@ -262,6 +264,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
                 String text = s != null ? s.toString() : "";
                 if (boundTitleRes == R.string.hint_checkout_url) {
                     viewModel.setCheckoutUrl(text);
+                } else if (boundTitleRes == R.string.hint_browser_url) {
+                    viewModel.setBrowserUrl(text);
                 } else if (boundTitleRes == R.string.hint_modal_url) {
                     viewModel.setModalUrl(text);
                 } else if (boundTitleRes == R.string.hint_api_key) {
@@ -283,8 +287,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             b.actionIcon.setImageResource(item.iconRes);
             b.actionTitle.setText(item.titleRes);
             b.actionRow.setOnClickListener(v -> {
-                if (item.titleRes == R.string.open_checkout) {
-                    callbacks.onOpenCheckout();
+                if (item.titleRes == R.string.open_card) {
+                    callbacks.onOpenCard();
+                } else if (item.titleRes == R.string.open_browser) {
+                    callbacks.onOpenBrowser();
                 } else if (item.titleRes == R.string.open_modal) {
                     callbacks.onOpenModal();
                 } else if (item.titleRes == R.string.generate_checkout) {
@@ -337,9 +343,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
             b.switchPreference.setOnCheckedChangeListener(null);
             b.switchPreference.setChecked(item.checked);
             b.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
-                if (item.titleRes == R.string.option_web_view_mode) {
-                    viewModel.setWebViewMode(isChecked);
-                } else if (item.titleRes == R.string.option_force_portrait_on_checkout) {
+                if (item.titleRes == R.string.option_force_portrait_on_checkout) {
                     viewModel.setForcePortraitOnCheckout(isChecked);
                 } else if (item.titleRes == R.string.option_show_drag_bar) {
                     viewModel.setModalShowDragBar(isChecked);

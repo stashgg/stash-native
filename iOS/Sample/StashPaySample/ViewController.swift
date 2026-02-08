@@ -23,13 +23,15 @@ class ViewController: UIViewController {
     }()
     
     private let defaultURL = "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html"
+    /// Same default as Android sample for Modal URL.
+    private let defaultModalURL = "https://store.howlingwoods.shop/pay/channel-selection"
     
     private let checkoutUrlTextField = UITextField()
+    private let browserUrlTextField = UITextField()
     private let modalUrlTextField = UITextField()
     // Presentation options: two separate expandables under one category
     private var isCheckoutAdvancedExpanded = false
     private var isModalAdvancedExpanded = false
-    private let webViewModeSwitch = UISwitch()
     private let forcePortraitOnCheckoutSwitch = UISwitch()
     private let phoneCardHeightSlider = UISlider()
     private let phoneCardHeightLabel = UILabel()
@@ -66,15 +68,15 @@ class ViewController: UIViewController {
     private let modalTabletLandscapeHeightLabel = UILabel()
     
     private enum Section: Int, CaseIterable {
-        case checkout
+        case card
         case modal
+        case browser
         case presentationOptions
         case checkoutGenerationSettings
     }
     
-    /// Checkout option rows (when checkout expandable is expanded).
+    /// Card option rows (when card expandable is expanded).
     private enum CheckoutOptionRow: Int, CaseIterable {
-        case webViewMode
         case forcePortraitOnCheckout
         case phoneCardHeight
         case phoneLandscapeWidth
@@ -110,7 +112,7 @@ class ViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Stash Native"
+        title = "Stash iOS"
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .always
         
@@ -156,8 +158,17 @@ class ViewController: UIViewController {
         checkoutUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
         checkoutUrlTextField.clearButtonMode = .whileEditing
         
+        browserUrlTextField.placeholder = "URL"
+        browserUrlTextField.text = defaultURL
+        browserUrlTextField.autocapitalizationType = .none
+        browserUrlTextField.autocorrectionType = .no
+        browserUrlTextField.keyboardType = .URL
+        browserUrlTextField.textAlignment = .right
+        browserUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
+        browserUrlTextField.clearButtonMode = .whileEditing
+
         modalUrlTextField.placeholder = "URL"
-        modalUrlTextField.text = defaultURL
+        modalUrlTextField.text = defaultModalURL
         modalUrlTextField.autocapitalizationType = .none
         modalUrlTextField.autocorrectionType = .no
         modalUrlTextField.keyboardType = .URL
@@ -187,9 +198,8 @@ class ViewController: UIViewController {
     }
     
     private func setupCheckoutSlidersAndSwitches() {
-        webViewModeSwitch.addTarget(self, action: #selector(webViewModeToggled), for: .valueChanged)
         forcePortraitOnCheckoutSwitch.isOn = false
-        forcePortraitOnCheckoutSwitch.addTarget(self, action: #selector(forcePortraitOnCheckoutToggled), for: .valueChanged)
+        forcePortraitOnCheckoutSwitch.addTarget(self, action: #selector(forcePortraitOnCheckoutToggled(_:)), for: .valueChanged)
         configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)
         phoneCardHeightSlider.addTarget(self, action: #selector(phoneCardHeightChanged), for: .valueChanged)
         configureSlider(checkoutPhoneLandscapeWidthSlider, label: checkoutPhoneLandscapeWidthLabel, value: 90)
@@ -238,14 +248,6 @@ class ViewController: UIViewController {
     
     private func setupStashPayCard() {
         StashPayCard.sharedInstance().delegate = self
-        StashPayCard.sharedInstance().forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
-        StashPayCard.sharedInstance().cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
-        StashPayCard.sharedInstance().cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
-        StashPayCard.sharedInstance().cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
-        StashPayCard.sharedInstance().tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
-        StashPayCard.sharedInstance().tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
-        StashPayCard.sharedInstance().tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
-        StashPayCard.sharedInstance().tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
     }
     
     // MARK: - Helpers
@@ -277,25 +279,38 @@ class ViewController: UIViewController {
     
     // MARK: - Actions
     
-    @objc private func openCheckoutTapped() {
+    @objc private func forcePortraitOnCheckoutToggled(_ sender: UISwitch) {
+        // Config is built at open time; no-op here.
+    }
+
+    @objc private func openCardTapped() {
         guard let url = checkoutUrlTextField.text, !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a checkout URL")
+            showAlert(title: "Error", message: "Please enter a URL")
             return
         }
-        syncCheckoutToStashPayCard()
-        StashPayCard.sharedInstance().openCheckout(withURL: url)
+        let config = buildCardConfig()
+        StashPayCard.sharedInstance().openCard(withURL: url, config: config)
     }
     
-    private func syncCheckoutToStashPayCard() {
-        let card = StashPayCard.sharedInstance()
-        card.forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
-        card.cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
-        card.cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
-        card.cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
-        card.tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
-        card.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
-        card.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
-        card.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+    @objc private func openBrowserTapped() {
+        guard let url = browserUrlTextField.text, !url.isEmpty else {
+            showAlert(title: "Error", message: "Please enter a URL")
+            return
+        }
+        StashPayCard.sharedInstance().openBrowser(withURL: url)
+    }
+    
+    private func buildCardConfig() -> StashPayCardConfig {
+        let config = StashPayCardConfig()
+        config.forcePortrait = forcePortraitOnCheckoutSwitch.isOn
+        config.cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
+        config.cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
+        config.cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
+        config.tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
+        config.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
+        config.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
+        config.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+        return config
     }
     
     @objc private func openModalTapped() {
@@ -322,14 +337,6 @@ class ViewController: UIViewController {
         return config
     }
     
-    @objc private func webViewModeToggled() {
-        StashPayCard.sharedInstance().forceWebBasedCheckout = webViewModeSwitch.isOn
-    }
-    
-    @objc private func forcePortraitOnCheckoutToggled() {
-        StashPayCard.sharedInstance().forcePortraitOnCheckout = forcePortraitOnCheckoutSwitch.isOn
-    }
-    
     @objc private func checkoutOptionsToggleTapped() {
         isCheckoutAdvancedExpanded.toggle()
         tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
@@ -342,31 +349,24 @@ class ViewController: UIViewController {
     
     @objc private func phoneCardHeightChanged() {
         phoneCardHeightLabel.text = "\(Int(phoneCardHeightSlider.value))%"
-        StashPayCard.sharedInstance().cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
     }
     @objc private func checkoutTabletPortraitWidthChanged() {
         checkoutTabletPortraitWidthLabel.text = "\(Int(checkoutTabletPortraitWidthSlider.value))%"
-        StashPayCard.sharedInstance().tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
     }
     @objc private func checkoutTabletPortraitHeightChanged() {
         checkoutTabletPortraitHeightLabel.text = "\(Int(checkoutTabletPortraitHeightSlider.value))%"
-        StashPayCard.sharedInstance().tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
     }
     @objc private func checkoutTabletLandscapeWidthChanged() {
         checkoutTabletLandscapeWidthLabel.text = "\(Int(checkoutTabletLandscapeWidthSlider.value))%"
-        StashPayCard.sharedInstance().tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
     }
     @objc private func checkoutTabletLandscapeHeightChanged() {
         checkoutTabletLandscapeHeightLabel.text = "\(Int(checkoutTabletLandscapeHeightSlider.value))%"
-        StashPayCard.sharedInstance().tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
     }
     @objc private func checkoutPhoneLandscapeWidthChanged() {
         checkoutPhoneLandscapeWidthLabel.text = "\(Int(checkoutPhoneLandscapeWidthSlider.value))%"
-        StashPayCard.sharedInstance().cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
     }
     @objc private func checkoutPhoneLandscapeHeightChanged() {
         checkoutPhoneLandscapeHeightLabel.text = "\(Int(checkoutPhoneLandscapeHeightSlider.value))%"
-        StashPayCard.sharedInstance().cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
     }
     @objc private func modalPhonePortraitWidthChanged() { modalPhonePortraitWidthLabel.text = "\(Int(modalPhonePortraitWidthSlider.value))%" }
     @objc private func modalPhonePortraitHeightChanged() { modalPhonePortraitHeightLabel.text = "\(Int(modalPhonePortraitHeightSlider.value))%" }
@@ -436,8 +436,8 @@ class ViewController: UIViewController {
                 return
             }
             DispatchQueue.main.async {
-                self.syncCheckoutToStashPayCard()
-                StashPayCard.sharedInstance().openCheckout(withURL: checkoutUrl)
+                let config = self.buildCardConfig()
+                StashPayCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
             }
         }.resume()
     }
@@ -453,8 +453,9 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .checkout: return 3
+        case .card: return 3
         case .modal: return 2
+        case .browser: return 2
         case .presentationOptions: return 1 + (isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0) + 1 + (isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 0)
         case .checkoutGenerationSettings: return 2
         }
@@ -463,8 +464,9 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let title: String?
         switch Section(rawValue: section)! {
-        case .checkout: title = "CHECKOUT"
+        case .card: title = "CARD"
         case .modal: title = "MODAL"
+        case .browser: title = "BROWSER"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .checkoutGenerationSettings: title = "CHECKOUT GENERATION SETTINGS"
         }
@@ -485,17 +487,23 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         return container
     }
     
-    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
-        let text: String?
-        switch Section(rawValue: section)! {
-        case .checkout: text = "Drawer style dialog that slides from the bottom of the screen used for checkouts or optionally other opt-in mechanics."
-        case .modal: text = "Shows centered modal window used for opt-in flows or as an alternative checkout presentation."
-        default: text = nil
+    private static let footerFont = UIFont.systemFont(ofSize: 13, weight: .regular)
+
+    private func footerText(for section: Section) -> String? {
+        switch section {
+        case .card: return "Opens a card drawer that slides from the bottom of the screen. Great for native-feeling Stash Pay IAP experience. Supports direct callbacks to application."
+        case .modal: return "Centered modal with rotation support. Great for opt-in dialogs or as an alternative presentation method for Stash Pay. Supports direct callbacks to application."
+        case .browser: return "Opens the URL in an isolated browser. Lightweight and safe alternative for Stash Pay and Stash Webshop."
+        case .checkoutGenerationSettings: return "Use your own API key if needed. Prefilled with limited API test key."
+        case .presentationOptions: return nil
         }
-        guard let t = text else { return nil }
+    }
+
+    func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
+        guard let t = footerText(for: Section(rawValue: section)!) else { return nil }
         let label = UILabel()
         label.text = t
-        label.font = .systemFont(ofSize: 13, weight: .regular)
+        label.font = ViewController.footerFont
         label.textColor = .secondaryLabel
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
@@ -509,15 +517,28 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         ])
         return container
     }
+
+    func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
+        guard let text = footerText(for: Section(rawValue: section)!) else { return 0 }
+        let width = tableView.bounds.width - 40
+        if width <= 0 { return 44 }
+        let rect = text.boundingRect(
+            with: CGSize(width: width, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: [.font: ViewController.footerFont],
+            context: nil
+        )
+        return ceil(rect.height) + 24
+    }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         switch Section(rawValue: indexPath.section)! {
-        case .checkout:
+        case .card:
             if indexPath.row == 0 {
                 return urlCell(textField: checkoutUrlTextField, label: "URL", imageName: "link")
             } else if indexPath.row == 1 {
                 let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-                cell.textLabel?.text = "Open URL in Checkout Card"
+                cell.textLabel?.text = "Open URL in Card"
                 cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
                 cell.textLabel?.textColor = .systemBlue
                 cell.imageView?.image = systemImage("creditcard.fill")
@@ -543,6 +564,19 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
                 cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
                 cell.textLabel?.textColor = .systemBlue
                 cell.imageView?.image = systemImage("rectangle.stack.fill")
+                cell.imageView?.tintColor = .secondaryLabel
+                cell.accessoryType = .disclosureIndicator
+                return cell
+            }
+        case .browser:
+            if indexPath.row == 0 {
+                return urlCell(textField: browserUrlTextField, label: "URL", imageName: "link")
+            } else {
+                let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+                cell.textLabel?.text = "Open URL in Browser"
+                cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+                cell.textLabel?.textColor = .systemBlue
+                cell.imageView?.image = systemImage("safari")
                 cell.imageView?.tintColor = .secondaryLabel
                 cell.accessoryType = .disclosureIndicator
                 return cell
@@ -593,7 +627,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
 
         if r == 0 {
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = isCheckoutAdvancedExpanded ? "Hide Checkout options" : "Show Checkout options"
+            cell.textLabel?.text = isCheckoutAdvancedExpanded ? "Hide Card options" : "Show Card options"
             cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
             cell.textLabel?.textColor = .label
             cell.accessoryType = isCheckoutAdvancedExpanded ? .detailButton : .disclosureIndicator
@@ -604,8 +638,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
         if isCheckoutAdvancedExpanded && r >= 1 && r < 1 + checkoutCount {
             let row = CheckoutOptionRow(rawValue: r - 1)!
             switch row {
-            case .webViewMode: return switchCell(title: "Use Web View Mode", subtitle: "Open in Safari", switchView: webViewModeSwitch)
-            case .forcePortraitOnCheckout: return switchCell(title: "Force Portrait on Checkout", subtitle: "Rotate to portrait when opening checkout", switchView: forcePortraitOnCheckoutSwitch)
+            case .forcePortraitOnCheckout: return switchCell(title: "Force Portrait on Card", subtitle: "Rotate to portrait when opening card", switchView: forcePortraitOnCheckoutSwitch)
             case .phoneCardHeight: return sliderCell(title: "Phone Card Height", valueLabel: phoneCardHeightLabel, slider: phoneCardHeightSlider)
             case .phoneLandscapeWidth: return sliderCell(title: "Phone Landscape Width", valueLabel: checkoutPhoneLandscapeWidthLabel, slider: checkoutPhoneLandscapeWidthSlider)
             case .phoneLandscapeHeight: return sliderCell(title: "Phone Landscape Height", valueLabel: checkoutPhoneLandscapeHeightLabel, slider: checkoutPhoneLandscapeHeightSlider)
@@ -674,12 +707,14 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
-        case .checkout where indexPath.row == 1:
-            openCheckoutTapped()
-        case .checkout where indexPath.row == 2:
+        case .card where indexPath.row == 1:
+            openCardTapped()
+        case .card where indexPath.row == 2:
             generateCheckoutTapped()
         case .modal where indexPath.row == 1:
             openModalTapped()
+        case .browser where indexPath.row == 1:
+            openBrowserTapped()
         case .presentationOptions:
             let checkoutCount = isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0
             let modalHeaderIndex = 1 + checkoutCount

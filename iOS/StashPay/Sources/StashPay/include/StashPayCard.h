@@ -86,6 +86,38 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 /**
+ * Configuration for card presentation (openCard).
+ *
+ * Card slides up from bottom on phones; centered on tablets.
+ * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+ */
+@interface StashPayCardConfig : NSObject
+
+/** When YES, phone card forces portrait orientation. Default NO. */
+@property (nonatomic, assign) BOOL forcePortrait;
+/** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
+@property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
+/** Phone card width ratio in landscape (0.1-1.0). Default 0.9. */
+@property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
+/** Phone card height ratio in landscape (0.1-1.0). Default 0.6. */
+@property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
+/** Tablet width ratio in portrait (0.1-1.0). Default 0.4. */
+@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
+/** Tablet height ratio in portrait (0.1-1.0). Default 0.5. */
+@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
+/** Tablet width ratio in landscape (0.1-1.0). Default 0.3. */
+@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
+/** Tablet height ratio in landscape (0.1-1.0). Default 0.6. */
+@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
+
+/**
+ * Creates a default card configuration.
+ */
+- (instancetype)init;
+
+@end
+
+/**
  * Protocol for receiving StashPayCard events.
  */
 @protocol StashPayCardDelegate <NSObject>
@@ -141,8 +173,8 @@ NS_ASSUME_NONNULL_BEGIN
  * // Set the delegate to receive callbacks
  * stashPay.delegate = self;
  *
- * // Open a checkout
- * [stashPay openCheckoutWithURL:@"https://your-checkout-url.com"];
+ * // Open a card with default config
+ * [stashPay openCardWithURL:@"https://your-checkout-url.com" config:nil];
  * @endcode
  */
 @interface StashPayCard : NSObject
@@ -157,12 +189,6 @@ NS_ASSUME_NONNULL_BEGIN
 #endif
 
 /**
- * Gets whether web-based checkout (SFSafariViewController) is forced.
- * When enabled, checkout URLs open in SFSafariViewController instead of the in-app card UI.
- */
-@property (nonatomic, assign) BOOL forceWebBasedCheckout;
-
-/**
  * Checks if a checkout card or popup is currently displayed.
  */
 @property (nonatomic, readonly) BOOL isCurrentlyPresented;
@@ -173,77 +199,21 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nonatomic, readonly) BOOL isPurchaseProcessing;
 
-// ============================================================================
-// Checkout Orientation and Phone Card Size Configuration
-// ============================================================================
-
-/**
- * When YES (default), phone checkout forces portrait orientation.
- * When NO, phone checkout is shown in current orientation (slide from bottom); in landscape
- * uses cardWidthRatioLandscape and cardHeightRatioLandscape.
- */
-@property (nonatomic, assign) BOOL forcePortraitOnCheckout;
-
-/**
- * Phone card height ratio in portrait (0.0 to 1.0). Portrait phone card is full screen width.
- * Default is 0.68 (68% of screen height).
- */
-@property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
-
-/**
- * Phone card width ratio in landscape (0.1 to 1.0). Used when forcePortraitOnCheckout is NO.
- * Default is 0.9 (90% of screen width).
- */
-@property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
-
-/**
- * Phone card height ratio in landscape (0.1 to 1.0). Used when forcePortraitOnCheckout is NO.
- * Default is 0.6 (60% of screen height).
- */
-@property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
-
-// ============================================================================
-// Orientation-Specific Tablet (iPad) Card Size Configuration
-// ============================================================================
-
-/**
- * Tablet width ratio in portrait orientation (0.1 to 1.0).
- * Default is 0.6 (60% of screen width).
- */
-@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
-
-/**
- * Tablet height ratio in portrait orientation (0.1 to 1.0).
- * Default is 0.8 (80% of screen height).
- */
-@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
-
-/**
- * Tablet width ratio in landscape orientation (0.1 to 1.0).
- * Default is 0.8 (80% of screen width).
- */
-@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
-
-/**
- * Tablet height ratio in landscape orientation (0.1 to 1.0).
- * Default is 0.65 (65% of screen height).
- */
-@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
-
 /**
  * Gets the shared singleton instance of StashPayCard.
  */
 + (instancetype)sharedInstance;
 
 /**
- * Opens a Stash Pay checkout URL in a sliding card UI.
+ * Opens a URL in a sliding card UI.
  *
- * The card slides up from the bottom of the screen and displays the checkout page.
- * On iPads, the card appears centered on screen.
+ * The card slides up from the bottom of the screen. On iPads, the card appears centered.
+ * Pass nil for config to use default sizing and behavior.
  *
- * @param url The Stash Pay checkout URL to load
+ * @param url The URL to load in the card
+ * @param config Card sizing and orientation configuration (nil for defaults)
  */
-- (void)openCheckoutWithURL:(NSString *)url;
+- (void)openCardWithURL:(NSString *)url config:(nullable StashPayCardConfig *)config NS_SWIFT_NAME(openCard(withURL:config:));
 
 /**
  * Opens a Stash Pay URL in a centered popup dialog.
@@ -266,7 +236,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Opens a URL in a centered modal dialog with default configuration.
  *
- * Unlike openCheckoutWithURL which uses different presentations on phones vs iPads,
+ * Unlike openCardWithURL:config: which uses different presentations on phones vs iPads,
  * openModalWithURL always shows a centered modal on all devices. The modal resizes
  * seamlessly when the device rotates.
  *
@@ -279,7 +249,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Opens a URL in a centered modal dialog with custom configuration.
  *
- * Unlike openCheckoutWithURL which uses different presentations on phones vs iPads,
+ * Unlike openCardWithURL:config: which uses different presentations on phones vs iPads,
  * openModalWithURL always shows a centered modal on all devices. The modal resizes
  * seamlessly when the device rotates.
  *
@@ -299,10 +269,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)resetPresentationState;
 
 /**
- * Dismisses the currently open SFSafariViewController if one is presented.
- * Only effective when forceWebBasedCheckout is YES.
+ * Opens a URL in SFSafariViewController (platform browser).
+ * No callbacks or configuration - simple browser presentation.
+ *
+ * @param url The URL to open in the browser
  */
-- (void)dismissSafariViewController;
+- (void)openBrowserWithURL:(NSString *)url;
+
+/**
+ * Dismisses the currently presented SFSafariViewController.
+ * iOS-only: has no effect on Android (Chrome Custom Tabs cannot be closed programmatically).
+ */
+- (void)closeBrowser;
 
 /**
  * Dismisses the currently open SFSafariViewController and fires appropriate callbacks.

@@ -110,6 +110,27 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 
 @end
 
+#pragma mark - CardConfig Implementation
+
+@implementation StashPayCardConfig
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _forcePortrait = NO;
+        _cardHeightRatioPortrait = 0.68f;
+        _cardWidthRatioLandscape = 0.9f;
+        _cardHeightRatioLandscape = 0.6f;
+        _tabletWidthRatioPortrait = 0.4f;
+        _tabletHeightRatioPortrait = 0.5f;
+        _tabletWidthRatioLandscape = 0.3f;
+        _tabletHeightRatioLandscape = 0.6f;
+    }
+    return self;
+}
+
+@end
+
 #pragma mark - Private State
 // Note: These statics are reset in [StashPayCardInternal cleanupCardInstance].
 // They are file-scope to this translation unit and effectively private to the SDK.
@@ -149,7 +170,8 @@ CGFloat _customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape
 CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
 
 // --- Presentation mode flags (reset on cleanup) ---
-static BOOL _forceSafariViewController = NO;
+/** When YES, the current SFSafariViewController was opened via openBrowser (no callbacks on dismiss). */
+static BOOL _safariOpenedViaOpenBrowser = NO;
 BOOL _usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
 static BOOL _showScrollbar = NO;
@@ -639,14 +661,10 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 }
 
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
-    if (_forceSafariViewController) {
+    if (_safariOpenedViaOpenBrowser) {
+        _safariOpenedViaOpenBrowser = NO;
+        _isCardCurrentlyPresented = NO;
         self.currentSafariViewController = nil;
-        id<StashPayCardDelegate> delegate = [StashPayCard sharedInstance].delegate;
-        if (delegate && [delegate respondsToSelector:@selector(stashPayCardDidDismiss)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashPayCardDidDismiss];
-            });
-        }
     } else {
         [self cleanupCardInstance];
         [self callDelegateCallbackOnce];
@@ -1851,9 +1869,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
 - (instancetype)init {
     self = [super init];
     if (self) {
-        // Note: These values are for the instance but static vars are used for actual sizing
-        // Default height ratio 0.6 matches Unity C# side
-        _forceWebBasedCheckout = NO;
+        // No instance-specific defaults; card sizing comes from config passed to openCardWithURL:config:
     }
     return self;
 }
@@ -1867,92 +1883,41 @@ NSString* appendThemeQueryParameter(NSString* url) {
 }
 
 // ============================================================================
-// Orientation-Specific Phone Card Size Configuration
+// openCardWithURL:config: (applies config to static sizing, then opens)
 // ============================================================================
 
-- (CGFloat)cardHeightRatioPortrait {
-    return _cardHeightRatioPortrait;
-}
-
-- (void)setCardHeightRatioPortrait:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _cardHeightRatioPortrait = clampedRatio;
-    _originalCardHeightRatio = clampedRatio;
-}
-
-- (BOOL)forcePortraitOnCheckout {
-    return _forcePortraitOnCheckout;
-}
-
-- (void)setForcePortraitOnCheckout:(BOOL)force {
-    _forcePortraitOnCheckout = force ? YES : NO;
-}
-
-- (CGFloat)cardWidthRatioLandscape {
-    return _cardWidthRatioLandscape;
-}
-
-- (void)setCardWidthRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _cardWidthRatioLandscape = clampedRatio;
-}
-
-- (CGFloat)cardHeightRatioLandscape {
-    return _cardHeightRatioLandscape;
-}
-
-- (void)setCardHeightRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _cardHeightRatioLandscape = clampedRatio;
-}
-
-// ============================================================================
-// Orientation-Specific Tablet (iPad) Card Size Configuration
-// ============================================================================
-
-- (CGFloat)tabletWidthRatioPortrait {
-    return _tabletWidthRatioPortrait;
-}
-
-- (void)setTabletWidthRatioPortrait:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _tabletWidthRatioPortrait = clampedRatio;
-}
-
-- (CGFloat)tabletHeightRatioPortrait {
-    return _tabletHeightRatioPortrait;
-}
-
-- (void)setTabletHeightRatioPortrait:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _tabletHeightRatioPortrait = clampedRatio;
-}
-
-- (CGFloat)tabletWidthRatioLandscape {
-    return _tabletWidthRatioLandscape;
-}
-
-- (void)setTabletWidthRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _tabletWidthRatioLandscape = clampedRatio;
-}
-
-- (CGFloat)tabletHeightRatioLandscape {
-    return _tabletHeightRatioLandscape;
-}
-
-- (void)setTabletHeightRatioLandscape:(CGFloat)ratio {
-    CGFloat clampedRatio = clampRatio(ratio);
-    _tabletHeightRatioLandscape = clampedRatio;
-}
-
-- (void)openCheckoutWithURL:(NSString *)url {
+- (void)openCardWithURL:(NSString *)url config:(StashPayCardConfig *)config {
     if (url == nil || url.length == 0) {
         return;
     }
     
+    if (config) {
+        _forcePortraitOnCheckout = config.forcePortrait;
+        _cardHeightRatioPortrait = config.cardHeightRatioPortrait;
+        _cardWidthRatioLandscape = config.cardWidthRatioLandscape;
+        _cardHeightRatioLandscape = config.cardHeightRatioLandscape;
+        _tabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
+        _tabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
+        _tabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
+        _tabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+    }
+    
     _usePopupPresentation = NO;
+    _useModalPresentation = NO;
     [self openURLInternal:url];
+}
+
+- (void)openBrowserWithURL:(NSString *)url {
+    if (url == nil || url.length == 0) {
+        return;
+    }
+    NSString *urlWithTheme = appendThemeQueryParameter(url);
+    _safariOpenedViaOpenBrowser = YES;
+    [self openInSafariViewController:urlWithTheme];
+}
+
+- (void)closeBrowser {
+    [self dismissSafariViewController];
 }
 
 - (void)openPopupWithURL:(NSString *)url {
@@ -2025,13 +1990,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     }
     
     NSString *urlWithTheme = appendThemeQueryParameter(url);
-    
-    // Force web view (SFSafariViewController) is for checkout only; modal and popup always use in-app UI
-    if (_forceWebBasedCheckout && !_usePopupPresentation && !_useModalPresentation) {
-        [self openInSafariViewController:urlWithTheme];
-        return;
-    }
-    
     [self openInCardUI:urlWithTheme];
 }
 

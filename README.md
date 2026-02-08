@@ -2,7 +2,7 @@
 
 
 <p align="left">
-  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_native.png" width="128" height="128" alt="Stash Unity Logo"/>
+  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_native.png" width="128" height="128" alt="Stash Native Logo"/>
 </p>
 
 
@@ -10,10 +10,10 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Platforms
 
-| Platform | Readme                             | Description                  |
-| -------- | ---------------------------------- | ---------------------------- |
-| Android  | [Android SDK](./Android/README.md) | Android library (AAR).       |
-| iOS      | [iOS SDK](./iOS/README.md)         | iOS framework (XCFramework). |
+| Platform | Description                  |
+| -------- | ---------------------------- |
+| Android  | Android library (AAR).       |
+| iOS      | iOS framework (XCFramework). |
 
 ## Wrappers
 
@@ -46,219 +46,203 @@ or try them instantly in your browser using the Appetize online emulator:
 
 ---
 
-## Quick Start
+## Installation
 
-Before getting started with this library, we recommend familiarizing yourself with the basics of the Stash platform by reviewing the [official Stash documentation](https://docs.stash.gg/guides).
+### Android
 
-The typical integration process involves these steps:
+1. Download `stashpay-release.aar` from [GitHub Releases](https://github.com/stashgg/stash-native/releases) and add it to your project (e.g. `libs/`).
+2. In your app's `build.gradle`:
 
-1. Create a Stash Pay checkout link, a pre-authenticated webshop link, or a channel selection link.
-2. Retrieve the generated URL from the step above.
-3. Provide this URL to one of the supported presentation methods, configuring any desired presentation options.
-
-### Available Methods
-
-| Method           | Use                                                                                                                                        | Docs                                                                        |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| **openCheckout** | Drawer-style dialog that can be used for Stash Pay payment links or channel selection.                                                     | [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration) |
-| **openModal**    | Centered modal dialog that can be used for channel selection but also as alternative presentation style for your Stash Pay checkout links. | [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)           |
-
----
-
-### Callbacks / Events
-
-Both presentation methods provide the following callbacks and events. You can implement only those that are relevant for your use case.
-
-| Event                | Description                                                                                   |
-| -------------------- | --------------------------------------------------------------------------------------------- |
-| **Payment Success**  | Called when the Stash Pay / Webshop payment completes successfully.                           |
-| **Payment Failure**  | Called when the payment fails.                                                                |
-| **Dialog Dismissed** | Called when the user dismisses the dialog.                                                    |
-| **Opt-In Response**  | Called when an channel selection response is received.                                        |
-| **Page Loaded**      | Called when the checkout page finishes loading (with load time).                              |
-| **Network Error**    | Called when requested dialog page load fails (no connection, HTTP 4xx/5xx, timeout after 5s). |
-
-### Android Sample
-
-```java
-// Initialize
-StashPayCard stashPay = StashPayCard.getInstance();
-stashPay.setActivity(this);
-
-// Set up callbacks
-stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
-    @Override
-    public void onPaymentSuccess() {
-        // Handle success
-    }
-
-    @Override
-    public void onPaymentFailure() {
-        // Handle failure
-    }
-});
-
-// Open checkout (drawer-style)
-stashPay.openCheckout("https://your-stash-checkout-url.com");
-
-// Or open modal (centered modal)
-stashPay.openModal("https://your-modal-url.com");
-```
-
-### iOS (Swift) Sample
-
-```swift
-// Initialize
-let stashPay = StashPayCard.sharedInstance()
-stashPay.delegate = self
-
-// Open checkout (drawer-style)
-stashPay.openCheckout(withURL: "https://your-checkout-url.com")
-
-// Or open modal (centered modal)
-stashPay.openModal(withURL: "https://your-modal-url.com")
-```
-
-```swift
-// Implement delegate
-extension YourViewController: StashPayCardDelegate {
-    func stashPayCardDidCompletePayment() {
-        // Handle success
-    }
-
-    func stashPayCardDidFailPayment() {
-        // Handle failure
-    }
+```groovy
+dependencies {
+    implementation files('libs/stashpay-release.aar')
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.browser:browser:1.7.0'
 }
 ```
 
-### iOS (Objective-C) Sample
+To build the AAR locally: `cd Android && ./gradlew :stashpay:assembleRelease` (output in `stashpay/build/outputs/aar/`).
+
+### iOS
+
+**XCFramework (recommended):** Download `StashPay.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, add `StashPay.xcframework` to your Xcode project, and under **Frameworks, Libraries, and Embedded Content** set it to **Embed & Sign**.
+
+**Swift Package Manager:** In Xcode choose File → Add Packages... and add `https://github.com/stashgg/stash-native.git`, then select the StashPay package for your target.
+
+**Manual integration:** Copy all files from `StashPay/Sources/StashPay/` into your project, add them to your target, and link **SafariServices.framework** and **WebKit.framework**.
+
+---
+
+## Usage
+
+The library provides three distinct ways to present Stash URLs within your app or game: **openCard**, **openModal**, and **openBrowser**. Each method lets you present different types of Stash experiences—such as Stash Pay checkout, Stash Web Shop, or Stash Opt-in—in a style that best fits your user flow. Details for each option are provided below.
+
+### openCard
+
+Drawer-style card: slides up from the bottom on phones, centered on tablets. Suited for Stash Pay payment links or channel selection. [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration)
+
+#### Usage
+
+**Android**
+
+```java
+StashPayCard.CardConfig config = new StashPayCard.CardConfig();  // or null for defaults
+StashPayCard.getInstance().openCard("https://your-url.com", config);
+```
+
+**iOS (Swift)**
+
+```swift
+let config = StashPayCardConfig()  // or nil for defaults
+StashPayCard.sharedInstance().openCard(withURL: "https://your-url.com", config: config)
+```
+
+**iOS (Objective-C)**
 
 ```objc
-// Initialize
-StashPayCard *stashPay = [StashPayCard sharedInstance];
-stashPay.delegate = self;
-
-// Open checkout (drawer-style)
-[stashPay openCheckoutWithURL:@"https://your-checkout-url.com"];
-
-// Or open modal (centered)
-[stashPay openModalWithURL:@"https://your-modal-url.com"];
+StashPayCardConfig *config = [[StashPayCardConfig alloc] init];  // or nil for defaults
+[[StashPayCard sharedInstance] openCardWithURL:@"https://your-url.com" config:config];
 ```
 
-For detailed installation instructions and feature overviews, please see the [Android README](./Android/README.md) or the [iOS README](./iOS/README.md) next.
+#### Config
+
+Pass a `CardConfig` (or `nil`/`null`) to control orientation and sizing. Pass `nil`/`null` for defaults.
+
+| Aspect | Description |
+| ------ | ----------- |
+| **forcePortrait** | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
+| **Phone** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0). |
+| **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+
+> **Warning:** If using `forcePortrait`, ensure your app supports portrait or can unlock to portrait while the card is shown.
+
+**Android**
+
+```java
+StashPayCard.CardConfig config = new StashPayCard.CardConfig();
+config.forcePortrait = false;
+config.cardHeightRatioPortrait = 0.68f;
+// ... tabletWidthRatioPortrait, tabletHeightRatioPortrait, etc. (see table above)
+stashPay.openCard(url, config);
+```
+
+**iOS (Swift)**
+
+```swift
+let config = StashPayCardConfig()
+config.forcePortrait = false
+config.cardHeightRatioPortrait = 0.68
+// ... tabletWidthRatioPortrait, tabletHeightRatioPortrait, etc. (see table above)
+stashPay.openCard(withURL: url, config: config)
+```
+
+#### Callbacks
+
+| Event            | Description |
+| ---------------- | ----------- |
+| Payment Success  | Called when the payment completes successfully. |
+| Payment Failure  | Called when the payment fails. |
+| Dialog Dismissed | Called when the user dismisses the dialog. |
+| Opt-In Response  | Called when a channel selection response is received. |
+| Page Loaded      | Called when the page finishes loading (with load time). |
+| Network Error    | Called when the page load fails (no connection, HTTP error, timeout). |
+
+Set a listener (Android) or delegate (iOS) before calling `openCard`.
 
 ---
 
-## Customizing `OpenCheckout`
+### openModal
 
-### Sizing
+Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
 
-You can fully customize the dialog size for phones, tablets, and for both portrait and landscape orientations by adjusting size properties.
+#### Usage
 
-### Force portrait orientation
-
-**Force portrait on checkout** controls how the checkout card appears on phones:
-
-- **Enabled**  
-  When enabled, checkout dialog opens **portrait-locked**: a separate activity on Android and a portrait-only view on iOS. The device automatically tries to rotate to portrait mode during checkout for a consistent payment experience, similar to native purchase dialogs.
-
-  > ⚠️ **Warning:**  
-  > Make sure your app "supports" portrait orientation even if it's alandscape app, or can unlock to portrait while checkout is active. This library cannot always enforce portrait mode due to platform limitations. Read more in the platform-specific READMEs.
-
-- **Disabled (default)**  
-  Checkout appears in the **current orientation** as an card on top of your app and does not enforce rotation to potrait mode.
+**Android**
 
 ```java
-// Android
-StashPayCard stashPay = StashPayCard.getInstance();
-stashPay.setForcePortraitOnCheckout(false);   // Allow all orientations
-stashPay.setCardHeightRatioPortrait(0.68f);    // Portrait: full width, 68% height
-stashPay.setCardWidthRatioLandscape(0.9f);    // Landscape: 90% width
-stashPay.setCardHeightRatioLandscape(0.6f);   // Landscape: 60% height
-// Tablet (centered card on tablets)
-stashPay.setTabletWidthRatioPortrait(0.4f);   // Tablet portrait: 40% width
-stashPay.setTabletHeightRatioPortrait(0.5f);  // Tablet portrait: 50% height
-stashPay.setTabletWidthRatioLandscape(0.3f);  // Tablet landscape: 30% width
-stashPay.setTabletHeightRatioLandscape(0.6f);  // Tablet landscape: 60% height
-stashPay.openCheckout(url);
+StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();  // or null for defaults
+StashPayCard.getInstance().openModal("https://your-url.com", config);
 ```
+
+**iOS (Swift)**
 
 ```swift
-// iOS
-let stashPay = StashPayCard.sharedInstance()
-stashPay.forcePortraitOnCheckout = false      // Allow all orientations
-stashPay.cardHeightRatioPortrait = 0.68       // Portrait: full width, 68% height
-stashPay.cardWidthRatioLandscape = 0.9        // Landscape: 90% width
-stashPay.cardHeightRatioLandscape = 0.6       // Landscape: 60% height
-// iPad (centered card on iPad)
-stashPay.tabletWidthRatioPortrait = 0.4       // Tablet portrait: 40% width
-stashPay.tabletHeightRatioPortrait = 0.5      // Tablet portrait: 50% height
-stashPay.tabletWidthRatioLandscape = 0.3      // Tablet landscape: 30% width
-stashPay.tabletHeightRatioLandscape = 0.6     // Tablet landscape: 60% height
-stashPay.openCheckout(withURL: url)
+let config = StashPayModalConfig()  // or nil for defaults
+StashPayCard.sharedInstance().openModal(withURL: "https://your-url.com", config: config)
 ```
 
-### Force Chrome Custom Tab / Safari View Controller.
+**iOS (Objective-C)**
 
-You can require the checkout dialog to use Chrome Custom Tabs on Android or Safari View Controller on iOS. Instead of displaying the URL inside your game or app, the Stash native library will present the checkout experience in the device’s secure browser tab. This is useful for meeting regulatory requirements in certain regions and saves you from having to implement your own out-of-app or fallback checkout solution.
+```objc
+StashPayModalConfig *config = [[StashPayModalConfig alloc] init];  // or nil for defaults
+[[StashPayCard sharedInstance] openModalWithURL:@"https://your-url.com" config:config];
+```
+
+#### Config
+
+Pass a `ModalConfig` (or `nil`/`null`) to control drag bar, dismiss behavior, and sizing. Pass `nil`/`null` for defaults.
+
+| Aspect | Description |
+| ------ | ----------- |
+| **Behavior** | `showDragBar` (default `true`), `allowDismiss` (default `true`). |
+| **Phone** | `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait`, `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (0.1–1.0). |
+| **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+
+**Android**
 
 ```java
-// Android – use before openCheckout
-stashPay.setForceWebBasedCheckout(true);
-stashPay.openCheckout(checkoutUrl);
-```
-
-```swift
-// iOS – use before openCheckout
-stashPay.forceWebBasedCheckout = true
-stashPay.openCheckout(withURL: checkoutUrl)
-```
-
----
-
-## Customize `OpenModal`
-
-The modal supports behavior options and full sizing for phone and tablet in portrait and landscape:
-
-- **showDragBar** — Show a visual drag bar at the top of the modal (default: true).
-- **allowDismiss** — Allow dismissing by tapping outside or by drag (default: true).
-- **Phone portrait** — `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait` (e.g. 0.8, 0.5).
-- **Phone landscape** — `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (e.g. 0.5, 0.8).
-- **Tablet portrait** — `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait` (e.g. 0.4, 0.3).
-- **Tablet landscape** — `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (e.g. 0.3, 0.4).
-
-```java
-// Android
 StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();
-config.showDragBar = true;       // Show visual drag bar
-config.allowDismiss = true;      // Allow tap-outside to dismiss
-config.phoneWidthRatioPortrait = 0.9f;   // Phone portrait: 90% width
-config.phoneHeightRatioPortrait = 0.7f;  // Phone portrait: 70% height
-config.phoneWidthRatioLandscape = 0.5f;  // Phone landscape: 50% width
-config.phoneHeightRatioLandscape = 0.8f; // Phone landscape: 80% height
-config.tabletWidthRatioPortrait = 0.4f;  // Tablet portrait: 40% width
-config.tabletHeightRatioPortrait = 0.3f; // Tablet portrait: 30% height
-config.tabletWidthRatioLandscape = 0.3f;  // Tablet landscape: 30% width
-config.tabletHeightRatioLandscape = 0.4f;// Tablet landscape: 40% height
+config.showDragBar = true;
+config.allowDismiss = true;
+// ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
 stashPay.openModal(url, config);
 ```
 
+**iOS (Swift)**
+
 ```swift
-// iOS
 let config = StashPayModalConfig()
 config.showDragBar = true
 config.allowDismiss = true
-config.phoneWidthRatioPortrait = 0.9
-config.phoneHeightRatioPortrait = 0.7
-config.phoneWidthRatioLandscape = 0.5
-config.phoneHeightRatioLandscape = 0.8
-config.tabletWidthRatioPortrait = 0.4
-config.tabletHeightRatioPortrait = 0.3
-config.tabletWidthRatioLandscape = 0.3
-config.tabletHeightRatioLandscape = 0.4
+// ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
 stashPay.openModal(withURL: url, config: config)
 ```
+
+#### Callbacks
+
+Same as **openCard**: Payment Success, Payment Failure, Dialog Dismissed, Opt-In Response, Page Loaded, Network Error. Set a listener (Android) or delegate (iOS) before calling `openModal`.
+
+---
+
+### openBrowser
+
+Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view.
+
+#### Usage
+
+**Android**
+
+```java
+StashPayCard.getInstance().openBrowser("https://your-url.com");
+```
+
+**iOS (Swift)**
+
+```swift
+StashPayCard.sharedInstance().openBrowser(withURL: "https://your-url.com")
+// Optionally dismiss when handling a deeplink:
+StashPayCard.sharedInstance().closeBrowser()
+```
+
+**iOS (Objective-C)**
+
+```objc
+[[StashPayCard sharedInstance] openBrowserWithURL:@"https://your-url.com"];
+// Optionally dismiss when handling a deeplink:
+[[StashPayCard sharedInstance] closeBrowser];
+```
+
+On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser()** is a no-op (Chrome Custom Tabs cannot be closed by the app).
 
 ---
 

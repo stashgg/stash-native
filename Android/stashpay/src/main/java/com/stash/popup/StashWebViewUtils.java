@@ -2,6 +2,7 @@ package com.stash.popup;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -284,5 +285,21 @@ public class StashWebViewUtils {
         java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl",
             android.content.Context.class, Uri.class);
         launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
+    }
+
+    /**
+     * Opens the given URL in the system default browser (fallback when Chrome Custom Tabs is not available).
+     */
+    public static void openInSystemBrowser(Activity activity, String url) {
+        if (activity == null || url == null || url.isEmpty()) {
+            return;
+        }
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(intent);
+        } catch (Exception e) {
+            // Ignore if no browser can handle the URL
+        }
     }
 }

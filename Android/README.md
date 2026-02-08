@@ -110,32 +110,33 @@ public class MainActivity extends AppCompatActivity {
 }
 ```
 
-### 2. Open Checkout
+### 2. Open Card
 
-The checkout card slides up from the bottom on phones (portrait, full width) and appears centered on tablets.
+The card slides up from the bottom on phones (portrait, full width) and appears centered on tablets. Pass a `CardConfig` for sizing, or `null` for defaults.
 
 ```java
-StashPayCard.getInstance().openCheckout("https://your-checkout-url.com");
+StashPayCard.CardConfig config = new StashPayCard.CardConfig();  // or null for defaults
+StashPayCard.getInstance().openCard("https://your-checkout-url.com", config);
 ```
 
 ### 3. Open Modal
 
-The modal always appears centered on both phones and tablets, with customizable sizing.
-
 ```java
-// Open with default configuration
-StashPayCard.getInstance().openModal("https://your-modal-url.com");
-
-// Or with custom configuration
-StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();
-config.showDragBar = true;      // Show visual drag bar at top
-config.allowDismiss = true;     // Allow tap-outside to dismiss
-// Sizing: phoneWidthRatioPortrait, phoneHeightRatioPortrait, phoneWidthRatioLandscape, phoneHeightRatioLandscape, tabletWidthRatioPortrait, tabletHeightRatioPortrait, tabletWidthRatioLandscape, tabletHeightRatioLandscape (see Modal Configuration below)
-
+StashPayCard.ModalConfig config = new StashPayCard.ModalConfig();  // or null for defaults
 StashPayCard.getInstance().openModal("https://your-modal-url.com", config);
 ```
 
-### 4. Using StashPayListenerAdapter
+### 4. Open in Browser
+
+To open a URL in Chrome Custom Tabs (no callbacks or config):
+
+```java
+StashPayCard.getInstance().openBrowser("https://your-url.com");
+```
+
+`closeBrowser()` exists for API consistency with iOS but has no effect on Android (Chrome Custom Tabs cannot be closed programmatically).
+
+### 5. Using StashPayListenerAdapter
 
 If you only need to implement some callbacks, use the adapter class:
 
@@ -152,68 +153,42 @@ stashPay.setListener(new StashPayCard.StashPayListenerAdapter() {
 
 ## Presentation Methods
 
-**openCheckout** is used exclusively for checkout URLs: [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration).
+**openCard** is used for checkout or other URLs in a card: [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration).
 
 **openModal** is used for the opt-in dialog: [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in).
 
 | Method | Phone Behavior | Tablet Behavior | Use Case |
 |--------|----------------|-----------------|----------|
-| `openCheckout()` | Card: portrait-locked activity or overlay in current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
+| `openCard()` | Card: portrait-locked activity or overlay in current orientation (expand/collapse, resizes on rotation) | Centered modal with rotation support | Standard checkout flow |
 | `openModal()` | Centered modal with custom sizing | Centered modal with custom sizing | Custom modal content, no card behavior |
 
 ---
 
-## Checkout Configuration
+## Card Configuration
 
-### Force portrait on checkout (phone)
+Card sizing and orientation are set via **CardConfig** passed to `openCard(url, config)`. Pass `null` for defaults.
 
-By default, checkout on phones **does not** force portrait. You can lock checkout to portrait or allow all orientations:
+### Force portrait (phone)
 
-- **Force portrait on**  
-  Checkout opens in a **separate portrait-locked activity**. The device rotates to portrait when opening. The card uses full width and a configurable height ratio. Expand/collapse is supported via drag.
+- **forcePortrait = true** — Card opens in a **separate portrait-locked activity**. Full width, configurable height ratio.
+- **forcePortrait = false (default)** — Card appears as an **overlay** in the current orientation with expand/collapse.
 
-- **Force portrait off (default)**  
-  Checkout appears as an **overlay in your activity** in the current orientation. The card resizes on rotation and supports expand/collapse (drag or WebView callbacks). In portrait the card uses full width and a height ratio; in landscape it uses configurable width and height ratios.
+### CardConfig properties
 
-```java
-StashPayCard stashPay = StashPayCard.getInstance();
-
-// Lock checkout to portrait (separate activity) or allow current orientation (overlay)
-stashPay.setForcePortraitOnCheckout(false);   // default: allow all orientations
-// Tablet sizing: setTabletWidthRatioPortrait, setTabletHeightRatioPortrait, setTabletWidthRatioLandscape, setTabletHeightRatioLandscape (see Checkout Sizing (Tablet) below)
-```
-
-### Phone card size
-
-**Portrait** (and when force portrait is on): the card uses **full screen width**. Only the height ratio is configurable.
-
-**Landscape** (only when force portrait is off): the card size is controlled by width and height ratios of the screen.
+**Phone:** `forcePortrait`, `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape`  
+**Tablet:** `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape`
 
 ```java
-StashPayCard stashPay = StashPayCard.getInstance();
-
-// Portrait: full width, height as ratio of screen height (default: 68%)
-stashPay.setCardHeightRatioPortrait(0.68f);
-
-// Landscape (only when force portrait is off): width and height as ratio of screen
-stashPay.setCardWidthRatioLandscape(0.9f);    // default: 90% width
-stashPay.setCardHeightRatioLandscape(0.6f);  // default: 60% height
-```
-
-### Tablet Card Size
-
-On tablets, the checkout card is centered and supports rotation. Configure width and height for both orientations:
-
-```java
-StashPayCard stashPay = StashPayCard.getInstance();
-
-// Portrait orientation
-stashPay.setTabletWidthRatioPortrait(0.4f);   // 40% width (default)
-stashPay.setTabletHeightRatioPortrait(0.5f);  // 50% height (default)
-
-// Landscape orientation
-stashPay.setTabletWidthRatioLandscape(0.3f);  // 30% width (default)
-stashPay.setTabletHeightRatioLandscape(0.6f); // 60% height (default)
+StashPayCard.CardConfig config = new StashPayCard.CardConfig();
+config.forcePortrait = false;
+config.cardHeightRatioPortrait = 0.68f;
+config.cardWidthRatioLandscape = 0.9f;
+config.cardHeightRatioLandscape = 0.6f;
+config.tabletWidthRatioPortrait = 0.4f;
+config.tabletHeightRatioPortrait = 0.5f;
+config.tabletWidthRatioLandscape = 0.3f;
+config.tabletHeightRatioLandscape = 0.6f;
+StashPayCard.getInstance().openCard(url, config);
 ```
 
 ---
@@ -263,13 +238,12 @@ StashPayCard.getInstance().openModal(url, config);
 
 ---
 
-## Web-Based Checkout
+## Open in Browser
 
-To use Chrome Custom Tabs instead of the in-app UI:
+To open a URL in Chrome Custom Tabs (no callbacks or config):
 
 ```java
-StashPayCard.getInstance().setForceWebBasedCheckout(true);
-StashPayCard.getInstance().openCheckout(url);
+StashPayCard.getInstance().openBrowser(url);
 ```
 
 ---
@@ -288,9 +262,10 @@ StashPayCard.getInstance().openCheckout(url);
 
 | Method | Description |
 |--------|-------------|
-| `openCheckout(String url)` | Open checkout card (bottom sheet on phones, centered on tablets) |
-| `openModal(String url)` | Open centered modal with default configuration |
-| `openModal(String url, ModalConfig config)` | Open centered modal with custom configuration |
+| `openCard(String url, CardConfig config)` | Open card (bottom sheet on phones, centered on tablets). Pass `null` for default config. |
+| `openModal(String url, ModalConfig config)` | Open centered modal. Pass `null` for default config. |
+| `openBrowser(String url)` | Open URL in Chrome Custom Tabs (no callbacks). |
+| `closeBrowser()` | No-op on Android (API consistency with iOS). |
 | `dismiss()` | Dismiss the current dialog |
 | `resetPresentationState()` | Reset internal state and dismiss |
 
@@ -301,23 +276,18 @@ StashPayCard.getInstance().openCheckout(url);
 | `isCurrentlyPresented()` | Returns `true` if a dialog is currently shown |
 | `isPurchaseProcessing()` | Returns `true` if a payment is in progress |
 
-### Checkout: force portrait & sizing (Phone)
+### CardConfig (for openCard)
 
-| Method | Default | Description |
-|--------|---------|-------------|
-| `setForcePortraitOnCheckout(boolean)` | `false` | If true, open checkout in a portrait-locked activity; if false, overlay in current orientation with rotation and expand/collapse |
-| `setCardHeightRatioPortrait(float)` | `0.68` | Card height as ratio of screen height in portrait (0.1-1.0) |
-| `setCardWidthRatioLandscape(float)` | `0.9` | Card width as ratio of screen width in landscape (0.1-1.0); used only when force portrait is off |
-| `setCardHeightRatioLandscape(float)` | `0.6` | Card height as ratio of screen height in landscape (0.1-1.0); used only when force portrait is off |
-
-### Checkout Sizing (Tablet)
-
-| Method | Default | Description |
-|--------|---------|-------------|
-| `setTabletWidthRatioPortrait(float)` | `0.4` | Card width in portrait (0.1-1.0) |
-| `setTabletHeightRatioPortrait(float)` | `0.5` | Card height in portrait (0.1-1.0) |
-| `setTabletWidthRatioLandscape(float)` | `0.3` | Card width in landscape (0.1-1.0) |
-| `setTabletHeightRatioLandscape(float)` | `0.6` | Card height in landscape (0.1-1.0) |
+| Property | Default | Description |
+|----------|---------|-------------|
+| `forcePortrait` | `false` | If true, card opens in portrait-locked activity; if false, overlay in current orientation |
+| `cardHeightRatioPortrait` | `0.68` | Card height in portrait (0.1-1.0) |
+| `cardWidthRatioLandscape` | `0.9` | Card width in landscape (0.1-1.0) |
+| `cardHeightRatioLandscape` | `0.6` | Card height in landscape (0.1-1.0) |
+| `tabletWidthRatioPortrait` | `0.4` | Tablet card width in portrait (0.1-1.0) |
+| `tabletHeightRatioPortrait` | `0.5` | Tablet card height in portrait (0.1-1.0) |
+| `tabletWidthRatioLandscape` | `0.3` | Tablet card width in landscape (0.1-1.0) |
+| `tabletHeightRatioLandscape` | `0.6` | Tablet card height in landscape (0.1-1.0) |
 
 ### Other Settings
 

@@ -42,8 +42,13 @@ public class MainActivity extends AppCompatActivity {
         viewModel = new ViewModelProvider(this, AndroidViewModelFactory.getInstance(getApplication())).get(MainViewModel.class);
         adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
             @Override
-            public void onOpenCheckout() {
-                openCheckout();
+            public void onOpenCard() {
+                openCard();
+            }
+
+            @Override
+            public void onOpenBrowser() {
+                openBrowser();
             }
 
             @Override
@@ -63,7 +68,6 @@ public class MainActivity extends AppCompatActivity {
         viewModel.getItems().observe(this, items -> {
             if (items != null) {
                 adapter.submitList(items);
-                syncViewModelToStashPayCard();
             }
         });
 
@@ -107,17 +111,17 @@ public class MainActivity extends AppCompatActivity {
         viewModel.refreshList();
     }
 
-    private void syncViewModelToStashPayCard() {
-        StashPayCard card = StashPayCard.getInstance();
-        card.setForceWebBasedCheckout(viewModel.isWebViewMode());
-        card.setForcePortraitOnCheckout(viewModel.isForcePortraitOnCheckout());
-        card.setCardHeightRatioPortrait((viewModel.getPhoneCardHeight() + 10) / 100f);
-        card.setCardWidthRatioLandscape((viewModel.getCheckoutPhoneLandscapeW() + 10) / 100f);
-        card.setCardHeightRatioLandscape((viewModel.getCheckoutPhoneLandscapeH() + 10) / 100f);
-        card.setTabletWidthRatioPortrait((viewModel.getCheckoutTabletPortraitW() + 10) / 100f);
-        card.setTabletHeightRatioPortrait((viewModel.getCheckoutTabletPortraitH() + 10) / 100f);
-        card.setTabletWidthRatioLandscape((viewModel.getCheckoutTabletLandscapeW() + 10) / 100f);
-        card.setTabletHeightRatioLandscape((viewModel.getCheckoutTabletLandscapeH() + 10) / 100f);
+    private StashPayCard.CardConfig buildCardConfig() {
+        StashPayCard.CardConfig config = new StashPayCard.CardConfig();
+        config.forcePortrait = viewModel.isForcePortraitOnCheckout();
+        config.cardHeightRatioPortrait = (viewModel.getPhoneCardHeight() + 10) / 100f;
+        config.cardWidthRatioLandscape = (viewModel.getCheckoutPhoneLandscapeW() + 10) / 100f;
+        config.cardHeightRatioLandscape = (viewModel.getCheckoutPhoneLandscapeH() + 10) / 100f;
+        config.tabletWidthRatioPortrait = (viewModel.getCheckoutTabletPortraitW() + 10) / 100f;
+        config.tabletHeightRatioPortrait = (viewModel.getCheckoutTabletPortraitH() + 10) / 100f;
+        config.tabletWidthRatioLandscape = (viewModel.getCheckoutTabletLandscapeW() + 10) / 100f;
+        config.tabletHeightRatioLandscape = (viewModel.getCheckoutTabletLandscapeH() + 10) / 100f;
+        return config;
     }
 
     private void showOutcomeDialog(String title, String message) {
@@ -128,14 +132,23 @@ public class MainActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void openCheckout() {
+    private void openCard() {
         String url = viewModel.getCheckoutUrl();
         if (url == null || url.trim().isEmpty()) {
             showOutcomeDialog("Error", getString(R.string.error_checkout_url));
             return;
         }
-        syncViewModelToStashPayCard();
-        StashPayCard.getInstance().openCheckout(url.trim());
+        StashPayCard.CardConfig config = buildCardConfig();
+        StashPayCard.getInstance().openCard(url.trim(), config);
+    }
+
+    private void openBrowser() {
+        String url = viewModel.getBrowserUrl();
+        if (url == null || url.trim().isEmpty()) {
+            showOutcomeDialog("Error", getString(R.string.error_checkout_url));
+            return;
+        }
+        StashPayCard.getInstance().openBrowser(url.trim());
     }
 
     private void openModal() {
@@ -197,8 +210,8 @@ public class MainActivity extends AppCompatActivity {
                     String checkoutUrl = json.optString("url", null);
                     if (checkoutUrl != null && !checkoutUrl.isEmpty()) {
                         runOnUiThread(() -> {
-                            syncViewModelToStashPayCard();
-                            StashPayCard.getInstance().openCheckout(checkoutUrl);
+                            StashPayCard.CardConfig config = buildCardConfig();
+                            StashPayCard.getInstance().openCard(checkoutUrl, config);
                         });
                         return;
                     }
