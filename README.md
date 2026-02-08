@@ -73,19 +73,15 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 ---
 
-## Usage
+# Presentation Modes
 
 The library provides three distinct ways to present Stash URLs within your app or game: **openCard**, **openModal**, and **openBrowser**. Each method lets you present different types of Stash experiences—such as Stash Pay checkout, Stash Web Shop, or Stash Opt-in—in a style that best fits your user flow. Details for each option are provided below.
 
-> **Tip:** Point modal or card to testcard.stashpreview.com to open a testing webpage to simulate different callbacks during development.
-
-[![](https://mermaid.ink/img/pako:eNp1lE2PmzAQhv-K5XOSBsImwKFSS9QqqlKtlE0PhR4cmARUsJFtut1m8993-Ejw0sDBGpjH8_Vin2ksEqA-PUlWpuRpHXGCj6oO7YdKgfxUliTEJc9ipjPByQfylRXwq0Xrh5XlOyDAmJ0beNIag8BKM5Xu1t9IuKst8h13_gHyyOLf7GTGFiXwgMkkvBoD31YkLA9v1sD7WYpnbCE0bIOIc6HgipgvBmPQmDwQ_JidwuBmGmRR5--AbW-Pxtpvwg2f4uxIHY48SlDAdTPBYdQebQKPsYe2eqR3X3bsyGT2I4NnLENLkecgUbkglaIAElRKi4I8sYO6L1Sdazr9-BpLYBrUq9H9CGC0PyBYnqP_qt-os2lt1Nspc9dvSmc20dfc0CVTChKixbAYo_R7oFFYu153t3CrRTei_aZHWq3eM52cPdSVPcBuSnaNGA02ZJKpIsMi_0f7zvcbMp11QzrguUIW52Z0PAZEnE5oAbJgWYJXw7neElGdQgER9dFM4MiqXEc04hdEWaXF7oXH1NeyggmVojql1D-yXOFbVSb4g6wzhge_uH0tGf8pRHHdAkmmhdy2d1FzJU3wSqrTdyHx9wQZiIpr6q9ctwlA_TP9S33LsWauNXddx7JXi8X84WFCX6hve97M8jzXsh3HW9qes7xM6L8m53y2Wi7ntrWwLNvFxVpe3gBB4KOU?type=png)](https://mermaid.live/edit#pako:eNp1lE2PmzAQhv-K5XOSBsImwKFSS9QqqlKtlE0PhR4cmARUsJFtut1m8993-Ejw0sDBGpjH8_Vin2ksEqA-PUlWpuRpHXGCj6oO7YdKgfxUliTEJc9ipjPByQfylRXwq0Xrh5XlOyDAmJ0beNIag8BKM5Xu1t9IuKst8h13_gHyyOLf7GTGFiXwgMkkvBoD31YkLA9v1sD7WYpnbCE0bIOIc6HgipgvBmPQmDwQ_JidwuBmGmRR5--AbW-Pxtpvwg2f4uxIHY48SlDAdTPBYdQebQKPsYe2eqR3X3bsyGT2I4NnLENLkecgUbkglaIAElRKi4I8sYO6L1Sdazr9-BpLYBrUq9H9CGC0PyBYnqP_qt-os2lt1Nspc9dvSmc20dfc0CVTChKixbAYo_R7oFFYu153t3CrRTei_aZHWq3eM52cPdSVPcBuSnaNGA02ZJKpIsMi_0f7zvcbMp11QzrguUIW52Z0PAZEnE5oAbJgWYJXw7neElGdQgER9dFM4MiqXEc04hdEWaXF7oXH1NeyggmVojql1D-yXOFbVSb4g6wzhge_uH0tGf8pRHHdAkmmhdy2d1FzJU3wSqrTdyHx9wQZiIpr6q9ctwlA_TP9S33LsWauNXddx7JXi8X84WFCX6hve97M8jzXsh3HW9qes7xM6L8m53y2Wi7ntrWwLNvFxVpe3gBB4KOU)
-
-### openCard
+## openCard
 
 Drawer-style card: slides up from the bottom on phones, centered on tablets. Suited for Stash Pay payment links or channel selection. [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration)
 
-#### Usage
+### Usage
 
 **Android**
 
@@ -108,7 +104,7 @@ StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil
 [[StashNativeCard sharedInstance] openCardWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
-#### Config
+### Config
 
 Pass a `CardConfig` (or `nil`/`null`) to control orientation and sizing. Pass `nil`/`null` for defaults.
 
@@ -140,7 +136,7 @@ config.cardHeightRatioPortrait = 0.68
 stashNative.openCard(withURL: url, config: config)
 ```
 
-#### Callbacks
+### Callbacks
 
 | Event            | Description |
 | ---------------- | ----------- |
@@ -241,11 +237,11 @@ extension YourViewController: StashNativeCardDelegate {
 
 ---
 
-### openModal
+## openModal
 
 Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
 
-#### Usage
+### Usage
 
 **Android**
 
@@ -268,7 +264,7 @@ StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or n
 [[StashNativeCard sharedInstance] openModalWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
-#### Config
+### Config
 
 Pass a `ModalConfig` (or `nil`/`null`) to control drag bar, dismiss behavior, and sizing. Pass `nil`/`null` for defaults.
 
@@ -298,17 +294,17 @@ config.allowDismiss = true
 stashNative.openModal(withURL: url, config: config)
 ```
 
-#### Callbacks
+### Callbacks
 
 Same as **openCard**: same events and the same listener/delegate. Set it once as shown in the [Callbacks](#callbacks) section under openCard; it receives events for both card and modal.
 
 ---
 
-### openBrowser
+## openBrowser
 
 Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view.
 
-#### Usage
+### Usage
 
 **Android**
 
@@ -336,7 +332,7 @@ On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser
 
 ---
 
-## Versioning
+# Versioning
 
 This package follows [Semantic Versioning](https://semver.org/) (major.minor.patch):
 
@@ -344,7 +340,7 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 - **Minor**: New features (backward compatible)
 - **Patch**: Bug fixes
 
-## Support
+# Support
 
 - Documentation: https://docs.stash.gg
 - Email: developers@stash.gg
