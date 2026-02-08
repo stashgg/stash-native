@@ -16,6 +16,11 @@
 		1A000018299999990000001 /* StashPayCardWebViewDelegates.m in Sources */ = {isa = PBXBuildFile; fileRef = 1A000017299999990000001 /* StashPayCardWebViewDelegates.m */; };
 		1A000009299999990000001 /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A00000A299999990000001 /* SafariServices.framework */; };
 		1A00000B299999990000001 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1A00000C299999990000001 /* WebKit.framework */; };
+		1A00001B299999990000001 /* ViewController+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001C299999990000001 /* ViewController+Actions.swift */; };
+		1A00001D299999990000001 /* ViewController+CellHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00001E299999990000001 /* ViewController+CellHelpers.swift */; };
+		1A00001F299999990000001 /* ViewController+Setup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000026299999990000001 /* ViewController+Setup.swift */; };
+		1A000027299999990000001 /* ViewController+StashPayDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A000028299999990000001 /* ViewController+StashPayDelegate.swift */; };
+		1A000029299999990000001 /* ViewController+TableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00002A299999990000001 /* ViewController+TableView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +38,11 @@
 		1A000013299999990000001 /* StashPay.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = StashPay.h; path = Sources/StashPay/include/StashPay.h; sourceTree = "<group>"; };
 		1A000014299999990000001 /* StashPaySample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "StashPaySample-Bridging-Header.h"; sourceTree = "<group>"; };
 		1A00001A299999990000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A00001C299999990000001 /* ViewController+Actions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewController+Actions.swift"; sourceTree = "<group>"; };
+		1A00001E299999990000001 /* ViewController+CellHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewController+CellHelpers.swift"; sourceTree = "<group>"; };
+		1A000026299999990000001 /* ViewController+Setup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewController+Setup.swift"; sourceTree = "<group>"; };
+		1A000028299999990000001 /* ViewController+StashPayDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewController+StashPayDelegate.swift"; sourceTree = "<group>"; };
+		1A00002A299999990000001 /* ViewController+TableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewController+TableView.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -64,6 +74,11 @@
 				1A00001A299999990000001 /* Assets.xcassets */,
 				1A000002299999990000001 /* AppDelegate.swift */,
 				1A000004299999990000001 /* ViewController.swift */,
+				1A00001C299999990000001 /* ViewController+Actions.swift */,
+				1A00001E299999990000001 /* ViewController+CellHelpers.swift */,
+				1A000026299999990000001 /* ViewController+Setup.swift */,
+				1A000028299999990000001 /* ViewController+StashPayDelegate.swift */,
+				1A00002A299999990000001 /* ViewController+TableView.swift */,
 				1A000006299999990000001 /* LaunchScreen.storyboard */,
 				1A000011299999990000001 /* Info.plist */,
 				1A000014299999990000001 /* StashPaySample-Bridging-Header.h */,
@@ -174,6 +189,11 @@
 			files = (
 				1A000001299999990000001 /* AppDelegate.swift in Sources */,
 				1A000003299999990000001 /* ViewController.swift in Sources */,
+				1A00001B299999990000001 /* ViewController+Actions.swift in Sources */,
+				1A00001D299999990000001 /* ViewController+CellHelpers.swift in Sources */,
+				1A00001F299999990000001 /* ViewController+Setup.swift in Sources */,
+				1A000027299999990000001 /* ViewController+StashPayDelegate.swift in Sources */,
+				1A000029299999990000001 /* ViewController+TableView.swift in Sources */,
 				1A000007299999990000001 /* StashPayCard.m in Sources */,
 				1A000016299999990000001 /* StashPayCardViewControllers.m in Sources */,
 				1A000018299999990000001 /* StashPayCardWebViewDelegates.m in Sources */,

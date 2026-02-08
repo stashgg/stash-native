@@ -195,9 +195,9 @@ CGFloat _modalTabletHeightRatioLandscape = 0.40f;
 #pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
 
 /// Primary duration for all card motion (present, expand, collapse, snap-back). Matches system sheet feel.
-static const NSTimeInterval kCardAnimationDuration = 0.5;
+__unused static const NSTimeInterval kCardAnimationDuration = 0.5;
 /// Spring damping for card animations. 0.82 = subtle bounce, Apple-like.
-static const CGFloat kSpringDampingCard = 0.82f;
+__unused static const CGFloat kSpringDampingCard = 0.82f;
 /// Legacy names for call sites that expect these symbols
 static const CGFloat kSpringDampingDefault = 0.82f;
 static const CGFloat kSpringDampingTight = 0.82f;
@@ -251,7 +251,7 @@ static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
     CGFloat u = t - 1.0f;
     return 1.0f + (k + 1.0f) * u * u * u + k * u * u;
 }
-static inline CGFloat easeOutBack(CGFloat t) {
+__unused static inline CGFloat easeOutBack(CGFloat t) {
     return easeOutBackWithOvershoot(t, kEaseOutBackOvershoot);
 }
 static const NSTimeInterval kRotationDelayAfterLandscape = 0.35;
@@ -283,7 +283,7 @@ static const CGFloat kVerticalPositionThresholdTop = 0.9f;
 
 static const CGFloat kMinRatio = 0.1f;
 static const CGFloat kMaxRatio = 1.0f;
-static CGFloat clampRatio(CGFloat ratio) {
+__unused static CGFloat clampRatio(CGFloat ratio) {
     return ratio < kMinRatio ? kMinRatio : (ratio > kMaxRatio ? kMaxRatio : ratio);
 }
 
@@ -340,7 +340,7 @@ static const NSTimeInterval kCollapseAnimationDurationFast = 0.45;
 static const NSTimeInterval kDismissAnimationDurationFast = 0.35;
 static const NSTimeInterval kDismissAnimationDurationNormal = 0.45;
 static const CGFloat kVelocityDivisorForSpring = 1000.0f;
-static const CGFloat kVelocityDivisorForSpringFast = 800.0f;
+__unused static const CGFloat kVelocityDivisorForSpringFast = 800.0f;
 static const CGFloat kVelocityThresholdForFastCollapse = 600.0f;
 static const CGFloat kVelocityThresholdForFastDismiss = 1000.0f;
 
@@ -763,22 +763,20 @@ initialSpringVelocity:kSpringVelocityExpand
     _isCardExpanded = NO;
 
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGFloat width, height, x, finalY;
+    CGFloat width, height;
 
     CGRect collapsedFrame;
     if (isRunningOniPad()) {
         CGSize cardSize = calculateiPadCardSize(screenBounds);
         width = cardSize.width;
         height = cardSize.height;
-        x = (screenBounds.size.width - width) / 2;
-        finalY = (screenBounds.size.height - height) / 2;
+        CGFloat x = (screenBounds.size.width - width) / 2;
+        CGFloat finalY = (screenBounds.size.height - height) / 2;
         collapsedFrame = CGRectMake(x, finalY, width, height);
     } else {
         collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
         width = collapsedFrame.size.width;
         height = collapsedFrame.size.height;
-        x = collapsedFrame.origin.x;
-        finalY = collapsedFrame.origin.y;
     }
 
     WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);

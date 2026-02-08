@@ -13,7 +13,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    func application(
+        _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
 
         window = UIWindow(frame: UIScreen.main.bounds)
         let nav = UINavigationController(rootViewController: ViewController())
@@ -25,7 +28,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     // Handle deep links for payment callbacks
-    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+    func application(
+        _ app: UIApplication,
+        open url: URL,
+        options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+    ) -> Bool {
         let urlString = url.absoluteString
 
         if urlString.contains("stash/purchaseSuccess") {
