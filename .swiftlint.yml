@@ -1,4 +1,3 @@
-# Aggressive production-use rules for Stash Native
 opt_in_rules:
   - force_cast
   - force_try
@@ -12,10 +11,8 @@ type_body_length:
   warning: 300
   error: 400
 
-# Fail on violations (strict)
 strict: true
 
-# Paths (optional; workflow passes --path)
 excluded:
   - .build
   - DerivedData
