@@ -151,7 +151,93 @@ stashNative.openCard(withURL: url, config: config)
 | Page Loaded      | Called when the page finishes loading (with load time). |
 | Network Error    | Called when the page load fails (no connection, HTTP error, timeout). |
 
-Set a listener (Android) or delegate (iOS) before calling `openCard`.
+Set a listener (Android) or delegate (iOS) before calling `openCard` or `openModal`. Same callback interface is used for both.
+
+**Android** — implement `StashNativeCardListener` (or extend `StashNativeCardListenerAdapter` to override only the callbacks you need):
+
+```java
+StashNativeCard.getInstance().setActivity(this);
+StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListener() {
+    @Override
+    public void onPaymentSuccess() {
+        // Handle successful payment
+    }
+
+    @Override
+    public void onPaymentFailure() {
+        // Handle failed payment
+    }
+
+    @Override
+    public void onDialogDismissed() {
+        // User closed the card/modal
+    }
+
+    @Override
+    public void onOptInResponse(String optinType) {
+        // Channel selection response (e.g. "email", "sms")
+    }
+
+    @Override
+    public void onPageLoaded(long loadTimeMs) {
+        // Page finished loading
+    }
+
+    @Override
+    public void onNetworkError() {
+        // Load failed (no connection, HTTP error, or timeout)
+    }
+});
+```
+
+**iOS (Swift)** — set the delegate and implement `StashNativeCardDelegate` (all methods are optional):
+
+```swift
+StashNativeCard.sharedInstance().delegate = self
+// In your class (e.g. ViewController):
+extension YourViewController: StashNativeCardDelegate {
+    func stashNativeCardDidCompletePayment() {
+        // Handle successful payment
+    }
+    func stashNativeCardDidFailPayment() {
+        // Handle failed payment
+    }
+    func stashNativeCardDidDismiss() {
+        // User closed the card/modal
+    }
+    func stashNativeCardDidReceiveOpt(in optinType: String) {
+        // Channel selection response
+    }
+    func stashNativeCardDidLoadPage(_ loadTimeMs: Double) {}
+    func stashNativeCardDidEncounterNetworkError() {
+        // Load failed (no connection, HTTP error, or timeout)
+    }
+}
+```
+
+**iOS (Objective-C)** — set the delegate and implement the optional protocol methods:
+
+```objc
+[StashNativeCard sharedInstance].delegate = self;
+
+// In your class:
+- (void)stashNativeCardDidCompletePayment {
+    // Handle successful payment
+}
+- (void)stashNativeCardDidFailPayment {
+    // Handle failed payment
+}
+- (void)stashNativeCardDidDismiss {
+    // User closed the card/modal
+}
+- (void)stashNativeCardDidReceiveOptIn:(NSString *)optinType {
+    // Channel selection response
+}
+- (void)stashNativeCardDidLoadPage:(double)loadTimeMs {}
+- (void)stashNativeCardDidEncounterNetworkError {
+    // Load failed
+}
+```
 
 ---
 
@@ -214,7 +300,7 @@ stashNative.openModal(withURL: url, config: config)
 
 #### Callbacks
 
-Same as **openCard**: Payment Success, Payment Failure, Dialog Dismissed, Opt-In Response, Page Loaded, Network Error. Set a listener (Android) or delegate (iOS) before calling `openModal`.
+Same as **openCard**: same events and the same listener/delegate. Set it once as shown in the [Callbacks](#callbacks) section under openCard; it receives events for both card and modal.
 
 ---
 
