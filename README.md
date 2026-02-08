@@ -81,8 +81,6 @@ The library provides three distinct ways to present Stash URLs within your app o
 
 Drawer-style card: slides up from the bottom on phones, centered on tablets. Suited for Stash Pay payment links or channel selection. [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration)
 
-### Usage
-
 **Android**
 
 ```java
@@ -241,7 +239,6 @@ extension YourViewController: StashNativeCardDelegate {
 
 Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
 
-### Usage
 
 **Android**
 
@@ -303,8 +300,6 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 ## openBrowser
 
 Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view.
-
-### Usage
 
 **Android**
 
