@@ -46,7 +46,7 @@ or try them instantly in your browser using the Appetize online emulator:
 
 ---
 
-## Installation
+# Installation
 
 ### Android
 
