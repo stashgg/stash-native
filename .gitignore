@@ -17,6 +17,10 @@ Icon?
 .DocumentRevisions-V100
 .VolumeIcon.icns
 *.d
+
+# Checkstyle (downloaded by CI and optionally for local lint)
+checkstyle.jar
+
 /build/ios/Build
 /build/ios/CompilationCache.noindex
 /build

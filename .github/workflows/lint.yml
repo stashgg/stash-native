@@ -25,11 +25,10 @@ jobs:
         run: |
           CHECKSTYLE_VERSION="10.12.7"
           curl -sL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" -o checkstyle.jar
-          curl -sL "https://raw.githubusercontent.com/checkstyle/checkstyle/checkstyle-${CHECKSTYLE_VERSION}/src/main/resources/google_checks.xml" -o google_checks.xml
 
       - name: Run Checkstyle on Library
         run: |
-          java -jar checkstyle.jar -c google_checks.xml \
+          java -jar checkstyle.jar -c Android/checkstyle.xml \
             -f plain \
             Android/stashpay/src/main/java/
 
@@ -50,11 +49,10 @@ jobs:
         run: |
           CHECKSTYLE_VERSION="10.12.7"
           curl -sL "https://github.com/checkstyle/checkstyle/releases/download/checkstyle-${CHECKSTYLE_VERSION}/checkstyle-${CHECKSTYLE_VERSION}-all.jar" -o checkstyle.jar
-          curl -sL "https://raw.githubusercontent.com/checkstyle/checkstyle/checkstyle-${CHECKSTYLE_VERSION}/src/main/resources/google_checks.xml" -o google_checks.xml
 
       - name: Run Checkstyle on Sample
         run: |
-          java -jar checkstyle.jar -c google_checks.xml \
+          java -jar checkstyle.jar -c Android/checkstyle.xml \
             -f plain \
             Android/sample/src/main/java/
 
