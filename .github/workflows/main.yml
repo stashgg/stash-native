@@ -122,7 +122,7 @@ jobs:
         run: |
           xcodebuild build \
             -project StashNative.xcodeproj \
-            -target StashNative \
+            -scheme StashNative \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build/DerivedData \
