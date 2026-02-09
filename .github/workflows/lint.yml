@@ -65,13 +65,13 @@ jobs:
 
       - name: Run Static Analysis on iOS Library
         run: |
-          # Run Clang Static Analyzer on Objective-C library
+          # Run Clang Static Analyzer on Objective-C library (generic destination works on any runner)
           cd iOS/StashNative
           xcodebuild analyze \
             -project StashNative.xcodeproj \
             -scheme StashNative \
             -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+            -destination 'generic/platform=iOS Simulator' \
             GCC_TREAT_WARNINGS_AS_ERRORS=YES \
             CLANG_ANALYZER_OUTPUT=plist-html \
             CLANG_ANALYZER_OUTPUT_DIR=analyzer_results
