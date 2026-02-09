@@ -23,11 +23,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return table
     }()
 
-    let defaultURL = """
-        https://htmlpreview.github.io/?\
-        https://raw.githubusercontent.com/stashgg/stash-unity/refs/heads/main/.github/Stash.Popup.Test/index.html
-        """
-    /// Same default as Android sample for Modal URL.
+    let defaultURL = "https://test.stashpreview.com/"
     let defaultModalURL = "https://store.howlingwoods.shop/pay/channel-selection"
 
     let checkoutUrlTextField = UITextField()

@@ -1,8 +1,8 @@
 //
-//  AppDelegate.swift
+//  StashNativeSampleApp.swift
 //  StashNativeSample
 //
-//  Sample iOS app demonstrating StashNativeCard SDK integration.
+//  Created by Ondřej Řeháček on 09.02.2026.
 //
 
 import UIKit
