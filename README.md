@@ -15,6 +15,131 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 | Android  | Android library (AAR).       |
 | iOS      | iOS framework (XCFramework). |
 
+## Compatibility
+
+### Android
+
+| Attribute | Requirement |
+|-----------|-------------|
+| Minimum SDK | API 21 (Android 5.0 Lollipop) |
+| Target SDK | API 34 (Android 14) |
+| Compile SDK | 34 |
+| Java Version | Java 8 (source/target), JDK 17 for build |
+| Architecture | armeabi-v7a, arm64-v8a, x86, x86_64 |
+
+#### Android Version Support
+
+| Android Version | API Level | Status | Notes |
+|-----------------|-----------|--------|-------|
+| Android 14 (Upside Down Cake) | 34 | Full | Target SDK |
+| Android 13 (Tiramisu) | 33 | Full | |
+| Android 12/12L | 31-32 | Full | |
+| Android 11 | 30 | Full | Enhanced window insets |
+| Android 10 | 29 | Full | Dark mode support |
+| Android 9 (Pie) | 28 | Full | |
+| Android 8/8.1 (Oreo) | 26-27 | Full | |
+| Android 7/7.1 (Nougat) | 24-25 | Full | |
+| Android 6 (Marshmallow) | 23 | Full | |
+| Android 5/5.1 (Lollipop) | 21-22 | Supported | Minimum SDK |
+| Android 4.4 and below | <=20 | Not Supported | |
+
+#### Vendor Compatibility (Android 7+)
+
+| Vendor / Skin | Compatibility | WebView Source | Notes |
+|---------------|--------------|----------------|-------|
+| Google Pixel / Stock Android | Full | Google WebView (Play Store updates) | Reference implementation |
+| Samsung (One UI / TouchWiz) | Full | Samsung Internet / Chrome WebView | No known issues |
+| Xiaomi (MIUI) | Full | Chrome WebView | Some MIUI versions show battery optimization warnings |
+| OnePlus (OxygenOS) | Full | Chrome WebView | Stock-like behavior |
+| Oppo (ColorOS) | Full | Chrome WebView | |
+| Vivo (Funtouch OS) | Full | Chrome WebView | |
+| Realme (Realme UI) | Full | Chrome WebView | |
+| Huawei (EMUI, pre-2019) | Full | Google WebView | Devices with GMS |
+| Huawei (HarmonyOS/EMUI, 2019+) | Partial | Huawei WebView | No GMS; Chrome Custom Tabs unavailable; in-app WebView works |
+| Honor (post-Huawei) | Full | Chrome WebView | Devices with GMS |
+| Nokia (Android One) | Full | Google WebView | Stock Android |
+| Motorola | Full | Chrome WebView | Near-stock Android |
+| LG | Full | Chrome WebView | Legacy devices supported |
+| Sony Xperia | Full | Chrome WebView | |
+| ASUS (ZenUI) | Full | Chrome WebView | |
+| Android Go Edition | Supported | Chrome WebView | Limited memory; may experience slower load times |
+| Amazon Fire OS | Partial | Amazon WebView | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
+
+#### Dependencies
+
+| Dependency | Version | Required | Purpose |
+|------------|---------|----------|---------|
+| androidx.appcompat:appcompat | 1.6.1+ | Yes | Activity/Fragment support |
+| androidx.browser:browser | 1.7.0+ | Yes | Chrome Custom Tabs (openBrowser) |
+
+#### Feature Availability by API Level
+
+| Feature | Min API | Notes |
+|---------|---------|-------|
+| In-app WebView (openCard, openModal) | 21 | Core functionality |
+| Third-party cookies | 21 | Required for payment flows |
+| Chrome Custom Tabs (openBrowser) | 21 | Requires compatible browser |
+| Automatic dark mode detection | 29 | Falls back to light theme on older versions |
+| Edge-to-edge display | 30 | Graceful fallback on older versions |
+
+### iOS
+
+| Attribute | Requirement |
+|-----------|-------------|
+| Minimum iOS | iOS 13.0 |
+| Swift Version | 5.5+ |
+| Xcode | 13.0+ |
+| Architecture | arm64, arm64e (devices), x86_64 (simulator) |
+
+#### iOS Version Support
+
+| iOS Version | Status | Notes |
+|-------------|--------|-------|
+| iOS 18.x | Full | Latest |
+| iOS 17.x | Full | |
+| iOS 16.x | Full | |
+| iOS 15.x | Full | |
+| iOS 14.x | Full | |
+| iOS 13.x | Supported | Minimum version |
+| iOS 12 and below | Not Supported | |
+
+#### Device Support
+
+| Device Type | Status | Notes |
+|-------------|--------|-------|
+| iPhone (all models iOS 13+) | Full | Portrait/landscape, card slides from bottom |
+| iPad | Full | Centered presentation, all orientations |
+| iPad (Split View / Slide Over) | Full | Responsive layout |
+| Mac (Catalyst) | Untested | Should work; not officially tested |
+
+#### Framework Dependencies
+
+| Framework | Required | Purpose |
+|-----------|----------|---------|
+| WebKit | Yes | WKWebView for in-app checkout |
+| SafariServices | Yes | SFSafariViewController (openBrowser) |
+| Foundation | Yes | Core framework |
+| UIKit | Yes | UI components |
+
+#### Language Support
+
+| Language | Status | Notes |
+|----------|--------|-------|
+| Swift | Full | Native API |
+| Objective-C | Full | Native API |
+| ARC | Full | Automatic Reference Counting |
+| Non-ARC | Full | Manual memory management (Unreal Engine compatibility) |
+
+### Known Limitations
+
+**Android**
+- Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally
+- Android Go: Performance may vary on low-memory devices (<1GB RAM)
+- WebView Updates: Devices without Play Store may have outdated WebView; recommend users update Android System WebView
+
+**iOS**
+- iOS 13 Dark Mode: Requires explicit theme parameter in URL; automatic detection not available on iOS 13.0-13.3
+
 ## Wrappers
 
 If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools—such as full flow testing directly in the Unity Editor.
