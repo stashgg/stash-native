@@ -1480,6 +1480,24 @@ public class StashNativeCardPortraitActivity extends Activity {
         Log.e(TAG, "Error in collapse: " + e.getMessage(), e);
       }
     }
+
+    @JavascriptInterface
+    public void requestCloseFromPage() {
+      if (isPurchaseProcessing) {
+        return;
+      }
+      try {
+        runOnUiThread(() -> {
+          try {
+            dismissWithAnimation();
+          } catch (Exception e) {
+            Log.e(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
+          }
+        });
+      } catch (Exception e) {
+        Log.e(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
+      }
+    }
   }
   
   @Override

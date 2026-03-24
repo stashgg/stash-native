@@ -63,7 +63,8 @@ public class StashNativeCard {
     void onPaymentFailure();
 
     /**
-     * Called when the checkout dialog is dismissed by the user.
+     * Called when the checkout dialog is dismissed by the user, or when the embedded page calls
+     * {@code window.close()}.
      */
     void onDialogDismissed();
     

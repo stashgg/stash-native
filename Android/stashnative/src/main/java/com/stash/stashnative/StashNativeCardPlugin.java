@@ -223,6 +223,20 @@ public class StashNativeCardPlugin {
         }
       });
     }
+
+    @JavascriptInterface
+    public void requestCloseFromPage() {
+      if (isPurchaseProcessing) {
+        return;
+      }
+      new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+          dismissCurrentDialog();
+        } catch (Exception e) {
+          Log.e(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
+        }
+      });
+    }
   }
   
   /**

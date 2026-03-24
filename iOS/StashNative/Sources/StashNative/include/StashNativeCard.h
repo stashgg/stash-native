@@ -135,7 +135,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stashNativeCardDidFailPayment;
 
 /**
- * Called when the checkout dialog is dismissed by the user.
+ * Called when the checkout dialog is dismissed by the user, or when the embedded page calls window.close().
  */
 - (void)stashNativeCardDidDismiss;
 

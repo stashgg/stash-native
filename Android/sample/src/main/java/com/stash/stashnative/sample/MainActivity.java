@@ -14,6 +14,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -176,22 +177,33 @@ public class MainActivity extends AppCompatActivity {
         conn.setReadTimeout(15000);
 
         JSONObject user = new JSONObject();
-        user.put("id", "test.user");
+        user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
         user.put("validatedEmail", "test@stash.gg");
+        user.put("displayName", "Test User");
+        user.put("profileImageUrl",
+            "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png");
         user.put("platform", "ANDROID");
         JSONObject item = new JSONObject();
-        item.put("id", "test-item");
-        item.put("name", "Test Purchase");
-        item.put("pricePerItem", "0.99");
+        item.put("id", "realMoneyProduct_gems_001");
+        item.put("name", "Handful of Blackstone");
+        item.put("pricePerItem", "1.99");
         item.put("quantity", 1);
-        item.put("imageUrl",
-            "https://api.braincloudservers.com/files/portal/g/15152/metadata/products/potion_pack.png");
-        item.put("description", "This is a test item purchase.");
+        item.put("imageUrl", "https://static.stash.gg/stash_logo_128.png");
+        JSONObject bonusItem = new JSONObject();
+        bonusItem.put("id", "196492b7-78f1-4875-bfb5-ff612b46c1f9");
+        bonusItem.put("name", "Bonus Item");
+        bonusItem.put("imageUrl", "https://static.stash.gg/stash_logo_128.png");
+        bonusItem.put("quantity", 1);
+        JSONArray bonusItems = new JSONArray();
+        bonusItems.put(bonusItem);
         JSONObject body = new JSONObject();
         body.put("user", user);
         body.put("item", item);
         body.put("currency", "USD");
         body.put("createPaymentIntent", true);
+        body.put("transactionId", "6ef37116-e16f-43c6-ac72-8741c0bbd2b5");
+        body.put("regionCode", "US");
+        body.put("bonusItems", bonusItems);
 
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
         conn.setFixedLengthStreamingMode(bytes.length);

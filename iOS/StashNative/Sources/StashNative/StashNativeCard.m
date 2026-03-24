@@ -364,6 +364,7 @@ static NSString * const kMessageHandlerPurchaseProcessing = @"stashPurchaseProce
 static NSString * const kMessageHandlerOptin = @"stashOptin";
 static NSString * const kMessageHandlerExpand = @"stashExpand";
 static NSString * const kMessageHandlerCollapse = @"stashCollapse";
+static NSString * const kMessageHandlerWindowClose = @"stashWindowClose";
 
 #pragma mark - Associated Object Keys
 
@@ -563,6 +564,7 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
                 [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
                 [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
                 [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
                 [webView.configuration.userContentController removeAllUserScripts];
                 
                 [webView loadHTMLString:@"" baseURL:nil];
@@ -1455,6 +1457,16 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (!_usePopupPresentation && _isCardExpanded && self.currentPresentedVC) {
             [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
         }
+    } else if ([name isEqualToString:kMessageHandlerWindowClose]) {
+        if (self.isPurchaseProcessing) {
+            return;
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self dismissWithAnimation:^{
+                [self cleanupCardInstance];
+                [self callDelegateCallbackOnce];
+            }];
+        });
     }
 }
 
@@ -1678,6 +1690,9 @@ void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
 }
 
 void configureScrollViewForWebView(UIScrollView* scrollView) {
+    if (!scrollView) {
+        return;
+    }
     if (@available(iOS 11.0, *)) {
         scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     }
@@ -1686,6 +1701,22 @@ void configureScrollViewForWebView(UIScrollView* scrollView) {
     scrollView.bounces = NO;
     scrollView.alwaysBounceVertical = NO;
     scrollView.alwaysBounceHorizontal = NO;
+    scrollView.bouncesZoom = NO;
+    if (@available(iOS 17.4, *)) {
+        scrollView.bouncesVertically = NO;
+        scrollView.bouncesHorizontally = NO;
+        scrollView.transfersVerticalScrollingToParent = NO;
+        scrollView.transfersHorizontalScrollingToParent = NO;
+    }
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
+    if (@available(iOS 26.0, *)) {
+        UIScrollEdgeEffectStyle *hardStyle = [UIScrollEdgeEffectStyle hardStyle];
+        scrollView.topEdgeEffect.style = hardStyle;
+        scrollView.bottomEdgeEffect.style = hardStyle;
+        scrollView.leftEdgeEffect.style = hardStyle;
+        scrollView.rightEdgeEffect.style = hardStyle;
+    }
+#endif
 }
 
 UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
@@ -2787,9 +2818,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
         "window.stash_sdk.collapse = function() {"
             "window.webkit.messageHandlers.%@.postMessage({});"
         "};"
+        "try { window.close = function() {"
+            "try { window.webkit.messageHandlers.%@.postMessage({}); } catch(e2) {}"
+        "}; } catch(e) {}"
     "})();",
         kMessageHandlerPaymentSuccess, kMessageHandlerPaymentFailure, kMessageHandlerPurchaseProcessing,
-        kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse];
+        kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerWindowClose];
     WKUserScript *stashSDKInjection = [[WKUserScript alloc] initWithSource:stashSDKScript
                                                              injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                           forMainFrameOnly:YES];
@@ -2810,6 +2844,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerOptin];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerWindowClose];
     config.userContentController = userContentController;
     
     UIColor *systemBackgroundColor = getSystemBackgroundColor();

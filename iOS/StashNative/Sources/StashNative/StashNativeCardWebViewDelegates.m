@@ -31,6 +31,7 @@ extern BOOL _useModalPresentation;
 extern BOOL isRunningOniPad(void);
 extern UIColor* getSystemBackgroundColor(void);
 extern UIViewController *getTopPresentedViewController(void);
+extern void configureScrollViewForWebView(UIScrollView *scrollView);
 
 #pragma mark - WebViewLoadDelegate
 
@@ -189,6 +190,9 @@ extern UIViewController *getTopPresentedViewController(void);
 }
 
 - (void)showWebViewAndRemoveLoading {
+    if (_webView) {
+        configureScrollViewForWebView(_webView.scrollView);
+    }
     if (_timeoutTimer) {
         [_timeoutTimer invalidate];
         _timeoutTimer = nil;
@@ -249,6 +253,9 @@ extern UIViewController *getTopPresentedViewController(void);
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    if (webView) {
+        configureScrollViewForWebView(webView.scrollView);
+    }
     if (self.pageLoadStartTime > 0) {
         CFAbsoluteTime loadEndTime = CFAbsoluteTimeGetCurrent();
         double loadTimeSeconds = loadEndTime - self.pageLoadStartTime;
@@ -324,6 +331,9 @@ extern UIViewController *getTopPresentedViewController(void);
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
+    if (webView) {
+        configureScrollViewForWebView(webView.scrollView);
+    }
     // iPhone checkout: reveal on commit. Modal: also reveal on commit (Unreal etc. may never get didFinish)
     if ((!_usePopupPresentation && !isRunningOniPad()) || _useModalPresentation) {
         [self showWebViewAndRemoveLoading];

@@ -149,20 +149,31 @@ extension ViewController {
         request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
         let body: [String: Any] = [
             "user": [
-                "id": "test.user",
+                "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
                 "validatedEmail": "test@stash.gg",
+                "displayName": "Test User",
+                "profileImageUrl": "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png",
                 "platform": "IOS"
             ],
             "item": [
-                "id": "test-item",
-                "name": "Test Purchase",
-                "pricePerItem": "0.99",
+                "id": "realMoneyProduct_gems_001",
+                "name": "Handful of Blackstone",
+                "pricePerItem": "1.99",
                 "quantity": 1,
-                "imageUrl": "https://api.braincloudservers.com/files/portal/g/15152/metadata/products/potion_pack.png",
-                "description": "This is a test item purchase."
+                "imageUrl": "https://static.stash.gg/stash_logo_128.png"
             ],
             "currency": "USD",
-            "createPaymentIntent": true
+            "createPaymentIntent": true,
+            "transactionId": "6ef37116-e16f-43c6-ac72-8741c0bbd2b5",
+            "regionCode": "US",
+            "bonusItems": [
+                [
+                    "id": "196492b7-78f1-4875-bfb5-ff612b46c1f9",
+                    "name": "Bonus Item",
+                    "imageUrl": "https://static.stash.gg/stash_logo_128.png",
+                    "quantity": 1
+                ]
+            ]
         ]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
             showAlert(title: "Error", message: "Failed to generate checkout URL")

@@ -189,6 +189,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build/DerivedData \
+            IPHONEOS_DEPLOYMENT_TARGET=15.6 \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
@@ -248,6 +249,7 @@ jobs:
             -sdk iphonesimulator \
             -derivedDataPath build/DerivedData \
             -destination 'generic/platform=iOS Simulator' \
+            IPHONEOS_DEPLOYMENT_TARGET=15.6 \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 

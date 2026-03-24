@@ -68,6 +68,9 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".collapse(); } catch(e) {}"
       + "  };"
+      + "  try { window.close = function() { try { "
+      + JS_INTERFACE_NAME
+      + ".requestCloseFromPage(); } catch(e2) {} }; } catch(e) {}"
       + "})();";
 
   /**
@@ -143,6 +146,7 @@ public class StashWebViewUtils {
     if (webView == null) {
       return;
     }
+    webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
     WebSettings settings = webView.getSettings();
     settings.setAllowFileAccess(false);
     settings.setAllowContentAccess(false);

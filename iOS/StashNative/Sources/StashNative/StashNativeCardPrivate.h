@@ -32,6 +32,9 @@ void layoutCardContentToBounds(UIView *cardView);
 /// Switches the card's WebView from Auto Layout to frame-based layout; call before animating card frame (e.g. rotation) so WebView resizes with the card.
 WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
 
+/// Applies bounce/overscroll limits to the WKWebView's scroll view; call after creation and on navigation (WebKit may reset scroll properties).
+void configureScrollViewForWebView(UIScrollView *scrollView);
+
 @interface DragTrayView : UIView
 @end
 
