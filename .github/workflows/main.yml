@@ -33,16 +33,27 @@ jobs:
 
   build-ios-library:
     name: Build iOS library only
-    runs-on: macos-latest
+    # macos-26 images only ship Xcode 26 (iOS 26 SDK). macos-15 includes Xcode 16.4 (iOS 18 SDK) for broad device support.
+    runs-on: macos-15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Pin Xcode 16.x so we link against iOS 18 SDK, not iOS 26 (latest-stable picks Xcode 26 on runners).
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.4'
+
+      - name: Verify iPhoneOS SDK is not 26.x
+        run: |
+          xcodebuild -version
+          SDK=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iphoneos SDK version: $SDK"
+          MAJOR="${SDK%%.*}"
+          if [ "$MAJOR" -ge 26 ]; then
+            echo "ERROR: Expected iphoneos SDK < 26 (use macos-15 + Xcode 16.x). Got $SDK"
+            exit 1
+          fi
 
       - name: Clean and build iOS library (StashNative)
         working-directory: iOS/StashNative
@@ -157,7 +168,7 @@ jobs:
 
   build-ios:
     name: Build iOS Sample IPA
-    runs-on: macos-latest
+    runs-on: macos-15
     needs: [build-ios-library]
 
     steps:
@@ -168,6 +179,17 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.4'
+
+      - name: Verify iPhoneOS SDK is not 26.x
+        run: |
+          xcodebuild -version
+          SDK=$(xcrun --sdk iphoneos --show-sdk-version)
+          echo "iphoneos SDK version: $SDK"
+          MAJOR="${SDK%%.*}"
+          if [ "$MAJOR" -ge 26 ]; then
+            echo "ERROR: Expected iphoneos SDK < 26 (use macos-15 + Xcode 16.x). Got $SDK"
+            exit 1
+          fi
       
       - name: Build iOS library (StashNative)
         working-directory: iOS/StashNative
@@ -197,17 +219,39 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
-      - name: Verify MinimumOSVersion in device build
+      - name: Verify MinimumOSVersion and Mach-O minos in device build
         working-directory: iOS/Sample/StashNativeSample
         run: |
+          set -e
           APP_PATH="build/DerivedData/Build/Products/Release-iphoneos/StashNativeSample.app"
           echo "App MinimumOSVersion:"
           /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP_PATH/Info.plist" || echo "(missing)"
-          FW="$APP_PATH/Frameworks/StashNative.framework/Info.plist"
-          if [ -f "$FW" ]; then
+          FW_PLIST="$APP_PATH/Frameworks/StashNative.framework/Info.plist"
+          if [ -f "$FW_PLIST" ]; then
             echo "StashNative.framework MinimumOSVersion:"
-            /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$FW" || echo "(missing)"
+            /usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$FW_PLIST" || echo "(missing)"
           fi
+          echo "Mach-O LC_BUILD_VERSION (app + framework):"
+          otool -l "$APP_PATH/StashNativeSample" | grep -A4 LC_BUILD_VERSION || true
+          otool -l "$APP_PATH/Frameworks/StashNative.framework/StashNative" | grep -A4 LC_BUILD_VERSION || true
+          check_minos() {
+            path="$1"
+            [ -f "$path" ] || return 0
+            min=$(otool -l "$path" 2>/dev/null | awk '/LC_BUILD_VERSION/{getline;getline;getline; if($1=="minos"){print $2; exit}}')
+            [ -z "$min" ] && return 0
+            major="${min%%.*}"
+            if [ "$major" -ge 26 ]; then
+              echo "ERROR: minos $min (>=26) in $path"
+              exit 1
+            fi
+            echo "OK minos $min in $path"
+          }
+          check_minos "$APP_PATH/StashNativeSample"
+          check_minos "$APP_PATH/Frameworks/StashNative.framework/StashNative"
+          for dylib in "$APP_PATH/Frameworks/"*.dylib; do
+            [ -e "$dylib" ] || continue
+            check_minos "$dylib"
+          done
       
       - name: Create IPA
         working-directory: iOS/Sample/StashNativeSample
