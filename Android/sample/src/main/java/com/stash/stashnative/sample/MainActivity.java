@@ -191,6 +191,7 @@ public class MainActivity extends AppCompatActivity {
         body.put("user", user);
         body.put("item", item);
         body.put("currency", "USD");
+        body.put("createPaymentIntent", true);
 
         byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
         conn.setFixedLengthStreamingMode(bytes.length);
