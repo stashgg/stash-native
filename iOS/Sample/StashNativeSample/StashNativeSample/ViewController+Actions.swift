@@ -152,7 +152,9 @@ extension ViewController {
                 "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
                 "validatedEmail": "test@stash.gg",
                 "displayName": "Test User",
-                "profileImageUrl": "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png",
+                "profileImageUrl":
+                    "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/"
+                    + "6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png",
                 "platform": "IOS"
             ],
             "item": [
