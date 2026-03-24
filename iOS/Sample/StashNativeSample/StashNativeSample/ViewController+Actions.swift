@@ -161,7 +161,8 @@ extension ViewController {
                 "imageUrl": "https://api.braincloudservers.com/files/portal/g/15152/metadata/products/potion_pack.png",
                 "description": "This is a test item purchase."
             ],
-            "currency": "USD"
+            "currency": "USD",
+            "createPaymentIntent": true
         ]
         guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
             showAlert(title: "Error", message: "Failed to generate checkout URL")
