@@ -17,7 +17,10 @@ public class MainViewModel extends AndroidViewModel {
   private static final String PREFS_NAME = "StashNativeSample";
   private static final String PREF_STASH_API_KEY = "StashApiKey";
 
-  private static final String DEFAULT_CHECKOUT_URL =
+  /** Default URL for the Card section (manual open + baseline testing). */
+  private static final String DEFAULT_CARD_URL = "https://test.stashpreview.com/";
+  /** Default URL for the Browser section (htmlpreview wrapper for legacy popup test page). */
+  private static final String DEFAULT_BROWSER_URL =
       "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/"
       + "refs/heads/main/.github/Stash.Popup.Test/index.html";
   private static final String DEFAULT_MODAL_URL =
@@ -29,8 +32,8 @@ public class MainViewModel extends AndroidViewModel {
   private final MutableLiveData<List<SettingsItem>> items = new MutableLiveData<>();
 
   // URLs (user-edited)
-  private String checkoutUrl = DEFAULT_CHECKOUT_URL;
-  private String browserUrl = DEFAULT_CHECKOUT_URL;
+  private String checkoutUrl = DEFAULT_CARD_URL;
+  private String browserUrl = DEFAULT_BROWSER_URL;
   private String modalUrl = DEFAULT_MODAL_URL;
 
   // Presentation options: two separate expandables under one category
@@ -337,6 +340,8 @@ public class MainViewModel extends AndroidViewModel {
         android.R.drawable.ic_menu_compass, false, false));
     list.add(SettingsItem.actionPreference(
         R.string.open_browser, android.R.drawable.ic_menu_compass, false, false));
+    list.add(SettingsItem.actionPreference(
+        R.string.generate_checkout_for_browser, android.R.drawable.ic_menu_compass, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_browser, false, true));
 
     // Presentation options (Checkout + Modal under one category)

@@ -20,7 +20,7 @@ extension ViewController {
         switch sectionType {
         case .card: return 3
         case .modal: return 2
-        case .browser: return 2
+        case .browser: return 3
         case .presentationOptions:
             return 1 + (isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0)
                 + 1 + (isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 0)
@@ -119,6 +119,8 @@ extension ViewController {
             openModalTapped()
         case .browser where indexPath.row == 1:
             openBrowserTapped()
+        case .browser where indexPath.row == 2:
+            generateCheckoutForBrowserTapped()
         case .presentationOptions:
             handlePresentationOptionsSelection(at: indexPath)
         default:

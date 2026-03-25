@@ -17,7 +17,7 @@ extension ViewController {
         switch section {
         case .card:
             return """
-                Opens a card drawer that slides from the bottom of the screen. \
+                Opens a in-app card drawer that slides from the bottom of the screen. \
                 Great for native-feeling Stash Pay IAP experience. \
                 Supports direct callbacks to application.
                 """
@@ -29,8 +29,7 @@ extension ViewController {
                 """
         case .browser:
             return """
-                Opens the URL in an isolated browser. \
-                Lightweight and safe alternative for Stash Pay and Stash Webshop.
+                Opens the checkout URL inside in-app browser.
                 """
         case .checkoutGenerationSettings:
             return "Use your own API key if needed. Prefilled with limited API test key."
@@ -81,12 +80,21 @@ extension ViewController {
     func browserSectionCell(for indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row == 0 {
             return urlCell(textField: browserUrlTextField, label: "URL", imageName: "link")
-        } else {
+        } else if indexPath.row == 1 {
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
             cell.textLabel?.text = "Open URL in Browser"
             cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
             cell.textLabel?.textColor = .systemBlue
             cell.imageView?.image = systemImage("safari")
+            cell.imageView?.tintColor = .secondaryLabel
+            cell.accessoryType = .disclosureIndicator
+            return cell
+        } else {
+            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.text = "Generate Checkout"
+            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.textLabel?.textColor = .systemBlue
+            cell.imageView?.image = systemImage("cart.fill")
             cell.imageView?.tintColor = .secondaryLabel
             cell.accessoryType = .disclosureIndicator
             return cell

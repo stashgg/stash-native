@@ -57,6 +57,11 @@ public class MainActivity extends AppCompatActivity {
       public void onGenerateCheckout() {
         generateCheckout();
       }
+
+      @Override
+      public void onGenerateCheckoutForBrowser() {
+        generateCheckoutForBrowser();
+      }
     });
 
     binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -136,10 +141,9 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     url = url.trim();
-    // Default sample URL uses htmlpreview.github.io, which wraps the real document in an iframe.
-    // Main-frame onPageFinished can fire for the wrapper before the heavy checkout UI runs in the
-    // iframe, so WebView/GPU issues on some emulators show up at different times than a direct
-    // checkout URL (see generateCheckout()).
+    // The browser section still defaults to htmlpreview.github.io (iframe wrapper); card defaults to
+    // test.stashpreview.com. Main-frame onPageFinished can fire early for iframe wrappers, so
+    // WebView/GPU timing can differ from a direct checkout URL (see generateCheckout()).
     Log.i(TAG, "Opening card (manual URL): " + url);
     StashNativeCard.CardConfig config = buildCardConfig();
     StashNativeCard.getInstance().openCard(url, config);
@@ -172,6 +176,17 @@ public class MainActivity extends AppCompatActivity {
    * document early while the real page loads in a subframe.
    */
   private void generateCheckout() {
+    generateQuickPayCheckout(false);
+  }
+
+  private void generateCheckoutForBrowser() {
+    generateQuickPayCheckout(true);
+  }
+
+  /**
+   * POSTs to generate_quick_pay_url and opens the returned URL in the card or in the browser.
+   */
+  private void generateQuickPayCheckout(boolean openInBrowser) {
     String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
     String urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url";
     String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
@@ -233,10 +248,16 @@ public class MainActivity extends AppCompatActivity {
           JSONObject json = new JSONObject(response);
           String checkoutUrl = json.optString("url", null);
           if (checkoutUrl != null && !checkoutUrl.isEmpty()) {
+            final String finalUrl = checkoutUrl;
             runOnUiThread(() -> {
-              Log.i(TAG, "Opening card (generate checkout URL): " + checkoutUrl);
-              StashNativeCard.CardConfig config = buildCardConfig();
-              StashNativeCard.getInstance().openCard(checkoutUrl, config);
+              if (openInBrowser) {
+                Log.i(TAG, "Opening browser (generate checkout URL): " + finalUrl);
+                StashNativeCard.getInstance().openBrowser(finalUrl.trim());
+              } else {
+                Log.i(TAG, "Opening card (generate checkout URL): " + finalUrl);
+                StashNativeCard.CardConfig config = buildCardConfig();
+                StashNativeCard.getInstance().openCard(finalUrl, config);
+              }
             });
             return;
           }

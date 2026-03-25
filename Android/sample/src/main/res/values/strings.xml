@@ -12,7 +12,7 @@
     <string name="section_checkout_generation_settings">Checkout Generation Settings</string>
     <string name="footer_checkout_generation_settings">Use your own API key if needed. Prefilled with limited API test key.</string>
     <string name="footer_card">Opens a card drawer that slides from the bottom of the screen. Great for native-feeling Stash Pay IAP experience.</string>
-    <string name="footer_browser">Opens the URL in an isolated browser. Lightweight and safe alternative for Stash Pay and Stash Webshop.</string>
+    <string name="footer_browser">Opens the URL in an isolated browser, or generates a quick-pay link and opens it in the browser. Uses the same API key and test/live toggle as Checkout Generation Settings.</string>
     <string name="footer_modal">Centered modal with rotation support. Great for opt-in dialogs or as an alternative presentation method for Stash Pay.</string>
     <string name="hint_checkout_url">Card URL</string>
     <string name="hint_modal_url">Modal URL</string>
@@ -21,6 +21,7 @@
     <string name="open_browser">Open URL in Browser</string>
     <string name="open_modal">Open URL in Modal Dialog</string>
     <string name="generate_checkout">Generate Checkout</string>
+    <string name="generate_checkout_for_browser">Generate Checkout</string>
     <string name="show_checkout_options">Show Card options</string>
     <string name="hide_checkout_options">Hide Card options</string>
     <string name="show_modal_options">Show Modal options</string>

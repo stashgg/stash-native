@@ -130,8 +130,22 @@ extension ViewController {
         view.endEditing(true)
     }
 
-    // swiftlint:disable:next function_body_length
     @objc func generateCheckoutTapped() {
+        performGenerateQuickPayCheckout { [weak self] checkoutUrl in
+            guard let self = self else { return }
+            let config = self.buildCardConfig()
+            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
+        }
+    }
+
+    @objc func generateCheckoutForBrowserTapped() {
+        performGenerateQuickPayCheckout { checkoutUrl in
+            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl)
+        }
+    }
+
+    // swiftlint:disable:next function_body_length
+    private func performGenerateQuickPayCheckout(onSuccess: @escaping (String) -> Void) {
         let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
         let urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url"
         guard let url = URL(string: urlString) else {
@@ -196,8 +210,7 @@ extension ViewController {
                 return
             }
             DispatchQueue.main.async {
-                let config = self.buildCardConfig()
-                StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
+                onSuccess(checkoutUrl)
             }
         }.resume()
     }
