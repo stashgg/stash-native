@@ -23,6 +23,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -30,6 +31,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import androidx.annotation.RequiresApi;
 
 /**
  * Activity that displays the Stash Pay checkout as a card or popup overlay.
@@ -1013,6 +1015,23 @@ public class StashNativeCardPortraitActivity extends Activity {
             Log.e(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
           }
           }
+
+        @Override
+        @RequiresApi(Build.VERSION_CODES.O)
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+          Log.e(TAG, "WebView render process gone (didCrash=" + detail.didCrash() + ")");
+          try {
+            if (view.getParent() != null) {
+              ((ViewGroup) view.getParent()).removeView(view);
+            }
+            view.destroy();
+          } catch (Exception e) {
+            Log.e(TAG, "Error removing dead WebView: " + e.getMessage(), e);
+          }
+          webView = null;
+          handleNetworkError();
+          return true;
+        }
         });
     
       try {
@@ -1072,11 +1091,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     cancelNetworkTimeout();
     
-    // Call the network error callback
-    StashNativeCard.StashNativeCardListener listener = StashNativeCard.getInstance().getListener();
-    if (listener != null) {
-      listener.onNetworkError();
-    }
+    StashCheckoutBridge.emitNetworkError(this);
     
     // Dismiss immediately without callback for dialog dismissed
     callbackSent = true;  // Prevent onDialogDismissed from being called
@@ -1361,21 +1376,18 @@ public class StashNativeCardPortraitActivity extends Activity {
             isPurchaseProcessing = false;
           }
           
-          StashNativeCard.StashNativeCardListener listener = StashNativeCard.getInstance().getListener();
-          if (listener != null) {
-            switch (messageType) {
-              case CardConstants.MESSAGE_TYPE_SUCCESS:
-                listener.onPaymentSuccess();
-                break;
-              case CardConstants.MESSAGE_TYPE_FAILURE:
-                listener.onPaymentFailure();
-                break;
-              case CardConstants.MESSAGE_TYPE_OPTIN:
-                listener.onOptInResponse(messageBody);
-                break;
-              default:
-                break;
-            }
+          switch (messageType) {
+            case CardConstants.MESSAGE_TYPE_SUCCESS:
+              StashCheckoutBridge.emitPaymentSuccess(StashNativeCardPortraitActivity.this);
+              break;
+            case CardConstants.MESSAGE_TYPE_FAILURE:
+              StashCheckoutBridge.emitPaymentFailure(StashNativeCardPortraitActivity.this);
+              break;
+            case CardConstants.MESSAGE_TYPE_OPTIN:
+              StashCheckoutBridge.emitOptIn(StashNativeCardPortraitActivity.this, messageBody);
+              break;
+            default:
+              break;
           }
           
           dismissWithAnimation();
@@ -1533,10 +1545,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (!callbackSent) {
         callbackSent = true;
         try {
-          StashNativeCard.StashNativeCardListener listener = StashNativeCard.getInstance().getListener();
-          if (listener != null) {
-            listener.onDialogDismissed();
-          }
+          StashCheckoutBridge.emitDialogDismissed(this);
         } catch (Exception e) {
           Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
         }

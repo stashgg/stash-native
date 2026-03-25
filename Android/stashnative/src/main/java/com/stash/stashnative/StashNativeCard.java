@@ -83,9 +83,10 @@ public class StashNativeCard {
     void onPageLoaded(long loadTimeMs);
 
     /**
-     * Called when a network error occurs during initial page load.
-     * This includes: no network connection, page load failure, or timeout (5 seconds).
-     * The dialog is automatically dismissed before this callback is invoked.
+     * Called when checkout cannot be shown or must be torn down due to a load failure.
+     * This includes: no network connection, page load failure, timeout (5 seconds), and
+     * (on Android 8.0+, API 26+) when the WebView renderer process crashes or is killed; in
+     * that case the card is dismissed before this callback runs.
      */
     void onNetworkError();
   }

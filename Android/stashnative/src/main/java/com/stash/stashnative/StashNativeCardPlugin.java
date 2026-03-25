@@ -3,15 +3,19 @@ package com.stash.stashnative;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.Application;
 import android.app.Dialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
@@ -27,6 +31,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -34,6 +39,7 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import androidx.annotation.RequiresApi;
 import java.lang.ref.WeakReference;
 
 /**
@@ -75,6 +81,8 @@ public class StashNativeCardPlugin {
   
   /** Accessed from UI and JS threads; volatile for visibility. */
   private volatile boolean isCurrentlyPresented;
+  /** True while card checkout runs in {@link StashNativeCardPortraitActivity} ({@code :stash_webview}). */
+  private volatile boolean presentationUsesIsolatedWebviewProcess;
   /** Accessed from UI and JS threads; volatile for visibility. */
   private volatile boolean paymentSuccessHandled;
   /** Accessed from UI and JS threads; volatile for visibility. */
@@ -96,6 +104,153 @@ public class StashNativeCardPlugin {
   private float customLandscapeHeightMultiplier = CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER;
   
   private long pageLoadStartTime;
+
+  private BroadcastReceiver checkoutBridgeReceiver;
+  private boolean checkoutBridgeReceiverRegistered;
+  private boolean checkoutHostLifecycleRegistered;
+
+  private static boolean isStashWebviewProcessRunning(Context context) {
+    try {
+      ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+      if (am == null) {
+        return false;
+      }
+      for (ActivityManager.RunningAppProcessInfo proc : am.getRunningAppProcesses()) {
+        if (proc != null && proc.processName != null
+            && proc.processName.endsWith(":stash_webview")) {
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Error checking stash_webview process: " + e.getMessage(), e);
+    }
+    return false;
+  }
+
+  /**
+   * If checkout ran in {@code :stash_webview} and that process died without sending a broadcast
+   * (e.g. native Chromium abort), clear state and surface {@link
+   * StashNativeCard.StashNativeCardListener#onNetworkError()} once the host activity resumes.
+   */
+  private void clearPresentationIfCheckoutProcessDied(Context context) {
+    if (!presentationUsesIsolatedWebviewProcess || !isCurrentlyPresented || context == null) {
+      return;
+    }
+    if (isStashWebviewProcessRunning(context)) {
+      return;
+    }
+    presentationUsesIsolatedWebviewProcess = false;
+    isCurrentlyPresented = false;
+    StashNativeCard.StashNativeCardListener l = listener;
+    if (l != null) {
+      try {
+        l.onNetworkError();
+      } catch (Exception e) {
+        Log.e(TAG, "Error notifying checkout process death: " + e.getMessage(), e);
+      }
+    }
+  }
+
+  private void ensureCheckoutHostLifecycle(Context context) {
+    if (checkoutHostLifecycleRegistered || context == null) {
+      return;
+    }
+    Context appCtx = context.getApplicationContext();
+    if (!(appCtx instanceof Application)) {
+      return;
+    }
+    Application app = (Application) appCtx;
+    app.registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks() {
+      @Override
+      public void onActivityResumed(Activity activity) {
+        Activity host = getActivity();
+        if (host != null && activity == host) {
+          clearPresentationIfCheckoutProcessDied(activity);
+        }
+      }
+
+      @Override public void onActivityCreated(Activity a, Bundle b) {}
+
+      @Override public void onActivityStarted(Activity a) {}
+
+      @Override public void onActivityPaused(Activity a) {}
+
+      @Override public void onActivityStopped(Activity a) {}
+
+      @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
+
+      @Override public void onActivityDestroyed(Activity a) {}
+    });
+    checkoutHostLifecycleRegistered = true;
+  }
+
+  /**
+   * Registers a package-local receiver so events from {@link StashNativeCardPortraitActivity}
+   * (process {@code :stash_webview}) reach {@link StashNativeCard.StashNativeCardListener}.
+   */
+  private void ensureCheckoutBridgeReceiver(Context context) {
+    if (checkoutBridgeReceiverRegistered || context == null) {
+      return;
+    }
+    Context app = context.getApplicationContext();
+    checkoutBridgeReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context receiverContext, Intent intent) {
+        if (intent == null || intent.getAction() == null) {
+          return;
+        }
+        final String action = intent.getAction();
+        final Intent intentCopy = intent;
+        new Handler(Looper.getMainLooper()).post(() -> dispatchCheckoutBridgeIntent(action, intentCopy));
+      }
+    };
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_OPT_IN);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+      } else {
+        app.registerReceiver(checkoutBridgeReceiver, filter);
+      }
+      checkoutBridgeReceiverRegistered = true;
+    } catch (Exception e) {
+      Log.e(TAG, "Failed to register checkout bridge receiver: " + e.getMessage(), e);
+    }
+    ensureCheckoutHostLifecycle(context);
+  }
+
+  private void dispatchCheckoutBridgeIntent(String action, Intent intent) {
+    StashNativeCard.StashNativeCardListener l = listener;
+    try {
+      if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
+        if (l != null) {
+          String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
+          l.onOptInResponse(type != null ? type : "");
+        }
+        return;
+      }
+      presentationUsesIsolatedWebviewProcess = false;
+      isCurrentlyPresented = false;
+      if (l == null) {
+        return;
+      }
+      if (CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS.equals(action)) {
+        l.onPaymentSuccess();
+      } else if (CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE.equals(action)) {
+        l.onPaymentFailure();
+      } else if (CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR.equals(action)) {
+        l.onNetworkError();
+      } else if (CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(action)) {
+        l.onDialogDismissed();
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Error dispatching checkout bridge: " + e.getMessage(), e);
+    }
+  }
   
   /**
    * Runs the given runnable on the main thread if activity is available. No-op if activity is null.
@@ -258,6 +413,9 @@ public class StashNativeCardPlugin {
    */
   void setActivity(Activity activity) {
     this.activityRef = new WeakReference<>(activity);
+    if (activity != null) {
+      ensureCheckoutBridgeReceiver(activity);
+    }
   }
   
   /**
@@ -272,6 +430,10 @@ public class StashNativeCardPlugin {
   
   void setListener(StashNativeCard.StashNativeCardListener listener) {
     this.listener = listener;
+    Activity a = getActivity();
+    if (a != null) {
+      ensureCheckoutBridgeReceiver(a);
+    }
   }
 
   /**
@@ -423,6 +585,7 @@ public class StashNativeCardPlugin {
     try {
       dismissDialog();
       paymentSuccessHandled = false;
+      presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = false;
     } catch (Exception e) {
       Log.e(TAG, "Error in resetPresentationState: " + e.getMessage(), e);
@@ -474,6 +637,8 @@ public class StashNativeCardPlugin {
         return;
       }
 
+      ensureCheckoutBridgeReceiver(activity);
+
       if (!url.startsWith("http://") && !url.startsWith("https://")) {
         url = "https://" + url;
       }
@@ -495,17 +660,9 @@ public class StashNativeCardPlugin {
           } else if (useModalPresentation) {
             createAndShowModalDialog(finalUrl, finalActivity);
           } else {
-            boolean isTablet = false;
-            try {
-              isTablet = StashWebViewUtils.isTablet(finalActivity);
-            } catch (Exception e) {
-              Log.e(TAG, "Error checking tablet: " + e.getMessage(), e);
-            }
-            if (!isTablet && !forcePortraitOnCheckout) {
-              createAndShowCheckoutOverlay(finalUrl, finalActivity);
-            } else {
-              launchPortraitActivity(finalUrl, finalActivity);
-            }
+            // Card checkout always uses PortraitActivity in process :stash_webview so a Chromium
+            // GPU/native crash cannot kill the host app; events return via StashCheckoutBridge.
+            launchPortraitActivity(finalUrl, finalActivity);
           }
         } catch (Exception e) {
           Log.e(TAG, "Error in UI thread operation: " + e.getMessage(), e);
@@ -579,10 +736,12 @@ public class StashNativeCardPlugin {
             currentModalConfig.tabletHeightRatioLandscape);
       }
       
-      intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+      intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_NEW_TASK
+          | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
       
       activity.startActivity(intent);
       activity.overridePendingTransition(0, 0);
+      presentationUsesIsolatedWebviewProcess = true;
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
@@ -1069,12 +1228,14 @@ public class StashNativeCardPlugin {
           Log.e(TAG, "Error in dismiss listener: " + e.getMessage(), e);
         }
         cleanupAllViews();
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = false;
       });
       
       try {
         currentDialog.show();
         animateFadeIn();
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = true;
       } catch (Exception e) {
         Log.e(TAG, "Error showing dialog: " + e.getMessage(), e);
@@ -1231,12 +1392,14 @@ public class StashNativeCardPlugin {
           Log.e(TAG, "Error in dismiss listener: " + e.getMessage(), e);
         }
         cleanupAllViews();
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = false;
       });
 
       try {
         currentDialog.show();
         animateFadeIn();
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = true;
       } catch (Exception e) {
         Log.e(TAG, "Error showing modal dialog: " + e.getMessage(), e);
@@ -1305,6 +1468,33 @@ public class StashNativeCardPlugin {
     }
   }
   
+  /**
+   * Chromium/WebView renderer crashed or was killed. Remove UI and notify the host; returning
+   * {@code true} from {@link WebViewClient#onRenderProcessGone} prevents the default behavior of
+   * tearing down the app process (API 26+).
+   */
+  @RequiresApi(Build.VERSION_CODES.O)
+  private void handleWebViewRenderProcessGone(RenderProcessGoneDetail detail) {
+    Log.e(TAG, "WebView render process gone (didCrash=" + detail.didCrash() + ")");
+    try {
+      if (currentDialog != null) {
+        try {
+          currentDialog.setOnDismissListener(null);
+        } catch (Exception e) {
+          Log.e(TAG, "Error clearing dismiss listener: " + e.getMessage(), e);
+        }
+      }
+      cleanupAllViews();
+      presentationUsesIsolatedWebviewProcess = false;
+      isCurrentlyPresented = false;
+      if (listener != null) {
+        listener.onNetworkError();
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "Error recovering from render process gone: " + e.getMessage(), e);
+    }
+  }
+
   private void setupPopupWebView(WebView webView, String url, final Activity activity) {
     if (webView == null || activity == null || url == null || url.isEmpty()) {
       Log.e(TAG, "Invalid parameters in setupPopupWebView");
@@ -1372,6 +1562,13 @@ public class StashNativeCardPlugin {
         } catch (Exception e) {
           Log.e(TAG, "Error in onReceivedError: " + e.getMessage(), e);
         }
+      }
+
+      @Override
+      @RequiresApi(Build.VERSION_CODES.O)
+      public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        handleWebViewRenderProcessGone(detail);
+        return true;
       }
     });
     
@@ -1445,6 +1642,7 @@ public class StashNativeCardPlugin {
       if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
         Log.d(TAG, "Opening URL with Chrome Custom Tabs");
         StashWebViewUtils.openWithChromeCustomTabs(activity, url);
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = true;
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
           try {
@@ -1479,6 +1677,7 @@ public class StashNativeCardPlugin {
       Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
       browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       activity.startActivity(browserIntent);
+      presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = true;
 
       new Handler(Looper.getMainLooper()).postDelayed(() -> {
@@ -1492,6 +1691,7 @@ public class StashNativeCardPlugin {
       }, CardConstants.DIALOG_DISMISS_DELAY_MS);
     } catch (Exception e) {
       Log.e(TAG, "Error opening default browser: " + e.getMessage(), e);
+      presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = false;
     }
   }
@@ -1855,6 +2055,7 @@ public class StashNativeCardPlugin {
           Log.e(TAG, "Error in checkout overlay dismiss listener: " + e.getMessage(), e);
         }
         cleanupAllViews();
+        presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = false;
       });
       currentDialog.show();
@@ -1869,6 +2070,7 @@ public class StashNativeCardPlugin {
       } else {
         currentContainer.setTranslationY(0);
       }
+      presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Error creating checkout overlay: " + e.getMessage(), e);

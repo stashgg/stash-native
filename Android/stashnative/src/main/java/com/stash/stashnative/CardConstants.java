@@ -297,6 +297,22 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE =
       "modalTabletHeightRatioLandscape";
 
+  // ============================================================================
+  // Cross-process checkout bridge (PortraitActivity runs in :stash_webview)
+  // ============================================================================
+
+  public static final String BROADCAST_CHECKOUT_PAYMENT_SUCCESS =
+      "com.stash.stashnative.internal.CHECKOUT_PAYMENT_SUCCESS";
+  public static final String BROADCAST_CHECKOUT_PAYMENT_FAILURE =
+      "com.stash.stashnative.internal.CHECKOUT_PAYMENT_FAILURE";
+  public static final String BROADCAST_CHECKOUT_OPT_IN =
+      "com.stash.stashnative.internal.CHECKOUT_OPT_IN";
+  public static final String BROADCAST_CHECKOUT_NETWORK_ERROR =
+      "com.stash.stashnative.internal.CHECKOUT_NETWORK_ERROR";
+  public static final String BROADCAST_CHECKOUT_DIALOG_DISMISSED =
+      "com.stash.stashnative.internal.CHECKOUT_DIALOG_DISMISSED";
+  public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
+
   /** Message types for notifyListenerAndDismiss (success/failure/optin). */
   public static final String MESSAGE_TYPE_SUCCESS = "success";
   public static final String MESSAGE_TYPE_FAILURE = "failure";

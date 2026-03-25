@@ -39,6 +39,8 @@ Both platforms contain up-to-date sample apps that demonstrate the library usage
 - **Android**: `./Android/sample/` - Run with `./gradlew :sample:installDebug`
 - **iOS**: `./iOS/Sample/` - Open `StashNativeSample.xcodeproj` in Xcode
 
+> **Android emulator note:** The default GPU mode (`auto`) on arm64-v8a AVDs (Apple Silicon Macs) returns an empty `GL_VERSION` string that causes the WebView's Chromium GPU thread to crash. Set the AVD's GPU mode to **`swangle`** (SwiftShader software renderer via ANGLE) to avoid this. Either pass `-gpu swangle` when launching the emulator, or set `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`.
+
 or try them instantly in your browser using the Appetize online emulator:
 
 - [Android Sample App](https://appetize.io/app/b_3l3fzg5qiahx6p2xpwp3kcirhy)
@@ -477,6 +479,7 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 - Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally
 - Android Go: Performance may vary on low-memory devices (<1GB RAM)
 - WebView Updates: Devices without Play Store may have outdated WebView; recommend users update Android System WebView
+- Android Emulator (arm64-v8a, Apple Silicon): The default GPU mode (`auto`) can return an empty OpenGL ES `VERSION` string, causing a native crash in the WebView's GPU thread. Fix: set `hw.gpu.mode=swangle` in your AVD config (`~/.android/avd/<avd>.avd/config.ini`) or pass `-gpu swangle` to the emulator. This does not affect physical devices.
 
 **iOS**
 - iOS 13 Dark Mode: Requires explicit theme parameter in URL; automatic detection not available on iOS 13.0-13.3

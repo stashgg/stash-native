@@ -8,6 +8,8 @@
             android:name=".StashNativeCardPortraitActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="false"
+            android:process=":stash_webview"
+            android:taskAffinity=""
             android:screenOrientation="unspecified"
             android:theme="@style/StashNativeCardTheme" />
     </application>

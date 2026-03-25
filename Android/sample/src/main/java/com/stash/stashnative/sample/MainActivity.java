@@ -135,8 +135,14 @@ public class MainActivity extends AppCompatActivity {
       showOutcomeDialog("Error", getString(R.string.error_checkout_url));
       return;
     }
+    url = url.trim();
+    // Default sample URL uses htmlpreview.github.io, which wraps the real document in an iframe.
+    // Main-frame onPageFinished can fire for the wrapper before the heavy checkout UI runs in the
+    // iframe, so WebView/GPU issues on some emulators show up at different times than a direct
+    // checkout URL (see generateCheckout()).
+    Log.i(TAG, "Opening card (manual URL): " + url);
     StashNativeCard.CardConfig config = buildCardConfig();
-    StashNativeCard.getInstance().openCard(url.trim(), config);
+    StashNativeCard.getInstance().openCard(url, config);
   }
 
   private void openBrowser() {
@@ -158,6 +164,13 @@ public class MainActivity extends AppCompatActivity {
     StashNativeCard.getInstance().openModal(url.trim(), config);
   }
 
+  /**
+   * Fetches a real checkout URL from the Stash API and opens it in the card. This is the most
+   * representative end-to-end path and the best way to reproduce WebView/Chromium issues on an
+   * emulator (e.g. GLES init failure in gl_version_info.cc) because the checkout SPA loads in the
+   * main frame—unlike the default htmlpreview.github.io test URL, which may finish the main
+   * document early while the real page loads in a subframe.
+   */
   private void generateCheckout() {
     String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
     String urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url";
@@ -221,6 +234,7 @@ public class MainActivity extends AppCompatActivity {
           String checkoutUrl = json.optString("url", null);
           if (checkoutUrl != null && !checkoutUrl.isEmpty()) {
             runOnUiThread(() -> {
+              Log.i(TAG, "Opening card (generate checkout URL): " + checkoutUrl);
               StashNativeCard.CardConfig config = buildCardConfig();
               StashNativeCard.getInstance().openCard(checkoutUrl, config);
             });
