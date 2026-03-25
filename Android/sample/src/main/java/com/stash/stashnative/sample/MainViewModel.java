@@ -317,38 +317,38 @@ public class MainViewModel extends AndroidViewModel {
     list.add(SettingsItem.sectionHeader(R.string.section_card, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_checkout_url, checkoutUrl,
-        android.R.drawable.sym_contact_card, false, false));
+        R.drawable.ic_ms_link_24, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_card, android.R.drawable.sym_contact_card, false, false));
+        R.string.open_card, R.drawable.ic_ms_credit_card_24, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.generate_checkout, android.R.drawable.sym_contact_card, false, false));
+        R.string.generate_checkout, R.drawable.ic_ms_credit_card_24, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_card, false, true));
 
     // Modal section
     list.add(SettingsItem.sectionHeader(R.string.section_modal, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_modal_url, modalUrl,
-        android.R.drawable.ic_menu_sort_by_size, false, false));
+        R.drawable.ic_ms_link_24, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_modal, android.R.drawable.ic_menu_sort_by_size, false, false));
+        R.string.open_modal, R.drawable.ic_ms_view_quilt_24, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_modal, false, true));
 
     // Browser section (under Modal)
     list.add(SettingsItem.sectionHeader(R.string.section_browser, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_browser_url, browserUrl,
-        android.R.drawable.ic_menu_compass, false, false));
+        R.drawable.ic_ms_link_24, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_browser, android.R.drawable.ic_menu_compass, false, false));
+        R.string.open_browser, R.drawable.ic_ms_public_24, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.generate_checkout_for_browser, android.R.drawable.ic_menu_compass, false, false));
+        R.string.generate_checkout_for_browser, R.drawable.ic_ms_shopping_cart_24, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_browser, false, true));
 
     // Presentation options (Checkout + Modal under one category)
     list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
     list.add(SettingsItem.expandableHeader(
         checkoutOptionsExpanded ? R.string.hide_checkout_options : R.string.show_checkout_options,
-        checkoutOptionsExpanded, android.R.drawable.ic_menu_preferences, false, false));
+        checkoutOptionsExpanded, R.drawable.ic_ms_tune_24, false, false));
     if (checkoutOptionsExpanded) {
       list.add(SettingsItem.switchPreference(
           R.string.option_force_portrait_on_checkout,
@@ -371,7 +371,7 @@ public class MainViewModel extends AndroidViewModel {
     }
     list.add(SettingsItem.expandableHeader(
         modalOptionsExpanded ? R.string.hide_modal_options : R.string.show_modal_options,
-        modalOptionsExpanded, android.R.drawable.ic_menu_preferences, false,
+        modalOptionsExpanded, R.drawable.ic_ms_tune_24, false,
         !modalOptionsExpanded));
     if (modalOptionsExpanded) {
       list.add(SettingsItem.switchPreference(
@@ -404,7 +404,7 @@ public class MainViewModel extends AndroidViewModel {
         R.string.option_use_test_api, 0, useTestApi, false, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_api_key, stashApiKey,
-        android.R.drawable.ic_lock_lock, false, false));
+        R.drawable.ic_ms_key_24, false, false));
     list.add(SettingsItem.sectionFooter(
         R.string.footer_checkout_generation_settings, false, true));
 

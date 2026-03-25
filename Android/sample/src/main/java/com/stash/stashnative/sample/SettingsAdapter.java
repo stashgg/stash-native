@@ -121,6 +121,27 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         break;
     }
     applyCardStyle(holder.itemView, item);
+    configureRowInteraction(holder, item);
+  }
+
+  /** URL rows stay non-clickable so the text field receives focus; action rows use card ripple. */
+  private void configureRowInteraction(RecyclerView.ViewHolder holder, SettingsItem item) {
+    View v = holder.itemView;
+    switch (item.type) {
+      case SettingsItem.TYPE_URL_PREFERENCE:
+        v.setClickable(false);
+        v.setFocusable(false);
+        break;
+      case SettingsItem.TYPE_ACTION_PREFERENCE:
+      case SettingsItem.TYPE_EXPANDABLE_HEADER:
+        v.setClickable(true);
+        v.setFocusable(true);
+        break;
+      default:
+        v.setClickable(false);
+        v.setFocusable(false);
+        break;
+    }
   }
 
   private static final int CARD_MARGIN_HORIZONTAL_DP = 16;
