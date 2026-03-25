@@ -18,7 +18,7 @@ public final class CardConstants {
   public static final int ANIMATION_DURATION_FAST = 250;
 
   /** Entry animation duration. */
-  public static final int ANIMATION_DURATION_ENTRY = 300;
+  public static final int ANIMATION_DURATION_ENTRY = 450;
 
   /** Popup fade animation duration. */
   public static final int ANIMATION_DURATION_POPUP = 200;
@@ -326,7 +326,7 @@ public final class CardConstants {
   public static final String COLOR_BACKGROUND_DIM = COLOR_OVERLAY_DIM;
   
   public static final String COLOR_LIGHT_BG = "#F2F2F7";
-  public static final String COLOR_DARK_BG = "#000000";
+  public static final String COLOR_DARK_BG = "#1e1e1e";
   /** Home button background in dark theme (iOS-style system gray). */
   public static final String COLOR_HOME_BUTTON_DARK_BG = "#2C2C2E";
   public static final String COLOR_DARK_STROKE = "#38383A";

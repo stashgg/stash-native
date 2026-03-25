@@ -657,11 +657,11 @@ public class StashNativeCardPlugin {
         try {
           if (usePopupPresentation) {
             createAndShowPopupDialog(finalUrl, finalActivity);
-          } else if (useModalPresentation) {
-            createAndShowModalDialog(finalUrl, finalActivity);
           } else {
-            // Card checkout always uses PortraitActivity in process :stash_webview so a Chromium
-            // GPU/native crash cannot kill the host app; events return via StashCheckoutBridge.
+            // Both card and modal use PortraitActivity (process :stash_webview). This gives modal
+            // the same retry/timeout/loading behaviour as the card and crash-isolates the WebView
+            // renderer so a Chromium fault cannot kill the host app. The Activity reads the
+            // useModal flag from the Intent and calls createModal() instead of createCard().
             launchPortraitActivity(finalUrl, finalActivity);
           }
         } catch (Exception e) {

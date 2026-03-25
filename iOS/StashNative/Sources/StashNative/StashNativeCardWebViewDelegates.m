@@ -14,15 +14,15 @@
 
 static const NSTimeInterval kPageReadyCheckInterval = 0.1;
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.35;
-static const NSTimeInterval kNetworkTimeoutInterval = 5.0;
+/// How long to wait for any HTTP response before retrying the load once.
+static const NSTimeInterval kRetryTimeoutInterval = 3.0;
+/// Hard deadline — if still no commit after the retry, report a network error.
+static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
 static NSString * const kForceDarkBackgroundJS =
-    @"document.documentElement.style.backgroundColor = 'black'; "
-    @"document.body.style.backgroundColor = 'black'; "
-    @"var style = document.createElement('style'); "
-    @"style.innerHTML = 'body, html { background-color: black !important; }'; "
-    @"document.head.appendChild(style);";
+    @"document.documentElement.style.backgroundColor = '#1e1e1e'; "
+    @"if (document.body) document.body.style.backgroundColor = '#1e1e1e';";
 
 #pragma mark - Extern declarations (defined in StashNativeCard.m)
 
@@ -51,8 +51,14 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
     NSTimer* _timeoutTimer;
     NSTimer* _networkTimeoutTimer;
     NSTimer* _modalFallbackTimer;
+    /// Fires after kRetryTimeoutInterval if no HTTP response has arrived — triggers one retry.
+    NSTimer* _retryTimer;
     BOOL _initialLoadComplete;
     BOOL _networkErrorHandled;
+    /// URL captured from the first main-frame navigationAction; used when retrying.
+    NSURL* _checkoutURL;
+    /// Incremented on each retry attempt; prevents infinite retry loops.
+    int _retryCount;
 }
 
 - (instancetype)initWithWebView:(WKWebView*)webView loadingView:(UIView*)loadingView {
@@ -90,9 +96,28 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
     return self;
 }
 
+- (void)handleRetryTimer:(NSTimer *)timer {
+    _retryTimer = nil;
+    if (_initialLoadComplete || _networkErrorHandled || !_checkoutURL || !_webView) return;
+
+    _retryCount = 1;
+    NSLog(@"StashNative: no HTTP response in %.0fs — retrying %@", kRetryTimeoutInterval, _checkoutURL.absoluteString);
+
+    // Issue the new request directly — WKWebView cancels the stalled navigation internally
+    // and fires didFailNavigation with NSURLErrorCancelled (which we already suppress).
+    // Skipping an explicit stopLoading() avoids any intermediate visual state that could
+    // cause a flash, and NSURLRequestReloadIgnoringLocalCacheData ensures WebKit opens a
+    // fresh TCP connection rather than reusing the stale one.
+    NSURLRequest *retryRequest = [NSURLRequest requestWithURL:_checkoutURL
+                                                  cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                              timeoutInterval:kNetworkTimeoutInterval];
+    [_webView loadRequest:retryRequest];
+}
+
 - (void)handleNetworkTimeout:(NSTimer*)timer {
     if (!_initialLoadComplete && !_networkErrorHandled) {
-        NSLog(@"StashNative: Network timeout - page did not load within %.0f seconds", kNetworkTimeoutInterval);
+        NSLog(@"StashNative: TIMEOUT %.0fs — no didCommit after %d attempt(s)",
+              kNetworkTimeoutInterval, _retryCount + 1);
         [self handleNetworkError];
     }
 }
@@ -102,6 +127,8 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
     _networkErrorHandled = YES;
     
     // Cancel timers
+    [_retryTimer invalidate];
+    _retryTimer = nil;
     [_timeoutTimer invalidate];
     _timeoutTimer = nil;
     [_networkTimeoutTimer invalidate];
@@ -130,11 +157,55 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
     }
 }
 
+- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
+    (void)webView;
+    NSLog(@"StashNative: WebContent process terminated — reloading");
+    if (_networkErrorHandled || !_checkoutURL || !_webView) {
+        [self handleNetworkError];
+        return;
+    }
+    // One reload after process death; second termination surfaces as network error.
+    if (_retryCount >= 1) {
+        [self handleNetworkError];
+        return;
+    }
+    _retryCount = 1;
+    _initialLoadComplete = NO;
+    [_retryTimer invalidate];
+    _retryTimer = nil;
+    [_networkTimeoutTimer invalidate];
+    _networkTimeoutTimer = nil;
+
+    NSURLRequest *fresh = [NSURLRequest requestWithURL:_checkoutURL
+                                           cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
+                                       timeoutInterval:kNetworkTimeoutInterval];
+    [_webView loadRequest:fresh];
+
+    _networkTimeoutTimer = [NSTimer scheduledTimerWithTimeInterval:kNetworkTimeoutInterval
+                                                            target:self
+                                                          selector:@selector(handleNetworkTimeout:)
+                                                          userInfo:nil
+                                                           repeats:NO];
+}
+
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     
     NSURL *url = navigationAction.request.URL;
     NSString *urlString = url.absoluteString;
-    
+    NSLog(@"StashNative: navigationAction type=%ld url=%@", (long)navigationAction.navigationType, urlString);
+
+    // Arm the retry timer the first time the main checkout URL is loaded.
+    // If no HTTP response arrives within kRetryTimeoutInterval we cancel and reload once.
+    if (navigationAction.targetFrame.isMainFrame && !_initialLoadComplete && _retryCount == 0 && !_networkErrorHandled) {
+        _checkoutURL = url;
+        [_retryTimer invalidate];
+        _retryTimer = [NSTimer scheduledTimerWithTimeInterval:kRetryTimeoutInterval
+                                                      target:self
+                                                    selector:@selector(handleRetryTimer:)
+                                                    userInfo:nil
+                                                     repeats:NO];
+    }
+
     if ([url.scheme isEqualToString:@"tel"] ||
         [url.scheme isEqualToString:@"mailto"] ||
         [url.scheme isEqualToString:@"sms"]) {
@@ -154,12 +225,20 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
 }
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse decisionHandler:(void (^)(WKNavigationResponsePolicy))decisionHandler {
-    
+
+    // HTTP response arrived — the connection is alive, no need to retry.
+    if (navigationResponse.isForMainFrame) {
+        [_retryTimer invalidate];
+        _retryTimer = nil;
+    }
+
     // Check for HTTP error status codes on initial load
     if (!_initialLoadComplete && navigationResponse.isForMainFrame) {
         if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)navigationResponse.response;
             NSInteger statusCode = httpResponse.statusCode;
+            NSLog(@"StashNative: navigationResponse mainFrame=%d status=%ld url=%@",
+                  navigationResponse.isForMainFrame, (long)statusCode, httpResponse.URL.absoluteString);
             
             // Treat 4xx and 5xx status codes as errors
             if (statusCode >= 400) {
@@ -175,11 +254,9 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
 }
 
 - (void)handleTimeout:(NSTimer*)timer {
-    // For modal presentations, don't reveal on short (0.1s) timeout - wait for didCommit/didFinish or fallback timer
-    if (_useModalPresentation) {
-        return;
-    }
-    [self showWebViewAndRemoveLoading];
+    // No-op: the WebView is revealed by didCommitNavigation for all presentation types.
+    // Revealing at 0.1s (before any content arrives) shows an empty black WebView.
+    // The 5-second network timeout (handleNetworkTimeout) handles pages that never load.
 }
 
 - (void)handleModalFallbackReveal:(NSTimer*)timer {
@@ -202,18 +279,14 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
         _modalFallbackTimer = nil;
     }
     
-    // Mark initial load as complete and cancel network timeout
-    if (!_initialLoadComplete) {
-        _initialLoadComplete = YES;
-        [self cancelNetworkTimeout];
-    }
-    
     if (_webView.alpha < 0.01) {
         UIColor *backgroundColor = getSystemBackgroundColor();
         _webView.backgroundColor = backgroundColor;
         _webView.scrollView.backgroundColor = backgroundColor;
         _webView.scrollView.opaque = YES;
-        _webView.opaque = YES;
+        // Opaque WebView + simultaneous crossfade composites against an internal white
+        // background — causes a white flash. Non-opaque composites against backgroundColor.
+        _webView.opaque = NO;
         
         if (@available(iOS 13.0, *)) {
             UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
@@ -248,106 +321,98 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
             }
         } completion:^(BOOL finished) {
             [self->_loadingView removeFromSuperview];
+            self->_webView.opaque = YES;
         }];
     }
+}
+
+/// Poll every kPageReadyCheckInterval until the page has left the 'loading' readyState
+/// (i.e. HTML parsed + CSS applied), then reveal the WebView.
+/// Called from both didCommitNavigation and didFinishNavigation so the reveal happens
+/// as soon as the page is visually ready — never before CSS is applied.
+- (void)pollUntilPageReady {
+    if (!_webView || _networkErrorHandled) return;
+    // Already revealed — nothing to do.
+    if (_webView.alpha >= 0.01) return;
+
+    NSString *readyCheck =
+        @"(function(){"
+        @"  if(document.readyState==='loading') return false;"
+        @"  if(document.documentElement.style.display==='none') return false;"
+        @"  if(!document.body) return false;"
+        @"  if(window.getComputedStyle(document.body).display==='none') return false;"
+        @"  return true;"
+        @"})()";
+
+#if __has_feature(objc_arc)
+    __weak WebViewLoadDelegate *weakSelf = self;
+#else
+    __unsafe_unretained WebViewLoadDelegate *weakSelf = self;
+#endif
+    [_webView evaluateJavaScript:readyCheck completionHandler:^(id result, NSError *error) {
+        WebViewLoadDelegate *strongSelf = weakSelf;
+        if (!strongSelf || strongSelf->_networkErrorHandled) return;
+        if ([result boolValue]) {
+            [strongSelf showWebViewAndRemoveLoading];
+        } else {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                [weakSelf pollUntilPageReady];
+            });
+        }
+    }];
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     if (webView) {
         configureScrollViewForWebView(webView.scrollView);
     }
+    // Ensure network timeout is cancelled even if didCommit was skipped (edge case).
+    if (!_initialLoadComplete) {
+        _initialLoadComplete = YES;
+        [self cancelNetworkTimeout];
+    }
     if (self.pageLoadStartTime > 0) {
         CFAbsoluteTime loadEndTime = CFAbsoluteTimeGetCurrent();
         double loadTimeSeconds = loadEndTime - self.pageLoadStartTime;
         double loadTimeMs = loadTimeSeconds * 1000.0;
-        
+
         id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
         if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidLoadPage:)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [delegate stashNativeCardDidLoadPage:loadTimeMs];
             });
         }
-        
+
         self.pageLoadStartTime = 0;
     }
-    
-#if __has_feature(objc_arc)
-    __weak WebViewLoadDelegate *weakSelf = self;
-#else
-    __unsafe_unretained WebViewLoadDelegate *weakSelf = self;
-#endif
-    __block void (^checkPageReady)(void);
-#if __has_feature(objc_arc)
-    __block __weak void (^weakCheckPageReady)(void);
-#endif
-    checkPageReady = ^{
-        NSString *readyCheck = @"(function() { \
-            if (document.readyState !== 'complete') return false; \
-            if (document.documentElement.style.display === 'none') return false; \
-            if (document.body === null) return false; \
-            if (window.getComputedStyle(document.body).display === 'none') return false; \
-            return true; \
-        })()";
-        
-        [webView evaluateJavaScript:readyCheck completionHandler:^(id result, NSError *error) {
-            if ([result boolValue]) {
-                WebViewLoadDelegate *strongSelf = weakSelf;
-                if (strongSelf) {
-                    if (@available(iOS 13.0, *)) {
-                        UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-                        if (currentStyle == UIUserInterfaceStyleDark) {
-                            [webView evaluateJavaScript:kForceDarkBackgroundJS completionHandler:^(id result, NSError *error) {
-                                [strongSelf showWebViewAndRemoveLoading];
-                            }];
-                        } else {
-                            [strongSelf showWebViewAndRemoveLoading];
-                        }
-                    } else {
-                        [strongSelf showWebViewAndRemoveLoading];
-                    }
-                }
-            } else {
-#if __has_feature(objc_arc)
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    if (weakCheckPageReady) {
-                        weakCheckPageReady();
-                    }
-                });
-#else
-                __unsafe_unretained void (^weakCheckPageReady)(void) = checkPageReady;
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    if (weakCheckPageReady) {
-                        weakCheckPageReady();
-                    }
-                });
-#endif
-            }
-        }];
-    };
-#if __has_feature(objc_arc)
-    weakCheckPageReady = checkPageReady;
-#endif
-    checkPageReady();
+    // Ensure reveal happens even if didCommit polling hasn't fired yet.
+    [self pollUntilPageReady];
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
     if (webView) {
         configureScrollViewForWebView(webView.scrollView);
     }
-    // iPhone checkout: reveal on commit. Modal: also reveal on commit (Unreal etc. may never get didFinish)
-    if ((!_usePopupPresentation && !isRunningOniPad()) || _useModalPresentation) {
-        [self showWebViewAndRemoveLoading];
+    NSLog(@"StashNative: didCommitNavigation url=%@", webView.URL.absoluteString);
+    // Content is arriving — cancel the network error timeout.
+    if (!_initialLoadComplete) {
+        _initialLoadComplete = YES;
+        [self cancelNetworkTimeout];
     }
+    // Start polling for page readiness. The WebView stays hidden behind the loading
+    // view until readyState reaches 'interactive' (HTML parsed, all CSS applied) so
+    // we never reveal a white/unthemed page.
+    [self pollUntilPageReady];
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"StashNative: didFailNavigation domain=%@ code=%ld msg=%@ url=%@",
+          error.domain, (long)error.code, error.localizedDescription, webView.URL.absoluteString);
     if (error.code == NSURLErrorCancelled) {
         return;
     }
     
-    // If initial load hasn't completed, treat as network error
     if (!_initialLoadComplete) {
-        NSLog(@"StashNative: Navigation failed during initial load: %@", error.localizedDescription);
         [self handleNetworkError];
     } else {
         [[StashNativeCard sharedInstance] dismiss];
@@ -355,28 +420,42 @@ extern void configureScrollViewForWebView(UIScrollView *scrollView);
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"StashNative: didFailProvisionalNavigation domain=%@ code=%ld msg=%@ url=%@",
+          error.domain, (long)error.code, error.localizedDescription,
+          [error.userInfo[NSURLErrorFailingURLStringErrorKey] description] ?: webView.URL.absoluteString);
     if (error.code == NSURLErrorCancelled) {
         return;
     }
     
-    // If initial load hasn't completed, treat as network error
     if (!_initialLoadComplete) {
-        NSLog(@"StashNative: Provisional navigation failed during initial load: %@", error.localizedDescription);
         [self handleNetworkError];
     } else {
         [[StashNativeCard sharedInstance] dismiss];
     }
 }
 
-- (void)dealloc {
+- (void)invalidateAllTimers {
+    _networkErrorHandled = YES;
+    if (_retryTimer) {
+        [_retryTimer invalidate];
+        _retryTimer = nil;
+    }
     if (_timeoutTimer) {
         [_timeoutTimer invalidate];
         _timeoutTimer = nil;
+    }
+    if (_networkTimeoutTimer) {
+        [_networkTimeoutTimer invalidate];
+        _networkTimeoutTimer = nil;
     }
     if (_modalFallbackTimer) {
         [_modalFallbackTimer invalidate];
         _modalFallbackTimer = nil;
     }
+}
+
+- (void)dealloc {
+    [self invalidateAllTimers];
 }
 
 @end

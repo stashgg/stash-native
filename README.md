@@ -39,7 +39,7 @@ Both platforms contain up-to-date sample apps that demonstrate the library usage
 - **Android**: `./Android/sample/` - Run with `./gradlew :sample:installDebug`
 - **iOS**: `./iOS/Sample/` - Open `StashNativeSample.xcodeproj` in Xcode
 
-> **Android emulator note:** The default GPU mode (`auto`) on arm64-v8a AVDs (Apple Silicon Macs) returns an empty `GL_VERSION` string that causes the WebView's Chromium GPU thread to crash. Set the AVD's GPU mode to **`swangle`** (SwiftShader software renderer via ANGLE) to avoid this. Either pass `-gpu swangle` when launching the emulator, or set `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`.
+> **Android emulator on Apple Silicon note:** The default GPU mode (`auto`) on arm64-v8a AVDs (Apple Silicon Macs) returns an empty `GL_VERSION` string that causes the WebView's Chromium GPU thread to crash. Set the AVD's GPU mode to **`swangle`** (SwiftShader software renderer via ANGLE) to avoid this. Either pass `-gpu swangle` when launching the emulator, or set `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`.
 
 or try them instantly in your browser using the Appetize online emulator:
 

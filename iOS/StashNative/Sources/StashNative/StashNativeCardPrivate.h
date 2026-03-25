@@ -79,6 +79,8 @@ void configureScrollViewForWebView(UIScrollView *scrollView);
 @interface WebViewLoadDelegate : NSObject <WKNavigationDelegate>
 @property (nonatomic, assign) CFAbsoluteTime pageLoadStartTime;
 - (instancetype)initWithWebView:(WKWebView *)webView loadingView:(UIView *)loadingView;
+/// Cancel all pending timers so stale delegates from closed cards cannot fire error callbacks.
+- (void)invalidateAllTimers;
 @end
 
 @interface WebViewUIDelegate : NSObject <WKUIDelegate>

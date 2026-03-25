@@ -237,7 +237,7 @@ static const NSTimeInterval kOverlayFadeInDuration = 0.25;
 
 static const CGFloat kSpringDampingSnapBack = 0.82f;
 static const NSTimeInterval kSnapBackAnimationDuration = 0.45;
-static const NSTimeInterval kEntryAnimationDuration = 0.5;
+static const NSTimeInterval kEntryAnimationDuration = 0.65;
 /// Ease-out-back constant for display-link expand/collapse.
 static const CGFloat kEaseOutBackOvershoot = 1.70158f;
 /// Stronger overshoot for snap-back when dismiss gesture does not hit threshold (smooth spring back).
@@ -285,6 +285,16 @@ static const CGFloat kMinRatio = 0.1f;
 static const CGFloat kMaxRatio = 1.0f;
 __unused static CGFloat clampRatio(CGFloat ratio) {
     return ratio < kMinRatio ? kMinRatio : (ratio > kMaxRatio ? kMaxRatio : ratio);
+}
+
+/// Recursively find the first WKWebView in a view subtree.
+static WKWebView *findWebViewInView(UIView *view) {
+    for (UIView *sub in view.subviews) {
+        if ([sub isKindOfClass:[WKWebView class]]) return (WKWebView *)sub;
+        WKWebView *found = findWebViewInView(sub);
+        if (found) return found;
+    }
+    return nil;
 }
 
 static NSMutableURLRequest *requestForURL(NSURL *url) {
@@ -542,6 +552,12 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     }
 
     if (self.currentPresentedVC) {
+        // Cancel all delegate timers before releasing — NSTimer retains its target, so a stale
+        // _networkTimeoutTimer would keep the delegate alive and fire handleNetworkError on a
+        // future card presentation if the user opens/closes rapidly.
+        WebViewLoadDelegate *activeDelegate = objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate);
+        [activeDelegate invalidateAllTimers];
+
         // Clear all associated objects to break retain cycles and allow deallocation
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -550,30 +566,29 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyCardView, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         
-        for (UIView *subview in [self.currentPresentedVC.view.subviews copy]) {
-            if ([subview isKindOfClass:[WKWebView class]]) {
-                WKWebView *webView = (WKWebView *)subview;
-                
-                [webView stopLoading];
-                webView.navigationDelegate = nil;
-                webView.UIDelegate = nil;
-                
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentSuccess];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentFailure];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPurchaseProcessing];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
-                [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
-                [webView.configuration.userContentController removeAllUserScripts];
-                
-                [webView loadHTMLString:@"" baseURL:nil];
-                
-                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kWebViewRemoveDelaySeconds * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                    [webView removeFromSuperview];
-                });
-                break;
-            }
+        // Search the full view hierarchy: covers popup (webView in containerVC.view),
+        // iPhone card (webView → cardView → cardWindow), and modal/iPad (webView → cardView → containerVC.view).
+        WKWebView *webView = findWebViewInView(self.currentPresentedVC.view);
+        if (!webView && self.portraitWindow) {
+            webView = findWebViewInView(self.portraitWindow);
+        }
+        if (webView) {
+            [webView stopLoading];
+            webView.navigationDelegate = nil;
+            webView.UIDelegate = nil;
+
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentSuccess];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentFailure];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPurchaseProcessing];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
+            [webView.configuration.userContentController removeAllUserScripts];
+
+            // Remove immediately — loadHTMLString:@"" would restart the WebContent
+            // process and keep the (now-private) process pool alive longer than needed.
+            [webView removeFromSuperview];
         }
         
         UIView *overlayView = objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
@@ -1593,7 +1608,7 @@ CGRect computeModalFrameForScreenBounds(CGRect screenBounds) {
 UIColor* getSystemBackgroundColor(void) {
     if (@available(iOS 13.0, *)) {
         UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        return (currentStyle == UIUserInterfaceStyleDark) ? [UIColor blackColor] : [UIColor systemBackgroundColor];
+        return (currentStyle == UIUserInterfaceStyleDark) ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor systemBackgroundColor];
     }
     return [UIColor whiteColor];
 }
@@ -2153,7 +2168,35 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
     
-    // Wait for rotation to complete before setting up UI
+    // Create WebView and start loading the URL NOW — before the rotation delay fires.
+    // WKWebView opens the TCP connection as soon as loadRequest: is called, even
+    // without a view hierarchy, so we get the full rotationDelay (~350 ms in landscape)
+    // as a free network head-start. The view is attached to cardView inside the block.
+    WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
+    webView.translatesAutoresizingMaskIntoConstraints = NO;
+    webView.alpha = 0.0;
+    
+    UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
+    loadingView.translatesAutoresizingMaskIntoConstraints = NO;
+    loadingView.alpha = 1.0;
+    
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    webView.navigationDelegate = delegate;
+    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
+    webView.UIDelegate = uiDelegate;
+    // Associate before any delayed work so cleanupCardInstance can always find delegates
+    // (e.g. user dismisses during the landscape rotation delay before the block runs).
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    
+    NSURL *nsurl = [NSURL URLWithString:url];
+    if (nsurl) {
+        NSMutableURLRequest *request = requestForURL(nsurl);
+        delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
+        [webView loadRequest:request];
+    }
+    
+    // Wait for rotation to complete before setting up the visual hierarchy.
     NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         // Get actual screen bounds after rotation
@@ -2214,15 +2257,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.layer.shadowOpacity = kShadowOpacityPhone;
         cardView.layer.shadowRadius = kShadowRadiusPhone;
         
-        // Create WebView and load URL
-        WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
-        webView.translatesAutoresizingMaskIntoConstraints = NO;
-        webView.alpha = 0.0;
-        
-        UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
-        loadingView.translatesAutoresizingMaskIntoConstraints = NO;
-        loadingView.alpha = 1.0;
-        
+        // WebView is already created and loading — attach it to the card hierarchy now.
         [cardView addSubview:webView];
         [cardView addSubview:loadingView];
         
@@ -2241,20 +2276,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
         UIView *dragTray = [internal createDragTray:cardWidth];
         [cardView addSubview:dragTray];
         internal.dragTrayView = dragTray;
-        
-        WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
-        webView.navigationDelegate = delegate;
-        WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-        webView.UIDelegate = uiDelegate;
-        objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        
-        NSURL *nsurl = [NSURL URLWithString:url];
-        if (nsurl) {
-            NSMutableURLRequest *request = requestForURL(nsurl);
-            delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
-            [webView loadRequest:request];
-        }
         
         // Animate overlay fade in
         [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
@@ -2759,6 +2780,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
 
 - (WKWebView *)createConfiguredWebViewWithInternal:(StashNativeCardInternal *)internal {
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    // Use the default WKProcessPool (do not assign config.processPool). A custom singleton
+    // pool kept an idle networking process that could miss server GOAWAY/RST_STREAM frames,
+    // causing the next load to hang silently until the retry timer fires.
     config.allowsInlineMediaPlayback = YES;
     config.allowsAirPlayForMediaPlayback = YES;
     config.allowsPictureInPictureMediaPlayback = YES;
@@ -2837,6 +2861,23 @@ NSString* appendThemeQueryParameter(NSString* url) {
                                                               injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                            forMainFrameOnly:YES];
     [userContentController addUserScript:noMarginsInjection];
+
+    // In dark mode, pin the HTML/body background to the card colour before any CSS loads.
+    // Without this, the default white HTML background flashes through during the WebView
+    // fade-in — most visible on retry loads where CSS is fetched fresh from the network.
+    if (@available(iOS 13.0, *)) {
+        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
+            NSString *darkBgScript =
+                @"document.documentElement.style.setProperty('background-color','#1e1e1e','important');"
+                @"document.addEventListener('DOMContentLoaded',function(){"
+                @"  if(document.body) document.body.style.setProperty('background-color','#1e1e1e','important');"
+                @"});";
+            WKUserScript *darkBgInjection = [[WKUserScript alloc] initWithSource:darkBgScript
+                                                                   injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                                                                forMainFrameOnly:YES];
+            [userContentController addUserScript:darkBgInjection];
+        }
+    }
     
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentSuccess];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentFailure];
@@ -2870,7 +2911,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         isDarkMode = (currentStyle == UIUserInterfaceStyleDark);
     }
     
-    UIColor *backgroundColor = isDarkMode ? [UIColor blackColor] : [UIColor whiteColor];
+    UIColor *backgroundColor = isDarkMode ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor whiteColor];
     loadingView.backgroundColor = backgroundColor;
     loadingView.opaque = YES;
     

@@ -1254,8 +1254,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     cardContainer.post(() -> {
       cardContainer.animate()
           .translationY(0)
-          .setDuration(300)
-          .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+          .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+          .setInterpolator(new android.view.animation.DecelerateInterpolator())
           .start();
     });
   }

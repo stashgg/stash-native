@@ -21,7 +21,7 @@ public class MainViewModel extends AndroidViewModel {
       "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/"
       + "refs/heads/main/.github/Stash.Popup.Test/index.html";
   private static final String DEFAULT_MODAL_URL =
-      "https://store.howlingwoods.shop/pay/channel-selection";
+      "https://checkout.stash.gg/pay/channel-selection";
   public static final String DEFAULT_STASH_API_KEY =
       "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg";
 

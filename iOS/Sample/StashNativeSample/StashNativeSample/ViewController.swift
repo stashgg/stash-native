@@ -24,7 +24,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }()
 
     let defaultURL = "https://test.stashpreview.com/"
-    let defaultModalURL = "https://store.howlingwoods.shop/pay/channel-selection"
+    let defaultModalURL = "https://checkout.stash.gg/pay/channel-selection"
 
     let checkoutUrlTextField = UITextField()
     let browserUrlTextField = UITextField()
