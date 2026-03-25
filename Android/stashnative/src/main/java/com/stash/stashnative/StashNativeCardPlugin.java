@@ -2095,15 +2095,20 @@ public class StashNativeCardPlugin {
       dragArea.setOrientation(LinearLayout.VERTICAL);
       dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
       int padH = StashWebViewUtils.dpToPx(activity, 20);
-      int padV = StashWebViewUtils.dpToPx(activity, 16);
-      dragArea.setPadding(padH, padV, padH, padV);
+      int padTop =
+          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_HANDLE_TOP_INSET_DP));
+      int padBottom =
+          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
+      dragArea.setPadding(padH, padTop, padH, padBottom);
       View handle = new View(activity);
       GradientDrawable handleBg = new GradientDrawable();
       handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
-      handleBg.setCornerRadius(StashWebViewUtils.dpToPx(activity, 2));
+      handleBg.setCornerRadius(
+          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
       handle.setBackground(handleBg);
       handle.setLayoutParams(new LinearLayout.LayoutParams(
-          StashWebViewUtils.dpToPx(activity, 36), StashWebViewUtils.dpToPx(activity, 5)));
+          StashWebViewUtils.dpToPx(activity, (int) CardConstants.DRAG_HANDLE_WIDTH_DP),
+          StashWebViewUtils.dpToPx(activity, (int) CardConstants.DRAG_HANDLE_HEIGHT_DP)));
       dragArea.addView(handle);
       FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
           StashWebViewUtils.dpToPx(activity, 120), FrameLayout.LayoutParams.WRAP_CONTENT);

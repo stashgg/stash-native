@@ -1,5 +1,9 @@
 package com.stash.stashnative;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Intent;
@@ -60,9 +64,23 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean initialPageLoadComplete;
   private boolean networkErrorHandled;
   private boolean mainFrameErrorReceived;
-  private android.os.Handler networkTimeoutHandler;
-  private Runnable networkTimeoutRunnable;
-  private static final long NETWORK_TIMEOUT_MS = 5000;
+  /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
+  private android.os.Handler loadTimersHandler;
+  private Runnable retryAfterStallRunnable;
+  private Runnable networkDeadlineRunnable;
+  /** URL with theme used for the initial load; retry uses this with a cache-busting query param. */
+  private String webViewCommittedReloadUrl;
+  /** 0 = first load; 1 = one stall retry issued (no further automatic retries). */
+  private int webViewRetryCount;
+  /** True once the main frame has committed visible content (or progress fallback on older API). */
+  private boolean mainFrameNavigationCommitted;
+  /**
+   * After the first loading-overlay crossfade, skip full-screen loading on later navigations
+   * (matches iOS WebView staying visible once revealed). Reset on stall retry.
+   */
+  private boolean webViewLoadingRevealComplete;
+  /** True while the loading/WebView crossfade is running (ignore duplicate onPageFinished). */
+  private boolean webViewRevealAnimationRunning;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -476,16 +494,19 @@ public class StashNativeCardPortraitActivity extends Activity {
     dragArea.setOrientation(LinearLayout.VERTICAL);
     dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
     int padH = StashWebViewUtils.dpToPx(this, 20);
-    int padV = StashWebViewUtils.dpToPx(this, 16);
-    dragArea.setPadding(padH, padV, padH, padV);
+    int padTop = StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_TOP_INSET_DP));
+    int padBottom =
+        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
+    dragArea.setPadding(padH, padTop, padH, padBottom);
     
     View handle = new View(this);
     GradientDrawable handleBg = new GradientDrawable();
     handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
-    handleBg.setCornerRadius(StashWebViewUtils.dpToPx(this, 2));
+    handleBg.setCornerRadius(
+        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
     handle.setBackground(handleBg);
-    int handleW = StashWebViewUtils.dpToPx(this, 36);
-    int handleH = StashWebViewUtils.dpToPx(this, 5);
+    int handleW = StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_WIDTH_DP);
+    int handleH = StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_HEIGHT_DP);
     handle.setLayoutParams(new LinearLayout.LayoutParams(handleW, handleH));
     dragArea.addView(handle);
     
@@ -554,16 +575,20 @@ public class StashNativeCardPortraitActivity extends Activity {
     dragArea.setOrientation(LinearLayout.VERTICAL);
     dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
     int padH = StashWebViewUtils.dpToPx(this, 20);
-    int padV = StashWebViewUtils.dpToPx(this, 16);
-    dragArea.setPadding(padH, padV, padH, padV);
+    int padTop = StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_TOP_INSET_DP));
+    int padBottom =
+        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
+    dragArea.setPadding(padH, padTop, padH, padBottom);
 
     View handle = new View(this);
     GradientDrawable handleBg = new GradientDrawable();
     handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
-    handleBg.setCornerRadius(StashWebViewUtils.dpToPx(this, 2));
+    handleBg.setCornerRadius(
+        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
     handle.setBackground(handleBg);
     handle.setLayoutParams(new LinearLayout.LayoutParams(
-        StashWebViewUtils.dpToPx(this, 36), StashWebViewUtils.dpToPx(this, 5)));
+        StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_WIDTH_DP),
+        StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_HEIGHT_DP)));
     dragArea.addView(handle);
 
     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
@@ -948,14 +973,17 @@ public class StashNativeCardPortraitActivity extends Activity {
             if (networkErrorHandled || mainFrameErrorReceived) {
               return;
             }
+
+            // Stop retry/deadline timers once the main document has finished (fallback if commit
+            // callback did not run on this WebView version).
+            markMainFrameNavigationCommittedIfNeeded();
             
-            // Mark initial load as complete and cancel timeout
+            // Mark initial load as complete
             if (!initialPageLoadComplete) {
               initialPageLoadComplete = true;
-              cancelNetworkTimeout();
             }
             
-            hideLoading();
+            revealWebViewAndRemoveLoading();
             injectSDK(view);
             checkProvider(url);
             checkGooglePayRedirect(url);
@@ -1017,6 +1045,13 @@ public class StashNativeCardPortraitActivity extends Activity {
           }
 
         @Override
+        @RequiresApi(Build.VERSION_CODES.Q)
+        public void onPageCommitVisible(WebView view, String pageUrl) {
+          super.onPageCommitVisible(view, pageUrl);
+          markMainFrameNavigationCommittedIfNeeded();
+        }
+
+        @Override
         @RequiresApi(Build.VERSION_CODES.O)
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
           Log.e(TAG, "WebView render process gone (didCrash=" + detail.didCrash() + ")");
@@ -1035,7 +1070,16 @@ public class StashNativeCardPortraitActivity extends Activity {
         });
     
       try {
-        webView.setWebChromeClient(new WebChromeClient());
+        webView.setWebChromeClient(new WebChromeClient() {
+          @Override
+          public void onProgressChanged(WebView view, int newProgress) {
+            super.onProgressChanged(view, newProgress);
+            // Below API 29 there is no onPageCommitVisible; first progress means bytes are arriving.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 0) {
+              markMainFrameNavigationCommittedIfNeeded();
+            }
+          }
+        });
         webView.addJavascriptInterface(new JSInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
         webView.setBackgroundColor(cachedIsDarkTheme
             ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG)
@@ -1044,6 +1088,9 @@ public class StashNativeCardPortraitActivity extends Activity {
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         webView.setLayoutParams(params);
+        webViewLoadingRevealComplete = false;
+        webViewRevealAnimationRunning = false;
+        webView.setAlpha(0f);
         cardContainer.addView(webView);
         String urlWithTheme;
         try {
@@ -1052,10 +1099,11 @@ public class StashNativeCardPortraitActivity extends Activity {
           Log.e(TAG, "Error appending theme parameter: " + e.getMessage(), e);
           urlWithTheme = url;
         }
+        webViewCommittedReloadUrl = urlWithTheme;
+        webViewRetryCount = 0;
+        mainFrameNavigationCommitted = false;
         webView.loadUrl(urlWithTheme);
-        
-        // Start network timeout timer
-        startNetworkTimeout();
+        scheduleInitialLoadTimers();
       } catch (Exception e) {
         Log.e(TAG, "Error setting up WebView: " + e.getMessage(), e);
         finish();
@@ -1066,20 +1114,81 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
   
-  private void startNetworkTimeout() {
-    networkTimeoutHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    networkTimeoutRunnable = () -> {
-      if (!initialPageLoadComplete && !networkErrorHandled && !isDismissing) {
-        Log.e(TAG, "Network timeout: page did not load within " + NETWORK_TIMEOUT_MS + "ms");
-        handleNetworkError();
+  private void scheduleInitialLoadTimers() {
+    if (loadTimersHandler == null) {
+      loadTimersHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    }
+    cancelLoadTimers();
+    retryAfterStallRunnable = () -> {
+      if (networkErrorHandled || isDismissing || webView == null) {
+        return;
+      }
+      if (mainFrameNavigationCommitted) {
+        return;
+      }
+      if (webViewRetryCount >= 1) {
+        return;
+      }
+      webViewRetryCount = 1;
+      webViewLoadingRevealComplete = false;
+      webViewRevealAnimationRunning = false;
+      webView.setAlpha(0f);
+      Log.w(TAG, "StashNative: no HTTP response in "
+          + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000)
+          + "s — retrying " + webViewCommittedReloadUrl);
+      int prevMode = webView.getSettings().getCacheMode();
+      try {
+        webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
+        webView.loadUrl(appendCacheBuster(webViewCommittedReloadUrl));
+      } finally {
+        webView.getSettings().setCacheMode(prevMode);
       }
     };
-    networkTimeoutHandler.postDelayed(networkTimeoutRunnable, NETWORK_TIMEOUT_MS);
+    networkDeadlineRunnable = () -> {
+      if (networkErrorHandled || isDismissing) {
+        return;
+      }
+      if (mainFrameNavigationCommitted) {
+        return;
+      }
+      Log.e(TAG, "StashNative: TIMEOUT "
+          + (CardConstants.WEBVIEW_NETWORK_DEADLINE_MS / 1000)
+          + "s — main frame did not commit after "
+          + (webViewRetryCount + 1)
+          + " attempt(s)");
+      handleNetworkError();
+    };
+    loadTimersHandler.postDelayed(
+        retryAfterStallRunnable, CardConstants.WEBVIEW_RETRY_TIMEOUT_MS);
+    loadTimersHandler.postDelayed(
+        networkDeadlineRunnable, CardConstants.WEBVIEW_NETWORK_DEADLINE_MS);
   }
-  
-  private void cancelNetworkTimeout() {
-    if (networkTimeoutHandler != null && networkTimeoutRunnable != null) {
-      networkTimeoutHandler.removeCallbacks(networkTimeoutRunnable);
+
+  private void markMainFrameNavigationCommittedIfNeeded() {
+    if (mainFrameNavigationCommitted || networkErrorHandled) {
+      return;
+    }
+    mainFrameNavigationCommitted = true;
+    cancelLoadTimers();
+  }
+
+  private static String appendCacheBuster(String url) {
+    if (url == null || url.isEmpty()) {
+      return url;
+    }
+    String sep = url.contains("?") ? "&" : "?";
+    return url + sep + "_stash_nc=" + System.currentTimeMillis();
+  }
+
+  private void cancelLoadTimers() {
+    if (loadTimersHandler == null) {
+      return;
+    }
+    if (retryAfterStallRunnable != null) {
+      loadTimersHandler.removeCallbacks(retryAfterStallRunnable);
+    }
+    if (networkDeadlineRunnable != null) {
+      loadTimersHandler.removeCallbacks(networkDeadlineRunnable);
     }
   }
   
@@ -1089,7 +1198,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     networkErrorHandled = true;
     
-    cancelNetworkTimeout();
+    cancelLoadTimers();
     
     StashCheckoutBridge.emitNetworkError(this);
     
@@ -1216,35 +1325,74 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   private void showLoading() {
     runOnUiThread(() -> {
+      if (webViewLoadingRevealComplete || webViewRevealAnimationRunning) {
+        return;
+      }
+      if (webView != null) {
+        webView.setAlpha(0f);
+      }
       if (loadingView != null && loadingView.getParent() != null) {
         ((ViewGroup) loadingView.getParent()).removeView(loadingView);
       }
-      
+
       if (cardContainer != null) {
         loadingView = StashWebViewUtils.createAndShowLoadingView(
             getApplicationContext(), cardContainer);
         if (loadingView != null) {
+          loadingView.setAlpha(1f);
           loadingView.setVisibility(View.VISIBLE);
         }
       }
     });
   }
-  
-  private void hideLoading() {
+
+  /**
+   * First load: crossfade loading overlay out and WebView in (aligned with iOS
+   * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
+   */
+  private void revealWebViewAndRemoveLoading() {
     runOnUiThread(() -> {
+      if (webView == null || webViewRevealAnimationRunning) {
+        return;
+      }
+      if (webViewLoadingRevealComplete) {
+        removeLoadingViewFromParent();
+        return;
+      }
       if (loadingView != null) {
-        loadingView.animate()
-            .alpha(0.0f)
-            .setDuration(200)
-            .withEndAction(() -> {
-              if (loadingView != null && loadingView.getParent() != null) {
-                ((ViewGroup) loadingView.getParent()).removeView(loadingView);
-              }
-              loadingView = null;
-            })
-            .start();
+        webViewRevealAnimationRunning = true;
+        loadingView.animate().cancel();
+        webView.animate().cancel();
+        loadingView.setAlpha(1f);
+        webView.setAlpha(0f);
+        AnimatorSet crossfade = new AnimatorSet();
+        crossfade.playTogether(
+            ObjectAnimator.ofFloat(webView, View.ALPHA, 0f, 1f),
+            ObjectAnimator.ofFloat(loadingView, View.ALPHA, 1f, 0f));
+        crossfade.setDuration(CardConstants.LOADING_REVEAL_DURATION_MS);
+        crossfade.setInterpolator(
+            new android.view.animation.AccelerateDecelerateInterpolator());
+        crossfade.addListener(new AnimatorListenerAdapter() {
+          @Override
+          public void onAnimationEnd(Animator animation) {
+            webViewRevealAnimationRunning = false;
+            webViewLoadingRevealComplete = true;
+            removeLoadingViewFromParent();
+          }
+        });
+        crossfade.start();
+      } else {
+        webViewLoadingRevealComplete = true;
+        webView.setAlpha(1f);
       }
     });
+  }
+
+  private void removeLoadingViewFromParent() {
+    if (loadingView != null && loadingView.getParent() != null) {
+      ((ViewGroup) loadingView.getParent()).removeView(loadingView);
+    }
+    loadingView = null;
   }
   
   private void animateSlideUp() {
@@ -1532,7 +1680,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   protected void onDestroy() {
     try {
       super.onDestroy();
-      
+      cancelLoadTimers();
+
       if (webView != null) {
         try {
           webView.destroy();

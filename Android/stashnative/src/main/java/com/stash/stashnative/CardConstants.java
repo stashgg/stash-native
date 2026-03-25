@@ -104,6 +104,21 @@ public final class CardConstants {
   
   /** Drag tray total height in dp . */
   public static final float DRAG_TRAY_HEIGHT_DP = 44f;
+
+  /**
+   * Top inset from card top to the handle bar (matches iOS {@code kHandleBarTopInset} = 8pt).
+   */
+  public static final float DRAG_HANDLE_TOP_INSET_DP = 8f;
+
+  /**
+   * Padding below the handle within the tray (44 - 8 - 5 = 31; matches iOS drag tray layout).
+   */
+  public static final float DRAG_TRAY_PADDING_BOTTOM_DP = 31f;
+
+  /**
+   * Handle pill corner radius (matches iOS {@code kHandleBarCornerRadius} = 3pt).
+   */
+  public static final float DRAG_HANDLE_CORNER_RADIUS_DP = 3f;
   
   /** Minimum touch target size in dp . */
   public static final float TOUCH_TARGET_MIN_DP = 120f;
@@ -245,6 +260,23 @@ public final class CardConstants {
   
   /** Dialog dismiss delay in milliseconds . */
   public static final int DIALOG_DISMISS_DELAY_MS = 1000;
+
+  /**
+   * If no main-frame response/progress within this window, reload once with a fresh request
+   * (bypass cache). Matches iOS {@code kRetryTimeoutInterval}.
+   */
+  public static final long WEBVIEW_RETRY_TIMEOUT_MS = 3000L;
+
+  /**
+   * Hard deadline from first load: if the main frame never commits, report network error.
+   * Matches iOS {@code kNetworkTimeoutInterval}.
+   */
+  public static final long WEBVIEW_NETWORK_DEADLINE_MS = 15000L;
+
+  /**
+   * Loading overlay crossfade duration (matches iOS {@code kLoadingRevealAnimationDuration} 0.35s).
+   */
+  public static final long LOADING_REVEAL_DURATION_MS = 350L;
   
   // ============================================================================
   // Visual Effects
