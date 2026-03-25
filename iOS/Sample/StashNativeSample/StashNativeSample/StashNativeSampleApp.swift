@@ -18,6 +18,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         true
     }
 
+    // Explicitly wire up SceneDelegate so iOS doesn't rely on plist class-name resolution.
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        config.delegateClass = SceneDelegate.self
+        return config
+    }
+
     func application(
         _ app: UIApplication,
         open url: URL,
