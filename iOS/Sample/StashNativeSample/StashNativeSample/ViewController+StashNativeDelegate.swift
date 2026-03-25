@@ -36,7 +36,10 @@ extension ViewController: StashNativeCardDelegate {
 
     func stashNativeCardDidEncounterNetworkError() {
         DispatchQueue.main.async {
-            self.showAlert(title: "Network Error", message: "Failed to load checkout. Please check your connection and try again.")
+            self.showAlert(
+                title: "Network Error",
+                message: "Failed to load checkout. Please check your connection and try again."
+            )
         }
     }
 }
