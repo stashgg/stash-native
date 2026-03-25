@@ -10,10 +10,10 @@
     <string name="section_modal">Modal</string>
     <string name="section_presentation_options">Presentation options</string>
     <string name="section_checkout_generation_settings">Checkout Generation Settings</string>
-    <string name="footer_checkout_generation_settings">Use your own API key if needed. Prefilled with limited API test key.</string>
-    <string name="footer_card">Opens a card drawer that slides from the bottom of the screen. Great for native-feeling Stash Pay IAP experience.</string>
-    <string name="footer_browser">Opens the URL in an isolated browser, or generates a quick-pay link and opens it in the browser. Uses the same API key and test/live toggle as Checkout Generation Settings.</string>
-    <string name="footer_modal">Centered modal with rotation support. Great for opt-in dialogs or as an alternative presentation method for Stash Pay.</string>
+    <string name="footer_checkout_generation_settings">Use your own API key if needed. Prefilled with demo API test key.</string>
+    <string name="footer_card">Opens an in-app card drawer that slides from the bottom of the screen. Used for Stash Pay / Stash Webshop. Supports direct callbacks to application.</string>
+    <string name="footer_browser">Opens the Stash Pay / Stash Webshop URL inside in-app browser. Requires deep linking setup for callbacks.</string>
+    <string name="footer_modal">Opens centered modal with screen rotation support. Used for opt-in dialogs or as an alternative presentation for Stash Pay. Supports direct callbacks to application.</string>
     <string name="hint_checkout_url">Card URL</string>
     <string name="hint_modal_url">Modal URL</string>
     <string name="hint_browser_url">Browser URL</string>

@@ -17,22 +17,22 @@ extension ViewController {
         switch section {
         case .card:
             return """
-                Opens a in-app card drawer that slides from the bottom of the screen. \
-                Great for native-feeling Stash Pay IAP experience. \
-                Supports direct callbacks to application.
+                Opens an in-app card drawer that slides from the bottom of the screen. \
+                Used for Stash Pay / Stash Webshop. Supports direct callbacks to application.
                 """
         case .modal:
             return """
-                Centered modal with rotation support. \
-                Great for opt-in dialogs or as an alternative presentation method for Stash Pay. \
+                Opens centered modal with screen rotation support. \
+                Used for opt-in dialogs or as an alternative presentation for Stash Pay. \
                 Supports direct callbacks to application.
                 """
         case .browser:
             return """
-                Opens the checkout URL inside in-app browser.
+                Opens the Stash Pay / Stash Webshop URL inside in-app browser. \
+                Requires deep linking setup for callbacks.
                 """
         case .checkoutGenerationSettings:
-            return "Use your own API key if needed. Prefilled with limited API test key."
+            return "Use your own API key if needed. Prefilled with demo API test key."
         case .presentationOptions:
             return nil
         }
