@@ -144,6 +144,14 @@ extension ViewController {
         }
     }
 
+    @objc func openWebshopTapped() {
+        performGenerateAuthenticatedWebshopUrl { [weak self] webshopUrl in
+            guard let self = self else { return }
+            let config = self.buildCardConfig()
+            StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, config: config)
+        }
+    }
+
     // swiftlint:disable:next function_body_length
     private func performGenerateQuickPayCheckout(onSuccess: @escaping (String) -> Void) {
         let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
@@ -211,6 +219,55 @@ extension ViewController {
             }
             DispatchQueue.main.async {
                 onSuccess(checkoutUrl)
+            }
+        }.resume()
+    }
+
+    private func performGenerateAuthenticatedWebshopUrl(onSuccess: @escaping (String) -> Void) {
+        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
+        let urlString = baseUrl + "/sdk/server/generate_url"
+        guard let url = URL(string: urlString) else {
+            showAlert(title: "Error", message: "Failed to generate webshop URL")
+            return
+        }
+        let trimmedApiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let apiKey = trimmedApiKey.isEmpty ? ViewController.defaultStashApiKey : trimmedApiKey
+        if !apiKey.isEmpty {
+            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
+        let body: [String: Any] = [
+            "user": [
+                "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
+                "validatedEmail": "test@stash.gg",
+                "displayName": "Test User",
+                "platform": "IOS"
+            ],
+            "target": "STORE"
+        ]
+        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+            showAlert(title: "Error", message: "Failed to generate webshop URL")
+            return
+        }
+        request.httpBody = bodyData
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            guard let self = self else { return }
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+            let isSuccessResponse = statusCode >= 200 && statusCode < 300
+            guard isSuccessResponse, let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let webshopUrl = json["url"] as? String, !webshopUrl.isEmpty else {
+                DispatchQueue.main.async {
+                    self.showAlert(title: "Error", message: "Failed to generate webshop URL")
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                onSuccess(webshopUrl)
             }
         }.resume()
     }

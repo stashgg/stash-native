@@ -50,12 +50,21 @@ extension ViewController {
             cell.imageView?.tintColor = .secondaryLabel
             cell.accessoryType = .disclosureIndicator
             return cell
-        } else {
+        } else if indexPath.row == 2 {
             let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
             cell.textLabel?.text = "Generate Checkout"
             cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
             cell.textLabel?.textColor = .systemBlue
             cell.imageView?.image = systemImage("creditcard.fill")
+            cell.imageView?.tintColor = .secondaryLabel
+            cell.accessoryType = .disclosureIndicator
+            return cell
+        } else {
+            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+            cell.textLabel?.text = "Open Webshop"
+            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+            cell.textLabel?.textColor = .systemBlue
+            cell.imageView?.image = systemImage("storefront")
             cell.imageView?.tintColor = .secondaryLabel
             cell.accessoryType = .disclosureIndicator
             return cell

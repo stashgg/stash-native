@@ -322,6 +322,8 @@ public class MainViewModel extends AndroidViewModel {
         R.string.open_card, R.drawable.ic_ms_credit_card_24, false, false));
     list.add(SettingsItem.actionPreference(
         R.string.generate_checkout, R.drawable.ic_ms_credit_card_24, false, false));
+    list.add(SettingsItem.actionPreference(
+        R.string.open_webshop, R.drawable.ic_ms_public_24, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_card, false, true));
 
     // Modal section

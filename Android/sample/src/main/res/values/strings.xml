@@ -18,6 +18,7 @@
     <string name="hint_modal_url">Modal URL</string>
     <string name="hint_browser_url">Browser URL</string>
     <string name="open_card">Open URL in Card</string>
+    <string name="open_webshop">Open Webshop</string>
     <string name="open_browser">Open URL in Browser</string>
     <string name="open_modal">Open URL in Modal Dialog</string>
     <string name="generate_checkout">Generate Checkout</string>
@@ -29,6 +30,7 @@
     <string name="option_use_test_api">Use test API</string>
     <string name="hint_api_key">API Key</string>
     <string name="error_generate_checkout_url">Failed to generate checkout URL</string>
+    <string name="error_generate_webshop_url">Failed to generate webshop URL</string>
     <string name="option_web_view_mode">Use Web View mode</string>
     <string name="option_web_view_mode_supporting">Open in Chrome</string>
     <string name="option_force_portrait_on_checkout">Force portrait on checkout</string>

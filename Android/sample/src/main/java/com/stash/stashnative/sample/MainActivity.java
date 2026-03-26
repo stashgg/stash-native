@@ -59,6 +59,11 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
+      public void onOpenWebshop() {
+        openWebshop();
+      }
+
+      @Override
       public void onGenerateCheckoutForBrowser() {
         generateCheckoutForBrowser();
       }
@@ -183,6 +188,10 @@ public class MainActivity extends AppCompatActivity {
     generateQuickPayCheckout(true);
   }
 
+  private void openWebshop() {
+    generateAuthenticatedWebshopUrl();
+  }
+
   /**
    * POSTs to generate_quick_pay_url and opens the returned URL in the card or in the browser.
    */
@@ -271,6 +280,73 @@ public class MainActivity extends AppCompatActivity {
       }
       runOnUiThread(() -> showOutcomeDialog(
           "Error", getString(R.string.error_generate_checkout_url)));
+    });
+  }
+
+  /**
+   * POSTs to /sdk/server/generate_url and opens the returned authenticated webshop URL in card.
+   */
+  private void generateAuthenticatedWebshopUrl() {
+    String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
+    String urlString = baseUrl + "/sdk/server/generate_url";
+    String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
+    final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
+
+    Executors.newSingleThreadExecutor().execute(() -> {
+      HttpURLConnection conn = null;
+      try {
+        URL url = new URL(urlString);
+        conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("x-stash-api-key", apiKey);
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(15000);
+
+        JSONObject user = new JSONObject();
+        user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
+        user.put("validatedEmail", "test@stash.gg");
+        user.put("displayName", "Test User");
+        user.put("platform", "ANDROID");
+
+        JSONObject body = new JSONObject();
+        body.put("user", user);
+        body.put("target", "STORE");
+
+        byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+        conn.setFixedLengthStreamingMode(bytes.length);
+        try (OutputStream os = conn.getOutputStream()) {
+          os.write(bytes);
+        }
+
+        int code = conn.getResponseCode();
+        if (code >= 200 && code < 300) {
+          java.util.Scanner scanner = new java.util.Scanner(
+              conn.getInputStream(), StandardCharsets.UTF_8.name()).useDelimiter("\\A");
+          String response = scanner.hasNext() ? scanner.next() : "";
+          scanner.close();
+          JSONObject json = new JSONObject(response);
+          String webshopUrl = json.optString("url", null);
+          if (webshopUrl != null && !webshopUrl.isEmpty()) {
+            final String finalUrl = webshopUrl.trim();
+            runOnUiThread(() -> {
+              Log.i(TAG, "Opening card (authenticated webshop URL): " + finalUrl);
+              StashNativeCard.CardConfig config = buildCardConfig();
+              StashNativeCard.getInstance().openCard(finalUrl, config);
+            });
+            return;
+          }
+        }
+      } catch (Exception e) {
+        Log.e(TAG, "Generate authenticated webshop URL failed", e);
+      } finally {
+        if (conn != null) {
+          conn.disconnect();
+        }
+      }
+      runOnUiThread(() -> showOutcomeDialog(
+          "Error", getString(R.string.error_generate_webshop_url)));
     });
   }
 

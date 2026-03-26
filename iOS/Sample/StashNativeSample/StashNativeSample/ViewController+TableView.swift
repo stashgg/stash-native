@@ -18,7 +18,7 @@ extension ViewController {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let sectionType = Section(rawValue: section) else { return 0 }
         switch sectionType {
-        case .card: return 3
+        case .card: return 4
         case .modal: return 2
         case .browser: return 3
         case .presentationOptions:
@@ -115,6 +115,8 @@ extension ViewController {
             openCardTapped()
         case .card where indexPath.row == 2:
             generateCheckoutTapped()
+        case .card where indexPath.row == 3:
+            openWebshopTapped()
         case .modal where indexPath.row == 1:
             openModalTapped()
         case .browser where indexPath.row == 1:

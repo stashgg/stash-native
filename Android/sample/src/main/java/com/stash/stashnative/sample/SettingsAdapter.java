@@ -45,6 +45,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void onGenerateCheckout();
 
+    void onOpenWebshop();
+
     void onGenerateCheckoutForBrowser();
   }
 
@@ -331,6 +333,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           callbacks.onOpenModal();
         } else if (item.titleRes == R.string.generate_checkout) {
           callbacks.onGenerateCheckout();
+        } else if (item.titleRes == R.string.open_webshop) {
+          callbacks.onOpenWebshop();
         } else if (item.titleRes == R.string.generate_checkout_for_browser) {
           callbacks.onGenerateCheckoutForBrowser();
         }
