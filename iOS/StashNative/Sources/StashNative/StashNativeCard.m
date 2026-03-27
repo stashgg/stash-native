@@ -13,6 +13,12 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
+#ifdef DEBUG
+#define STASH_DEBUG_LOG(...) NSLog(__VA_ARGS__)
+#else
+#define STASH_DEBUG_LOG(...)
+#endif
+
 // Non-ARC compatibility: These warnings are suppressed when compiling without ARC
 // (e.g., in game engines like Unreal Engine that manage memory manually).
 // ARC builds do not need these suppressions.
@@ -139,7 +145,6 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 static BOOL _callbackWasCalled = NO;              // Ensures dismiss callback fires only once
 static BOOL _isCardCurrentlyPresented = NO;       // Guards against double-presentation
 static BOOL _paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
-static BOOL _paymentSuccessCallbackCalled = NO;   // Tracks if success callback was already invoked
 
 // --- Expand/collapse original values (stored when card is presented) ---
 static CGFloat _originalCardHeightRatio = 0.68;
@@ -299,7 +304,7 @@ static WKWebView *findWebViewInView(UIView *view) {
 
 static NSMutableURLRequest *requestForURL(NSURL *url) {
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url
-                                                           cachePolicy:NSURLRequestReturnCacheDataElseLoad
+                                                           cachePolicy:NSURLRequestUseProtocolCachePolicy
                                                        timeoutInterval:kRequestTimeoutSeconds];
     [request setValue:kAcceptEncodingHeader forHTTPHeaderField:@"Accept-Encoding"];
     return request;
@@ -432,8 +437,15 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 @property (nonatomic, assign) CGFloat collapseInitialProgress;
 @property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // 0 = default; set for snap-back for stronger spring
 @property (nonatomic, copy) void (^expandCompletion)(void);
+@property (nonatomic, strong) WebViewLoadDelegate *activeWebViewLoadDelegate;
+@property (nonatomic, strong) WebViewUIDelegate *activeWebViewUIDelegate;
+/// Bumped on each card open and on teardown; WebViewLoadDelegate compares to ignore stale callbacks.
+@property (nonatomic, assign) NSUInteger presentationSessionToken;
+/// YES after beginDismissStoppingLoadAndTimers until cleanup finishes (avoids double token bump).
+@property (nonatomic, assign) BOOL isDismissingCard;
 
 + (instancetype)sharedInstance;
+- (void)beginDismissStoppingLoadAndTimers;
 - (void)dismissWithAnimation:(void (^)(void))completion;
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
@@ -453,7 +465,30 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 
 @end
 
+NSUInteger StashNativeCurrentPresentationSessionToken(void) {
+    return [StashNativeCardInternal sharedInstance].presentationSessionToken;
+}
+
 @implementation StashNativeCardInternal
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(stashApplicationDidBecomeActive:)
+                                                     name:UIApplicationDidBecomeActiveNotification
+                                                   object:nil];
+    }
+    return self;
+}
+
+- (void)stashApplicationDidBecomeActive:(NSNotification *)notification {
+    (void)notification;
+    WebViewLoadDelegate *del = self.activeWebViewLoadDelegate;
+    if (del) {
+        [del recoverStaleLoadAfterApplicationForegroundIfNeeded];
+    }
+}
 
 + (instancetype)sharedInstance {
     static StashNativeCardInternal *sharedInstance = nil;
@@ -532,6 +567,24 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     }
 }
 
+- (void)beginDismissStoppingLoadAndTimers {
+    STASH_DEBUG_LOG(@"StashNativeRetryTrace teardown begin tokenBefore=%lu", (unsigned long)self.presentationSessionToken);
+    self.presentationSessionToken++;
+    self.isDismissingCard = YES;
+    if (!self.currentPresentedVC) {
+        return;
+    }
+    WebViewLoadDelegate *activeDelegate = objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate);
+    [activeDelegate invalidateAllTimers];
+    WKWebView *webView = findWebViewInView(self.currentPresentedVC.view);
+    if (!webView && self.portraitWindow) {
+        webView = findWebViewInView(self.portraitWindow);
+    }
+    if (webView) {
+        [webView stopLoading];
+    }
+}
+
 - (void)cleanupCardInstance {
     [self stopKeyboardObserving];
     
@@ -552,6 +605,10 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     }
 
     if (self.currentPresentedVC) {
+        // If dismiss animation did not run (e.g. network error path), stop timers/load now.
+        if (!self.isDismissingCard) {
+            [self beginDismissStoppingLoadAndTimers];
+        }
         // Cancel all delegate timers before releasing — NSTimer retains its target, so a stale
         // _networkTimeoutTimer would keep the delegate alive and fire handleNetworkError on a
         // future card presentation if the user opens/closes rapidly.
@@ -617,6 +674,9 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     }
     
     self.currentPresentedVC = nil;
+    self.activeWebViewLoadDelegate = nil;
+    self.activeWebViewUIDelegate = nil;
+    self.isDismissingCard = NO;
     self.isPurchaseProcessing = NO;
     _isCardExpanded = NO;
     _isCardCurrentlyPresented = NO;
@@ -625,7 +685,6 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
-    _paymentSuccessCallbackCalled = NO;
 }
 
 - (void)dismissWithAnimation:(void (^)(void))completion {
@@ -633,7 +692,9 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
         if (completion) completion();
         return;
     }
-    
+
+    [self beginDismissStoppingLoadAndTimers];
+
     UIViewController *containerVC = self.currentPresentedVC;
     UIView *overlayView = objc_getAssociatedObject(containerVC, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
     
@@ -1414,7 +1475,6 @@ initialSpringVelocity:kSpringVelocityCollapse
     if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
         if (_paymentSuccessHandled) return;
         _paymentSuccessHandled = YES;
-        _paymentSuccessCallbackCalled = YES;
         self.isPurchaseProcessing = NO;
         
         if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
@@ -1774,20 +1834,65 @@ static void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWind
     if (@available(iOS 13.0, *)) {
         if (keyWindow.windowScene) {
             cardWindow.windowScene = keyWindow.windowScene;
+            return;
+        }
+        // Cold start / early presentation: key window may be nil before the scene is foreground-active.
+        // Any window scene with a window is enough to attach; otherwise the card window has no scene.
+        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
+            if ([scene isKindOfClass:[UIWindowScene class]]) {
+                UIWindowScene *ws = (UIWindowScene *)scene;
+                if (ws.windows.count > 0) {
+                    cardWindow.windowScene = ws;
+                    return;
+                }
+            }
         }
     }
 }
 
 UIWindow* getKeyWindow(void) {
     if (@available(iOS 13.0, *)) {
-        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
-                UIWindowScene *ws = (UIWindowScene *)scene;
-                for (UIWindow *w in ws.windows) {
-                    if (w.isKeyWindow) return w;
+        NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
+        UIWindow * (^pickFromScene)(UIWindowScene *) = ^UIWindow *(UIWindowScene *ws) {
+            for (UIWindow *w in ws.windows) {
+                if (w.isKeyWindow) {
+                    return w;
                 }
-                if (ws.windows.count > 0) return ws.windows.firstObject;
-                break;
+            }
+            return ws.windows.firstObject;
+        };
+        for (UIScene *scene in scenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) {
+                continue;
+            }
+            if (scene.activationState != UISceneActivationStateForegroundActive) {
+                continue;
+            }
+            UIWindow *w = pickFromScene((UIWindowScene *)scene);
+            if (w) {
+                return w;
+            }
+        }
+        for (UIScene *scene in scenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) {
+                continue;
+            }
+            if (scene.activationState != UISceneActivationStateForegroundActive &&
+                scene.activationState != UISceneActivationStateForegroundInactive) {
+                continue;
+            }
+            UIWindow *w = pickFromScene((UIWindowScene *)scene);
+            if (w) {
+                return w;
+            }
+        }
+        for (UIScene *scene in scenes) {
+            if (![scene isKindOfClass:[UIWindowScene class]]) {
+                continue;
+            }
+            UIWindow *w = pickFromScene((UIWindowScene *)scene);
+            if (w) {
+                return w;
             }
         }
     }
@@ -2029,6 +2134,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
 }
 
 - (void)openURLInternal:(NSString *)url {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self openURLInternal:url];
+        });
+        return;
+    }
     if (_isCardCurrentlyPresented) {
         return;
     }
@@ -2052,11 +2163,15 @@ NSString* appendThemeQueryParameter(NSString* url) {
 }
 
 - (void)openInCardUI:(NSString *)url {
+    StashNativeCardInternal *sessionInternal = [StashNativeCardInternal sharedInstance];
+    sessionInternal.presentationSessionToken++;
+    sessionInternal.isDismissingCard = NO;
+    STASH_DEBUG_LOG(@"StashNativeRetryTrace open card session=%lu", (unsigned long)sessionInternal.presentationSessionToken);
+
     // Reset state
     _isCardCurrentlyPresented = YES;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
-    _paymentSuccessCallbackCalled = NO;
     _isCardExpanded = NO;
     
     // Store original (collapsed) configuration from orientation-specific values
@@ -2138,10 +2253,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
     cardWindow.rootViewController = containerVC;
     internal.currentPresentedVC = containerVC;
     
-    // CRITICAL: Force device rotation to portrait BEFORE showing window
-    // This must happen before makeKeyAndVisible for proper keyboard orientation
-    [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
-    [UIViewController attemptRotationToDeviceOrientation];
+    // For pre-iOS 16 only: request portrait before showing the window.
+    if (@available(iOS 16.0, *)) {
+        // iOS 16+ uses requestGeometryUpdateWithPreferences below.
+    } else {
+        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
+        [UIViewController attemptRotationToDeviceOrientation];
+    }
     
     // For iOS 16+, also request geometry update
     if (@available(iOS 16.0, *)) {
@@ -2168,10 +2286,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
     
-    // Create WebView and start loading the URL NOW — before the rotation delay fires.
-    // WKWebView opens the TCP connection as soon as loadRequest: is called, even
-    // without a view hierarchy, so we get the full rotationDelay (~350 ms in landscape)
-    // as a free network head-start. The view is attached to cardView inside the block.
+    // Create WebView before rotation delay; loadRequest runs after WebView is in the card
+    // hierarchy (inside the block below) to avoid WebKit edge cases with off-screen loads.
     WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
     webView.translatesAutoresizingMaskIntoConstraints = NO;
     webView.alpha = 0.0;
@@ -2179,8 +2295,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
     UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
     loadingView.translatesAutoresizingMaskIntoConstraints = NO;
     loadingView.alpha = 1.0;
+    // Load is deferred until after addSubview; no extra delay on the first stall-retry arm.
+    NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
     
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
@@ -2188,17 +2309,17 @@ NSString* appendThemeQueryParameter(NSString* url) {
     // (e.g. user dismisses during the landscape rotation delay before the block runs).
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    
-    NSURL *nsurl = [NSURL URLWithString:url];
-    if (nsurl) {
-        NSMutableURLRequest *request = requestForURL(nsurl);
-        delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
-        [webView loadRequest:request];
-    }
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Wait for rotation to complete before setting up the visual hierarchy.
-    NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
+    NSUInteger sessionWhenRotationBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (internal.presentationSessionToken != sessionWhenRotationBlockScheduled) {
+            STASH_DEBUG_LOG(@"StashNativeRetryTrace rotation block aborted stale session scheduled=%lu current=%lu",
+                  (unsigned long)sessionWhenRotationBlockScheduled, (unsigned long)internal.presentationSessionToken);
+            return;
+        }
         // Get actual screen bounds after rotation
         CGRect actualBounds = [UIScreen mainScreen].bounds;
         
@@ -2271,6 +2392,14 @@ NSString* appendThemeQueryParameter(NSString* url) {
             [loadingView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
             [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
         ]];
+
+        NSURL *nsurl = [NSURL URLWithString:url];
+        if (nsurl) {
+            NSMutableURLRequest *request = requestForURL(nsurl);
+            [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
+            delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
+            [webView loadRequest:request];
+        }
         
         // Add drag tray so it is part of the card from the start (visible during slide-up)
         UIView *dragTray = [internal createDragTray:cardWidth];
@@ -2408,16 +2537,22 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [cardView addSubview:dragTray];
     internal.dragTrayView = dragTray;
     
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
     
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = requestForURL(nsurl);
+        [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
         delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
         [webView loadRequest:request];
     }
@@ -2507,18 +2642,24 @@ NSString* appendThemeQueryParameter(NSString* url) {
     internal.dragTrayView = dragTray;
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = requestForURL(nsurl);
+        [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
         delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
         [webView loadRequest:request];
     }
@@ -2542,7 +2683,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
     applyCardShadowToLayer(cardView.layer, NO);
     
     // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    NSUInteger sessionWhenIPadModalBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (internal.presentationSessionToken != sessionWhenIPadModalBlockScheduled) {
+            STASH_DEBUG_LOG(@"StashNativeRetryTrace iPad modal delayed block aborted stale session scheduled=%lu current=%lu",
+                  (unsigned long)sessionWhenIPadModalBlockScheduled, (unsigned long)internal.presentationSessionToken);
+            return;
+        }
         cardWindow.hidden = NO;
         [cardWindow makeKeyAndVisible];
         [containerVC.view setNeedsLayout];
@@ -2625,18 +2772,24 @@ NSString* appendThemeQueryParameter(NSString* url) {
     }
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = requestForURL(nsurl);
+        [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
         delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
         [webView loadRequest:request];
     }
@@ -2660,7 +2813,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
     applyCardShadowToLayer(cardView.layer, NO);
     
     // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    NSUInteger sessionWhenModalBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (internal.presentationSessionToken != sessionWhenModalBlockScheduled) {
+            STASH_DEBUG_LOG(@"StashNativeRetryTrace modal delayed block aborted stale session scheduled=%lu current=%lu",
+                  (unsigned long)sessionWhenModalBlockScheduled, (unsigned long)internal.presentationSessionToken);
+            return;
+        }
         cardWindow.hidden = NO;
         [cardWindow makeKeyAndVisible];
         [containerVC.view setNeedsLayout];
@@ -2726,18 +2885,24 @@ NSString* appendThemeQueryParameter(NSString* url) {
     ]];
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView loadingView:loadingView];
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyLoadingView, loadingView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = requestForURL(nsurl);
+        [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
         delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
         [webView loadRequest:request];
     }
@@ -2759,7 +2924,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
     applyCardShadowToLayer(containerVC.view.layer, NO);
     
     // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    NSUInteger sessionWhenPopupBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (internal.presentationSessionToken != sessionWhenPopupBlockScheduled) {
+            STASH_DEBUG_LOG(@"StashNativeRetryTrace popup delayed block aborted stale session scheduled=%lu current=%lu",
+                  (unsigned long)sessionWhenPopupBlockScheduled, (unsigned long)internal.presentationSessionToken);
+            return;
+        }
         cardWindow.hidden = NO;
         [cardWindow makeKeyAndVisible];
         [containerVC.view setNeedsLayout];
@@ -2862,20 +3033,29 @@ NSString* appendThemeQueryParameter(NSString* url) {
                                                            forMainFrameOnly:YES];
     [userContentController addUserScript:noMarginsInjection];
 
-    // In dark mode, pin the HTML/body background to the card colour before any CSS loads.
-    // Without this, the default white HTML background flashes through during the WebView
-    // fade-in — most visible on retry loads where CSS is fetched fresh from the network.
+    // Dark mode: force native dark appearance + pin HTML/body to card colour at document start/end.
+    // overrideUserInterfaceStyle makes prefers-color-scheme: dark for the page; scripts + underPageBackgroundColor
+    // reduce white flashes before remote CSS loads.
     if (@available(iOS 13.0, *)) {
         if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
-            NSString *darkBgScript =
-                @"document.documentElement.style.setProperty('background-color','#1e1e1e','important');"
-                @"document.addEventListener('DOMContentLoaded',function(){"
-                @"  if(document.body) document.body.style.setProperty('background-color','#1e1e1e','important');"
-                @"});";
-            WKUserScript *darkBgInjection = [[WKUserScript alloc] initWithSource:darkBgScript
-                                                                   injectionTime:WKUserScriptInjectionTimeAtDocumentStart
-                                                                forMainFrameOnly:YES];
-            [userContentController addUserScript:darkBgInjection];
+            NSString *darkBgAtStart =
+                @"(function(){"
+                @"var BG='#1e1e1e';"
+                @"function paint(){try{var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}}"
+                @"paint();"
+                @"document.addEventListener('readystatechange',function(){if(document.readyState==='interactive'||document.readyState==='complete')paint();});"
+                @"document.addEventListener('DOMContentLoaded',paint);"
+                @"})();";
+            WKUserScript *darkStart = [[WKUserScript alloc] initWithSource:darkBgAtStart
+                                                            injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+                                                         forMainFrameOnly:YES];
+            [userContentController addUserScript:darkStart];
+            NSString *darkBgAtEnd =
+                @"(function(){try{var BG='#1e1e1e';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();";
+            WKUserScript *darkEnd = [[WKUserScript alloc] initWithSource:darkBgAtEnd
+                                                          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
+                                                       forMainFrameOnly:YES];
+            [userContentController addUserScript:darkEnd];
         }
     }
     
@@ -2895,6 +3075,18 @@ NSString* appendThemeQueryParameter(NSString* url) {
     setWebViewBackgroundColor(webView, systemBackgroundColor);
     webView.scrollView.opaque = YES;
     configureScrollViewForWebView(webView.scrollView);
+    if (@available(iOS 13.0, *)) {
+        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
+            webView.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+            webView.scrollView.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+        } else {
+            webView.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified;
+            webView.scrollView.overrideUserInterfaceStyle = UIUserInterfaceStyleUnspecified;
+        }
+    }
+    if (@available(iOS 15.0, *)) {
+        webView.underPageBackgroundColor = systemBackgroundColor;
+    }
     webView.scrollView.scrollEnabled = YES;
     webView.scrollView.showsVerticalScrollIndicator = _showScrollbar;
     webView.scrollView.showsHorizontalScrollIndicator = NO;

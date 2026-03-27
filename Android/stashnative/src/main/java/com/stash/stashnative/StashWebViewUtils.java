@@ -18,6 +18,10 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import androidx.browser.customtabs.CustomTabColorSchemeParams;
+import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.webkit.WebSettingsCompat;
+import androidx.webkit.WebViewFeature;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
@@ -194,7 +198,10 @@ public class StashWebViewUtils {
     }
     CookieManager.getInstance().setAcceptCookie(true);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        && WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+      WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDarkTheme);
+    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       settings.setForceDark(isDarkTheme ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_OFF);
     }
   }
@@ -220,7 +227,7 @@ public class StashWebViewUtils {
       
       return builder.build().toString();
     } catch (Exception e) {
-      Log.e(TAG, "Error appending theme parameter: " + e.getMessage());
+      Log.w(TAG, "Error appending theme parameter: " + e.getMessage());
       String separator = url.contains("?") ? "&" : "?";
       String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
       return url + separator + QUERY_PARAM_THEME + "=" + theme;
@@ -288,7 +295,7 @@ public class StashWebViewUtils {
       
       return loadingContainer;
     } catch (Exception e) {
-      Log.e(TAG, "Error showing loading: " + e.getMessage());
+      Log.w(TAG, "Error showing loading: " + e.getMessage());
       return null;
     }
   }
@@ -331,7 +338,7 @@ public class StashWebViewUtils {
       
       return loadingIndicator;
     } catch (Exception e) {
-      Log.e(TAG, "Error showing loading: " + e.getMessage());
+      Log.w(TAG, "Error showing loading: " + e.getMessage());
       return null;
     }
   }
@@ -363,56 +370,29 @@ public class StashWebViewUtils {
     }
   }
 
-  // ============================================================================
-  // Chrome Custom Tabs (reflection-based to avoid hard dependency)
-  // ============================================================================
-
-  private static final String CUSTOM_TABS_INTENT_CLASS =
-      "androidx.browser.customtabs.CustomTabsIntent";
-  private static final String CUSTOM_TABS_BUILDER_CLASS =
-      "androidx.browser.customtabs.CustomTabsIntent$Builder";
-
   /**
    * Returns true if Chrome Custom Tabs is available on the device.
    */
   public static boolean isChromeCustomTabsAvailable(Context context) {
-    if (context == null) {
-      return false;
-    }
-    try {
-      Class.forName(CUSTOM_TABS_INTENT_CLASS);
-      return true;
-    } catch (ClassNotFoundException e) {
-      return false;
-    }
+    return context != null;
   }
 
   /**
-   * Opens the given URL in Chrome Custom Tabs using reflection.
-   *
-   * @throws Exception if Custom Tabs is not available or launch fails
+   * Opens the given URL in Chrome Custom Tabs.
    */
   public static void openWithChromeCustomTabs(Activity activity, String url) throws Exception {
     if (activity == null || url == null || url.isEmpty()) {
       throw new IllegalArgumentException("Invalid activity or URL");
     }
 
-    Class<?> customTabsIntentClass = Class.forName(CUSTOM_TABS_INTENT_CLASS);
-    Class<?> builderClass = Class.forName(CUSTOM_TABS_BUILDER_CLASS);
-
-    Object builder = builderClass.getDeclaredConstructor().newInstance();
-    java.lang.reflect.Method setToolbarColor = builderClass.getMethod("setToolbarColor", int.class);
-    setToolbarColor.invoke(builder, Color.parseColor(CardConstants.COLOR_DARK_BG));
-
-    java.lang.reflect.Method setShowTitle = builderClass.getMethod("setShowTitle", boolean.class);
-    setShowTitle.invoke(builder, true);
-
-    java.lang.reflect.Method build = builderClass.getMethod("build");
-    Object customTabsIntent = build.invoke(builder);
-
-    java.lang.reflect.Method launchUrl = customTabsIntentClass.getMethod("launchUrl",
-        android.content.Context.class, Uri.class);
-    launchUrl.invoke(customTabsIntent, activity, Uri.parse(url));
+    CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
+    builder.setShowTitle(true);
+    CustomTabColorSchemeParams darkParams = new CustomTabColorSchemeParams.Builder()
+        .setToolbarColor(Color.parseColor(CardConstants.COLOR_DARK_BG))
+        .build();
+    builder.setDefaultColorSchemeParams(darkParams);
+    CustomTabsIntent customTabsIntent = builder.build();
+    customTabsIntent.launchUrl(activity, Uri.parse(url));
   }
 
   /**

@@ -6,7 +6,7 @@
     <application>
         <activity
             android:name=".StashNativeCardPortraitActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode|smallestScreenSize"
             android:exported="false"
             android:process=":stash_webview"
             android:screenOrientation="unspecified"

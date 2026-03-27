@@ -23,6 +23,10 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    buildFeatures {
+        buildConfig true
+    }
+
     publishing {
         singleVariant("release") {
             withSourcesJar()
@@ -33,4 +37,5 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.browser:browser:1.7.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
 }

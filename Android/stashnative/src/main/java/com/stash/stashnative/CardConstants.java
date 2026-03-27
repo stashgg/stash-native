@@ -23,9 +23,6 @@ public final class CardConstants {
   /** Popup fade animation duration. */
   public static final int ANIMATION_DURATION_POPUP = 200;
 
-  /** Card expand animation duration. */
-  public static final int ANIMATION_DURATION_EXPAND = 400;
-
   /** Card collapse animation duration. */
   public static final int ANIMATION_DURATION_COLLAPSE = 380;
 
@@ -34,22 +31,17 @@ public final class CardConstants {
 
   /** Snap back animation duration. */
   public static final int ANIMATION_DURATION_SNAP_BACK = 450;
+
+  /** Checkout overlay height expand animation (matches default card timing). */
+  public static final int ANIMATION_DURATION_EXPAND = ANIMATION_DURATION_DEFAULT;
+
+  /** Delay after opening Chrome Custom Tabs before reporting dialog dismissed. */
+  public static final int DIALOG_DISMISS_DELAY_MS = 300;
   
   // ============================================================================
   // Spring Animation Parameters (aligned with iOS)
   // ============================================================================
   
-  /** Default spring damping (0.0 - 1.0). */
-  public static final float SPRING_DAMPING_DEFAULT = 0.85f;
-
-  /** Tight spring damping for snappy animations. */
-  public static final float SPRING_DAMPING_TIGHT = 0.9f;
-
-  /** Spring stiffness for Android SpringInterpolator. */
-  public static final float SPRING_STIFFNESS = 400f;
-
-  /** Spring mass. */
-  public static final float SPRING_MASS = 1.0f;
   
   // ============================================================================
   // Gesture Thresholds (Velocity-based, aligned across platforms)
@@ -90,8 +82,6 @@ public final class CardConstants {
   /** Default corner radius in dp . */
   public static final float CORNER_RADIUS_DP = 12f;
   
-  /** Expanded corner radius in dp . */
-  public static final float CORNER_RADIUS_EXPANDED_DP = 16f;
   
   /** Card elevation in dp . */
   public static final float ELEVATION_DP = 24f;
@@ -102,8 +92,6 @@ public final class CardConstants {
   /** Drag handle height in dp . */
   public static final float DRAG_HANDLE_HEIGHT_DP = 5f;
   
-  /** Drag tray total height in dp . */
-  public static final float DRAG_TRAY_HEIGHT_DP = 44f;
 
   /**
    * Top inset from card top to the handle bar (matches iOS {@code kHandleBarTopInset} = 8pt).
@@ -120,8 +108,6 @@ public final class CardConstants {
    */
   public static final float DRAG_HANDLE_CORNER_RADIUS_DP = 3f;
   
-  /** Minimum touch target size in dp . */
-  public static final float TOUCH_TARGET_MIN_DP = 120f;
   
   // ============================================================================
   // Overlay Opacity (unified across all modes and platforms: 40%)
@@ -140,8 +126,6 @@ public final class CardConstants {
   /** Default phone card height ratio. */
   public static final float DEFAULT_CARD_HEIGHT_RATIO = 0.68f;
   
-  /** Default phone card width ratio. */
-  public static final float DEFAULT_CARD_WIDTH_RATIO = 1.0f;
   
   /** Default phone card width ratio in landscape (when not forcing portrait). */
   public static final float DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE = 0.9f;
@@ -152,11 +136,6 @@ public final class CardConstants {
   /** Expanded phone card height ratio. */
   public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
   
-  /** Default tablet width ratio. */
-  public static final float DEFAULT_TABLET_WIDTH_RATIO = 0.8f;
-  
-  /** Default tablet height ratio. */
-  public static final float DEFAULT_TABLET_HEIGHT_RATIO = 0.75f;
   
   /** Minimum phone popup/card width in dp . */
   public static final float MIN_PHONE_CARD_WIDTH_DP = 300f;
@@ -249,8 +228,6 @@ public final class CardConstants {
   
   /** Google Pay redirect: domain to detect . */
   public static final String GOOGLE_PAY_DOMAIN = "pay.google.com";
-  /** Google Pay URL param . */
-  public static final String GOOGLE_PAY_PARAM = "dpm=gpay";
   public static final String GOOGLE_PAY_PARAM_PREFIX_AMP = "&dpm=gpay";
   public static final String GOOGLE_PAY_PARAM_PREFIX_QUERY = "?dpm=gpay";
   
@@ -258,9 +235,6 @@ public final class CardConstants {
   // Timing Constants
   // ============================================================================
   
-  /** Dialog dismiss delay in milliseconds . */
-  public static final int DIALOG_DISMISS_DELAY_MS = 1000;
-
   /**
    * If no main-frame response/progress within this window, reload once with a fresh request
    * (bypass cache). Matches iOS {@code kRetryTimeoutInterval}.

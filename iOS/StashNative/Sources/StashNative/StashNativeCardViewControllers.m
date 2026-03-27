@@ -310,7 +310,6 @@ extern void resetCardExpandedStateAfterRotation(void);
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 @property (nonatomic, assign) CGSize previousScreenSize;
-@property (nonatomic, assign) BOOL isModalPresentation;
 - (void)updateCornerRadiusMask;
 @end
 
@@ -319,28 +318,19 @@ extern void resetCardExpandedStateAfterRotation(void);
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     
-    if (!self.isModalPresentation && !_usePopupPresentation) {
+    if (!_usePopupPresentation) {
         return;
     }
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    CGRect newCardFrame = self.isModalPresentation
-        ? computeModalFrameForScreenBounds(targetBounds)
-        : computePopupFrameForScreenBounds(targetBounds);
-    UIView *cardView = self.isModalPresentation ? [self.view viewWithTag:kCardViewTag] : nil;
+    CGRect newCardFrame = computePopupFrameForScreenBounds(targetBounds);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         if (overlayView) {
             overlayView.frame = targetBounds;
         }
-        if (self.isModalPresentation && cardView) {
-            cardView.frame = newCardFrame;
-            if (_modalShowDragBar) {
-                updateDragTrayAndHandleInCardView(cardView, newCardFrame.size.width);
-            }
-            [cardView layoutIfNeeded];
-        } else if (_usePopupPresentation) {
+        if (_usePopupPresentation) {
             self.view.frame = newCardFrame;
             self.customFrame = newCardFrame;
         }
@@ -354,7 +344,7 @@ extern void resetCardExpandedStateAfterRotation(void);
     [super viewWillLayoutSubviews];
     
     // Handle both popup and modal presentation rotation/resize
-    if (!_usePopupPresentation && !self.isModalPresentation) {
+    if (!_usePopupPresentation) {
         return;
     }
     
@@ -374,37 +364,14 @@ extern void resetCardExpandedStateAfterRotation(void);
     }
     
     // Use appropriate frame calculation based on presentation type
-    CGRect newFrame;
-    if (self.isModalPresentation) {
-        newFrame = computeModalFrameForScreenBounds(containerBounds);
-    } else {
-        newFrame = computePopupFrameForScreenBounds(containerBounds);
-    }
-    
-    // For modal, update the cardView frame; for popup, update the view frame
-    if (self.isModalPresentation) {
-        UIView *cardView = [self.view viewWithTag:kCardViewTag];
-        if (cardView && !CGRectEqualToRect(cardView.frame, newFrame)) {
-            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
-                cardView.frame = newFrame;
-                if (_modalShowDragBar) {
-                    updateDragTrayAndHandleInCardView(cardView, newFrame.size.width);
-                }
-                [cardView layoutIfNeeded];
-            } completion:^(BOOL finished) {
-                self.customFrame = newFrame;
-                [self updateCornerRadiusMask];
-            }];
-        }
-    } else {
-        if (!CGRectEqualToRect(self.view.frame, newFrame)) {
-            [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
-                self.view.frame = newFrame;
-                self.customFrame = newFrame;
-            } completion:^(BOOL finished) {
-                [self updateCornerRadiusMask];
-            }];
-        }
+    CGRect newFrame = computePopupFrameForScreenBounds(containerBounds);
+    if (!CGRectEqualToRect(self.view.frame, newFrame)) {
+        [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
+            self.view.frame = newFrame;
+            self.customFrame = newFrame;
+        } completion:^(BOOL finished) {
+            [self updateCornerRadiusMask];
+        }];
     }
 }
 

@@ -6,6 +6,8 @@ import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
@@ -25,7 +27,6 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
@@ -123,6 +124,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   /** Cached at activity start to avoid repeated theme/device lookups. */
   private boolean cachedIsDarkTheme;
   private boolean cachedIsTablet;
+  private OnBackInvokedCallback onBackInvokedCallback;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -208,7 +210,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         cachedIsTablet = StashWebViewUtils.isTablet(this);
       } catch (Exception e) {
-        Log.e(TAG, "Error checking if tablet: " + e.getMessage(), e);
+        Log.w(TAG, "Error checking if tablet: " + e.getMessage(), e);
       }
       
       try {
@@ -233,7 +235,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           }
         }
       } catch (Exception e) {
-        Log.e(TAG, "Error setting orientation: " + e.getMessage(), e);
+        Log.w(TAG, "Error setting orientation: " + e.getMessage(), e);
       }
       
       Window window = getWindow();
@@ -250,17 +252,31 @@ public class StashNativeCardPortraitActivity extends Activity {
           StashWebViewUtils.applySystemBarAppearance(
               window, window.getDecorView(), cachedIsDarkTheme);
         } catch (Exception e) {
-          Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
+          Log.w(TAG, "Error configuring window: " + e.getMessage(), e);
         }
       }
       
       createUI();
+      registerBackCallbackIfNeeded();
     } catch (Exception e) {
-      Log.e(TAG, "Error in onCreate: " + e.getMessage(), e);
+      Log.w(TAG, "Error in onCreate: " + e.getMessage(), e);
       finish();
     }
   }
-  
+
+  private void registerBackCallbackIfNeeded() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+      return;
+    }
+    onBackInvokedCallback = () -> {
+      if (!isPurchaseProcessing) {
+        dismissWithAnimation();
+      }
+    };
+    getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+        OnBackInvokedDispatcher.PRIORITY_DEFAULT, onBackInvokedCallback);
+  }
+
   private void createUI() {
     try {
       rootLayout = new FrameLayout(this);
@@ -278,7 +294,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
         }
       } catch (Exception e) {
-        Log.e(TAG, "Error setting background color: " + e.getMessage(), e);
+        Log.w(TAG, "Error setting background color: " + e.getMessage(), e);
         backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
       }
       rootLayout.addView(backdropView);
@@ -292,7 +308,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           createCard();
         }
       } catch (Exception e) {
-        Log.e(TAG, "Error creating UI: " + e.getMessage(), e);
+        Log.w(TAG, "Error creating UI: " + e.getMessage(), e);
         finish();
         return;
       }
@@ -309,7 +325,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               dismissWithAnimation();
             }
           } catch (Exception e) {
-            Log.e(TAG, "Error in backdrop click handler: " + e.getMessage(), e);
+            Log.w(TAG, "Error in backdrop click handler: " + e.getMessage(), e);
           }
         });
         cardContainer.setOnClickListener(v -> {});
@@ -326,7 +342,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       });
       ViewCompat.requestApplyInsets(rootLayout);
     } catch (Exception e) {
-      Log.e(TAG, "Error in createUI: " + e.getMessage(), e);
+      Log.w(TAG, "Error in createUI: " + e.getMessage(), e);
       finish();
     }
   }
@@ -973,7 +989,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         StashWebViewUtils.configureWebViewSettings(webView, cachedIsDarkTheme);
       } catch (Exception e) {
-        Log.e(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
+        Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
       }
     
       webView.setWebViewClient(new WebViewClient() {
@@ -986,7 +1002,7 @@ public class StashNativeCardPortraitActivity extends Activity {
             checkProvider(url);
             checkGooglePayRedirect(url);
           } catch (Exception e) {
-            Log.e(TAG, "Error in onPageStarted: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onPageStarted: " + e.getMessage(), e);
           }
         }
         
@@ -1010,7 +1026,7 @@ public class StashNativeCardPortraitActivity extends Activity {
             checkProvider(url);
             checkGooglePayRedirect(url);
           } catch (Exception e) {
-            Log.e(TAG, "Error in onPageFinished: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onPageFinished: " + e.getMessage(), e);
           }
           }
           
@@ -1030,7 +1046,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               handleNetworkError();
             }
           } catch (Exception e) {
-            Log.e(TAG, "Error in onReceivedError: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onReceivedError: " + e.getMessage(), e);
           }
           }
           
@@ -1048,7 +1064,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               handleNetworkError();
             }
           } catch (Exception e) {
-            Log.e(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
           }
           }
 
@@ -1070,7 +1086,7 @@ public class StashNativeCardPortraitActivity extends Activity {
             }
             view.destroy();
           } catch (Exception e) {
-            Log.e(TAG, "Error removing dead WebView: " + e.getMessage(), e);
+            Log.w(TAG, "Error removing dead WebView: " + e.getMessage(), e);
           }
           webView = null;
           handleNetworkError();
@@ -1117,7 +1133,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         try {
           urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, cachedIsDarkTheme);
         } catch (Exception e) {
-          Log.e(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+          Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
           urlWithTheme = url;
         }
         webViewCommittedReloadUrl = urlWithTheme;
@@ -1126,11 +1142,11 @@ public class StashNativeCardPortraitActivity extends Activity {
         webView.loadUrl(urlWithTheme);
         scheduleInitialLoadTimers();
       } catch (Exception e) {
-        Log.e(TAG, "Error setting up WebView: " + e.getMessage(), e);
+        Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
         finish();
       }
     } catch (Exception e) {
-      Log.e(TAG, "Error creating WebView: " + e.getMessage(), e);
+      Log.w(TAG, "Error creating WebView: " + e.getMessage(), e);
       finish();
     }
   }
@@ -1349,7 +1365,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   private void openWithChromeCustomTabs(String url, Activity activity) {
     try {
       if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
-        Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
+        if (BuildConfig.DEBUG) {
+          Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
+        }
         StashWebViewUtils.openWithChromeCustomTabs(activity, url);
       } else {
         Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
@@ -1514,7 +1532,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
       } catch (Exception e) {
-        Log.e(TAG, "Error locking orientation: " + e.getMessage(), e);
+        Log.w(TAG, "Error locking orientation: " + e.getMessage(), e);
       }
       
       if (cardContainer == null) {
@@ -1546,13 +1564,13 @@ public class StashNativeCardPortraitActivity extends Activity {
                 try {
                   finishActivityWithNoAnimation();
                 } catch (Exception e) {
-                  Log.e(TAG, "Error in animation end action: " + e.getMessage(), e);
+                  Log.w(TAG, "Error in animation end action: " + e.getMessage(), e);
                   finish();
                 }
               })
               .start();
         } catch (Exception e) {
-          Log.e(TAG, "Error animating popup dismissal: " + e.getMessage(), e);
+          Log.w(TAG, "Error animating popup dismissal: " + e.getMessage(), e);
           finishActivityWithNoAnimation();
         }
       } else {
@@ -1566,22 +1584,22 @@ public class StashNativeCardPortraitActivity extends Activity {
                 try {
                   finishActivityWithNoAnimation();
                 } catch (Exception e) {
-                  Log.e(TAG, "Error in animation end action: " + e.getMessage(), e);
+                  Log.w(TAG, "Error in animation end action: " + e.getMessage(), e);
                   finish();
                 }
               })
               .start();
         } catch (Exception e) {
-          Log.e(TAG, "Error animating card dismissal: " + e.getMessage(), e);
+          Log.w(TAG, "Error animating card dismissal: " + e.getMessage(), e);
           finishActivityWithNoAnimation();
         }
       }
     } catch (Exception e) {
-      Log.e(TAG, "Error in dismissWithAnimation: " + e.getMessage(), e);
+      Log.w(TAG, "Error in dismissWithAnimation: " + e.getMessage(), e);
       try {
         finish();
       } catch (Exception e2) {
-        Log.e(TAG, "Error finishing activity: " + e2.getMessage(), e2);
+        Log.w(TAG, "Error finishing activity: " + e2.getMessage(), e2);
       }
     }
   }
@@ -1623,16 +1641,16 @@ public class StashNativeCardPortraitActivity extends Activity {
           
           dismissWithAnimation();
         } catch (Exception e) {
-          Log.e(TAG, "Error in notifyListenerAndDismiss UI thread: " + e.getMessage(), e);
+          Log.w(TAG, "Error in notifyListenerAndDismiss UI thread: " + e.getMessage(), e);
           try {
             finish();
           } catch (Exception e2) {
-            Log.e(TAG, "Error finishing activity: " + e2.getMessage(), e2);
+            Log.w(TAG, "Error finishing activity: " + e2.getMessage(), e2);
           }
         }
       });
     } catch (Exception e) {
-      Log.e(TAG, "Error scheduling notifyListenerAndDismiss: " + e.getMessage(), e);
+      Log.w(TAG, "Error scheduling notifyListenerAndDismiss: " + e.getMessage(), e);
     }
   }
 
@@ -1642,7 +1660,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_SUCCESS, "", true);
       } catch (Exception e) {
-        Log.e(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
+        Log.w(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
       }
     }
     
@@ -1651,7 +1669,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_FAILURE, "", true);
       } catch (Exception e) {
-        Log.e(TAG, "Error in onPaymentFailure: " + e.getMessage(), e);
+        Log.w(TAG, "Error in onPaymentFailure: " + e.getMessage(), e);
       }
     }
     
@@ -1662,11 +1680,11 @@ public class StashNativeCardPortraitActivity extends Activity {
           try {
             isPurchaseProcessing = true;
           } catch (Exception e) {
-            Log.e(TAG, "Error setting purchase processing: " + e.getMessage(), e);
+            Log.w(TAG, "Error setting purchase processing: " + e.getMessage(), e);
           }
         });
       } catch (Exception e) {
-        Log.e(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
+        Log.w(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
       }
     }
     
@@ -1676,7 +1694,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         notifyListenerAndDismiss(
             CardConstants.MESSAGE_TYPE_OPTIN, optinType != null ? optinType : "", false);
       } catch (Exception e) {
-        Log.e(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
+        Log.w(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
       }
     }
     
@@ -1694,11 +1712,11 @@ public class StashNativeCardPortraitActivity extends Activity {
               animateExpand();
             }
           } catch (Exception e) {
-            Log.e(TAG, "Error in expand UI thread: " + e.getMessage(), e);
+            Log.w(TAG, "Error in expand UI thread: " + e.getMessage(), e);
           }
         });
       } catch (Exception e) {
-        Log.e(TAG, "Error in expand: " + e.getMessage(), e);
+        Log.w(TAG, "Error in expand: " + e.getMessage(), e);
       }
     }
     
@@ -1716,11 +1734,11 @@ public class StashNativeCardPortraitActivity extends Activity {
               animateCollapse();
             }
           } catch (Exception e) {
-            Log.e(TAG, "Error in collapse UI thread: " + e.getMessage(), e);
+            Log.w(TAG, "Error in collapse UI thread: " + e.getMessage(), e);
           }
         });
       } catch (Exception e) {
-        Log.e(TAG, "Error in collapse: " + e.getMessage(), e);
+        Log.w(TAG, "Error in collapse: " + e.getMessage(), e);
       }
     }
 
@@ -1734,11 +1752,11 @@ public class StashNativeCardPortraitActivity extends Activity {
           try {
             dismissWithAnimation();
           } catch (Exception e) {
-            Log.e(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
+            Log.w(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
           }
         });
       } catch (Exception e) {
-        Log.e(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
+        Log.w(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
       }
     }
   }
@@ -1767,11 +1785,27 @@ public class StashNativeCardPortraitActivity extends Activity {
 
       if (webView != null) {
         try {
+          if (webView.getParent() != null) {
+            ((ViewGroup) webView.getParent()).removeView(webView);
+          }
+          webView.stopLoading();
+          webView.setWebChromeClient(null);
+          webView.setWebViewClient(null);
+          webView.removeJavascriptInterface(StashWebViewUtils.JS_INTERFACE_NAME);
           webView.destroy();
         } catch (Exception e) {
-          Log.e(TAG, "Error destroying WebView: " + e.getMessage(), e);
+          Log.w(TAG, "Error destroying WebView: " + e.getMessage(), e);
         }
         webView = null;
+      }
+      cardContainer = null;
+      rootLayout = null;
+      backdropView = null;
+      loadingView = null;
+      homeButton = null;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && onBackInvokedCallback != null) {
+        getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(onBackInvokedCallback);
+        onBackInvokedCallback = null;
       }
       
       if (!callbackSent) {
@@ -1779,11 +1813,11 @@ public class StashNativeCardPortraitActivity extends Activity {
         try {
           StashCheckoutBridge.emitDialogDismissed(this);
         } catch (Exception e) {
-          Log.e(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
+          Log.w(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
         }
       }
     } catch (Exception e) {
-      Log.e(TAG, "Error in onDestroy: " + e.getMessage(), e);
+      Log.w(TAG, "Error in onDestroy: " + e.getMessage(), e);
     }
   }
   

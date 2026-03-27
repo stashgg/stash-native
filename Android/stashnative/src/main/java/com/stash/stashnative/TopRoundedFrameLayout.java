@@ -36,11 +36,6 @@ public class TopRoundedFrameLayout extends FrameLayout {
     super(context, attrs, defStyleAttr);
   }
 
-  public void setTopCornerRadiusPx(float topCornerRadiusPx) {
-    this.topCornerRadiusPx = topCornerRadiusPx;
-    invalidate();
-  }
-
   /** Shared with {@link ViewOutlineProvider} so elevation shadow matches the visible shape. */
   public static Path buildTopRoundedClipPath(float width, float height, float radiusPx) {
     Path path = new Path();

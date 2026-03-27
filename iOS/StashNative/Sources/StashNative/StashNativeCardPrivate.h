@@ -22,6 +22,9 @@ CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 /// Updates _originalCard* in StashNativeCard.m for the given orientation (used after rotation in IPhoneCardCurrentOrientationViewController).
 void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
+
+/// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
+NSUInteger StashNativeCurrentPresentationSessionToken(void);
 /// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
 void resetCardExpandedStateAfterRotation(void);
 
@@ -78,9 +81,16 @@ void configureScrollViewForWebView(UIScrollView *scrollView);
 
 @interface WebViewLoadDelegate : NSObject <WKNavigationDelegate>
 @property (nonatomic, assign) CFAbsoluteTime pageLoadStartTime;
-- (instancetype)initWithWebView:(WKWebView *)webView loadingView:(UIView *)loadingView;
+- (instancetype)initWithWebView:(WKWebView *)webView
+                    loadingView:(UIView *)loadingView
+                retryArmDelay:(NSTimeInterval)retryArmDelay
+       presentationSessionToken:(NSUInteger)presentationSessionToken;
+/// Arms the stall-retry timer chain once using the explicit checkout URL from presenter code (up to two stall reloads in the delegate).
+- (void)armRetryTimerIfNeededForMainFrameURL:(NSURL *)url;
 /// Cancel all pending timers so stale delegates from closed cards cannot fire error callbacks.
 - (void)invalidateAllTimers;
+/// After background/foreground or process resume: refresh deadlines and optionally reload if navigation looks dead.
+- (void)recoverStaleLoadAfterApplicationForegroundIfNeeded;
 @end
 
 @interface WebViewUIDelegate : NSObject <WKUIDelegate>
