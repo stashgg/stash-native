@@ -12,11 +12,14 @@ import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 /**
  * Utility class for WebView configuration and common operations.
@@ -83,12 +86,39 @@ public class StashWebViewUtils {
     if (context == null) {
       return false;
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      int nightModeFlags = context.getResources().getConfiguration().uiMode
-          & Configuration.UI_MODE_NIGHT_MASK;
-      return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+    int nightModeFlags = context.getResources().getConfiguration().uiMode
+        & Configuration.UI_MODE_NIGHT_MASK;
+    return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+  }
+
+  /**
+   * Keeps status/navigation bar icon contrast aligned with app night mode. Without this, a
+   * translucent Stash window can reset the nav bar to light (light icons / wrong background).
+   */
+  public static void applySystemBarAppearance(Window window, View decorView, boolean darkTheme) {
+    if (window == null || decorView == null) {
+      return;
     }
-    return false;
+    try {
+      WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+      if (darkTheme) {
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.parseColor(COLOR_DARK_BG));
+        if (controller != null) {
+          controller.setAppearanceLightStatusBars(false);
+          controller.setAppearanceLightNavigationBars(false);
+        }
+      } else {
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.WHITE);
+        if (controller != null) {
+          controller.setAppearanceLightStatusBars(true);
+          controller.setAppearanceLightNavigationBars(true);
+        }
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "applySystemBarAppearance: " + e.getMessage(), e);
+    }
   }
 
   /**

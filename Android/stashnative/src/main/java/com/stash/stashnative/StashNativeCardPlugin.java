@@ -736,9 +736,10 @@ public class StashNativeCardPlugin {
             currentModalConfig.tabletHeightRatioLandscape);
       }
       
-      intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_NEW_TASK
-          | Intent.FLAG_ACTIVITY_MULTIPLE_TASK);
-      
+      // Same task as host app (no NEW_TASK / MULTIPLE_TASK): avoids a second entry in Recents.
+      // WebView still runs in :stash_webview via manifest android:process for crash isolation.
+      intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+
       activity.startActivity(intent);
       activity.overridePendingTransition(0, 0);
       presentationUsesIsolatedWebviewProcess = true;
@@ -1209,6 +1210,8 @@ public class StashNativeCardPlugin {
           WindowManager.LayoutParams windowParams = window.getAttributes();
           windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
           window.setAttributes(windowParams);
+          StashWebViewUtils.applySystemBarAppearance(
+              window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
         } catch (Exception e) {
           Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
         }
@@ -1372,6 +1375,8 @@ public class StashNativeCardPlugin {
           WindowManager.LayoutParams windowParams = window.getAttributes();
           windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
           window.setAttributes(windowParams);
+          StashWebViewUtils.applySystemBarAppearance(
+              window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
         } catch (Exception e) {
           Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
         }
@@ -1579,6 +1584,11 @@ public class StashNativeCardPlugin {
       webView.setVerticalScrollBarEnabled(false);
       webView.setHorizontalScrollBarEnabled(false);
       webView.setBackgroundColor(Color.TRANSPARENT);
+      // Show loading immediately before loadUrl() so there is never a blank-container window
+      // between addView() and the first onPageStarted callback.
+      if (currentContainer != null && loadingIndicator == null) {
+        loadingIndicator = StashWebViewUtils.createAndShowLoading(activity, currentContainer);
+      }
       webView.loadUrl(url);
     } catch (Exception e) {
       Log.e(TAG, "Error setting up WebView: " + e.getMessage(), e);
@@ -1605,8 +1615,11 @@ public class StashNativeCardPlugin {
     try {
       activity.runOnUiThread(() -> {
         try {
+          // Idempotent: if already attached (pre-created before loadUrl) just bring to front.
           if (loadingIndicator != null && loadingIndicator.getParent() != null) {
-            ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
+            loadingIndicator.setVisibility(View.VISIBLE);
+            loadingIndicator.bringToFront();
+            return;
           }
           loadingIndicator = StashWebViewUtils.createAndShowLoading(activity, currentContainer);
         } catch (Exception e) {
@@ -2039,6 +2052,8 @@ public class StashNativeCardPlugin {
           WindowManager.LayoutParams windowParams = window.getAttributes();
           windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
           window.setAttributes(windowParams);
+          StashWebViewUtils.applySystemBarAppearance(
+              window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
         } catch (Exception e) {
           Log.e(TAG, "Error configuring checkout overlay window: " + e.getMessage(), e);
         }

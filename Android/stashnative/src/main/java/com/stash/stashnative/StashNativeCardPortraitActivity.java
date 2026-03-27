@@ -36,6 +36,10 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import androidx.annotation.RequiresApi;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 /**
  * Activity that displays the Stash Pay checkout as a card or popup overlay.
@@ -81,6 +85,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean webViewLoadingRevealComplete;
   /** True while the loading/WebView crossfade is running (ignore duplicate onPageFinished). */
   private boolean webViewRevealAnimationRunning;
+  /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
+  private int webViewRevealAnimationToken;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -238,7 +244,11 @@ public class StashNativeCardPortraitActivity extends Activity {
           
           requestWindowFeature(Window.FEATURE_NO_TITLE);
           window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
+          // Edge-to-edge disabled; we apply system bar insets as padding on rootLayout so the
+          // bottom sheet and modal sit above nav bars (3-button, gesture, etc.).
+          WindowCompat.setDecorFitsSystemWindows(window, false);
+          StashWebViewUtils.applySystemBarAppearance(
+              window, window.getDecorView(), cachedIsDarkTheme);
         } catch (Exception e) {
           Log.e(TAG, "Error configuring window: " + e.getMessage(), e);
         }
@@ -306,6 +316,15 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       setContentView(rootLayout);
+      ViewCompat.setOnApplyWindowInsetsListener(rootLayout, (v, windowInsets) -> {
+        Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+        v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+        // Consume only system bar insets so IME/windowDecor still propagate to WebView.
+        return new WindowInsetsCompat.Builder(windowInsets)
+            .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.NONE)
+            .build();
+      });
+      ViewCompat.requestApplyInsets(rootLayout);
     } catch (Exception e) {
       Log.e(TAG, "Error in createUI: " + e.getMessage(), e);
       finish();
@@ -313,7 +332,13 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   private void configureCardContainer(boolean isTablet, int cardWidth, int cardHeight) {
-    cardContainer = new FrameLayout(this);
+    float radius = StashWebViewUtils.dpToPx(this, (int) CardConstants.CORNER_RADIUS_DP);
+    if (isTablet) {
+      cardContainer = new FrameLayout(this);
+    } else {
+      // Phone: canvas clip (TopRoundedFrameLayout); Outline path cannot clip WebView pre-API 33.
+      cardContainer = new TopRoundedFrameLayout(this, radius);
+    }
     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(cardWidth, cardHeight);
     params.gravity = isTablet ? Gravity.CENTER : (Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
     cardContainer.setLayoutParams(params);
@@ -322,7 +347,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     bg.setColor(cachedIsDarkTheme
         ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG)
         : Color.WHITE);
-    float radius = StashWebViewUtils.dpToPx(this, (int) CardConstants.CORNER_RADIUS_DP);
     
     if (isTablet) {
       bg.setCornerRadius(radius);
@@ -333,17 +357,19 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
       cardContainer.setElevation(StashWebViewUtils.dpToPx(this, (int) CardConstants.ELEVATION_DP));
-      cardContainer.setOutlineProvider(new ViewOutlineProvider() {
-        @Override
-        public void getOutline(View view, Outline outline) {
-          if (isTablet) {
-            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-          } else {
+      if (isTablet) {
+        cardContainer.setOutlineProvider(new ViewOutlineProvider() {
+          @Override
+          public void getOutline(View view, Outline outline) {
             outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
           }
-        }
-      });
-      cardContainer.setClipToOutline(true);
+        });
+        cardContainer.setClipToOutline(true);
+      } else {
+        // Shadow shape only; child clipping is handled in TopRoundedFrameLayout.dispatchDraw.
+        cardContainer.setOutlineProvider(TopRoundedFrameLayout.outlineProviderForElevation(radius));
+        cardContainer.setClipToOutline(false);
+      }
     }
   }
 
@@ -974,33 +1000,15 @@ public class StashNativeCardPortraitActivity extends Activity {
               return;
             }
 
-            // Stop retry/deadline timers once the main document has finished (fallback if commit
-            // callback did not run on this WebView version).
-            markMainFrameNavigationCommittedIfNeeded();
-            
             // Mark initial load as complete
             if (!initialPageLoadComplete) {
               initialPageLoadComplete = true;
             }
-            
-            revealWebViewAndRemoveLoading();
+
+            maybeRevealWhenReady();
             injectSDK(view);
             checkProvider(url);
             checkGooglePayRedirect(url);
-            
-            // Modal: show card and backdrop after initial page load
-            if (useModal && !modalInitialLoadComplete) {
-              modalInitialLoadComplete = true;
-              // Fade in backdrop
-              if (backdropView != null) {
-                backdropView.animate()
-                    .alpha(1f)
-                    .setDuration(200)
-                    .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
-                    .start();
-              }
-              animateFadeIn();
-            }
           } catch (Exception e) {
             Log.e(TAG, "Error in onPageFinished: " + e.getMessage(), e);
           }
@@ -1049,6 +1057,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         public void onPageCommitVisible(WebView view, String pageUrl) {
           super.onPageCommitVisible(view, pageUrl);
           markMainFrameNavigationCommittedIfNeeded();
+          maybeRevealWhenReady();
         }
 
         @Override
@@ -1077,6 +1086,7 @@ public class StashNativeCardPortraitActivity extends Activity {
             // Below API 29 there is no onPageCommitVisible; first progress means bytes are arriving.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 0) {
               markMainFrameNavigationCommittedIfNeeded();
+              maybeRevealWhenReady();
             }
           }
         });
@@ -1092,6 +1102,17 @@ public class StashNativeCardPortraitActivity extends Activity {
         webViewRevealAnimationRunning = false;
         webView.setAlpha(0f);
         cardContainer.addView(webView);
+
+        // Show loading immediately before loadUrl() so there is never a blank-card window
+        // between addView() and the first onPageStarted callback. showLoading() is idempotent:
+        // if the overlay already exists it will not remove/recreate it.
+        loadingView = StashWebViewUtils.createAndShowLoadingView(
+            getApplicationContext(), cardContainer);
+        if (loadingView != null) {
+          loadingView.setAlpha(1f);
+          loadingView.setVisibility(View.VISIBLE);
+        }
+
         String urlWithTheme;
         try {
           urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, cachedIsDarkTheme);
@@ -1130,9 +1151,12 @@ public class StashNativeCardPortraitActivity extends Activity {
         return;
       }
       webViewRetryCount = 1;
+      // Cancel any in-flight reveal crossfade; otherwise onAnimationEnd can still remove the
+      // loading overlay after we start the retry load.
+      cancelLoadingRevealAnimation();
       webViewLoadingRevealComplete = false;
-      webViewRevealAnimationRunning = false;
       webView.setAlpha(0f);
+      showLoading();
       Log.w(TAG, "StashNative: no HTTP response in "
           + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000)
           + "s — retrying " + webViewCommittedReloadUrl);
@@ -1170,6 +1194,35 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     mainFrameNavigationCommitted = true;
     cancelLoadTimers();
+  }
+
+  /**
+   * Reveals WebView only when both conditions are true:
+   * - document lifecycle finished (onPageFinished)
+   * - first frame committed/visible (onPageCommitVisible or progress fallback)
+   * This avoids a dark/blank intermediate frame in some WebView implementations.
+   */
+  private void maybeRevealWhenReady() {
+    if (networkErrorHandled || mainFrameErrorReceived || isDismissing) {
+      return;
+    }
+    if (!initialPageLoadComplete || !mainFrameNavigationCommitted) {
+      return;
+    }
+    revealWebViewAndRemoveLoading();
+
+    // Modal: show card and backdrop only after reveal prerequisites are satisfied.
+    if (useModal && !modalInitialLoadComplete) {
+      modalInitialLoadComplete = true;
+      if (backdropView != null) {
+        backdropView.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+            .start();
+      }
+      animateFadeIn();
+    }
   }
 
   private static String appendCacheBuster(String url) {
@@ -1323,6 +1376,24 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
   
+  /**
+   * Stops the loading/WebView crossfade and resets alpha so a new load can show the spinner until
+   * {@link #revealWebViewAndRemoveLoading()} runs again.
+   */
+  private void cancelLoadingRevealAnimation() {
+    // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
+    webViewRevealAnimationRunning = false;
+    webViewRevealAnimationToken++;
+    if (loadingView != null) {
+      loadingView.animate().cancel();
+      loadingView.setAlpha(1f);
+    }
+    if (webView != null) {
+      webView.animate().cancel();
+      webView.setAlpha(0f);
+    }
+  }
+
   private void showLoading() {
     runOnUiThread(() -> {
       if (webViewLoadingRevealComplete || webViewRevealAnimationRunning) {
@@ -1331,8 +1402,14 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (webView != null) {
         webView.setAlpha(0f);
       }
+      // Idempotent: if a loading view is already attached to the container (e.g. created eagerly
+      // in addWebView before loadUrl), just ensure it is visible rather than removing+recreating
+      // (which would cause the brief "loading flash" the user sees).
       if (loadingView != null && loadingView.getParent() != null) {
-        ((ViewGroup) loadingView.getParent()).removeView(loadingView);
+        loadingView.setAlpha(1f);
+        loadingView.setVisibility(View.VISIBLE);
+        loadingView.bringToFront();
+        return;
       }
 
       if (cardContainer != null) {
@@ -1361,6 +1438,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       if (loadingView != null) {
         webViewRevealAnimationRunning = true;
+        final int revealToken = ++webViewRevealAnimationToken;
         loadingView.animate().cancel();
         webView.animate().cancel();
         loadingView.setAlpha(1f);
@@ -1375,6 +1453,11 @@ public class StashNativeCardPortraitActivity extends Activity {
         crossfade.addListener(new AnimatorListenerAdapter() {
           @Override
           public void onAnimationEnd(Animator animation) {
+            // If cancelLoadingRevealAnimation() ran (e.g. stall retry), running was cleared first;
+            // do not strip the overlay or mark the WebView revealed.
+            if (!webViewRevealAnimationRunning || revealToken != webViewRevealAnimationToken) {
+              return;
+            }
             webViewRevealAnimationRunning = false;
             webViewLoadingRevealComplete = true;
             removeLoadingViewFromParent();
