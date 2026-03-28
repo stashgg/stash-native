@@ -385,6 +385,7 @@ static NSString * const kMessageHandlerOptin = @"stashOptin";
 static NSString * const kMessageHandlerExpand = @"stashExpand";
 static NSString * const kMessageHandlerCollapse = @"stashCollapse";
 static NSString * const kMessageHandlerWindowClose = @"stashWindowClose";
+static NSString * const kMessageHandlerPageReady = @"stashNativePageReady";
 
 #pragma mark - Associated Object Keys
 
@@ -646,6 +647,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPageReady];
             [webView.configuration.userContentController removeAllUserScripts];
 
             // Remove immediately — loadHTMLString:@"" would restart the WebContent
@@ -1547,6 +1549,13 @@ initialSpringVelocity:kSpringVelocityCollapse
                 [self callDelegateCallbackOnce];
             }];
         });
+    } else if ([name isEqualToString:kMessageHandlerPageReady]) {
+        WebViewLoadDelegate *loadDelegate = self.activeWebViewLoadDelegate;
+        if (loadDelegate) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [loadDelegate notifyPageReadyFromInjectedScript];
+            });
+        }
     }
 }
 
@@ -3103,6 +3112,41 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerWindowClose];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPageReady];
+    {
+        NSString *pageReadyHook = [NSString stringWithFormat:
+            @"(function(){"
+            @"if(window.__stashNativeRevealInit)return;"
+            @"window.__stashNativeRevealInit=1;"
+            @"var H='%@';"
+            @"function ok(){"
+            @"try{"
+            @"if(document.readyState==='loading')return false;"
+            @"if(!document.documentElement)return false;"
+            @"if(window.getComputedStyle(document.documentElement).display==='none')return false;"
+            @"if(!document.body)return false;"
+            @"if(window.getComputedStyle(document.body).display==='none')return false;"
+            @"}catch(e){return false;}"
+            @"return true;"
+            @"}"
+            @"function send(){"
+            @"if(window.__stashNativePageReadySent)return;"
+            @"if(!ok())return;"
+            @"window.__stashNativePageReadySent=1;"
+            @"requestAnimationFrame(function(){requestAnimationFrame(function(){"
+            @"try{window.webkit.messageHandlers[H].postMessage({});}catch(e){}"
+            @"});});"
+            @"}"
+            @"document.addEventListener('readystatechange',send);"
+            @"window.addEventListener('load',send,{once:true});"
+            @"send();"
+            @"})();",
+            kMessageHandlerPageReady];
+        WKUserScript *pageReadyScript = [[WKUserScript alloc] initWithSource:pageReadyHook
+                                                               injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
+                                                            forMainFrameOnly:YES];
+        [userContentController addUserScript:pageReadyScript];
+    }
     config.userContentController = userContentController;
     
     UIColor *systemBackgroundColor = getSystemBackgroundColor();

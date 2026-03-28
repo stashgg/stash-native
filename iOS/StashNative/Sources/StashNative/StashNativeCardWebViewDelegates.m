@@ -20,8 +20,19 @@
 
 #pragma mark - Loading / Reveal Constants (aligned with card animation timing)
 
-static const NSTimeInterval kPageReadyCheckInterval = 0.1;
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.35;
+/// Same eligibility as injected `stashNativePageReady` hook; one-shot eval from didFinishNavigation only.
+static NSString * const kPageReadyEvalJS =
+    @"(function(){"
+    @"try{"
+    @"if(document.readyState==='loading')return false;"
+    @"if(!document.documentElement)return false;"
+    @"if(window.getComputedStyle(document.documentElement).display==='none')return false;"
+    @"if(!document.body)return false;"
+    @"if(window.getComputedStyle(document.body).display==='none')return false;"
+    @"}catch(e){return false;}"
+    @"return true;"
+    @"})()";
 /// Stall-retry cadence: time before / between aggressive reloads when the main frame is not responding.
 static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 /// Hard deadline — if still no commit after the retry, report a network error.
@@ -52,7 +63,6 @@ extern const NSInteger kDragTrayViewTag;
     __unsafe_unretained WKWebView* _webView;
 #endif
     UIView* _loadingView;
-    NSTimer* _timeoutTimer;
     NSTimer* _networkTimeoutTimer;
     NSTimer* _modalFallbackTimer;
     /// Fires after kRetryTimeoutInterval if no HTTP response has arrived — triggers one retry.
@@ -169,13 +179,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         _networkErrorHandled = NO;
         
         STASH_DEBUG_LOG(@"StashNativeRetryTrace delegate init session=%lu", (unsigned long)_expectedPresentationSessionToken);
-        
-        _timeoutTimer = [NSTimer timerWithTimeInterval:kPageReadyCheckInterval
-                                                target:self
-                                              selector:@selector(handleTimeout:)
-                                              userInfo:nil
-                                               repeats:NO];
-        stashAddTimerToMainRunLoop(_timeoutTimer);
         
         // Start network timeout timer.
         _networkTimeoutTimer = [NSTimer timerWithTimeInterval:kNetworkTimeoutInterval
@@ -322,8 +325,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     // Cancel timers
     [_retryTimer invalidate];
     _retryTimer = nil;
-    [_timeoutTimer invalidate];
-    _timeoutTimer = nil;
     [_networkTimeoutTimer invalidate];
     _networkTimeoutTimer = nil;
     [_modalFallbackTimer invalidate];
@@ -510,11 +511,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     decisionHandler(WKNavigationResponsePolicyAllow);
 }
 
-- (void)handleTimeout:(NSTimer*)timer {
-    // No-op: the WebView is revealed by pollUntilPageReady after didCommit/didFinish.
-    // handleNetworkTimeout (15s) handles loads that never reach a successful main-frame response.
-}
-
 - (void)handleModalFallbackReveal:(NSTimer*)timer {
     _modalFallbackTimer = nil;
     if (![self sessionIsValidForCallbacks]) {
@@ -533,10 +529,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     if (_webView) {
         configureScrollViewForWebView(_webView.scrollView);
-    }
-    if (_timeoutTimer) {
-        [_timeoutTimer invalidate];
-        _timeoutTimer = nil;
     }
     if (_modalFallbackTimer) {
         [_modalFallbackTimer invalidate];
@@ -592,45 +584,46 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
 }
 
-/// Poll every kPageReadyCheckInterval until the page has left the 'loading' readyState
-/// (i.e. HTML parsed + CSS applied), then reveal the WebView.
-/// Called from both didCommitNavigation and didFinishNavigation so the reveal happens
-/// as soon as the page is visually ready — never before CSS is applied.
-- (void)pollUntilPageReady {
-    if (!_webView || _networkErrorHandled) return;
-    if (![self sessionIsValidForCallbacks]) return;
-    // Already revealed — nothing to do.
-    if (_webView.alpha >= 0.01) return;
+- (void)notifyPageReadyFromInjectedScript {
+    if (![self sessionIsValidForCallbacks]) {
+        STASH_DEBUG_LOG(@"StashNativeRetryTrace pageReady script ignored (stale session)");
+        return;
+    }
+    STASH_DEBUG_LOG(@"StashNativeRetryTrace pageReady from injected hook session=%lu",
+          (unsigned long)_expectedPresentationSessionToken);
+    [self showWebViewAndRemoveLoading];
+}
 
-    NSString *readyCheck =
-        @"(function(){"
-        @"  if(document.readyState==='loading') return false;"
-        @"  if(document.documentElement.style.display==='none') return false;"
-        @"  if(!document.body) return false;"
-        @"  if(window.getComputedStyle(document.body).display==='none') return false;"
-        @"  return true;"
-        @"})()";
-
+/// If the injected document-end hook never posts (rare), one evaluation after navigation finishes.
+- (void)evaluatePageReadyOnceAfterNavigationFinished {
+    if (!_webView || _networkErrorHandled) {
+        return;
+    }
+    if (![self sessionIsValidForCallbacks]) {
+        return;
+    }
+    if (_webView.alpha >= 0.01) {
+        return;
+    }
 #if __has_feature(objc_arc)
     __weak WebViewLoadDelegate *weakSelf = self;
 #else
     __unsafe_unretained WebViewLoadDelegate *weakSelf = self;
 #endif
-    [_webView evaluateJavaScript:readyCheck completionHandler:^(id result, NSError *error) {
+    [_webView evaluateJavaScript:kPageReadyEvalJS completionHandler:^(id result, NSError *error) {
         WebViewLoadDelegate *strongSelf = weakSelf;
-        if (!strongSelf || strongSelf->_networkErrorHandled) return;
+        if (!strongSelf || strongSelf->_networkErrorHandled) {
+            return;
+        }
         if (![strongSelf sessionIsValidForCallbacks]) {
-            STASH_DEBUG_LOG(@"StashNativeRetryTrace pollUntilPageReady aborted (stale session)");
+            STASH_DEBUG_LOG(@"StashNativeRetryTrace pageReady fallback eval aborted (stale session)");
+            return;
+        }
+        if (strongSelf->_webView.alpha >= 0.01) {
             return;
         }
         if ([result boolValue]) {
             [strongSelf showWebViewAndRemoveLoading];
-        } else {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPageReadyCheckInterval * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                WebViewLoadDelegate *s = weakSelf;
-                if (!s || s->_networkErrorHandled || ![s sessionIsValidForCallbacks]) return;
-                [s pollUntilPageReady];
-            });
         }
     }];
 }
@@ -660,8 +653,8 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 
         self.pageLoadStartTime = 0;
     }
-    // Ensure reveal happens even if didCommit polling hasn't fired yet.
-    [self pollUntilPageReady];
+    // Fallback if injected `stashNativePageReady` message did not fire (no polling).
+    [self evaluatePageReadyOnceAfterNavigationFinished];
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
@@ -684,7 +677,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
             [self markInitialLoadProgressFromMainFrameHTTPResponse:nil];
         }
     }
-    [self pollUntilPageReady];
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
@@ -734,10 +726,6 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     if (_retryTimer) {
         [_retryTimer invalidate];
         _retryTimer = nil;
-    }
-    if (_timeoutTimer) {
-        [_timeoutTimer invalidate];
-        _timeoutTimer = nil;
     }
     if (_networkTimeoutTimer) {
         [_networkTimeoutTimer invalidate];

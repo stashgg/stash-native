@@ -91,6 +91,8 @@ void configureScrollViewForWebView(UIScrollView *scrollView);
 - (void)invalidateAllTimers;
 /// After background/foreground or process resume: refresh deadlines and optionally reload if navigation looks dead.
 - (void)recoverStaleLoadAfterApplicationForegroundIfNeeded;
+/// Called when injected document-end script posts `stashNativePageReady` (readystate / load + rAF).
+- (void)notifyPageReadyFromInjectedScript;
 @end
 
 @interface WebViewUIDelegate : NSObject <WKUIDelegate>
