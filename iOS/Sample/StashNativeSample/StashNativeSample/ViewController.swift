@@ -48,7 +48,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let checkoutPhoneLandscapeHeightSlider = UISlider()
     let checkoutPhoneLandscapeHeightLabel = UILabel()
 
-    let modalShowDragBarSwitch = UISwitch()
     let modalAllowDismissSwitch = UISwitch()
     let modalPhonePortraitWidthSlider = UISlider()
     let modalPhonePortraitWidthLabel = UILabel()
@@ -77,6 +76,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     /// Card option rows (when card expandable is expanded).
     enum CheckoutOptionRow: Int, CaseIterable {
+        case cardBackgroundHex
         case forcePortraitOnCheckout
         case phoneCardHeight
         case phoneLandscapeWidth
@@ -88,7 +88,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
     /// Modal option rows (when modal expandable is expanded).
     enum ModalOptionRow: Int, CaseIterable {
-        case showDragBar
+        case modalBackgroundHex
         case allowDismiss
         case modalPhonePortraitWidth
         case modalPhonePortraitHeight
@@ -103,9 +103,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // Checkout Generation Settings
     static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
     static let userDefaultsApiKeyKey = "StashApiKey"
+    static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
+    static let userDefaultsModalBackgroundHexKey = "ModalBackgroundColorHex"
     var stashApiKey = ViewController.defaultStashApiKey
     var useTestApi = true
     let apiKeyTextField = UITextField()
+    let cardBackgroundColorTextField = UITextField()
+    let modalBackgroundColorTextField = UITextField()
     let useTestApiSwitch = UISwitch()
 
     // MARK: - Lifecycle
@@ -190,11 +194,38 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         apiKeyTextField.clearButtonMode = .whileEditing
         apiKeyTextField.addTarget(self, action: #selector(apiKeyEditingDidEnd), for: .editingDidEnd)
         useTestApiSwitch.isOn = true
+
+        func configureHexField(_ field: UITextField, key: String) {
+            field.placeholder = "#RRGGBB (optional)"
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.keyboardType = .asciiCapable
+            field.textAlignment = .right
+            field.font = .systemFont(ofSize: 17, weight: .regular)
+            field.clearButtonMode = .whileEditing
+            if let saved = UserDefaults.standard.string(forKey: key), !saved.isEmpty {
+                field.text = saved
+            }
+        }
+        configureHexField(cardBackgroundColorTextField, key: ViewController.userDefaultsCardBackgroundHexKey)
+        configureHexField(modalBackgroundColorTextField, key: ViewController.userDefaultsModalBackgroundHexKey)
+        cardBackgroundColorTextField.addTarget(self, action: #selector(cardBackgroundColorEditingDidEnd), for: .editingDidEnd)
+        modalBackgroundColorTextField.addTarget(self, action: #selector(modalBackgroundColorEditingDidEnd), for: .editingDidEnd)
     }
 
     @objc func apiKeyEditingDidEnd() {
         let key = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         UserDefaults.standard.set(key.isEmpty ? nil : key, forKey: ViewController.userDefaultsApiKeyKey)
+    }
+
+    @objc func cardBackgroundColorEditingDidEnd() {
+        let hex = cardBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        UserDefaults.standard.set(hex.isEmpty ? nil : hex, forKey: ViewController.userDefaultsCardBackgroundHexKey)
+    }
+
+    @objc func modalBackgroundColorEditingDidEnd() {
+        let hex = modalBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        UserDefaults.standard.set(hex.isEmpty ? nil : hex, forKey: ViewController.userDefaultsModalBackgroundHexKey)
     }
 
     func setupStashNativeCard() {

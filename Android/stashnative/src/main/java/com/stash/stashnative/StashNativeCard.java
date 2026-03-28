@@ -14,8 +14,8 @@ import java.lang.ref.WeakReference;
  * StashNativeCard.getInstance().setActivity(this);
  * StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListener() {
  *     {@literal @}Override
- *     public void onPaymentSuccess() {
- *         // Handle successful payment
+ *     public void onPaymentSuccess(String order) {
+ *         // Handle successful payment; {@code order} is plain or JSON string from the page, or null
  *     }
  *
  *     {@literal @}Override
@@ -54,8 +54,12 @@ public class StashNativeCard {
 
     /**
      * Called when a payment completes successfully.
+     *
+     * @param order Optional payload from {@code window.stash_sdk.onPaymentSuccess(order)}: a plain
+     *     string or JSON string; {@code null} if the page called {@code onPaymentSuccess()} with no
+     *     argument.
      */
-    void onPaymentSuccess();
+    void onPaymentSuccess(String order);
 
     /**
      * Called when a payment fails.
@@ -97,7 +101,7 @@ public class StashNativeCard {
    */
   public static class StashNativeCardListenerAdapter implements StashNativeCardListener {
 
-    @Override public void onPaymentSuccess() {}
+    @Override public void onPaymentSuccess(String order) {}
 
     @Override public void onPaymentFailure() {}
 
@@ -167,11 +171,14 @@ public class StashNativeCard {
     /** Tablet height ratio for landscape (0.1-1.0). */
     public float tabletHeightRatioLandscape =
         CardConstants.DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE;
-    /** Whether to show drag bar at top of modal. */
-    public boolean showDragBar = true;
     /** Whether tap outside and drag gestures can dismiss the modal. */
     public boolean allowDismiss = true;
-    
+    /**
+     * Optional HTML hex for sheet background (#RGB, #RRGGBB, #AARRGGBB). When null or invalid,
+     * system light/dark applies. Omit for default Stash theme.
+     */
+    public String backgroundColor;
+
     public ModalConfig() {}
     
     /**
@@ -181,7 +188,7 @@ public class StashNativeCard {
         float phoneWidthLandscape, float phoneHeightLandscape,
         float tabletWidthPortrait, float tabletHeightPortrait,
         float tabletWidthLandscape, float tabletHeightLandscape,
-        boolean showDragBar, boolean allowDismiss) {
+        boolean allowDismiss) {
       this.phoneWidthRatioPortrait = phoneWidthPortrait;
       this.phoneHeightRatioPortrait = phoneHeightPortrait;
       this.phoneWidthRatioLandscape = phoneWidthLandscape;
@@ -190,7 +197,6 @@ public class StashNativeCard {
       this.tabletHeightRatioPortrait = tabletHeightPortrait;
       this.tabletWidthRatioLandscape = tabletWidthLandscape;
       this.tabletHeightRatioLandscape = tabletHeightLandscape;
-      this.showDragBar = showDragBar;
       this.allowDismiss = allowDismiss;
     }
   }
@@ -218,6 +224,11 @@ public class StashNativeCard {
     public float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
     /** Tablet height ratio in landscape (0.1-1.0). Default 0.6. */
     public float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
+    /**
+     * Optional HTML hex for sheet background (#RGB, #RRGGBB, #AARRGGBB). When null or invalid,
+     * system light/dark applies. Omit for default Stash theme.
+     */
+    public String backgroundColor;
 
     public CardConfig() {}
   }

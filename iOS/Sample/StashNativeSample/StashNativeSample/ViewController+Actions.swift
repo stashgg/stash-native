@@ -43,6 +43,10 @@ extension ViewController {
         config.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
         config.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
         config.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+        let hex = cardBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !hex.isEmpty {
+            config.backgroundColor = hex
+        }
         return config
     }
 
@@ -57,7 +61,6 @@ extension ViewController {
 
     func buildModalConfig() -> StashNativeModalConfig {
         let config = StashNativeModalConfig()
-        config.showDragBar = modalShowDragBarSwitch.isOn
         config.allowDismiss = modalAllowDismissSwitch.isOn
         config.phoneWidthRatioPortrait = CGFloat(modalPhonePortraitWidthSlider.value) / 100.0
         config.phoneHeightRatioPortrait = CGFloat(modalPhonePortraitHeightSlider.value) / 100.0
@@ -67,6 +70,10 @@ extension ViewController {
         config.tabletHeightRatioPortrait = CGFloat(modalTabletPortraitHeightSlider.value) / 100.0
         config.tabletWidthRatioLandscape = CGFloat(modalTabletLandscapeWidthSlider.value) / 100.0
         config.tabletHeightRatioLandscape = CGFloat(modalTabletLandscapeHeightSlider.value) / 100.0
+        let hex = modalBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !hex.isEmpty {
+            config.backgroundColor = hex
+        }
         return config
     }
 

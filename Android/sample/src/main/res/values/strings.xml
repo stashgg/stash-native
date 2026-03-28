@@ -29,13 +29,14 @@
     <string name="hide_modal_options">Hide Modal options</string>
     <string name="option_use_test_api">Use test API</string>
     <string name="hint_api_key">API Key</string>
+    <string name="hint_card_background_color">Card background (hex)</string>
+    <string name="hint_modal_background_color">Modal background (hex)</string>
     <string name="error_generate_checkout_url">Failed to generate checkout URL</string>
     <string name="error_generate_webshop_url">Failed to generate webshop URL</string>
     <string name="option_web_view_mode">Use Web View mode</string>
     <string name="option_web_view_mode_supporting">Open in Chrome</string>
     <string name="option_force_portrait_on_checkout">Force portrait on checkout</string>
     <string name="option_force_portrait_on_checkout_supporting">Rotate to portrait when opening checkout</string>
-    <string name="option_show_drag_bar">Show drag bar</string>
     <string name="option_allow_dismiss">Allow dismiss</string>
     <string name="option_allow_dismiss_supporting">Tap outside to close</string>
     <string name="phone_card_height">Phone card height</string>

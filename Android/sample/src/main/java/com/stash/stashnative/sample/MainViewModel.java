@@ -16,6 +16,8 @@ public class MainViewModel extends AndroidViewModel {
 
   private static final String PREFS_NAME = "StashNativeSample";
   private static final String PREF_STASH_API_KEY = "StashApiKey";
+  private static final String PREF_CARD_BACKGROUND_HEX = "CardBackgroundColorHex";
+  private static final String PREF_MODAL_BACKGROUND_HEX = "ModalBackgroundColorHex";
 
   /** Default URL for the Card section (manual open + baseline testing). */
   private static final String DEFAULT_CARD_URL = "https://test.stashpreview.com/";
@@ -54,8 +56,11 @@ public class MainViewModel extends AndroidViewModel {
   private int checkoutTabletLandscapeW = 20;
   private int checkoutTabletLandscapeH = 50;
 
+  /** Optional `#RRGGBB` etc.; empty = SDK default (system theme). */
+  private String cardBackgroundColorHex = "";
+  private String modalBackgroundColorHex = "";
+
   // Modal options
-  private boolean modalShowDragBar = true;
   private boolean modalAllowDismiss = true;
   private int modalPhonePortraitW = 70;
   private int modalPhonePortraitH = 40;
@@ -73,6 +78,14 @@ public class MainViewModel extends AndroidViewModel {
     String saved = prefs.getString(PREF_STASH_API_KEY, null);
     if (saved != null && !saved.isEmpty()) {
       stashApiKey = saved;
+    }
+    String cardBg = prefs.getString(PREF_CARD_BACKGROUND_HEX, "");
+    if (cardBg != null) {
+      cardBackgroundColorHex = cardBg;
+    }
+    String modalBg = prefs.getString(PREF_MODAL_BACKGROUND_HEX, "");
+    if (modalBg != null) {
+      modalBackgroundColorHex = modalBg;
     }
     refreshList();
   }
@@ -106,6 +119,24 @@ public class MainViewModel extends AndroidViewModel {
 
   public String getBrowserUrl() {
     return browserUrl;
+  }
+
+  public void setCardBackgroundColorHex(String hex) {
+    this.cardBackgroundColorHex = hex != null ? hex : "";
+    prefs.edit().putString(PREF_CARD_BACKGROUND_HEX, this.cardBackgroundColorHex).apply();
+  }
+
+  public String getCardBackgroundColorHex() {
+    return cardBackgroundColorHex;
+  }
+
+  public void setModalBackgroundColorHex(String hex) {
+    this.modalBackgroundColorHex = hex != null ? hex : "";
+    prefs.edit().putString(PREF_MODAL_BACKGROUND_HEX, this.modalBackgroundColorHex).apply();
+  }
+
+  public String getModalBackgroundColorHex() {
+    return modalBackgroundColorHex;
   }
 
   public void toggleCheckoutOptions() {
@@ -149,11 +180,6 @@ public class MainViewModel extends AndroidViewModel {
 
   public void setForcePortraitOnCheckout(boolean on) {
     forcePortraitOnCheckout = on;
-    refreshList();
-  }
-
-  public void setModalShowDragBar(boolean on) {
-    modalShowDragBar = on;
     refreshList();
   }
 
@@ -239,10 +265,6 @@ public class MainViewModel extends AndroidViewModel {
 
   public boolean isForcePortraitOnCheckout() {
     return forcePortraitOnCheckout;
-  }
-
-  public boolean isModalShowDragBar() {
-    return modalShowDragBar;
   }
 
   public boolean isModalAllowDismiss() {
@@ -352,6 +374,9 @@ public class MainViewModel extends AndroidViewModel {
         checkoutOptionsExpanded ? R.string.hide_checkout_options : R.string.show_checkout_options,
         checkoutOptionsExpanded, R.drawable.ic_ms_tune_24, false, false));
     if (checkoutOptionsExpanded) {
+      list.add(SettingsItem.urlPreference(
+          R.string.hint_card_background_color, cardBackgroundColorHex,
+          R.drawable.ic_ms_tune_24, false, false));
       list.add(SettingsItem.switchPreference(
           R.string.option_force_portrait_on_checkout,
           R.string.option_force_portrait_on_checkout_supporting,
@@ -376,8 +401,9 @@ public class MainViewModel extends AndroidViewModel {
         modalOptionsExpanded, R.drawable.ic_ms_tune_24, false,
         !modalOptionsExpanded));
     if (modalOptionsExpanded) {
-      list.add(SettingsItem.switchPreference(
-          R.string.option_show_drag_bar, 0, modalShowDragBar, false, false));
+      list.add(SettingsItem.urlPreference(
+          R.string.hint_modal_background_color, modalBackgroundColorHex,
+          R.drawable.ic_ms_tune_24, false, false));
       list.add(SettingsItem.switchPreference(
           R.string.option_allow_dismiss, R.string.option_allow_dismiss_supporting,
           modalAllowDismiss, false, false));

@@ -222,6 +222,12 @@ extension ViewController {
             return UITableViewCell()
         }
         switch checkoutRow {
+        case .cardBackgroundHex:
+            return urlCell(
+                textField: cardBackgroundColorTextField,
+                label: "Background",
+                imageName: "paintpalette.fill"
+            )
         case .forcePortraitOnCheckout:
             return switchCell(
                 title: "Force Portrait on Card",
@@ -279,8 +285,12 @@ extension ViewController {
             return UITableViewCell()
         }
         switch modalRow {
-        case .showDragBar:
-            return switchCell(title: "Show Drag Bar", subtitle: nil, switchView: modalShowDragBarSwitch)
+        case .modalBackgroundHex:
+            return urlCell(
+                textField: modalBackgroundColorTextField,
+                label: "Background",
+                imageName: "paintpalette.fill"
+            )
         case .allowDismiss:
             return switchCell(
                 title: "Allow Dismiss",
@@ -357,6 +367,8 @@ extension ViewController {
                 return UITableView.automaticDimension
             }
             switch checkoutRow {
+            case .cardBackgroundHex:
+                return 44
             case .phoneCardHeight, .phoneLandscapeWidth, .phoneLandscapeHeight,
                  .tabletPortraitWidth, .tabletPortraitHeight,
                  .tabletLandscapeWidth, .tabletLandscapeHeight:
@@ -369,6 +381,8 @@ extension ViewController {
                 return UITableView.automaticDimension
             }
             switch modalRow {
+            case .modalBackgroundHex:
+                return 44
             case .modalPhonePortraitWidth, .modalPhonePortraitHeight,
                  .modalPhoneLandscapeWidth, .modalPhoneLandscapeHeight,
                  .modalTabletPortraitWidth, .modalTabletPortraitHeight,

@@ -82,9 +82,12 @@ public class MainActivity extends AppCompatActivity {
     stashPayCard.setActivity(this);
     stashPayCard.setListener(new StashNativeCard.StashNativeCardListener() {
       @Override
-      public void onPaymentSuccess() {
-        Log.i(TAG, "Payment successful");
-        runOnUiThread(() -> showOutcomeDialog("Success", "Purchase Successful"));
+      public void onPaymentSuccess(String order) {
+        Log.i(TAG, "Payment successful order=" + order);
+        String msg = order != null && !order.isEmpty()
+            ? "Purchase Successful\n\nOrder:\n" + order
+            : "Purchase Successful";
+        runOnUiThread(() -> showOutcomeDialog("Success", msg));
       }
 
       @Override
@@ -128,6 +131,10 @@ public class MainActivity extends AppCompatActivity {
     config.tabletHeightRatioPortrait = (viewModel.getCheckoutTabletPortraitH() + 10) / 100f;
     config.tabletWidthRatioLandscape = (viewModel.getCheckoutTabletLandscapeW() + 10) / 100f;
     config.tabletHeightRatioLandscape = (viewModel.getCheckoutTabletLandscapeH() + 10) / 100f;
+    String bg = viewModel.getCardBackgroundColorHex();
+    if (bg != null && !bg.trim().isEmpty()) {
+      config.backgroundColor = bg.trim();
+    }
     return config;
   }
 
@@ -352,7 +359,6 @@ public class MainActivity extends AppCompatActivity {
 
   private StashNativeCard.ModalConfig buildModalConfig() {
     StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();
-    config.showDragBar = viewModel.isModalShowDragBar();
     config.allowDismiss = viewModel.isModalAllowDismiss();
     config.phoneWidthRatioPortrait = (viewModel.getModalPhonePortraitW() + 10) / 100f;
     config.phoneHeightRatioPortrait = (viewModel.getModalPhonePortraitH() + 10) / 100f;
@@ -362,6 +368,10 @@ public class MainActivity extends AppCompatActivity {
     config.tabletHeightRatioPortrait = (viewModel.getModalTabletPortraitH() + 10) / 100f;
     config.tabletWidthRatioLandscape = (viewModel.getModalTabletLandscapeW() + 10) / 100f;
     config.tabletHeightRatioLandscape = (viewModel.getModalTabletLandscapeH() + 10) / 100f;
+    String bg = viewModel.getModalBackgroundColorHex();
+    if (bg != null && !bg.trim().isEmpty()) {
+      config.backgroundColor = bg.trim();
+    }
     return config;
   }
 

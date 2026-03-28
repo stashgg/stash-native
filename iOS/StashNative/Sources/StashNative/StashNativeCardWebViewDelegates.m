@@ -39,16 +39,12 @@ static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
-/// Matches card dark paint + color-scheme; used before reloads and after reveal in dark mode.
-static NSString * const kForceDarkBackgroundJS =
-    @"(function(){try{var BG='#1e1e1e';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();";
-
 #pragma mark - Extern declarations (defined in StashNativeCard.m)
 
 extern BOOL _usePopupPresentation;
 extern BOOL _useModalPresentation;
 extern BOOL isRunningOniPad(void);
-extern UIColor* getSystemBackgroundColor(void);
+extern UIColor* stash_sheetBackgroundUIColor(void);
 extern UIViewController *getTopPresentedViewController(void);
 extern void configureScrollViewForWebView(UIScrollView *scrollView);
 extern void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
@@ -118,15 +114,15 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
     WKWebView *wv = _webView;
-    UIColor *bg = getSystemBackgroundColor();
+    UIColor *bg = stash_sheetBackgroundUIColor();
     setWebViewBackgroundColor(wv, bg);
     wv.opaque = NO;
     wv.scrollView.backgroundColor = bg;
     wv.scrollView.opaque = YES;
 
     if (@available(iOS 13.0, *)) {
-        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
-            [wv evaluateJavaScript:kForceDarkBackgroundJS completionHandler:nil];
+        if (StashNativeSheetUsesDarkWebTheme()) {
+            [wv evaluateJavaScript:StashNativeDarkSheetBackgroundJavaScript() completionHandler:nil];
         }
     }
 
@@ -536,45 +532,24 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     
     if (_webView.alpha < 0.01) {
-        UIColor *backgroundColor = getSystemBackgroundColor();
+        UIColor *backgroundColor = stash_sheetBackgroundUIColor();
         _webView.backgroundColor = backgroundColor;
         _webView.scrollView.backgroundColor = backgroundColor;
         _webView.scrollView.opaque = YES;
         // Opaque WebView + simultaneous crossfade composites against an internal white
         // background — causes a white flash. Non-opaque composites against backgroundColor.
         _webView.opaque = NO;
-        
+
         if (@available(iOS 13.0, *)) {
-            UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-            if (currentStyle == UIUserInterfaceStyleDark) {
-                [_webView evaluateJavaScript:kForceDarkBackgroundJS completionHandler:nil];
+            if (StashNativeSheetUsesDarkWebTheme()) {
+                [_webView evaluateJavaScript:StashNativeDarkSheetBackgroundJavaScript() completionHandler:nil];
             }
         }
         
-        // For modal: also reveal the cardView (parent) and overlay which start hidden
-        UIView *cardView = _useModalPresentation ? _webView.superview : nil;
-        UIView *overlayView = nil;
-        if (_useModalPresentation && cardView) {
-            // The overlay is the first subview of the container view (cardView's parent)
-            UIView *containerView = cardView.superview;
-            if (containerView && containerView.subviews.count > 0) {
-                UIView *firstSubview = containerView.subviews.firstObject;
-                // Overlay has tag 0 and is not the cardView
-                if (firstSubview != cardView) {
-                    overlayView = firstSubview;
-                }
-            }
-        }
-        
+        // Modal: backdrop and card are shown on presentation; only crossfade loading → WebView here.
         [UIView animateWithDuration:kLoadingRevealAnimationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
             self->_loadingView.alpha = 0.0;
             self->_webView.alpha = 1.0;
-            if (cardView) {
-                cardView.alpha = 1.0;
-            }
-            if (overlayView) {
-                overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.4];
-            }
         } completion:^(BOOL finished) {
             // Keep loading view in hierarchy so stall/process/foreground reloads can cover the WebView
             // and avoid white flashes (do not removeFromSuperview).

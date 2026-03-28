@@ -12,6 +12,8 @@
 #import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
+#import <math.h>
+#import <stdlib.h>
 
 #ifdef DEBUG
 #define STASH_DEBUG_LOG(...) NSLog(__VA_ARGS__)
@@ -82,8 +84,8 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletHeightRatioPortrait = 0.30f;
         _tabletWidthRatioLandscape = 0.30f;
         _tabletHeightRatioLandscape = 0.40f;
-        _showDragBar = YES;
         _allowDismiss = YES;
+        _backgroundColor = nil;
     }
     return self;
 }
@@ -96,7 +98,6 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
                        tabletHeightPortrait:(CGFloat)tabletHeightPortrait
                        tabletWidthLandscape:(CGFloat)tabletWidthLandscape
                       tabletHeightLandscape:(CGFloat)tabletHeightLandscape
-                               showDragBar:(BOOL)showDragBar
                               allowDismiss:(BOOL)allowDismiss {
     self = [super init];
     if (self) {
@@ -108,8 +109,8 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletHeightRatioPortrait = tabletHeightPortrait;
         _tabletWidthRatioLandscape = tabletWidthLandscape;
         _tabletHeightRatioLandscape = tabletHeightLandscape;
-        _showDragBar = showDragBar;
         _allowDismiss = allowDismiss;
+        _backgroundColor = nil;
     }
     return self;
 }
@@ -131,6 +132,7 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletHeightRatioPortrait = 0.5f;
         _tabletWidthRatioLandscape = 0.3f;
         _tabletHeightRatioLandscape = 0.6f;
+        _backgroundColor = nil;
     }
     return self;
 }
@@ -184,7 +186,6 @@ static BOOL _showScrollbar = NO;
 // --- Modal configuration (reset on cleanup) ---
 // Non-static: referenced by StashNativeCardViewControllers.m
 BOOL _useModalPresentation = NO;
-BOOL _modalShowDragBar = YES;
 BOOL _modalAllowDismiss = YES;
 CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
 CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
@@ -194,6 +195,9 @@ CGFloat _modalTabletWidthRatioPortrait = 0.40f;
 CGFloat _modalTabletHeightRatioPortrait = 0.30f;
 CGFloat _modalTabletWidthRatioLandscape = 0.30f;
 CGFloat _modalTabletHeightRatioLandscape = 0.40f;
+
+/** Optional #hex for card/modal chrome; cleared on cleanup. */
+static NSString *_presentationBackgroundColorHex = nil;
 
 #define ENABLE_IPAD_SUPPORT 1
 
@@ -398,11 +402,17 @@ static NSString * const kAssociatedKeyInitialCardHeight = @"initialCardHeight";
 
 #pragma mark - Helper Function Prototypes
 
+static BOOL stash_colorIsDarkBackground(UIColor *color);
+static BOOL stash_effectiveThemeIsDark(void);
+static NSString *stash_cssHexFromUIColor(UIColor *color);
+static UIColor *stash_parseHTMLHexColor(NSString *hex);
+
 BOOL isRunningOniPad(void);
 CGSize calculateiPadCardSize(CGRect screenBounds);
 CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 UIColor* getSystemBackgroundColor(void);
+UIColor* stash_sheetBackgroundUIColor(void);
 CGFloat getSafeAreaTopForView(UIView *view);
 WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView);
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
@@ -456,9 +466,9 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
 - (UIView *)cardViewForCurrentPresentation;  // Returns cardView (kCardViewTag) for iPhone/iPad; nil if none
+- (void)updateDragTrayVisibilityForPurchaseProcessing:(BOOL)isProcessing;
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc;
 - (UIView *)createDragTray:(CGFloat)cardWidth;
-- (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth;  // Same look, no pan gesture (for tablet modal)
 - (void)expandCardToFullScreen;
 - (void)collapseCardToOriginal;
 - (void)animateCollapseWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion;
@@ -551,6 +561,35 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }
     UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
     return cardView ?: self.currentPresentedVC.view;
+}
+
+- (void)updateDragTrayVisibilityForPurchaseProcessing:(BOOL)isProcessing {
+    void (^apply)(void) = ^{
+        UIView *cardView = [self cardViewForCurrentPresentation];
+        if (!cardView) {
+            return;
+        }
+        UIView *tray = self.dragTrayView;
+        if (!tray) {
+            tray = [cardView viewWithTag:kDragTrayViewTag];
+        }
+        if (!tray) {
+            return;
+        }
+        CGFloat targetAlpha = isProcessing ? 0.0 : 1.0;
+        [UIView animateWithDuration:kOverlayFadeInDuration
+                              delay:0
+                            options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState
+                         animations:^{
+            tray.alpha = targetAlpha;
+        } completion:nil];
+        tray.userInteractionEnabled = !isProcessing;
+    };
+    if ([NSThread isMainThread]) {
+        apply();
+    } else {
+        dispatch_async(dispatch_get_main_queue(), apply);
+    }
 }
 
 - (BOOL)isIPhoneLandscapeCurrentOrientation {
@@ -692,6 +731,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
+    _presentationBackgroundColorHex = nil;
 }
 
 - (void)dismissWithAnimation:(void (^)(void))completion {
@@ -757,14 +797,17 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (UIView *)createDragTrayViewWithWidth:(CGFloat)cardWidth {
-    // Shared: build drag tray + handle bar (no gesture). Used by createDragTray and createDragTrayVisualOnly.
+    // Shared: build drag tray + handle bar (no gesture). Used by createDragTray.
     DragTrayView *dragTrayView = [[DragTrayView alloc] init];
     dragTrayView.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
     dragTrayView.tag = kDragTrayViewTag;
     dragTrayView.backgroundColor = [UIColor clearColor];
     
     UIView *handleView = [[UIView alloc] init];
-    handleView.backgroundColor = [UIColor colorWithWhite:kHandleBarGray alpha:1.0];
+    UIColor *chromeBg = stash_sheetBackgroundUIColor();
+    BOOL darkChrome = stash_colorIsDarkBackground(chromeBg);
+    handleView.backgroundColor = darkChrome ? [UIColor colorWithWhite:0.82 alpha:1.0]
+                                           : [UIColor colorWithWhite:0.39 alpha:1.0];
     handleView.layer.cornerRadius = kHandleBarCornerRadius;
     handleView.tag = kDragHandleViewTag;
     handleView.frame = CGRectMake(cardWidth/2 - kHandleBarHalfWidth, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
@@ -780,10 +823,6 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     dragTrayPanGesture.delegate = self;
     [dragTrayView addGestureRecognizer:dragTrayPanGesture];
     return dragTrayView;
-}
-
-- (UIView *)createDragTrayVisualOnly:(CGFloat)cardWidth {
-    return [self createDragTrayViewWithWidth:cardWidth];
 }
 
 - (void)expandCardToFullScreen {
@@ -829,7 +868,7 @@ initialSpringVelocity:kSpringVelocityExpand
         
         [self updateCustomFrameIfSupported:fullScreenFrame forViewController:nil];
         
-        cardView.backgroundColor = getSystemBackgroundColor();
+        cardView.backgroundColor = stash_sheetBackgroundUIColor();
         
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
@@ -1484,10 +1523,25 @@ initialSpringVelocity:kSpringVelocityCollapse
         _paymentSuccessHandled = YES;
         self.isPurchaseProcessing = NO;
         
-        if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidCompletePayment];
-            });
+        NSString *orderString = nil;
+        id body = message.body;
+        if ([body isKindOfClass:[NSString class]]) {
+            NSString *s = (NSString *)body;
+            if (s.length > 0) {
+                orderString = s;
+            }
+        }
+        
+        if (delegate) {
+            if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
+                });
+            } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [delegate stashNativeCardDidCompletePayment];
+                });
+            }
         }
         
         [self dismissWithAnimation:^{
@@ -1509,6 +1563,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         }];
     } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
         self.isPurchaseProcessing = YES;
+        [self updateDragTrayVisibilityForPurchaseProcessing:YES];
     } else if ([name isEqualToString:kMessageHandlerOptin]) {
         NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
 
@@ -1685,6 +1740,136 @@ UIColor* getSystemBackgroundColor(void) {
         return (currentStyle == UIUserInterfaceStyleDark) ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor systemBackgroundColor];
     }
     return [UIColor whiteColor];
+}
+
+static double stash_srgbLinearize(double c) {
+    return (c <= 0.03928) ? (c / 12.92) : pow((c + 0.055) / 1.055, 2.4);
+}
+
+static BOOL stash_colorIsDarkBackground(UIColor *color) {
+    if (!color) {
+        return YES;
+    }
+    CGFloat r, g, b, a;
+    if (![color getRed:&r green:&g blue:&b alpha:&a]) {
+        CGFloat w;
+        if (![color getWhite:&w alpha:&a]) {
+            return YES;
+        }
+        r = g = b = w;
+    }
+    double lum = 0.2126 * stash_srgbLinearize(r) + 0.7152 * stash_srgbLinearize(g) + 0.0722 * stash_srgbLinearize(b);
+    return lum < 0.5;
+}
+
+static UIColor *stash_parseHTMLHexColor(NSString *hex) {
+    if (hex.length == 0) {
+        return nil;
+    }
+    NSString *s = [[hex stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] lowercaseString];
+    if (s.length == 0) {
+        return nil;
+    }
+    if ([s hasPrefix:@"#"]) {
+        s = [s substringFromIndex:1];
+    }
+    unsigned r = 0, g = 0, b = 0, a = 255;
+    if (s.length == 3) {
+        for (NSInteger i = 0; i < 3; i++) {
+            unichar ch = [s characterAtIndex:i];
+            int v = 0;
+            if (ch >= '0' && ch <= '9') {
+                v = (int)(ch - '0');
+            } else if (ch >= 'a' && ch <= 'f') {
+                v = (int)(ch - 'a' + 10);
+            } else {
+                return nil;
+            }
+            v = v * 16 + v;
+            if (i == 0) {
+                r = (unsigned)v;
+            } else if (i == 1) {
+                g = (unsigned)v;
+            } else {
+                b = (unsigned)v;
+            }
+        }
+    } else if (s.length == 6) {
+        unsigned value = 0;
+        NSScanner *scanner = [NSScanner scannerWithString:s];
+        if (![scanner scanHexInt:&value] || value > 0xFFFFFF) {
+            return nil;
+        }
+        r = (value >> 16) & 0xFF;
+        g = (value >> 8) & 0xFF;
+        b = value & 0xFF;
+    } else if (s.length == 8) {
+        char buf[9] = {0};
+        if (![s getCString:buf maxLength:sizeof(buf) encoding:NSUTF8StringEncoding]) {
+            return nil;
+        }
+        char *end = NULL;
+        unsigned long value = strtoul(buf, &end, 16);
+        if (end != buf + 8 || value > 0xFFFFFFFFUL) {
+            return nil;
+        }
+        a = (unsigned)((value >> 24) & 0xFF);
+        r = (unsigned)((value >> 16) & 0xFF);
+        g = (unsigned)((value >> 8) & 0xFF);
+        b = (unsigned)(value & 0xFF);
+    } else {
+        return nil;
+    }
+    return [UIColor colorWithRed:r / 255.0 green:g / 255.0 blue:b / 255.0 alpha:a / 255.0];
+}
+
+static BOOL stash_effectiveThemeIsDark(void) {
+    if (_presentationBackgroundColorHex.length > 0) {
+        UIColor *c = stash_parseHTMLHexColor(_presentationBackgroundColorHex);
+        if (c) {
+            return stash_colorIsDarkBackground(c);
+        }
+    }
+    if (@available(iOS 13.0, *)) {
+        return [UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark;
+    }
+    return NO;
+}
+
+static NSString *stash_cssHexFromUIColor(UIColor *color) {
+    CGFloat r, g, b, a;
+    if (![color getRed:&r green:&g blue:&b alpha:&a]) {
+        CGFloat w;
+        if (![color getWhite:&w alpha:&a]) {
+            return @"#1e1e1e";
+        }
+        r = g = b = w;
+    }
+    return [NSString stringWithFormat:@"#%02lX%02lX%02lX",
+            (unsigned long)lround(r * 255.0),
+            (unsigned long)lround(g * 255.0),
+            (unsigned long)lround(b * 255.0)];
+}
+
+UIColor* stash_sheetBackgroundUIColor(void) {
+    if (_presentationBackgroundColorHex.length > 0) {
+        UIColor *parsed = stash_parseHTMLHexColor(_presentationBackgroundColorHex);
+        if (parsed) {
+            return parsed;
+        }
+    }
+    return getSystemBackgroundColor();
+}
+
+BOOL StashNativeSheetUsesDarkWebTheme(void) {
+    return stash_effectiveThemeIsDark();
+}
+
+NSString *StashNativeDarkSheetBackgroundJavaScript(void) {
+    NSString *hex = stash_cssHexFromUIColor(stash_sheetBackgroundUIColor());
+    return [NSString stringWithFormat:
+        @"(function(){try{var BG='%@';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();",
+        hex];
 }
 
 CGFloat getSafeAreaTopForView(UIView *view) {
@@ -1982,15 +2167,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return url;
     }
-    
-    NSString *theme = kThemeLight;
-    if (@available(iOS 13.0, *)) {
-        UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        if (currentStyle == UIUserInterfaceStyleDark) {
-            theme = kThemeDark;
-        }
-    }
-    
+
+    NSString *theme = stash_effectiveThemeIsDark() ? kThemeDark : kThemeLight;
+
     NSURLComponents *components = [NSURLComponents componentsWithString:url];
     if (components == nil) {
         NSString *separator = [url containsString:@"?"] ? @"&" : @"?";
@@ -2063,8 +2242,13 @@ NSString* appendThemeQueryParameter(NSString* url) {
         _tabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
         _tabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
         _tabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        NSString *ch = config.backgroundColor;
+        ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
+        _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
+    } else {
+        _presentationBackgroundColorHex = nil;
     }
-    
+
     _usePopupPresentation = NO;
     _useModalPresentation = NO;
     [self openURLInternal:url];
@@ -2091,7 +2275,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return;
     }
-    
+
+    _presentationBackgroundColorHex = nil;
+
     _usePopupPresentation = YES;
     
     if (sizeConfig) {
@@ -2120,7 +2306,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     _useModalPresentation = YES;
     
     if (config) {
-        _modalShowDragBar = config.showDragBar;
         _modalAllowDismiss = config.allowDismiss;
         _modalPhoneWidthRatioPortrait = config.phoneWidthRatioPortrait;
         _modalPhoneHeightRatioPortrait = config.phoneHeightRatioPortrait;
@@ -2130,9 +2315,11 @@ NSString* appendThemeQueryParameter(NSString* url) {
         _modalTabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
         _modalTabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
         _modalTabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        NSString *ch = config.backgroundColor;
+        ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
+        _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
     } else {
         // Use defaults
-        _modalShowDragBar = YES;
         _modalAllowDismiss = YES;
         _modalPhoneWidthRatioPortrait = 0.9f;
         _modalPhoneHeightRatioPortrait = 0.7f;
@@ -2142,8 +2329,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
         _modalTabletHeightRatioPortrait = 0.30f;
         _modalTabletWidthRatioLandscape = 0.30f;
         _modalTabletHeightRatioLandscape = 0.40f;
+        _presentationBackgroundColorHex = nil;
     }
-    
+
     [self openURLInternal:url];
 }
 
@@ -2401,7 +2589,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         
         // Create cardView
         UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
-        cardView.backgroundColor = getSystemBackgroundColor();
+        cardView.backgroundColor = stash_sheetBackgroundUIColor();
         cardView.clipsToBounds = YES;
         cardView.tag = kCardViewTag;
         [cardWindow addSubview:cardView];
@@ -2536,7 +2724,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     if (cardFinalY < 0) cardFinalY = 0;
     
     UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
-    cardView.backgroundColor = getSystemBackgroundColor();
+    cardView.backgroundColor = stash_sheetBackgroundUIColor();
     cardView.clipsToBounds = YES;
     cardView.tag = kCardViewTag;
     [cardWindow addSubview:cardView];
@@ -2648,7 +2836,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     // Create cardView (centered dialog)
     UIView *cardView = [[UIView alloc] init];
-    cardView.backgroundColor = getSystemBackgroundColor();
+    cardView.backgroundColor = stash_sheetBackgroundUIColor();
     cardView.tag = kCardViewTag;
     cardView.clipsToBounds = YES;
     cardView.layer.cornerRadius = kCornerRadiusDefault;
@@ -2777,7 +2965,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     // Create cardView (centered modal)
     UIView *cardView = [[UIView alloc] initWithFrame:frame];
-    cardView.backgroundColor = getSystemBackgroundColor();
+    cardView.backgroundColor = stash_sheetBackgroundUIColor();
     cardView.tag = kCardViewTag;
     cardView.clipsToBounds = YES;
     cardView.layer.cornerRadius = kCornerRadiusDefault;
@@ -2809,13 +2997,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [loadingView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
         [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
     ]];
-    
-    // Add visual-only drag tray if configured (modal never supports drag gestures)
-    if (_modalShowDragBar) {
-        UIView *dragTray = [internal createDragTrayVisualOnly:frame.size.width];
-        [cardView addSubview:dragTray];
-        internal.dragTrayView = dragTray;
-    }
     
     // Create delegates
     WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
@@ -2871,17 +3052,25 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [containerVC.view setNeedsLayout];
         [containerVC.view layoutIfNeeded];
         
-        // Modal waits for page load before showing anything
-        // Both overlay and cardView stay hidden until WebViewLoadDelegate reveals them
-        // Add dismiss button on overlay if allowDismiss is enabled (button is invisible until overlay fades in)
-        if (_modalAllowDismiss) {
-            UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
-            dismissButton.frame = overlayView.bounds;
-            dismissButton.backgroundColor = [UIColor clearColor];
-            dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-            [overlayView addSubview:dismissButton];
-            [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
-        }
+        // Same pattern as iPad modal: dim + card appear immediately; WebView stays on loading until ready.
+        [UIView animateWithDuration:kAnimationDurationDefault
+                              delay:0
+             usingSpringWithDamping:kSpringDampingDefault
+              initialSpringVelocity:kSpringVelocityExpand
+                            options:UIViewAnimationOptionCurveEaseOut
+                         animations:^{
+            cardView.alpha = 1.0;
+            overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
+        } completion:^(BOOL finished) {
+            if (_modalAllowDismiss) {
+                UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
+                dismissButton.frame = overlayView.bounds;
+                dismissButton.backgroundColor = [UIColor clearColor];
+                dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+                [overlayView addSubview:dismissButton];
+                [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+            }
+        }];
     });
 }
 
@@ -3041,8 +3230,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     NSString *stashSDKScript = [NSString stringWithFormat:@"(function() {"
         "window.stash_sdk = window.stash_sdk || {};"
-        "window.stash_sdk.onPaymentSuccess = function(data) {"
-            "window.webkit.messageHandlers.%@.postMessage(data || {});"
+        "window.stash_sdk.onPaymentSuccess = function(order) {"
+            "var payload = '';"
+            "if (arguments.length > 0 && order !== undefined && order !== null) {"
+            "  payload = (typeof order === 'string') ? order : JSON.stringify(order);"
+            "}"
+            "window.webkit.messageHandlers.%@.postMessage(payload);"
         "};"
         "window.stash_sdk.onPaymentFailure = function(data) {"
             "window.webkit.messageHandlers.%@.postMessage(data || {});"
@@ -3079,25 +3272,25 @@ NSString* appendThemeQueryParameter(NSString* url) {
                                                            forMainFrameOnly:YES];
     [userContentController addUserScript:noMarginsInjection];
 
-    // Dark mode: force native dark appearance + pin HTML/body to card colour at document start/end.
-    // overrideUserInterfaceStyle makes prefers-color-scheme: dark for the page; scripts + underPageBackgroundColor
-    // reduce white flashes before remote CSS loads.
+    // Dark / custom chrome: pin HTML/body to card colour; overrideUserInterfaceStyle sets prefers-color-scheme.
     if (@available(iOS 13.0, *)) {
-        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
-            NSString *darkBgAtStart =
+        if (stash_effectiveThemeIsDark()) {
+            NSString *bgHex = stash_cssHexFromUIColor(stash_sheetBackgroundUIColor());
+            NSString *darkBgAtStart = [NSString stringWithFormat:
                 @"(function(){"
-                @"var BG='#1e1e1e';"
+                "var BG='%@';"
                 @"function paint(){try{var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}}"
                 @"paint();"
                 @"document.addEventListener('readystatechange',function(){if(document.readyState==='interactive'||document.readyState==='complete')paint();});"
                 @"document.addEventListener('DOMContentLoaded',paint);"
-                @"})();";
+                @"})();", bgHex];
             WKUserScript *darkStart = [[WKUserScript alloc] initWithSource:darkBgAtStart
                                                             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                          forMainFrameOnly:YES];
             [userContentController addUserScript:darkStart];
-            NSString *darkBgAtEnd =
-                @"(function(){try{var BG='#1e1e1e';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();";
+            NSString *darkBgAtEnd = [NSString stringWithFormat:
+                @"(function(){try{var BG='%@';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();",
+                bgHex];
             WKUserScript *darkEnd = [[WKUserScript alloc] initWithSource:darkBgAtEnd
                                                           injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
                                                        forMainFrameOnly:YES];
@@ -3149,15 +3342,19 @@ NSString* appendThemeQueryParameter(NSString* url) {
     }
     config.userContentController = userContentController;
     
-    UIColor *systemBackgroundColor = getSystemBackgroundColor();
+    UIColor *chromeBackgroundColor = stash_sheetBackgroundUIColor();
     WKWebView *webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
     webView.opaque = YES;
     webView.hidden = NO;
-    setWebViewBackgroundColor(webView, systemBackgroundColor);
+    setWebViewBackgroundColor(webView, chromeBackgroundColor);
     webView.scrollView.opaque = YES;
     configureScrollViewForWebView(webView.scrollView);
     if (@available(iOS 13.0, *)) {
-        if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
+        if (_presentationBackgroundColorHex.length > 0) {
+            UIUserInterfaceStyle st = stash_effectiveThemeIsDark() ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
+            webView.overrideUserInterfaceStyle = st;
+            webView.scrollView.overrideUserInterfaceStyle = st;
+        } else if ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) {
             webView.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
             webView.scrollView.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
         } else {
@@ -3166,7 +3363,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         }
     }
     if (@available(iOS 15.0, *)) {
-        webView.underPageBackgroundColor = systemBackgroundColor;
+        webView.underPageBackgroundColor = chromeBackgroundColor;
     }
     webView.scrollView.scrollEnabled = YES;
     webView.scrollView.showsVerticalScrollIndicator = _showScrollbar;
@@ -3177,19 +3374,14 @@ NSString* appendThemeQueryParameter(NSString* url) {
 
 - (UIView *)createLoadingViewWithFrame:(CGRect)frame {
     UIView *loadingView = [[UIView alloc] initWithFrame:frame];
-    
-    BOOL isDarkMode = NO;
-    if (@available(iOS 13.0, *)) {
-        UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        isDarkMode = (currentStyle == UIUserInterfaceStyleDark);
-    }
-    
-    UIColor *backgroundColor = isDarkMode ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor whiteColor];
-    loadingView.backgroundColor = backgroundColor;
+
+    UIColor *chromeBg = stash_sheetBackgroundUIColor();
+    BOOL darkChrome = stash_colorIsDarkBackground(chromeBg);
+    loadingView.backgroundColor = chromeBg;
     loadingView.opaque = YES;
-    
+
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    spinner.color = isDarkMode ? [UIColor whiteColor] : [UIColor darkGrayColor];
+    spinner.color = darkChrome ? [UIColor whiteColor] : [UIColor darkGrayColor];
     
     spinner.translatesAutoresizingMaskIntoConstraints = NO;
     spinner.hidesWhenStopped = NO;
@@ -3246,7 +3438,9 @@ NSString* appendThemeQueryParameter(NSString* url) {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     if (internal.currentSafariViewController) {
         if (success) {
-            if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
+            if ([self.delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
+                [self.delegate stashNativeCardDidCompletePaymentWithOrder:nil];
+            } else if ([self.delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
                 [self.delegate stashNativeCardDidCompletePayment];
             }
         } else {

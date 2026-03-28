@@ -45,10 +45,13 @@ public class StashWebViewUtils {
   
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
-      + "  window.stash_sdk.onPaymentSuccess = function(data) {"
-      + "    try { "
+      + "  window.stash_sdk.onPaymentSuccess = function(order) {"
+      + "    try { var p=null;"
+      + "      if(arguments.length>0&&order!==undefined&&order!==null){"
+      + "        p=(typeof order==='string')?order:JSON.stringify(order);"
+      + "      }"
       + JS_INTERFACE_NAME
-      + ".onPaymentSuccess(); } catch(e) {}"
+      + ".onPaymentSuccess(p); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onPaymentFailure = function(data) {"
       + "    try { "
@@ -93,6 +96,39 @@ public class StashWebViewUtils {
     int nightModeFlags = context.getResources().getConfiguration().uiMode
         & Configuration.UI_MODE_NIGHT_MASK;
     return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+  }
+
+  /**
+   * Dark vs light for URL {@code theme=} and WebView forcing: custom background luminance if set,
+   * else system night mode.
+   */
+  public static boolean effectiveDarkThemeForCheckout(Context context, String backgroundHexOrNull) {
+    Integer c = StashBackgroundColorUtils.parseSolidColorOrNull(backgroundHexOrNull);
+    if (c != null) {
+      return StashBackgroundColorUtils.isDarkBackground(c);
+    }
+    return isDarkTheme(context);
+  }
+
+  /**
+   * Status/nav bars when the sheet uses a custom background color (nav bar matches sheet).
+   */
+  public static void applySystemBarAppearanceForSheet(Window window, View decorView, int sheetArgb) {
+    if (window == null || decorView == null) {
+      return;
+    }
+    try {
+      boolean darkBg = StashBackgroundColorUtils.isDarkBackground(sheetArgb);
+      WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+      window.setStatusBarColor(Color.TRANSPARENT);
+      window.setNavigationBarColor(sheetArgb);
+      if (controller != null) {
+        controller.setAppearanceLightStatusBars(!darkBg);
+        controller.setAppearanceLightNavigationBars(!darkBg);
+      }
+    } catch (Exception e) {
+      Log.e(TAG, "applySystemBarAppearanceForSheet: " + e.getMessage(), e);
+    }
   }
 
   /**
@@ -258,13 +294,24 @@ public class StashWebViewUtils {
     if (context == null || container == null) {
       return null;
     }
-    
+    boolean isDark = isDarkTheme(context);
+    int bg = isDark ? Color.parseColor(COLOR_DARK_BG) : Color.WHITE;
+    int accent = isDark ? Color.WHITE : Color.DKGRAY;
+    return createAndShowLoadingView(context, container, bg, accent);
+  }
+
+  /**
+   * Full-card loading overlay with explicit background and spinner accent (e.g. custom Stash Pay).
+   */
+  public static View createAndShowLoadingView(Context context, ViewGroup container,
+      int backgroundArgb, int spinnerAccentArgb) {
+    if (context == null || container == null) {
+      return null;
+    }
+
     try {
-      boolean isDark = isDarkTheme(context);
-      
-      // Create background container that covers the entire card
       FrameLayout loadingContainer = new FrameLayout(context);
-      loadingContainer.setBackgroundColor(isDark ? Color.parseColor(COLOR_DARK_BG) : Color.WHITE);
+      loadingContainer.setBackgroundColor(backgroundArgb);
       FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
           FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
       loadingContainer.setLayoutParams(containerParams);
@@ -280,7 +327,7 @@ public class StashWebViewUtils {
       
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
         loadingIndicator.setIndeterminateTintList(
-            android.content.res.ColorStateList.valueOf(isDark ? Color.WHITE : Color.DKGRAY));
+            android.content.res.ColorStateList.valueOf(spinnerAccentArgb));
       }
 
       FrameLayout.LayoutParams spinnerParams = new FrameLayout.LayoutParams(
@@ -288,18 +335,18 @@ public class StashWebViewUtils {
           dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP));
       spinnerParams.gravity = Gravity.CENTER;
       loadingIndicator.setLayoutParams(spinnerParams);
-      
+
       loadingContainer.addView(loadingIndicator);
       container.addView(loadingContainer);
       loadingContainer.bringToFront();
-      
+
       return loadingContainer;
     } catch (Exception e) {
       Log.w(TAG, "Error showing loading: " + e.getMessage());
       return null;
     }
   }
-  
+
   /**
    * Creates and shows a loading spinner (deprecated; use createAndShowLoadingView).
    *
@@ -366,6 +413,28 @@ public class StashWebViewUtils {
     } else {
       if (loadingIndicator.getParent() != null) {
         ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
+      }
+    }
+  }
+
+  /** Removes full-screen loading container from {@link #createAndShowLoadingView} (modal/popup path). */
+  public static void hideLoadingOverlay(final View loadingView) {
+    if (loadingView == null) {
+      return;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+      loadingView.animate()
+          .alpha(0.0f)
+          .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
+          .withEndAction(() -> {
+            if (loadingView.getParent() != null) {
+              ((ViewGroup) loadingView.getParent()).removeView(loadingView);
+            }
+          })
+          .start();
+    } else {
+      if (loadingView.getParent() != null) {
+        ((ViewGroup) loadingView.getParent()).removeView(loadingView);
       }
     }
   }

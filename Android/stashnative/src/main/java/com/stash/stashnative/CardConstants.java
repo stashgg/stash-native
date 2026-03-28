@@ -294,9 +294,11 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE =
       "tabletHeightRatioLandscape";
 
+  /** Optional custom sheet background (#hex); absent extra means use system theme. */
+  public static final String INTENT_EXTRA_BACKGROUND_COLOR = "stashNative.backgroundColor";
+
   // Modal-specific intent extras
   public static final String INTENT_EXTRA_USE_MODAL = "useModal";
-  public static final String INTENT_EXTRA_MODAL_SHOW_DRAG_BAR = "modalShowDragBar";
   public static final String INTENT_EXTRA_MODAL_ALLOW_DISMISS = "modalAllowDismiss";
   public static final String INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_PORTRAIT =
       "modalPhoneWidthRatioPortrait";
@@ -330,6 +332,8 @@ public final class CardConstants {
   public static final String BROADCAST_CHECKOUT_DIALOG_DISMISSED =
       "com.stash.stashnative.internal.CHECKOUT_DIALOG_DISMISSED";
   public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
+  /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
+  public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
 
   /** Message types for notifyListenerAndDismiss (success/failure/optin). */
   public static final String MESSAGE_TYPE_SUCCESS = "success";

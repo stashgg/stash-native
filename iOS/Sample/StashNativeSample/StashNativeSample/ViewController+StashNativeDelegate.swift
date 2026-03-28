@@ -12,9 +12,15 @@ import StashNative
 
 extension ViewController: StashNativeCardDelegate {
 
-    func stashNativeCardDidCompletePayment() {
+    func stashNativeCardDidCompletePayment(withOrder order: String?) {
+        let message: String
+        if let order, !order.isEmpty {
+            message = "Purchase Successful\n\nOrder:\n\(order)"
+        } else {
+            message = "Purchase Successful"
+        }
         DispatchQueue.main.async {
-            self.showAlert(title: "Success", message: "Purchase Successful")
+            self.showAlert(title: "Success", message: message)
         }
     }
 

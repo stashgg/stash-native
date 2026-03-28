@@ -308,6 +308,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setModalUrl(text);
         } else if (boundTitleRes == R.string.hint_api_key) {
           viewModel.setStashApiKey(text);
+        } else if (boundTitleRes == R.string.hint_card_background_color) {
+          viewModel.setCardBackgroundColorHex(text);
+        } else if (boundTitleRes == R.string.hint_modal_background_color) {
+          viewModel.setModalBackgroundColorHex(text);
         }
       }
     };
@@ -389,8 +393,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
         if (item.titleRes == R.string.option_force_portrait_on_checkout) {
           viewModel.setForcePortraitOnCheckout(isChecked);
-        } else if (item.titleRes == R.string.option_show_drag_bar) {
-          viewModel.setModalShowDragBar(isChecked);
         } else if (item.titleRes == R.string.option_allow_dismiss) {
           viewModel.setModalAllowDismiss(isChecked);
         } else if (item.titleRes == R.string.option_use_test_api) {

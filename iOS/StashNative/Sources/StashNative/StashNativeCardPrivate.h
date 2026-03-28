@@ -38,6 +38,11 @@ WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
 /// Applies bounce/overscroll limits to the WKWebView's scroll view; call after creation and on navigation (WebKit may reset scroll properties).
 void configureScrollViewForWebView(UIScrollView *scrollView);
 
+/// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
+BOOL StashNativeSheetUsesDarkWebTheme(void);
+/// Injects document meta + html/body background for dark sheet (BG matches configured background color).
+NSString *StashNativeDarkSheetBackgroundJavaScript(void);
+
 @interface DragTrayView : UIView
 @end
 

@@ -113,6 +113,9 @@ Pass a `CardConfig` (or `nil`/`null`) to control orientation and sizing. Pass `n
 | **forcePortrait** | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
 | **Phone** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0). |
 | **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+| **backgroundColor** | Optional HTML hex string (e.g. `#RRGGBB`). When set, the sheet background (WebView underpaint, loading spinner, drag handle, and `theme=` on the URL) follows that color instead of system light/dark. Omit or leave unset for SDK defaults. |
+
+> **Background color:** Use `backgroundColor` only when you need the native shell to match **Stash Pay with a custom theme**. For the **default Stash theme**, leave it unset so the standard light/dark experience stays aligned with the system.
 
 > **Warning:** If using `forcePortrait`, ensure your app supports portrait or can unlock to portrait while the card is shown.
 
@@ -155,7 +158,7 @@ Set a listener (Android) or delegate (iOS) before calling `openCard` or `openMod
 StashNativeCard.getInstance().setActivity(this);
 StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListener() {
     @Override
-    public void onPaymentSuccess() {
+    public void onPaymentSuccess(String order) {
         // Handle successful payment
     }
 
@@ -171,7 +174,7 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
 
     @Override
     public void onOptInResponse(String optinType) {
-        // Channel selection response (e.g. "email", "sms")
+        // Channel selection response (e.g. "stash_pay", "native_iap")
     }
 
     @Override
@@ -192,7 +195,7 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
 StashNativeCard.sharedInstance().delegate = self
 // In your class (e.g. ViewController):
 extension YourViewController: StashNativeCardDelegate {
-    func stashNativeCardDidCompletePayment() {
+    func stashNativeCardDidCompletePayment(withOrder order: String?) {
         // Handle successful payment
     }
     func stashNativeCardDidFailPayment() {
@@ -217,7 +220,7 @@ extension YourViewController: StashNativeCardDelegate {
 [StashNativeCard sharedInstance].delegate = self;
 
 // In your class:
-- (void)stashNativeCardDidCompletePayment {
+- (void)stashNativeCardDidCompletePaymentWithOrder:(NSString *)order {
     // Handle successful payment
 }
 - (void)stashNativeCardDidFailPayment {
@@ -265,19 +268,19 @@ StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or n
 
 ### Config
 
-Pass a `ModalConfig` (or `nil`/`null`) to control drag bar, dismiss behavior, and sizing. Pass `nil`/`null` for defaults.
+Pass a `ModalConfig` (or `nil`/`null`) to control dismiss behavior and sizing. Pass `nil`/`null` for defaults. 
 
 | Aspect | Description |
 | ------ | ----------- |
-| **Behavior** | `showDragBar` (default `true`), `allowDismiss` (default `true`). |
+| **Behavior** | `allowDismiss` (default `true`). |
 | **Phone** | `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait`, `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (0.1–1.0). |
 | **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+| **backgroundColor** | Same optional HTML hex as on `CardConfig` / `StashNativeCardConfig`. Omit for SDK defaults. |
 
 **Android**
 
 ```java
 StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();
-config.showDragBar = true;
 config.allowDismiss = true;
 // ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
 stashNative.openModal(url, config);
@@ -287,7 +290,6 @@ stashNative.openModal(url, config);
 
 ```swift
 let config = StashNativeModalConfig()
-config.showDragBar = true
 config.allowDismiss = true
 // ... phoneWidthRatioPortrait, phoneHeightRatioPortrait, tablet ratios, etc. (see table above)
 stashNative.openModal(withURL: url, config: config)

@@ -19,9 +19,12 @@ final class StashCheckoutBridge {
     return intent;
   }
 
-  static void emitPaymentSuccess(Context context) {
-    context.getApplicationContext().sendBroadcast(
-        baseIntent(context, CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS));
+  static void emitPaymentSuccess(Context context, String order) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS);
+    if (order != null && !order.isEmpty()) {
+      intent.putExtra(CardConstants.BROADCAST_EXTRA_PAYMENT_ORDER, order);
+    }
+    context.getApplicationContext().sendBroadcast(intent);
   }
 
   static void emitPaymentFailure(Context context) {

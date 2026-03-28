@@ -63,7 +63,6 @@ extension ViewController {
     }
 
     func setupModalSlidersAndSwitches() {
-        modalShowDragBarSwitch.isOn = true
         modalAllowDismissSwitch.isOn = true
         configureSlider(modalPhonePortraitWidthSlider, label: modalPhonePortraitWidthLabel, value: 80)
         modalPhonePortraitWidthSlider.addTarget(

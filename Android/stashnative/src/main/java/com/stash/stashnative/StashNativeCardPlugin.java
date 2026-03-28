@@ -38,7 +38,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
 import androidx.annotation.RequiresApi;
 import java.lang.ref.WeakReference;
 
@@ -63,7 +62,7 @@ public class StashNativeCardPlugin {
   private Dialog currentDialog;
   private WebView webView;
   private FrameLayout currentContainer;
-  private ProgressBar loadingIndicator;
+  private View loadingOverlayView;
   private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
   
   // Phone card: only height is configurable in portrait (full width);
@@ -93,9 +92,15 @@ public class StashNativeCardPlugin {
   /** When true, checkout overlay (no force portrait) is expanded to ~95% height. */
   private boolean isCheckoutOverlayExpanded = false;
   private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
+  /** Top drag strip on checkout overlay / dialog; faded when purchase processing blocks dismiss. */
+  private View checkoutOverlayDragHandleArea;
   
   // Modal configuration (used when useModalPresentation is true)
   private StashNativeCard.ModalConfig currentModalConfig;
+
+  /** Custom background (#hex) for card presentation; modal uses {@link #currentModalConfig}. */
+  /** Normalized #hex from last {@code openCard} config (used when portrait activity is not involved). */
+  private String presentationBackgroundColorHex;
   
   private boolean useCustomSize;
   private float customPortraitWidthMultiplier = CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER;
@@ -241,7 +246,8 @@ public class StashNativeCardPlugin {
         return;
       }
       if (CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS.equals(action)) {
-        l.onPaymentSuccess();
+        String order = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_PAYMENT_ORDER);
+        l.onPaymentSuccess(order);
       } else if (CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE.equals(action)) {
         l.onPaymentFailure();
       } else if (CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR.equals(action)) {
@@ -288,16 +294,17 @@ public class StashNativeCardPlugin {
 
   private class StashJavaScriptInterface {
     @JavascriptInterface
-    public void onPaymentSuccess() {
+    public void onPaymentSuccess(String order) {
       if (paymentSuccessHandled) {
         return;
       }
       paymentSuccessHandled = true;
       isPurchaseProcessing = false;
+      final String orderPayload = order;
       runOnMainAndDismiss(() -> {
         StashNativeCard.StashNativeCardListener l = getListener();
         if (l != null) {
-          l.onPaymentSuccess();
+          l.onPaymentSuccess(orderPayload);
         }
       });
     }
@@ -327,6 +334,7 @@ public class StashNativeCardPlugin {
               currentDialog.setCanceledOnTouchOutside(false);
               currentDialog.setCancelable(false);
             }
+            applyCheckoutOverlayDragHandlePurchaseProcessingFade(true);
           } catch (Exception e) {
             Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
           }
@@ -462,6 +470,10 @@ public class StashNativeCardPlugin {
         this.tabletHeightRatioPortrait = clampRatio(config.tabletHeightRatioPortrait);
         this.tabletWidthRatioLandscape = clampRatio(config.tabletWidthRatioLandscape);
         this.tabletHeightRatioLandscape = clampRatio(config.tabletHeightRatioLandscape);
+        this.presentationBackgroundColorHex =
+            StashBackgroundColorUtils.normalizeHexOrNull(config.backgroundColor);
+      } else {
+        this.presentationBackgroundColorHex = null;
       }
       usePopupPresentation = false;
       useModalPresentation = false;
@@ -650,6 +662,14 @@ public class StashNativeCardPlugin {
     return Math.max(0.1f, Math.min(1.0f, ratio));
   }
 
+  /** Hex string for the upcoming portrait activity / theme query, or null for system default. */
+  private String backgroundColorHexForPresentation() {
+    if (useModalPresentation && currentModalConfig != null) {
+      return StashBackgroundColorUtils.normalizeHexOrNull(currentModalConfig.backgroundColor);
+    }
+    return presentationBackgroundColorHex;
+  }
+
   /**
    * Returns whether a purchase is currently being processed.
    *
@@ -679,8 +699,9 @@ public class StashNativeCardPlugin {
       }
 
       try {
+        String bgHex = backgroundColorHexForPresentation();
         url = StashWebViewUtils.appendThemeQueryParameter(url,
-            StashWebViewUtils.isDarkTheme(activity));
+            StashWebViewUtils.effectiveDarkThemeForCheckout(activity, bgHex));
       } catch (Exception e) {
         Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
       }
@@ -746,11 +767,13 @@ public class StashNativeCardPlugin {
       intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
       intent.putExtra(CardConstants.INTENT_EXTRA_USE_MODAL, useModalPresentation);
       intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
-      
+      String bgForIntent = backgroundColorHexForPresentation();
+      if (bgForIntent != null) {
+        intent.putExtra(CardConstants.INTENT_EXTRA_BACKGROUND_COLOR, bgForIntent);
+      }
+
       // Pass modal config if in modal mode
       if (useModalPresentation && currentModalConfig != null) {
-        intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_SHOW_DRAG_BAR,
-            currentModalConfig.showDragBar);
         intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_ALLOW_DISMISS,
             currentModalConfig.allowDismiss);
         intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_PHONE_WIDTH_RATIO_PORTRAIT,
@@ -1359,7 +1382,7 @@ public class StashNativeCardPlugin {
 
       try {
         GradientDrawable popupBg = new GradientDrawable();
-        popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
+        popupBg.setColor(dialogSheetBackgroundArgb(activity));
         float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
         popupBg.setCornerRadius(radius);
         currentContainer.setBackground(popupBg);
@@ -1389,9 +1412,6 @@ public class StashNativeCardPlugin {
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         webView.setLayoutParams(webViewParams);
         currentContainer.addView(webView);
-        if (currentModalConfig.showDragBar) {
-          addVisualDragBarToContainer(activity, currentContainer);
-        }
         setupPopupWebView(webView, url, activity);
       } catch (Exception e) {
         Log.w(TAG, "Error creating WebView: " + e.getMessage(), e);
@@ -1414,8 +1434,13 @@ public class StashNativeCardPlugin {
           WindowManager.LayoutParams windowParams = window.getAttributes();
           windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
           window.setAttributes(windowParams);
-          StashWebViewUtils.applySystemBarAppearance(
-              window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
+          if (dialogBackgroundColorOverrideActive()) {
+            StashWebViewUtils.applySystemBarAppearanceForSheet(
+                window, window.getDecorView(), dialogSheetBackgroundArgb(activity));
+          } else {
+            StashWebViewUtils.applySystemBarAppearance(
+                window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
+          }
         } catch (Exception e) {
           Log.w(TAG, "Error configuring window: " + e.getMessage(), e);
         }
@@ -1541,14 +1566,42 @@ public class StashNativeCardPlugin {
     }
   }
 
+  private int dialogSheetBackgroundArgb(Activity activity) {
+    if (useModalPresentation && currentModalConfig != null) {
+      Integer c = StashBackgroundColorUtils.parseSolidColorOrNull(currentModalConfig.backgroundColor);
+      if (c != null) {
+        return c;
+      }
+    }
+    return StashWebViewUtils.getThemeBackgroundColor(activity);
+  }
+
+  private boolean dialogEffectiveDarkForWeb(Activity activity) {
+    if (useModalPresentation && currentModalConfig != null) {
+      Integer c = StashBackgroundColorUtils.parseSolidColorOrNull(currentModalConfig.backgroundColor);
+      if (c != null) {
+        return StashBackgroundColorUtils.isDarkBackground(c);
+      }
+    }
+    return StashWebViewUtils.isDarkTheme(activity);
+  }
+
+  private boolean dialogBackgroundColorOverrideActive() {
+    return useModalPresentation && currentModalConfig != null
+        && StashBackgroundColorUtils.parseSolidColorOrNull(currentModalConfig.backgroundColor) != null;
+  }
+
   private void setupPopupWebView(WebView webView, String url, final Activity activity) {
     if (webView == null || activity == null || url == null || url.isEmpty()) {
       Log.e(TAG, "Invalid parameters in setupPopupWebView");
       return;
     }
 
+    final int sheetBg = dialogSheetBackgroundArgb(activity);
+    final boolean effDark = dialogEffectiveDarkForWeb(activity);
+
     try {
-      StashWebViewUtils.configureWebViewSettings(webView, StashWebViewUtils.isDarkTheme(activity));
+      StashWebViewUtils.configureWebViewSettings(webView, effDark);
     } catch (Exception e) {
       Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
     }
@@ -1625,13 +1678,20 @@ public class StashNativeCardPlugin {
           StashWebViewUtils.JS_INTERFACE_NAME);
       webView.setVerticalScrollBarEnabled(false);
       webView.setHorizontalScrollBarEnabled(false);
-      webView.setBackgroundColor(Color.TRANSPARENT);
+      webView.setBackgroundColor(sheetBg);
       // Show loading immediately before loadUrl() so there is never a blank-container window
       // between addView() and the first onPageStarted callback.
-      if (currentContainer != null && loadingIndicator == null) {
-        loadingIndicator = StashWebViewUtils.createAndShowLoading(activity, currentContainer);
+      if (currentContainer != null && loadingOverlayView == null) {
+        loadingOverlayView = StashWebViewUtils.createAndShowLoadingView(activity, currentContainer,
+            sheetBg, StashBackgroundColorUtils.spinnerAccentFor(sheetBg));
       }
-      webView.loadUrl(url);
+      String urlThemed = url;
+      try {
+        urlThemed = StashWebViewUtils.appendThemeQueryParameter(url, effDark);
+      } catch (Exception e) {
+        Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+      }
+      webView.loadUrl(urlThemed);
     } catch (Exception e) {
       Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
       cleanupAllViews();
@@ -1658,12 +1718,14 @@ public class StashNativeCardPlugin {
       activity.runOnUiThread(() -> {
         try {
           // Idempotent: if already attached (pre-created before loadUrl) just bring to front.
-          if (loadingIndicator != null && loadingIndicator.getParent() != null) {
-            loadingIndicator.setVisibility(View.VISIBLE);
-            loadingIndicator.bringToFront();
+          if (loadingOverlayView != null && loadingOverlayView.getParent() != null) {
+            loadingOverlayView.setVisibility(View.VISIBLE);
+            loadingOverlayView.bringToFront();
             return;
           }
-          loadingIndicator = StashWebViewUtils.createAndShowLoading(activity, currentContainer);
+          int sheetBg = dialogSheetBackgroundArgb(activity);
+          loadingOverlayView = StashWebViewUtils.createAndShowLoadingView(activity, currentContainer,
+              sheetBg, StashBackgroundColorUtils.spinnerAccentFor(sheetBg));
         } catch (Exception e) {
           Log.w(TAG, "Error showing loading indicator: " + e.getMessage(), e);
         }
@@ -1674,17 +1736,17 @@ public class StashNativeCardPlugin {
   }
   
   private void hideLoadingIndicator(Activity activity) {
-    if (loadingIndicator == null || activity == null) {
+    if (loadingOverlayView == null || activity == null) {
       return;
     }
     try {
       activity.runOnUiThread(() -> {
         try {
-          StashWebViewUtils.hideLoading(loadingIndicator);
-          loadingIndicator = null;
+          StashWebViewUtils.hideLoadingOverlay(loadingOverlayView);
+          loadingOverlayView = null;
         } catch (Exception e) {
           Log.w(TAG, "Error hiding loading indicator: " + e.getMessage(), e);
-          loadingIndicator = null;
+          loadingOverlayView = null;
         }
       });
     } catch (Exception e) {
@@ -1739,15 +1801,15 @@ public class StashNativeCardPlugin {
   private void cleanupAllViews() {
     try {
       useCheckoutOverlayPresentation = false;
-      if (loadingIndicator != null) {
+      if (loadingOverlayView != null) {
         try {
-          if (loadingIndicator.getParent() != null) {
-            ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
+          if (loadingOverlayView.getParent() != null) {
+            ((ViewGroup) loadingOverlayView.getParent()).removeView(loadingOverlayView);
           }
         } catch (Exception e) {
           Log.w(TAG, "Error cleaning up loading indicator: " + e.getMessage());
         }
-        loadingIndicator = null;
+        loadingOverlayView = null;
       }
       
       if (currentDialog != null) {
@@ -1791,6 +1853,7 @@ public class StashNativeCardPlugin {
         currentContainer = null;
       }
       
+      checkoutOverlayDragHandleArea = null;
       orientationChangeListener = null;
     } catch (Exception e) {
       Log.w(TAG, "Error during cleanup: " + e.getMessage());
@@ -2023,7 +2086,7 @@ public class StashNativeCardPlugin {
       }
       try {
         GradientDrawable popupBg = new GradientDrawable();
-        popupBg.setColor(StashWebViewUtils.getThemeBackgroundColor(activity));
+        popupBg.setColor(dialogSheetBackgroundArgb(activity));
         float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
         popupBg.setCornerRadius(radius);
         currentContainer.setBackground(popupBg);
@@ -2078,8 +2141,13 @@ public class StashNativeCardPlugin {
           // Dim is animated on in-dialog layer (matches iOS overlay fade + delayed sheet).
           windowParams.dimAmount = 0f;
           window.setAttributes(windowParams);
-          StashWebViewUtils.applySystemBarAppearance(
-              window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
+          if (dialogBackgroundColorOverrideActive()) {
+            StashWebViewUtils.applySystemBarAppearanceForSheet(
+                window, window.getDecorView(), dialogSheetBackgroundArgb(activity));
+          } else {
+            StashWebViewUtils.applySystemBarAppearance(
+                window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
+          }
         } catch (Exception e) {
           Log.w(TAG, "Error configuring checkout overlay window: " + e.getMessage(), e);
         }
@@ -2132,11 +2200,12 @@ public class StashNativeCardPlugin {
    * Adds the same visual drag bar as Activity cards (no touch handling).
    */
   private void addCheckoutOverlayDragBar(Activity activity) {
-    addVisualDragBarToContainer(activity, currentContainer);
+    addVisualDragBarToContainer(activity, currentContainer, dialogSheetBackgroundArgb(activity));
   }
 
   /** Adds a visual-only drag bar to the given container (modal or overlay). No touch handling. */
-  private void addVisualDragBarToContainer(Activity activity, FrameLayout container) {
+  private void addVisualDragBarToContainer(Activity activity, FrameLayout container,
+      int sheetBackgroundArgb) {
     if (container == null || activity == null) {
       return;
     }
@@ -2152,7 +2221,7 @@ public class StashNativeCardPlugin {
       dragArea.setPadding(padH, padTop, padH, padBottom);
       View handle = new View(activity);
       GradientDrawable handleBg = new GradientDrawable();
-      handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
+      handleBg.setColor(StashBackgroundColorUtils.dragHandleFor(sheetBackgroundArgb));
       handleBg.setCornerRadius(
           StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
       handle.setBackground(handleBg);
@@ -2167,9 +2236,23 @@ public class StashNativeCardPlugin {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
         dragArea.setElevation(StashWebViewUtils.dpToPx(activity, 8));
       }
+      checkoutOverlayDragHandleArea = dragArea;
       container.addView(dragArea);
     } catch (Exception e) {
       Log.w(TAG, "Error adding visual drag bar: " + e.getMessage(), e);
     }
+  }
+
+  private void applyCheckoutOverlayDragHandlePurchaseProcessingFade(boolean hide) {
+    if (checkoutOverlayDragHandleArea == null) {
+      return;
+    }
+    checkoutOverlayDragHandleArea.animate().cancel();
+    checkoutOverlayDragHandleArea.animate()
+        .alpha(hide ? 0f : 1f)
+        .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
+        .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+        .start();
+    checkoutOverlayDragHandleArea.setEnabled(!hide);
   }
 }

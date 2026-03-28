@@ -19,7 +19,6 @@ static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKe
 
 extern BOOL _usePopupPresentation;
 extern BOOL _useModalPresentation;
-extern BOOL _modalShowDragBar;
 extern BOOL _modalAllowDismiss;
 extern BOOL _useCustomPopupSize;
 extern CGFloat _customPortraitWidthMultiplier;
@@ -282,9 +281,6 @@ extern void resetCardExpandedStateAfterRotation(void);
         }
         if (cardView) {
             cardView.frame = newCardFrame;
-            if (_modalShowDragBar) {
-                updateDragTrayAndHandleInCardView(cardView, newCardFrame.size.width);
-            }
             [cardView layoutIfNeeded];
         }
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {

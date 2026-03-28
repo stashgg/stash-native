@@ -50,6 +50,8 @@ public class StashNativeCardPortraitActivity extends Activity {
 
   private FrameLayout rootLayout;
   private View backdropView;
+  /** Drag handle strip; faded out while {@link #isPurchaseProcessing} so the sheet looks non-dismissable. */
+  private View dragHandleArea;
   private FrameLayout cardContainer;
   private WebView webView;
   private View loadingView;
@@ -65,7 +67,6 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean callbackSent;
   private boolean googlePayRedirectHandled;
   private boolean isPurchaseProcessing;
-  private boolean modalInitialLoadComplete;
   private boolean initialPageLoadComplete;
   private boolean networkErrorHandled;
   private boolean mainFrameErrorReceived;
@@ -88,6 +89,14 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean webViewRevealAnimationRunning;
   /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
   private int webViewRevealAnimationToken;
+  /**
+   * Pixel height to restore when collapsing the phone sheet. Set at creation, updated on
+   * orientation change, and snapshotted from layout params immediately before each expand so the
+   * collapse animation matches the actual initial/collapsed card height.
+   */
+  private int collapsedCardTargetHeightPx = -1;
+  /** Running {@link #animateCardHeight} animator; cancelled before starting a new height change. */
+  private ValueAnimator cardHeightAnimator;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -96,7 +105,6 @@ public class StashNativeCardPortraitActivity extends Activity {
   private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
   
   // Modal configuration
-  private boolean modalShowDragBar = true;
   private boolean modalAllowDismiss = true;
   private float modalPhoneWidthRatioPortrait =
       CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT;
@@ -124,6 +132,13 @@ public class StashNativeCardPortraitActivity extends Activity {
   /** Cached at activity start to avoid repeated theme/device lookups. */
   private boolean cachedIsDarkTheme;
   private boolean cachedIsTablet;
+
+  /** Custom sheet chrome from intent (#hex); when false, {@link #sheetChromeBackgroundArgb} is still set from system theme. */
+  private boolean chromeColorOverrideActive;
+  /** Card/modal container + WebView chrome background (custom or system-derived). */
+  private int sheetChromeBackgroundArgb;
+  /** WebView force-dark, URL theme=, home/error styling. */
+  private boolean effectiveIsDarkForContent;
   private OnBackInvokedCallback onBackInvokedCallback;
 
   @Override
@@ -171,8 +186,6 @@ public class StashNativeCardPortraitActivity extends Activity {
 
       // Read modal configuration
       if (useModal) {
-        modalShowDragBar = intent.getBooleanExtra(
-            CardConstants.INTENT_EXTRA_MODAL_SHOW_DRAG_BAR, true);
         modalAllowDismiss = intent.getBooleanExtra(
             CardConstants.INTENT_EXTRA_MODAL_ALLOW_DISMISS, true);
         modalPhoneWidthRatioPortrait = intent.getFloatExtra(
@@ -212,6 +225,20 @@ public class StashNativeCardPortraitActivity extends Activity {
       } catch (Exception e) {
         Log.w(TAG, "Error checking if tablet: " + e.getMessage(), e);
       }
+
+      Integer parsedChrome = StashBackgroundColorUtils.parseSolidColorOrNull(
+          intent.getStringExtra(CardConstants.INTENT_EXTRA_BACKGROUND_COLOR));
+      chromeColorOverrideActive = parsedChrome != null;
+      if (chromeColorOverrideActive) {
+        sheetChromeBackgroundArgb = parsedChrome;
+        effectiveIsDarkForContent =
+            StashBackgroundColorUtils.isDarkBackground(parsedChrome);
+      } else {
+        sheetChromeBackgroundArgb = cachedIsDarkTheme
+            ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG)
+            : Color.WHITE;
+        effectiveIsDarkForContent = cachedIsDarkTheme;
+      }
       
       try {
         if (usePopup || useModal) {
@@ -249,8 +276,13 @@ public class StashNativeCardPortraitActivity extends Activity {
           // Edge-to-edge disabled; we apply system bar insets as padding on rootLayout so the
           // bottom sheet and modal sit above nav bars (3-button, gesture, etc.).
           WindowCompat.setDecorFitsSystemWindows(window, false);
-          StashWebViewUtils.applySystemBarAppearance(
-              window, window.getDecorView(), cachedIsDarkTheme);
+          if (chromeColorOverrideActive) {
+            StashWebViewUtils.applySystemBarAppearanceForSheet(
+                window, window.getDecorView(), sheetChromeBackgroundArgb);
+          } else {
+            StashWebViewUtils.applySystemBarAppearance(
+                window, window.getDecorView(), cachedIsDarkTheme);
+          }
         } catch (Exception e) {
           Log.w(TAG, "Error configuring window: " + e.getMessage(), e);
         }
@@ -288,11 +320,8 @@ public class StashNativeCardPortraitActivity extends Activity {
           FrameLayout.LayoutParams.MATCH_PARENT,
           FrameLayout.LayoutParams.MATCH_PARENT));
       try {
-        if (wasLandscapeBeforePortrait && !cachedIsTablet && !usePopup) {
-          backdropView.setBackgroundColor(Color.BLACK);
-        } else {
-          backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
-        }
+        // Same 40% dim as portrait and iOS (no solid black when host was landscape).
+        backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
       } catch (Exception e) {
         Log.w(TAG, "Error setting background color: " + e.getMessage(), e);
         backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
@@ -360,9 +389,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     cardContainer.setLayoutParams(params);
     
     GradientDrawable bg = new GradientDrawable();
-    bg.setColor(cachedIsDarkTheme
-        ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG)
-        : Color.WHITE);
+    bg.setColor(sheetChromeBackgroundArgb);
     
     if (isTablet) {
       bg.setCornerRadius(radius);
@@ -474,6 +501,10 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     configureCardContainer(isTablet, cardWidth, cardHeight);
     
+    if (!isTablet && !usePopup && !useModal) {
+      collapsedCardTargetHeightPx = computeCollapsedPhoneCardHeight(metrics);
+    }
+    
     addWebView();
     addDragHandle();
     addHomeButton();
@@ -507,62 +538,14 @@ public class StashNativeCardPortraitActivity extends Activity {
     configureCardContainer(true, cardWidth, cardHeight);
     
     addWebView();
-    if (modalShowDragBar) {
-      // Modal uses visual-only drag handle (no gestures)
-      addVisualOnlyDragHandle();
-    }
     addHomeButton();
     rootLayout.addView(cardContainer);
     
-    // Modal waits for page load before showing - start completely hidden (including backdrop)
-    modalInitialLoadComplete = false;
-    cardContainer.setAlpha(0f);
-    cardContainer.setScaleX(0.9f);
-    cardContainer.setScaleY(0.9f);
-    if (backdropView != null) {
-      backdropView.setAlpha(0f);
-    }
+    // Same as tablet checkout: backdrop visible; card fades in while WebView loads underneath.
+    animateFadeIn();
     
     // Modal is always considered expanded
     isExpanded = true;
-  }
-  
-  /**
-  * Adds a visual-only drag handle for modal presentation.
-  * Unlike addDragHandle(), this version has no touch handling - purely decorative.
-  */
-  private void addVisualOnlyDragHandle() {
-    LinearLayout dragArea = new LinearLayout(this);
-    dragArea.setOrientation(LinearLayout.VERTICAL);
-    dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
-    int padH = StashWebViewUtils.dpToPx(this, 20);
-    int padTop = StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_TOP_INSET_DP));
-    int padBottom =
-        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
-    dragArea.setPadding(padH, padTop, padH, padBottom);
-    
-    View handle = new View(this);
-    GradientDrawable handleBg = new GradientDrawable();
-    handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
-    handleBg.setCornerRadius(
-        StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
-    handle.setBackground(handleBg);
-    int handleW = StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_WIDTH_DP);
-    int handleH = StashWebViewUtils.dpToPx(this, (int) CardConstants.DRAG_HANDLE_HEIGHT_DP);
-    handle.setLayoutParams(new LinearLayout.LayoutParams(handleW, handleH));
-    dragArea.addView(handle);
-    
-    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-        StashWebViewUtils.dpToPx(this, 120), FrameLayout.LayoutParams.WRAP_CONTENT);
-    params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-    dragArea.setLayoutParams(params);
-    
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      dragArea.setElevation(StashWebViewUtils.dpToPx(this, 8));
-    }
-    
-    // No touch handling - purely visual
-    cardContainer.addView(dragArea);
   }
   
   private int[] calculateModalCardSize(DisplayMetrics metrics) {
@@ -624,7 +607,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
     View handle = new View(this);
     GradientDrawable handleBg = new GradientDrawable();
-    handleBg.setColor(Color.parseColor(CardConstants.COLOR_DRAG_HANDLE));
+    handleBg.setColor(StashBackgroundColorUtils.dragHandleFor(sheetChromeBackgroundArgb));
     handleBg.setCornerRadius(
         StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
     handle.setBackground(handleBg);
@@ -643,7 +626,22 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     
     addDragTouchHandling(dragArea);
+    dragHandleArea = dragArea;
     cardContainer.addView(dragArea);
+  }
+
+  /** Fades the drag strip out during purchase processing (dismiss is blocked) or back in. */
+  private void applyDragHandlePurchaseProcessingFade(boolean hide) {
+    if (dragHandleArea == null) {
+      return;
+    }
+    dragHandleArea.animate().cancel();
+    dragHandleArea.animate()
+        .alpha(hide ? 0f : 1f)
+        .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
+        .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+        .start();
+    dragHandleArea.setEnabled(!hide);
   }
   
   /**
@@ -869,17 +867,81 @@ public class StashNativeCardPortraitActivity extends Activity {
         .start();
   }
   
+  /**
+   * Collapsed phone card height for the current orientation and config (matches {@link #createCard}
+   * logic). Used as a fallback when {@link #collapsedCardTargetHeightPx} is unset.
+   */
+  private int computeCollapsedPhoneCardHeight(DisplayMetrics metrics) {
+    boolean isLandscape = getResources().getConfiguration().orientation
+        == Configuration.ORIENTATION_LANDSCAPE;
+    if (isLandscape && !forcePortraitOnCheckout) {
+      int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
+      int minPx = (int) StashWebViewUtils.dpToPx(
+          this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+      if (h < minPx) {
+        h = minPx;
+      }
+      return h;
+    }
+    return (int) (metrics.heightPixels * cardHeightRatioPortrait);
+  }
+
   private void animateCardHeight(int targetHeight, int duration) {
+    if (cardContainer == null) {
+      return;
+    }
+    if (cardHeightAnimator != null) {
+      cardHeightAnimator.cancel();
+      cardHeightAnimator = null;
+    }
     FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-    android.animation.ValueAnimator heightAnimator =
-        android.animation.ValueAnimator.ofInt(params.height, targetHeight);
-    heightAnimator.setDuration(duration);
-    heightAnimator.setInterpolator(new SpringInterpolator());
-    heightAnimator.addUpdateListener(animation -> {
-      params.height = (Integer) animation.getAnimatedValue();
+    if (params == null) {
+      return;
+    }
+    int startHeight = params.height;
+    if (startHeight <= 0) {
+      startHeight = cardContainer.getHeight();
+    }
+    if (startHeight <= 0) {
+      params.height = targetHeight;
       cardContainer.setLayoutParams(params);
+      return;
+    }
+    if (startHeight == targetHeight) {
+      return;
+    }
+    final int endHeight = targetHeight;
+    cardHeightAnimator = ValueAnimator.ofInt(startHeight, endHeight);
+    cardHeightAnimator.setDuration(duration);
+    cardHeightAnimator.setInterpolator(new SpringInterpolator());
+    cardHeightAnimator.addUpdateListener(animation -> {
+      if (cardContainer == null) {
+        return;
+      }
+      FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+      if (p == null) {
+        return;
+      }
+      p.height = (Integer) animation.getAnimatedValue();
+      cardContainer.setLayoutParams(p);
     });
-    heightAnimator.start();
+    cardHeightAnimator.addListener(new AnimatorListenerAdapter() {
+      @Override
+      public void onAnimationEnd(Animator animation) {
+        if (cardHeightAnimator == animation) {
+          cardHeightAnimator = null;
+        }
+        if (cardContainer == null) {
+          return;
+        }
+        FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        if (p != null) {
+          p.height = endHeight;
+          cardContainer.setLayoutParams(p);
+        }
+      }
+    });
+    cardHeightAnimator.start();
   }
 
   private void animateExpand() {
@@ -896,6 +958,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     
     FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+    if (params != null && params.height > 0) {
+      collapsedCardTargetHeightPx = params.height;
+    }
     
     int expandedHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
     int expandedWidth = params.width;
@@ -927,19 +992,88 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     
-    int collapsedHeight = (int) (metrics.heightPixels * cardHeightRatioPortrait);
-    
-    animateCardHeight(collapsedHeight, CardConstants.ANIMATION_DURATION_COLLAPSE);
-    
-    cardContainer.animate()
-        .translationY(0)
-        .alpha(1f)
-        .scaleX(1f)
-        .scaleY(1f)
-        .setDuration(CardConstants.ANIMATION_DURATION_COLLAPSE)
-        .setInterpolator(new SpringInterpolator())
-        .start();
-    
+    int collapsedHeight = collapsedCardTargetHeightPx > 0
+        ? collapsedCardTargetHeightPx
+        : computeCollapsedPhoneCardHeight(metrics);
+
+    // Capture drag feedback before cancelling (release position). One ValueAnimator updates height,
+    // translationY, and alpha each frame so we do not desync two animators (wrong perceived height)
+    // or snap TY to 0 first (jump back to expanded).
+    float startTranslationY = cardContainer.getTranslationY();
+    float startAlpha = cardContainer.getAlpha();
+    FrameLayout.LayoutParams layoutParams =
+        (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+    if (layoutParams == null) {
+      return;
+    }
+    int startHeight = layoutParams.height;
+    if (startHeight <= 0) {
+      startHeight = cardContainer.getHeight();
+    }
+    if (startHeight <= 0) {
+      return;
+    }
+    final int endHeight = collapsedHeight;
+    if (startHeight == endHeight
+        && Math.abs(startTranslationY) < 0.5f
+        && startAlpha >= 0.99f) {
+      isExpanded = false;
+      return;
+    }
+
+    cardContainer.animate().cancel();
+    if (cardHeightAnimator != null) {
+      cardHeightAnimator.cancel();
+      cardHeightAnimator = null;
+    }
+    cardContainer.setScaleX(1f);
+    cardContainer.setScaleY(1f);
+
+    final int startH = startHeight;
+    cardHeightAnimator = ValueAnimator.ofFloat(0f, 1f);
+    cardHeightAnimator.setDuration(CardConstants.ANIMATION_DURATION_COLLAPSE);
+    cardHeightAnimator.setInterpolator(new SpringInterpolator());
+    cardHeightAnimator.addUpdateListener(animation -> {
+      if (cardContainer == null) {
+        return;
+      }
+      float t = (Float) animation.getAnimatedValue();
+      int h = Math.round(startH + (endHeight - startH) * t);
+      FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+      if (p != null) {
+        p.height = h;
+        cardContainer.setLayoutParams(p);
+      }
+      cardContainer.setTranslationY(startTranslationY * (1f - t));
+      cardContainer.setAlpha(startAlpha + (1f - startAlpha) * t);
+    });
+    cardHeightAnimator.addListener(new AnimatorListenerAdapter() {
+      @Override
+      public void onAnimationEnd(Animator animation) {
+        if (cardHeightAnimator == animation) {
+          cardHeightAnimator = null;
+        }
+        if (cardContainer == null) {
+          return;
+        }
+        FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        if (p != null) {
+          p.height = endHeight;
+          cardContainer.setLayoutParams(p);
+        }
+        cardContainer.setTranslationY(0f);
+        cardContainer.setAlpha(1f);
+      }
+
+      @Override
+      public void onAnimationCancel(Animator animation) {
+        if (cardHeightAnimator == animation) {
+          cardHeightAnimator = null;
+        }
+      }
+    });
+    cardHeightAnimator.start();
+
     isExpanded = false;
   }
   
@@ -961,7 +1095,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     } else if (isExpanded) {
       targetHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
     } else {
-      targetHeight = (int) (metrics.heightPixels * cardHeightRatioPortrait);
+      targetHeight = collapsedCardTargetHeightPx > 0
+          ? collapsedCardTargetHeightPx
+          : computeCollapsedPhoneCardHeight(metrics);
     }
     
     if (params.height != targetHeight) {
@@ -987,7 +1123,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     try {
       webView = new WebView(this);
       try {
-        StashWebViewUtils.configureWebViewSettings(webView, cachedIsDarkTheme);
+        StashWebViewUtils.configureWebViewSettings(webView, effectiveIsDarkForContent);
       } catch (Exception e) {
         Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
       }
@@ -1107,9 +1243,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           }
         });
         webView.addJavascriptInterface(new JSInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
-        webView.setBackgroundColor(cachedIsDarkTheme
-            ? Color.parseColor(StashWebViewUtils.COLOR_DARK_BG)
-            : Color.WHITE);
+        webView.setBackgroundColor(sheetChromeBackgroundArgb);
         
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
@@ -1123,7 +1257,9 @@ public class StashNativeCardPortraitActivity extends Activity {
         // between addView() and the first onPageStarted callback. showLoading() is idempotent:
         // if the overlay already exists it will not remove/recreate it.
         loadingView = StashWebViewUtils.createAndShowLoadingView(
-            getApplicationContext(), cardContainer);
+            getApplicationContext(), cardContainer,
+            sheetChromeBackgroundArgb,
+            StashBackgroundColorUtils.spinnerAccentFor(sheetChromeBackgroundArgb));
         if (loadingView != null) {
           loadingView.setAlpha(1f);
           loadingView.setVisibility(View.VISIBLE);
@@ -1131,7 +1267,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
         String urlWithTheme;
         try {
-          urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, cachedIsDarkTheme);
+          urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, effectiveIsDarkForContent);
         } catch (Exception e) {
           Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
           urlWithTheme = url;
@@ -1226,19 +1362,6 @@ public class StashNativeCardPortraitActivity extends Activity {
       return;
     }
     revealWebViewAndRemoveLoading();
-
-    // Modal: show card and backdrop only after reveal prerequisites are satisfied.
-    if (useModal && !modalInitialLoadComplete) {
-      modalInitialLoadComplete = true;
-      if (backdropView != null) {
-        backdropView.animate()
-            .alpha(1f)
-            .setDuration(200)
-            .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
-            .start();
-      }
-      animateFadeIn();
-    }
   }
 
   private static String appendCacheBuster(String url) {
@@ -1285,11 +1408,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     homeButton.setPadding(0, 0, 0, 0);
     
     GradientDrawable bg = new GradientDrawable();
-    bg.setColor(cachedIsDarkTheme
+    bg.setColor(effectiveIsDarkForContent
         ? Color.parseColor(CardConstants.COLOR_HOME_BUTTON_DARK_BG)
         : Color.parseColor(CardConstants.COLOR_LIGHT_BG));
     bg.setCornerRadius(StashWebViewUtils.dpToPx(this, 20));
-    int strokeColor = cachedIsDarkTheme
+    int strokeColor = effectiveIsDarkForContent
         ? Color.parseColor(CardConstants.COLOR_DARK_STROKE)
         : Color.parseColor(CardConstants.COLOR_LIGHT_STROKE);
     bg.setStroke(StashWebViewUtils.dpToPx(this, 1), strokeColor);
@@ -1309,7 +1432,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     homeButton.setOnClickListener(v -> {
       if (initialURL != null && webView != null) {
         String urlWithTheme =
-            StashWebViewUtils.appendThemeQueryParameter(initialURL, cachedIsDarkTheme);
+            StashWebViewUtils.appendThemeQueryParameter(initialURL, effectiveIsDarkForContent);
         webView.loadUrl(urlWithTheme);
       }
     });
@@ -1432,7 +1555,9 @@ public class StashNativeCardPortraitActivity extends Activity {
 
       if (cardContainer != null) {
         loadingView = StashWebViewUtils.createAndShowLoadingView(
-            getApplicationContext(), cardContainer);
+            getApplicationContext(), cardContainer,
+            sheetChromeBackgroundArgb,
+            StashBackgroundColorUtils.spinnerAccentFor(sheetChromeBackgroundArgb));
         if (loadingView != null) {
           loadingView.setAlpha(1f);
           loadingView.setVisibility(View.VISIBLE);
@@ -1643,7 +1768,9 @@ public class StashNativeCardPortraitActivity extends Activity {
           
           switch (messageType) {
             case CardConstants.MESSAGE_TYPE_SUCCESS:
-              StashCheckoutBridge.emitPaymentSuccess(StashNativeCardPortraitActivity.this);
+              StashCheckoutBridge.emitPaymentSuccess(
+                  StashNativeCardPortraitActivity.this,
+                  messageBody != null && !messageBody.isEmpty() ? messageBody : null);
               break;
             case CardConstants.MESSAGE_TYPE_FAILURE:
               StashCheckoutBridge.emitPaymentFailure(StashNativeCardPortraitActivity.this);
@@ -1672,9 +1799,10 @@ public class StashNativeCardPortraitActivity extends Activity {
 
   private class JSInterface {
     @JavascriptInterface
-    public void onPaymentSuccess() {
+    public void onPaymentSuccess(String order) {
       try {
-        notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_SUCCESS, "", true);
+        notifyListenerAndDismiss(
+            CardConstants.MESSAGE_TYPE_SUCCESS, order != null ? order : "", true);
       } catch (Exception e) {
         Log.w(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
       }
@@ -1695,6 +1823,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         runOnUiThread(() -> {
           try {
             isPurchaseProcessing = true;
+            applyDragHandlePurchaseProcessingFade(true);
           } catch (Exception e) {
             Log.w(TAG, "Error setting purchase processing: " + e.getMessage(), e);
           }
@@ -2013,6 +2142,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     int currentHeight = params.height;
     int newHeight = newSize[1];
+    collapsedCardTargetHeightPx = newHeight;
     params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
     if (currentWidth == newWidth && currentHeight == newHeight) {
       cardContainer.setLayoutParams(params);
