@@ -1973,21 +1973,27 @@ public class StashNativeCardPlugin {
       currentDialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
       currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
       FrameLayout mainFrame = new FrameLayout(activity);
+      mainFrame.setBackgroundColor(Color.TRANSPARENT);
+      View checkoutOverlayDim = new View(activity);
+      checkoutOverlayDim.setLayoutParams(new FrameLayout.LayoutParams(
+          FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
       try {
-        mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
+        checkoutOverlayDim.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
       } catch (Exception e) {
-        mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
+        checkoutOverlayDim.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
       }
-      mainFrame.setOnClickListener(v -> {
+      checkoutOverlayDim.setAlpha(0f);
+      checkoutOverlayDim.setClickable(true);
+      checkoutOverlayDim.setOnClickListener(v -> {
         try {
-          if (!isPurchaseProcessing && currentDialog != null && currentDialog.isShowing()
-              && v == mainFrame) {
+          if (!isPurchaseProcessing && currentDialog != null && currentDialog.isShowing()) {
             currentDialog.dismiss();
           }
         } catch (Exception e) {
           Log.w(TAG, "Error in checkout overlay click handler: " + e.getMessage(), e);
         }
       });
+      mainFrame.addView(checkoutOverlayDim);
       int[] dimensions;
       try {
         dimensions = calculateCheckoutOverlayDimensions(activity);
@@ -2069,7 +2075,8 @@ public class StashNativeCardPlugin {
           window.setBackgroundDrawableResource(android.R.color.transparent);
           window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
           WindowManager.LayoutParams windowParams = window.getAttributes();
-          windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
+          // Dim is animated on in-dialog layer (matches iOS overlay fade + delayed sheet).
+          windowParams.dimAmount = 0f;
           window.setAttributes(windowParams);
           StashWebViewUtils.applySystemBarAppearance(
               window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
@@ -2097,7 +2104,15 @@ public class StashNativeCardPlugin {
       DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
       currentContainer.setTranslationY(metrics.heightPixels);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+        checkoutOverlayDim.animate()
+            .alpha(1f)
+            .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
+            .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+            .start();
+        long slideDelay = CardConstants.OVERLAY_FADE_IN_DURATION_MS
+            + CardConstants.CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS;
         currentContainer.animate()
+            .setStartDelay(slideDelay)
             .translationY(0)
             .setDuration(CardConstants.ANIMATION_DURATION_DEFAULT)
             .setInterpolator(new android.view.animation.DecelerateInterpolator())

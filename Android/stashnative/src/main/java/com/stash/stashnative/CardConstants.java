@@ -23,6 +23,18 @@ public final class CardConstants {
   /** Popup fade animation duration. */
   public static final int ANIMATION_DURATION_POPUP = 200;
 
+  /**
+   * Phone bottom-sheet entry: backdrop fade-in duration (matches iOS {@code kOverlayFadeInDuration}
+   * 0.25s and {@link #ANIMATION_DURATION_FAST}).
+   */
+  public static final int OVERLAY_FADE_IN_DURATION_MS = ANIMATION_DURATION_FAST;
+
+  /**
+   * After overlay fade completes, hold before sheet slide so WebView can advance load (matches iOS
+   * {@code kCardEntryHoldAfterOverlayFadeIn} 0.2s).
+   */
+  public static final long CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS = 200L;
+
   /** Card collapse animation duration. */
   public static final int ANIMATION_DURATION_COLLAPSE = 380;
 
@@ -237,9 +249,9 @@ public final class CardConstants {
   
   /**
    * If no main-frame response/progress within this window, reload once with a fresh request
-   * (bypass cache). Matches iOS {@code kRetryTimeoutInterval}.
+   * (bypass cache). Matches iOS {@code kRetryTimeoutInterval} (1.25s).
    */
-  public static final long WEBVIEW_RETRY_TIMEOUT_MS = 3000L;
+  public static final long WEBVIEW_RETRY_TIMEOUT_MS = 1250L;
 
   /**
    * Hard deadline from first load: if the main frame never commits, report network error.

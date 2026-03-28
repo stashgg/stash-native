@@ -1174,7 +1174,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       webView.setAlpha(0f);
       showLoading();
       Log.w(TAG, "StashNative: no HTTP response in "
-          + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000)
+          + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000.0)
           + "s — retrying " + webViewCommittedReloadUrl);
       int prevMode = webView.getSettings().getCacheMode();
       try {
@@ -1499,9 +1499,25 @@ public class StashNativeCardPortraitActivity extends Activity {
   private void animateSlideUp() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     cardContainer.setTranslationY(metrics.heightPixels);
-    
+
+    // Match iOS: fade dim first, brief hold, then sheet slide (extra time for WebView load).
+    if (backdropView != null) {
+      backdropView.setAlpha(0f);
+      backdropView.animate()
+          .alpha(1f)
+          .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
+          .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
+          .start();
+    }
+    final long slideDelay = CardConstants.OVERLAY_FADE_IN_DURATION_MS
+        + CardConstants.CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS;
+
     cardContainer.post(() -> {
+      if (cardContainer == null) {
+        return;
+      }
       cardContainer.animate()
+          .setStartDelay(slideDelay)
           .translationY(0)
           .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
           .setInterpolator(new android.view.animation.DecelerateInterpolator())

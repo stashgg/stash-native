@@ -22,8 +22,8 @@
 
 static const NSTimeInterval kPageReadyCheckInterval = 0.1;
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.35;
-/// Stall-retry cadence: time between arms/fires before issuing another aggressive reload (was 3s; tighter for flaky WebKit).
-static const NSTimeInterval kRetryTimeoutInterval = 2.0;
+/// Stall-retry cadence: time before / between aggressive reloads when the main frame is not responding.
+static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 /// Hard deadline — if still no commit after the retry, report a network error.
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
@@ -41,6 +41,7 @@ extern UIColor* getSystemBackgroundColor(void);
 extern UIViewController *getTopPresentedViewController(void);
 extern void configureScrollViewForWebView(UIScrollView *scrollView);
 extern void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
+extern const NSInteger kDragTrayViewTag;
 
 #pragma mark - WebViewLoadDelegate
 
@@ -141,6 +142,12 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         _loadingView.userInteractionEnabled = YES;
         stashRestartLoadingSpinnerInView(_loadingView);
         [parent bringSubviewToFront:_loadingView];
+        // Keep drag tray above the loading mask (same order as initial setup: tray added last).
+        // Otherwise bringSubviewToFront:loadingView hides the handle for every stall retry / reload.
+        UIView *dragTray = [parent viewWithTag:kDragTrayViewTag];
+        if (dragTray) {
+            [parent bringSubviewToFront:dragTray];
+        }
     }
     wv.alpha = 0.0;
 }

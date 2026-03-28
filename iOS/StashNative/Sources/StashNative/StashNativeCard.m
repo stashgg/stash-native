@@ -242,12 +242,17 @@ static const NSTimeInterval kOverlayFadeInDuration = 0.25;
 
 static const CGFloat kSpringDampingSnapBack = 0.82f;
 static const NSTimeInterval kSnapBackAnimationDuration = 0.45;
-static const NSTimeInterval kEntryAnimationDuration = 0.65;
+/// Slide-up presentation: duration tuned for sheet feel. Damping 1 + zero velocity avoids spring overshoot
+/// past the rest Y (undershoot in UIKit spring briefly lifts the card → visible gap above screen bottom).
+static const NSTimeInterval kCardEntrySpringDuration = 0.55;
+static const CGFloat kCardEntrySpringDamping = 1.0f;
+static const CGFloat kCardEntrySpringVelocity = 0.0f;
+/// After overlay fade finishes, brief hold before sheet slide so off-screen WebView can advance load.
+static const NSTimeInterval kCardEntryHoldAfterOverlayFadeIn = 0.2;
 /// Ease-out-back constant for display-link expand/collapse.
 static const CGFloat kEaseOutBackOvershoot = 1.70158f;
 /// Stronger overshoot for snap-back when dismiss gesture does not hit threshold (smooth spring back).
 static const CGFloat kEaseOutBackSnapBackOvershoot = 2.4f;
-static const NSTimeInterval kEntryAnimationDelay = 0.05;
 
 static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
     if (t <= 0.0f) return 0.0f;
@@ -1443,12 +1448,12 @@ initialSpringVelocity:kSpringVelocityCollapse
                 CGRect targetFrame = [self frameForExpansionProgress:kProgressFullyCollapsed cardView:cardView];
                 BOOL needsSpringBack = (fabs(cardView.frame.origin.y - targetFrame.origin.y) > 0.5f);
                 if (needsSpringBack) {
+                    // Ease-out only (no UIKit spring): spring overshoot on Y made the sheet sit above
+                    // the bottom briefly — same gap as entry overshoot; display-link paths stay bottom-anchored.
                     [UIView animateWithDuration:kSnapBackAnimationDuration
                                           delay:0
-                     usingSpringWithDamping:kSpringDampingSnapBack
-                      initialSpringVelocity:fabs(velocity.y) / kVelocityDivisorForSpring
-                                    options:UIViewAnimationOptionCurveEaseOut
-                                 animations:^{
+                                        options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
+                                     animations:^{
                         cardView.frame = targetFrame;
                         [self updateCustomFrameIfSupported:cardView.frame forViewController:nil];
                     } completion:^(BOOL finished) {
@@ -2312,12 +2317,43 @@ NSString* appendThemeQueryParameter(NSString* url) {
     internal.activeWebViewLoadDelegate = delegate;
     internal.activeWebViewUIDelegate = uiDelegate;
     
+    // Start navigation while waiting for rotation / next runloop — WebView is attached off-screen on containerVC
+    // so networking begins before overlay fade and card slide (perceived load time improves).
+    CGFloat preloadH = portraitBounds.size.height * _cardHeightRatioPortrait;
+    CGFloat preloadW = portraitBounds.size.width;
+    UIView *preloadHost = [[UIView alloc] initWithFrame:CGRectMake(0, -10000, preloadW, preloadH)];
+    preloadHost.userInteractionEnabled = NO;
+    preloadHost.accessibilityElementsHidden = YES;
+    [containerVC.view addSubview:preloadHost];
+    [preloadHost addSubview:webView];
+    [preloadHost addSubview:loadingView];
+    [NSLayoutConstraint activateConstraints:@[
+        [webView.leadingAnchor constraintEqualToAnchor:preloadHost.leadingAnchor],
+        [webView.trailingAnchor constraintEqualToAnchor:preloadHost.trailingAnchor],
+        [webView.topAnchor constraintEqualToAnchor:preloadHost.topAnchor],
+        [webView.bottomAnchor constraintEqualToAnchor:preloadHost.bottomAnchor],
+        [loadingView.leadingAnchor constraintEqualToAnchor:preloadHost.leadingAnchor],
+        [loadingView.trailingAnchor constraintEqualToAnchor:preloadHost.trailingAnchor],
+        [loadingView.topAnchor constraintEqualToAnchor:preloadHost.topAnchor],
+        [loadingView.bottomAnchor constraintEqualToAnchor:preloadHost.bottomAnchor]
+    ]];
+    [containerVC.view layoutIfNeeded];
+    NSURL *preloadURL = [NSURL URLWithString:url];
+    if (preloadURL) {
+        NSMutableURLRequest *preloadRequest = requestForURL(preloadURL);
+        [delegate armRetryTimerIfNeededForMainFrameURL:preloadURL];
+        delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
+        [webView loadRequest:preloadRequest];
+    }
+    
     // Wait for rotation to complete before setting up the visual hierarchy.
     NSUInteger sessionWhenRotationBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (internal.presentationSessionToken != sessionWhenRotationBlockScheduled) {
             STASH_DEBUG_LOG(@"StashNativeRetryTrace rotation block aborted stale session scheduled=%lu current=%lu",
                   (unsigned long)sessionWhenRotationBlockScheduled, (unsigned long)internal.presentationSessionToken);
+            [delegate invalidateAllTimers];
+            [preloadHost removeFromSuperview];
             return;
         }
         // Get actual screen bounds after rotation
@@ -2354,9 +2390,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
         
         if (cardFinalY < 0) cardFinalY = 0;
         
-        // Create overlay (full screen, behind the card)
-        UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
-        
         // Create cardView
         UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
         cardView.backgroundColor = getSystemBackgroundColor();
@@ -2378,7 +2411,11 @@ NSString* appendThemeQueryParameter(NSString* url) {
         cardView.layer.shadowOpacity = kShadowOpacityPhone;
         cardView.layer.shadowRadius = kShadowRadiusPhone;
         
-        // WebView is already created and loading — attach it to the card hierarchy now.
+        [webView removeFromSuperview];
+        [loadingView removeFromSuperview];
+        [preloadHost removeFromSuperview];
+        
+        // WebView was already loading off-screen; reattach to the card (same navigation continues).
         [cardView addSubview:webView];
         [cardView addSubview:loadingView];
         
@@ -2392,14 +2429,10 @@ NSString* appendThemeQueryParameter(NSString* url) {
             [loadingView.topAnchor constraintEqualToAnchor:cardView.topAnchor],
             [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
         ]];
-
-        NSURL *nsurl = [NSURL URLWithString:url];
-        if (nsurl) {
-            NSMutableURLRequest *request = requestForURL(nsurl);
-            [delegate armRetryTimerIfNeededForMainFrameURL:nsurl];
-            delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
-            [webView loadRequest:request];
-        }
+        [cardWindow layoutIfNeeded];
+        
+        // Dimming backdrop after load has started; short hold after fade before slide gives WebKit time off-screen.
+        UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
         
         // Add drag tray so it is part of the card from the start (visible during slide-up)
         UIView *dragTray = [internal createDragTray:cardWidth];
@@ -2411,11 +2444,12 @@ NSString* appendThemeQueryParameter(NSString* url) {
             overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:nil];
         
-        // Animate card sliding UP from BOTTOM
-        [UIView animateWithDuration:kEntryAnimationDuration
-                              delay:kEntryAnimationDelay
-             usingSpringWithDamping:kSpringDampingTight
-              initialSpringVelocity:kSpringVelocityExpand
+        // Animate card sliding UP from BOTTOM (after overlay fade + hold)
+        NSTimeInterval cardSlideDelay = kOverlayFadeInDuration + kCardEntryHoldAfterOverlayFadeIn;
+        [UIView animateWithDuration:kCardEntrySpringDuration
+                              delay:cardSlideDelay
+             usingSpringWithDamping:kCardEntrySpringDamping
+              initialSpringVelocity:kCardEntrySpringVelocity
                             options:UIViewAnimationOptionCurveEaseOut
                          animations:^{
             cardView.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
@@ -2492,8 +2526,6 @@ NSString* appendThemeQueryParameter(NSString* url) {
     
     if (cardFinalY < 0) cardFinalY = 0;
     
-    UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
-    
     UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
     cardView.backgroundColor = getSystemBackgroundColor();
     cardView.clipsToBounds = YES;
@@ -2549,6 +2581,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     internal.activeWebViewLoadDelegate = delegate;
     internal.activeWebViewUIDelegate = uiDelegate;
     
+    [cardWindow layoutIfNeeded];
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
         NSMutableURLRequest *request = requestForURL(nsurl);
@@ -2557,14 +2590,18 @@ NSString* appendThemeQueryParameter(NSString* url) {
         [webView loadRequest:request];
     }
     
+    // Backdrop below card: insert after card is in hierarchy so stacking matches portrait-forced path.
+    UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
+    
     [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
         overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
     } completion:nil];
     
-    [UIView animateWithDuration:kEntryAnimationDuration
-                          delay:kEntryAnimationDelay
-         usingSpringWithDamping:kSpringDampingTight
-          initialSpringVelocity:kSpringVelocityExpand
+    NSTimeInterval cardSlideDelay = kOverlayFadeInDuration + kCardEntryHoldAfterOverlayFadeIn;
+    [UIView animateWithDuration:kCardEntrySpringDuration
+                          delay:cardSlideDelay
+         usingSpringWithDamping:kCardEntrySpringDamping
+          initialSpringVelocity:kCardEntrySpringVelocity
                         options:UIViewAnimationOptionCurveEaseOut
                      animations:^{
         cardView.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
