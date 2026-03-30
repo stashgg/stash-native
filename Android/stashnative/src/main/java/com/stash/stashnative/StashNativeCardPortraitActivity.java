@@ -1904,6 +1904,32 @@ public class StashNativeCardPortraitActivity extends Activity {
         Log.w(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
       }
     }
+
+    @JavascriptInterface
+    public void external(String url) {
+      try {
+        runOnUiThread(() -> {
+          try {
+            String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+            if (normalized == null) {
+              return;
+            }
+            String themed =
+                StashWebViewUtils.appendThemeQueryParameter(
+                    normalized, effectiveIsDarkForContent);
+            callbackSent = true;
+            isPurchaseProcessing = false;
+            StashCheckoutBridge.emitExternalPayment(
+                StashNativeCardPortraitActivity.this, themed);
+            dismissWithAnimation();
+          } catch (Exception e) {
+            Log.w(TAG, "Error in external: " + e.getMessage(), e);
+          }
+        });
+      } catch (Exception e) {
+        Log.w(TAG, "Error scheduling external: " + e.getMessage(), e);
+      }
+    }
   }
   
   @Override

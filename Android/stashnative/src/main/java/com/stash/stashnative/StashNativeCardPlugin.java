@@ -217,6 +217,7 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_OPT_IN);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_EXTERNAL_PAYMENT);
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -237,6 +238,35 @@ public class StashNativeCardPlugin {
         if (l != null) {
           String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
           l.onOptInResponse(type != null ? type : "");
+        }
+        return;
+      }
+      if (CardConstants.BROADCAST_CHECKOUT_EXTERNAL_PAYMENT.equals(action)) {
+        String url = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL);
+        if (url == null) {
+          url = "";
+        }
+        presentationUsesIsolatedWebviewProcess = false;
+        isCurrentlyPresented = false;
+        if (l != null) {
+          l.onExternalPayment(url);
+        }
+        Activity extActivity = getActivity();
+        if (extActivity != null && !url.isEmpty()) {
+          try {
+            if (StashWebViewUtils.isChromeCustomTabsAvailable(extActivity)) {
+              StashWebViewUtils.openWithChromeCustomTabs(extActivity, url);
+            } else {
+              StashWebViewUtils.openInSystemBrowser(extActivity, url);
+            }
+          } catch (Exception e) {
+            Log.w(TAG, "Error opening external payment URL: " + e.getMessage(), e);
+            try {
+              StashWebViewUtils.openInSystemBrowser(extActivity, url);
+            } catch (Exception e2) {
+              Log.w(TAG, "Fallback browser open failed: " + e2.getMessage(), e2);
+            }
+          }
         }
         return;
       }
@@ -406,6 +436,51 @@ public class StashNativeCardPlugin {
           dismissCurrentDialog();
         } catch (Exception e) {
           Log.w(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
+        }
+      });
+    }
+
+    @JavascriptInterface
+    public void external(String url) {
+      new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+          String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+          if (normalized == null) {
+            return;
+          }
+          Activity activity = getActivity();
+          if (activity == null) {
+            return;
+          }
+          boolean effDark = dialogEffectiveDarkForWeb(activity);
+          String themed = StashWebViewUtils.appendThemeQueryParameter(normalized, effDark);
+          paymentSuccessHandled = true;
+          isPurchaseProcessing = false;
+          StashNativeCard.StashNativeCardListener listener = getListener();
+          if (listener != null) {
+            listener.onExternalPayment(themed);
+          }
+          dismissCurrentDialog();
+          Activity act = getActivity();
+          if (act == null || themed.isEmpty()) {
+            return;
+          }
+          try {
+            if (StashWebViewUtils.isChromeCustomTabsAvailable(act)) {
+              StashWebViewUtils.openWithChromeCustomTabs(act, themed);
+            } else {
+              StashWebViewUtils.openInSystemBrowser(act, themed);
+            }
+          } catch (Exception e) {
+            Log.w(TAG, "Error opening external payment URL: " + e.getMessage(), e);
+            try {
+              StashWebViewUtils.openInSystemBrowser(act, themed);
+            } catch (Exception e2) {
+              Log.w(TAG, "Fallback browser open failed: " + e2.getMessage(), e2);
+            }
+          }
+        } catch (Exception e) {
+          Log.w(TAG, "Error in external: " + e.getMessage(), e);
         }
       });
     }

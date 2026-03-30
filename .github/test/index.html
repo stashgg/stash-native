@@ -37,6 +37,13 @@
             color: #ff6b6b;
         }
         
+        .external-hint {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.35;
+        }
+        
         button {
             width: 100%;
             padding: 8px 12px;
@@ -120,6 +127,18 @@
             color: #ff6b6b;
         }
         
+        body.theme-dark p {
+            color: #8e8e93;
+        }
+        
+        body.theme-dark code {
+            color: #a1a1a6;
+        }
+        
+        body.theme-dark .external-hint {
+            color: #8e8e93;
+        }
+        
         body.theme-dark button {
             background: #1c1c1e;
             color: #fff;
@@ -164,6 +183,10 @@
             
             body:not(.theme-light):not(.theme-dark) h1 {
                 color: #fff;
+            }
+            
+            body:not(.theme-light):not(.theme-dark) .external-hint {
+                color: #8e8e93;
             }
             
             body:not(.theme-light):not(.theme-dark) button {
@@ -227,6 +250,13 @@
         <button onclick="triggerProcessing()">Purchase Processing</button>
         <button onclick="triggerExpand()">Expand</button>
         <button onclick="triggerCollapse()">Collapse</button>
+        
+        <h2>External payment</h2>
+        <p class="external-hint">
+            Closes the card/modal, notifies native (<code>onExternalPayment</code> / delegate), opens URL in Custom Tabs / SFSafariViewController. Not the dismiss callback.
+        </p>
+        <input type="text" id="externalUrl" placeholder="https://example.com" value="https://example.com" />
+        <button onclick="triggerExternal()">External payment</button>
         
         <h2>Exception Tests</h2>
         <button onclick="triggerJSError()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Throw JavaScript Error</button>
@@ -336,6 +366,21 @@
             updateStatus('Called: collapse()');
             if (window.stash_sdk && window.stash_sdk.collapse) {
                 window.stash_sdk.collapse();
+            }
+        }
+        
+        function triggerExternal() {
+            var el = document.getElementById('externalUrl');
+            var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com';
+            if (window.stash_sdk && typeof window.stash_sdk.external === 'function') {
+                updateStatus('Called: external("' + url + '")');
+                try {
+                    window.stash_sdk.external(url);
+                } catch (e) {
+                    updateStatus('external() error: ' + (e && e.message ? e.message : e));
+                }
+            } else {
+                updateStatus('stash_sdk.external not available (requires native Stash SDK)');
             }
         }
         

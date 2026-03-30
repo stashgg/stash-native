@@ -116,6 +116,11 @@ public class MainActivity extends AppCompatActivity {
       public void onNetworkError() {
         Log.e(TAG, "Network error");
       }
+
+      @Override
+      public void onExternalPayment(String url) {
+        Log.i(TAG, "External payment URL: " + url);
+      }
     });
 
     viewModel.refreshList();

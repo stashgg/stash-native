@@ -37,6 +37,16 @@ import java.lang.ref.WeakReference;
  *     public void onPageLoaded(long loadTimeMs) {
  *         // Handle page loaded
  *     }
+ *
+ *     {@literal @}Override
+ *     public void onNetworkError() {
+ *         // Load failed
+ *     }
+ *
+ *     {@literal @}Override
+ *     public void onExternalPayment(String url) {
+ *         // {@code window.stash_sdk.external(url)} — URL includes theme query when applicable
+ *     }
  * });
  *
  * StashNativeCard.getInstance().openCard("https://your-checkout-url.com", null);
@@ -93,6 +103,16 @@ public class StashNativeCard {
      * that case the card is dismissed before this callback runs.
      */
     void onNetworkError();
+
+    /**
+     * Called when the checkout page calls {@code window.stash_sdk.external(url)}. The SDK closes
+     * the card/modal without invoking {@link #onDialogDismissed()}, then opens the URL in Chrome
+     * Custom Tabs (or the system browser as fallback). The {@code url} includes the theme query
+     * parameter when applicable.
+     *
+     * @param url Validated {@code http} or {@code https} URL
+     */
+    void onExternalPayment(String url);
   }
 
   /**
@@ -112,6 +132,8 @@ public class StashNativeCard {
     @Override public void onPageLoaded(long loadTimeMs) {}
 
     @Override public void onNetworkError() {}
+
+    @Override public void onExternalPayment(String url) {}
   }
 
   /**

@@ -331,9 +331,13 @@ public final class CardConstants {
       "com.stash.stashnative.internal.CHECKOUT_NETWORK_ERROR";
   public static final String BROADCAST_CHECKOUT_DIALOG_DISMISSED =
       "com.stash.stashnative.internal.CHECKOUT_DIALOG_DISMISSED";
+  public static final String BROADCAST_CHECKOUT_EXTERNAL_PAYMENT =
+      "com.stash.stashnative.internal.CHECKOUT_EXTERNAL_PAYMENT";
   public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
   /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
+  /** URL for {@code window.stash_sdk.external(url)} (includes theme query when applicable). */
+  public static final String BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL = "stashExternalPaymentUrl";
 
   /** Message types for notifyListenerAndDismiss (success/failure/optin). */
   public static final String MESSAGE_TYPE_SUCCESS = "success";

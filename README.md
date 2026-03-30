@@ -146,6 +146,7 @@ stashNative.openCard(withURL: url, config: config)
 | Payment Success  | Called when the payment completes successfully. |
 | Payment Failure  | Called when the payment fails. |
 | Dialog Dismissed | Called when the user dismisses the dialog. |
+| External payment | Some payment methods requires transacting outside the app. This callback fires when external payment started. |
 | Opt-In Response  | Called when a channel selection response is received. |
 | Page Loaded      | Called when the page finishes loading (with load time). |
 | Network Error    | Called when the page load fails (no connection, HTTP error, timeout). |
@@ -186,6 +187,12 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
     public void onNetworkError() {
         // Load failed (no connection, HTTP error, or timeout)
     }
+
+    @Override
+    public void onExternalPayment(String url) {
+        // Checkout opened an external URL (Such as Gpay, Klarna, Crypto.)
+        // This means that the payment will be finalized in browser or other app and user will be redirected back using deeplinks.
+    }
 });
 ```
 
@@ -211,6 +218,10 @@ extension YourViewController: StashNativeCardDelegate {
     func stashNativeCardDidEncounterNetworkError() {
         // Load failed (no connection, HTTP error, or timeout)
     }
+    func stashNativeCardDidRequestExternalPayment(with url: String) {
+        // Checkout opened an external URL (Such as Gpay, Klarna, Crypto.)
+        // This means that the payment will be finalized in browser or other app and user will be redirected back using deeplinks.
+    }
 }
 ```
 
@@ -235,6 +246,10 @@ extension YourViewController: StashNativeCardDelegate {
 - (void)stashNativeCardDidLoadPage:(double)loadTimeMs {}
 - (void)stashNativeCardDidEncounterNetworkError {
     // Load failed
+}
+- (void)stashNativeCardDidRequestExternalPaymentWithURL:(NSString *)url {
+    // Checkout opened an external URL (Such as Gpay, Klarna, Crypto.)
+   // This means that the payment will be finalized in browser or other app and user will be redirected back using deeplinks.
 }
 ```
 

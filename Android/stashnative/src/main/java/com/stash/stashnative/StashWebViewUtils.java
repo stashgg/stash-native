@@ -78,6 +78,11 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".collapse(); } catch(e) {}"
       + "  };"
+      + "  window.stash_sdk.external = function(url) {"
+      + "    try { "
+      + JS_INTERFACE_NAME
+      + ".external((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + "  };"
       + "  try { window.close = function() { try { "
       + JS_INTERFACE_NAME
       + ".requestCloseFromPage(); } catch(e2) {} }; } catch(e) {}"
@@ -249,6 +254,47 @@ public class StashWebViewUtils {
    * @param isDarkTheme true for dark theme
    * @return URL with theme param, or original if null/empty
    */
+  /**
+   * Validates and normalizes a URL for {@code window.stash_sdk.external(url)}: {@code http} or
+   * {@code https} only. Trims input; prepends {@code https://} when no scheme is present.
+   *
+   * @return canonical URL string, or {@code null} if invalid
+   */
+  public static String normalizeExternalPaymentUrl(String raw) {
+    if (raw == null) {
+      return null;
+    }
+    String s = raw.trim();
+    if (s.isEmpty()) {
+      return null;
+    }
+    String lower = s.toLowerCase();
+    if (lower.startsWith("javascript:") || lower.startsWith("file:") || lower.startsWith("data:")) {
+      return null;
+    }
+    if (!s.startsWith("http://") && !s.startsWith("https://")) {
+      s = "https://" + s;
+    }
+    try {
+      Uri uri = Uri.parse(s);
+      String scheme = uri.getScheme();
+      if (scheme == null) {
+        return null;
+      }
+      scheme = scheme.toLowerCase();
+      if (!"http".equals(scheme) && !"https".equals(scheme)) {
+        return null;
+      }
+      if (uri.getHost() == null || uri.getHost().isEmpty()) {
+        return null;
+      }
+      return uri.toString();
+    } catch (Exception e) {
+      Log.w(TAG, "normalizeExternalPaymentUrl: " + e.getMessage());
+      return null;
+    }
+  }
+
   public static String appendThemeQueryParameter(String url, boolean isDarkTheme) {
     if (url == null || url.isEmpty()) {
       return url;

@@ -47,4 +47,10 @@ final class StashCheckoutBridge {
     context.getApplicationContext().sendBroadcast(
         baseIntent(context, CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
   }
+
+  static void emitExternalPayment(Context context, String url) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_EXTERNAL_PAYMENT);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL, url != null ? url : "");
+    context.getApplicationContext().sendBroadcast(intent);
+  }
 }

@@ -389,6 +389,7 @@ static NSString * const kMessageHandlerOptin = @"stashOptin";
 static NSString * const kMessageHandlerExpand = @"stashExpand";
 static NSString * const kMessageHandlerCollapse = @"stashCollapse";
 static NSString * const kMessageHandlerWindowClose = @"stashWindowClose";
+static NSString * const kMessageHandlerExternalPayment = @"stashExternalPayment";
 static NSString * const kMessageHandlerPageReady = @"stashNativePageReady";
 
 #pragma mark - Associated Object Keys
@@ -686,6 +687,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExternalPayment];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPageReady];
             [webView.configuration.userContentController removeAllUserScripts];
 
@@ -1594,6 +1596,28 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (!_usePopupPresentation && _isCardExpanded && self.currentPresentedVC) {
             [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
         }
+    } else if ([name isEqualToString:kMessageHandlerExternalPayment]) {
+        NSString *raw = @"";
+        if ([message.body isKindOfClass:[NSString class]]) {
+            raw = (NSString *)message.body;
+        }
+        NSString *normalized = NormalizeExternalPaymentURL(raw);
+        if (!normalized) {
+            return;
+        }
+        NSString *themed = appendThemeQueryParameter(normalized);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
+            if (externalDelegate
+                && [externalDelegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
+                [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:themed];
+            }
+            StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+            [internal dismissWithAnimation:^{
+                [internal cleanupCardInstance];
+                [[StashNativeCard sharedInstance] openBrowserWithURL:normalized];
+            }];
+        });
     } else if ([name isEqualToString:kMessageHandlerWindowClose]) {
         if (self.isPurchaseProcessing) {
             return;
@@ -2161,6 +2185,35 @@ void setOverlayToDismissAppearance(UIView *overlayView) {
     if (overlayView) {
         overlayView.backgroundColor = [UIColor colorWithWhite:kOverlayDismissAlpha alpha:kOverlayDismissAlpha];
     }
+}
+
+static NSString *NormalizeExternalPaymentURL(NSString *raw) {
+    if (raw == nil) {
+        return nil;
+    }
+    NSString *s = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (s.length == 0) {
+        return nil;
+    }
+    NSString *lower = [s lowercaseString];
+    if ([lower hasPrefix:@"javascript:"] || [lower hasPrefix:@"file:"] || [lower hasPrefix:@"data:"]) {
+        return nil;
+    }
+    if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
+        s = [@"https://" stringByAppendingString:s];
+    }
+    NSURL *u = [NSURL URLWithString:s];
+    if (u == nil || u.scheme.length == 0) {
+        return nil;
+    }
+    NSString *scheme = [u.scheme lowercaseString];
+    if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) {
+        return nil;
+    }
+    if (u.host.length == 0) {
+        return nil;
+    }
+    return u.absoluteString;
 }
 
 NSString* appendThemeQueryParameter(NSString* url) {
@@ -3252,12 +3305,17 @@ NSString* appendThemeQueryParameter(NSString* url) {
         "window.stash_sdk.collapse = function() {"
             "window.webkit.messageHandlers.%@.postMessage({});"
         "};"
+        "window.stash_sdk.external = function(url) {"
+            "var s = (url !== undefined && url !== null) ? String(url) : '';"
+            "window.webkit.messageHandlers.%@.postMessage(s);"
+        "};"
         "try { window.close = function() {"
             "try { window.webkit.messageHandlers.%@.postMessage({}); } catch(e2) {}"
         "}; } catch(e) {}"
     "})();",
         kMessageHandlerPaymentSuccess, kMessageHandlerPaymentFailure, kMessageHandlerPurchaseProcessing,
-        kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerWindowClose];
+        kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerExternalPayment,
+        kMessageHandlerWindowClose];
     WKUserScript *stashSDKInjection = [[WKUserScript alloc] initWithSource:stashSDKScript
                                                              injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                           forMainFrameOnly:YES];
@@ -3304,6 +3362,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerOptin];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerExternalPayment];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerWindowClose];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPageReady];
     {
