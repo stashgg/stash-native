@@ -57,7 +57,8 @@ public class StashNativeCardPlugin {
   
   // Use WeakReference to prevent Activity memory leaks
   private WeakReference<Activity> activityRef;
-  private WeakReference<StashNativeCard.StashNativeCardListener> listenerRef;
+  /** Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in background. */
+  private StashNativeCard.StashNativeCardListener listener;
 
   private Dialog currentDialog;
   private WebView webView;
@@ -301,7 +302,7 @@ public class StashNativeCardPlugin {
   }
 
   private StashNativeCard.StashNativeCardListener getListener() {
-    return listenerRef != null ? listenerRef.get() : null;
+    return listener;
   }
 
   /**
@@ -521,7 +522,7 @@ public class StashNativeCardPlugin {
   }
   
   void setListener(StashNativeCard.StashNativeCardListener listener) {
-    this.listenerRef = listener != null ? new WeakReference<>(listener) : null;
+    this.listener = listener;
     Activity a = getActivity();
     if (a != null) {
       ensureCheckoutBridgeReceiver(a);
@@ -808,6 +809,7 @@ public class StashNativeCardPlugin {
   
   private void launchPortraitActivity(String url, Activity activity) {
     try {
+      paymentSuccessHandled = false;
       int rotation;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
         android.view.Display display = activity.getDisplay();
@@ -1933,7 +1935,8 @@ public class StashNativeCardPlugin {
     } catch (Exception e) {
       Log.w(TAG, "Error during cleanup: " + e.getMessage());
     }
-    
+
+    paymentSuccessHandled = false;
     isPurchaseProcessing = false;
     usePopupPresentation = false;
     useModalPresentation = false;

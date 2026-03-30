@@ -1,7 +1,6 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
-import java.lang.ref.WeakReference;
 
 /**
  * StashNativeCard - Native Android SDK for Stash Native checkout integration.
@@ -55,7 +54,8 @@ import java.lang.ref.WeakReference;
 public class StashNativeCard {
   private static StashNativeCard instance;
   private StashNativeCardPlugin plugin;
-  private WeakReference<StashNativeCardListener> listenerRef;
+  /** Strong reference so callbacks keep working after Custom Tabs / background (WeakRef would allow GC). */
+  private StashNativeCardListener listener;
   
   /**
    * Callback interface for Stash Native events.
@@ -287,7 +287,7 @@ public class StashNativeCard {
    * @param listener The listener to receive callbacks
    */
   public void setListener(StashNativeCardListener listener) {
-    this.listenerRef = listener != null ? new WeakReference<>(listener) : null;
+    this.listener = listener;
     plugin.setListener(listener);
   }
   
@@ -297,7 +297,7 @@ public class StashNativeCard {
    * @return The current StashNativeCardListener
    */
   public StashNativeCardListener getListener() {
-    return listenerRef != null ? listenerRef.get() : null;
+    return listener;
   }
   
   /**

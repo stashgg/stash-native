@@ -120,6 +120,9 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onExternalPayment(String url) {
         Log.i(TAG, "External payment URL: " + url);
+        runOnUiThread(() -> showOutcomeDialog(
+            "External payment",
+            "Opening in browser:\n" + (url != null ? url : "")));
       }
     });
 
@@ -388,7 +391,8 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   protected void onDestroy() {
-    super.onDestroy();
+    StashNativeCard.getInstance().setListener(null);
     binding = null;
+    super.onDestroy();
   }
 }
