@@ -30,6 +30,7 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 - [Compatibility](#compatibility)
   - [Android](#android-1)
   - [iOS](#ios-1)
+  - [Internal Testing](#testing)
   - [Known Limitations](#known-limitations)
 
 ## Platforms
@@ -513,6 +514,10 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | Objective-C | Full | Native API |
 | ARC | Full | Automatic Reference Counting |
 | Non-ARC | Full | Manual memory management (Unreal Engine compatibility) |
+
+## Testing
+
+We test this library using BrowserStack App Automate devices. Supported environments are listed in the [App Automate list of browsers and platforms](https://www.browserstack.com/list-of-browsers-and-platforms/app_automate).
 
 ## Known Limitations
 
