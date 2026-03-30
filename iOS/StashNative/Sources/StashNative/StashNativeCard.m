@@ -428,6 +428,7 @@ void runWithoutImplicitAnimations(void (^block)(void));
 UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 void setOverlayToDismissAppearance(UIView *overlayView);
+static NSString *NormalizeExternalPaymentURL(NSString *raw);
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 

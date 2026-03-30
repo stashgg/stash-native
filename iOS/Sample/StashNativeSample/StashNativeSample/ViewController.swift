@@ -152,33 +152,21 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     // MARK: - Setup
 
+    private func configureStandardUrlTextField(_ field: UITextField, text: String) {
+        field.placeholder = "URL"
+        field.text = text
+        field.autocapitalizationType = .none
+        field.autocorrectionType = .no
+        field.keyboardType = .URL
+        field.textAlignment = .right
+        field.font = .systemFont(ofSize: 17, weight: .regular)
+        field.clearButtonMode = .whileEditing
+    }
+
     func setupTextFields() {
-        checkoutUrlTextField.placeholder = "URL"
-        checkoutUrlTextField.text = defaultURL
-        checkoutUrlTextField.autocapitalizationType = .none
-        checkoutUrlTextField.autocorrectionType = .no
-        checkoutUrlTextField.keyboardType = .URL
-        checkoutUrlTextField.textAlignment = .right
-        checkoutUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
-        checkoutUrlTextField.clearButtonMode = .whileEditing
-
-        browserUrlTextField.placeholder = "URL"
-        browserUrlTextField.text = defaultURL
-        browserUrlTextField.autocapitalizationType = .none
-        browserUrlTextField.autocorrectionType = .no
-        browserUrlTextField.keyboardType = .URL
-        browserUrlTextField.textAlignment = .right
-        browserUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
-        browserUrlTextField.clearButtonMode = .whileEditing
-
-        modalUrlTextField.placeholder = "URL"
-        modalUrlTextField.text = defaultModalURL
-        modalUrlTextField.autocapitalizationType = .none
-        modalUrlTextField.autocorrectionType = .no
-        modalUrlTextField.keyboardType = .URL
-        modalUrlTextField.textAlignment = .right
-        modalUrlTextField.font = .systemFont(ofSize: 17, weight: .regular)
-        modalUrlTextField.clearButtonMode = .whileEditing
+        configureStandardUrlTextField(checkoutUrlTextField, text: defaultURL)
+        configureStandardUrlTextField(browserUrlTextField, text: defaultURL)
+        configureStandardUrlTextField(modalUrlTextField, text: defaultModalURL)
 
         apiKeyTextField.placeholder = "API Key"
         if let saved = UserDefaults.standard.string(forKey: ViewController.userDefaultsApiKeyKey), !saved.isEmpty {
@@ -209,8 +197,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         }
         configureHexField(cardBackgroundColorTextField, key: ViewController.userDefaultsCardBackgroundHexKey)
         configureHexField(modalBackgroundColorTextField, key: ViewController.userDefaultsModalBackgroundHexKey)
-        cardBackgroundColorTextField.addTarget(self, action: #selector(cardBackgroundColorEditingDidEnd), for: .editingDidEnd)
-        modalBackgroundColorTextField.addTarget(self, action: #selector(modalBackgroundColorEditingDidEnd), for: .editingDidEnd)
+        cardBackgroundColorTextField.addTarget(
+            self, action: #selector(cardBackgroundColorEditingDidEnd), for: .editingDidEnd)
+        modalBackgroundColorTextField.addTarget(
+            self, action: #selector(modalBackgroundColorEditingDidEnd), for: .editingDidEnd)
     }
 
     @objc func apiKeyEditingDidEnd() {
