@@ -1487,6 +1487,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   private void openWithChromeCustomTabs(String url, Activity activity) {
     try {
+      StashNativeCardPlugin.getInstance().startKeepAliveBeforeBrowser(activity);
       if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
         if (BuildConfig.DEBUG) {
           Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
@@ -1943,6 +1944,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();
     }

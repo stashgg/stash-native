@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stash_keep_alive_title">Payment in progress</string>
+    <string name="stash_keep_alive_text">Tap to return to the app</string>
+    <string name="stash_keep_alive_channel_name">Stash checkout</string>
+    <string name="stash_keep_alive_channel_desc">Shown briefly while an external payment page is open</string>
+</resources>

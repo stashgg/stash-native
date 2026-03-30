@@ -10,3 +10,4 @@
 -keep class com.stash.stashnative.StashNativeCardPortraitActivity { *; }
 -keep class com.stash.stashnative.StashWebViewUtils { *; }
 -keep class com.stash.stashnative.SpringInterpolator { *; }
+-keep class com.stash.stashnative.StashKeepAliveService { *; }

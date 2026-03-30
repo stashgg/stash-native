@@ -254,6 +254,19 @@ public class StashNativeCard {
 
     public CardConfig() {}
   }
+
+  /**
+   * Optional notification title, text, and small icon for the foreground keep-alive service used
+   * when {@link #setKeepAliveEnabled(boolean)} is true. If {@code notificationIconResId} is 0, a
+   * default library icon is used. Null or empty strings fall back to bundled defaults.
+   */
+  public static final class KeepAliveConfig {
+    public String notificationTitle;
+    public String notificationText;
+    public int notificationIconResId;
+
+    public KeepAliveConfig() {}
+  }
   
   private StashNativeCard() {
     plugin = StashNativeCardPlugin.getInstance();
@@ -424,6 +437,34 @@ public class StashNativeCard {
    */
   public boolean isPurchaseProcessing() {
     return plugin.isPurchaseProcessing();
+  }
+
+  /**
+   * When true, opening Chrome Custom Tabs or the system browser for {@link #openBrowser(String)},
+   * {@code window.stash_sdk.external(url)}, or portrait checkout external flows may start a short
+   * foreground service so the app is less likely to be killed on low-RAM devices. Default false.
+   *
+   * @param enabled whether to use the keep-alive helper
+   */
+  public void setKeepAliveEnabled(boolean enabled) {
+    plugin.setKeepAliveEnabled(enabled);
+  }
+
+  /**
+   * @return whether the keep-alive foreground service is enabled
+   */
+  public boolean isKeepAliveEnabled() {
+    return plugin.isKeepAliveEnabled();
+  }
+
+  /**
+   * Sets optional notification strings and icon for the keep-alive service. Pass null to clear
+   * customization (defaults from library strings apply).
+   *
+   * @param config customization, or null
+   */
+  public void setKeepAliveConfig(KeepAliveConfig config) {
+    plugin.setKeepAliveConfig(config);
   }
   
 }

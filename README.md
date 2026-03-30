@@ -351,6 +351,25 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
 ```
 
+**Android — optional keep-alive (low-RAM devices)**
+
+When the user leaves your app for Chrome Custom Tabs or the system browser (`openBrowser`, or `window.stash_sdk.external(url)` from checkout), the OS may kill your process on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and improves survival on budget / Android Go–class devices:
+
+```java
+StashNativeCard.getInstance().setKeepAliveEnabled(true);
+StashNativeCard.KeepAliveConfig cfg = new StashNativeCard.KeepAliveConfig();
+cfg.notificationTitle = "Payment in progress";
+cfg.notificationText = "Tap to return to the app";
+cfg.notificationIconResId = R.drawable.ic_notification; // optional; use 0 for library default
+StashNativeCard.getInstance().setKeepAliveConfig(cfg);
+```
+
+- **Default:** keep-alive is **off**; no behavior change for existing apps.
+- **Manifest:** the library merges `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SHORT_SERVICE`, and a non-exported `StashKeepAliveService` with `foregroundServiceType="shortService"`. You do not need to add these by hand. On Android 14+, `shortService` has a system-enforced time limit (about three minutes); the service is stopped when the user returns to your app (`Activity` resume).
+- **Opt out of the merged service** (e.g. policy reasons): in your app manifest, remove the library component, for example:
+  `tools:node="remove"` on `com.stash.stashnative.StashKeepAliveService` (with `xmlns:tools` on the manifest root).
+- **Notifications:** the library does not add `POST_NOTIFICATIONS`; on Android 13+ the notification may be hidden until your app requests that permission, but the foreground service can still run.
+
 **iOS (Swift)**
 
 ```swift

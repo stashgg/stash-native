@@ -116,6 +116,10 @@ public class StashNativeCardPlugin {
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
 
+  /** When true, a short foreground service may run while an external browser / Custom Tabs is open. */
+  private volatile boolean keepAliveEnabled;
+  private StashNativeCard.KeepAliveConfig keepAliveConfig;
+
   private static boolean isStashWebviewProcessRunning(Context context) {
     try {
       ActivityManager am = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -173,6 +177,7 @@ public class StashNativeCardPlugin {
         Activity host = getActivity();
         if (host != null && activity == host) {
           clearPresentationIfCheckoutProcessDied(activity);
+          stopKeepAliveForegroundService(activity.getApplicationContext());
         }
       }
 
@@ -255,6 +260,7 @@ public class StashNativeCardPlugin {
         Activity extActivity = getActivity();
         if (extActivity != null && !url.isEmpty()) {
           try {
+            startKeepAliveBeforeBrowser(extActivity);
             if (StashWebViewUtils.isChromeCustomTabsAvailable(extActivity)) {
               StashWebViewUtils.openWithChromeCustomTabs(extActivity, url);
             } else {
@@ -467,6 +473,7 @@ public class StashNativeCardPlugin {
             return;
           }
           try {
+            startKeepAliveBeforeBrowser(act);
             if (StashWebViewUtils.isChromeCustomTabsAvailable(act)) {
               StashWebViewUtils.openWithChromeCustomTabs(act, themed);
             } else {
@@ -529,6 +536,67 @@ public class StashNativeCardPlugin {
     }
   }
 
+  void setKeepAliveEnabled(boolean enabled) {
+    this.keepAliveEnabled = enabled;
+  }
+
+  boolean isKeepAliveEnabled() {
+    return keepAliveEnabled;
+  }
+
+  void setKeepAliveConfig(StashNativeCard.KeepAliveConfig config) {
+    this.keepAliveConfig = config;
+  }
+
+  /**
+   * Starts the optional keep-alive foreground service before opening Custom Tabs / browser.
+   * Package-private for {@link StashNativeCardPortraitActivity}.
+   */
+  void startKeepAliveBeforeBrowser(Context context) {
+    if (!keepAliveEnabled || context == null) {
+      return;
+    }
+    try {
+      Context app = context.getApplicationContext();
+      StashKeepAliveService.start(
+          app,
+          resolveKeepAliveTitle(app),
+          resolveKeepAliveText(app),
+          resolveKeepAliveIconResId());
+    } catch (Exception e) {
+      Log.w(TAG, "Keep-alive start failed: " + e.getMessage(), e);
+    }
+  }
+
+  void stopKeepAliveForegroundService(Context context) {
+    StashKeepAliveService.stop(context);
+  }
+
+  private String resolveKeepAliveTitle(Context ctx) {
+    if (keepAliveConfig != null
+        && keepAliveConfig.notificationTitle != null
+        && !keepAliveConfig.notificationTitle.trim().isEmpty()) {
+      return keepAliveConfig.notificationTitle.trim();
+    }
+    return ctx.getString(R.string.stash_keep_alive_title);
+  }
+
+  private String resolveKeepAliveText(Context ctx) {
+    if (keepAliveConfig != null
+        && keepAliveConfig.notificationText != null
+        && !keepAliveConfig.notificationText.trim().isEmpty()) {
+      return keepAliveConfig.notificationText.trim();
+    }
+    return ctx.getString(R.string.stash_keep_alive_text);
+  }
+
+  private int resolveKeepAliveIconResId() {
+    if (keepAliveConfig != null && keepAliveConfig.notificationIconResId != 0) {
+      return keepAliveConfig.notificationIconResId;
+    }
+    return R.drawable.ic_stash_keep_alive;
+  }
+
   /**
    * Opens the given URL in card (sliding bottom sheet or portrait activity) presentation.
    *
@@ -585,6 +653,7 @@ public class StashNativeCardPlugin {
       final Activity finalActivity = activity;
       activity.runOnUiThread(() -> {
         try {
+          startKeepAliveBeforeBrowser(finalActivity);
           if (StashWebViewUtils.isChromeCustomTabsAvailable(finalActivity)) {
             StashWebViewUtils.openWithChromeCustomTabs(finalActivity, finalUrl);
           } else {
@@ -1837,6 +1906,7 @@ public class StashNativeCardPlugin {
         if (BuildConfig.DEBUG) {
           Log.d(TAG, "Opening URL with Chrome Custom Tabs");
         }
+        startKeepAliveBeforeBrowser(activity);
         StashWebViewUtils.openWithChromeCustomTabs(activity, url);
         presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = true;
@@ -1852,11 +1922,13 @@ public class StashNativeCardPlugin {
         }, CardConstants.DIALOG_DISMISS_DELAY_MS);
       } else {
         Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
+        startKeepAliveBeforeBrowser(activity);
         StashWebViewUtils.openInSystemBrowser(activity, url);
       }
     } catch (Exception e) {
       Log.e(TAG, "Failed to open browser: " + e.getMessage());
       try {
+        startKeepAliveBeforeBrowser(activity);
         StashWebViewUtils.openInSystemBrowser(activity, url);
       } catch (Exception fallbackException) {
         Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());

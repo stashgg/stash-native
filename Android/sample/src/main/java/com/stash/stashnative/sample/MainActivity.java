@@ -80,6 +80,11 @@ public class MainActivity extends AppCompatActivity {
 
     StashNativeCard stashPayCard = StashNativeCard.getInstance();
     stashPayCard.setActivity(this);
+    stashPayCard.setKeepAliveEnabled(true);
+    StashNativeCard.KeepAliveConfig keepAliveConfig = new StashNativeCard.KeepAliveConfig();
+    keepAliveConfig.notificationTitle = "Stash sample";
+    keepAliveConfig.notificationText = "Tap to return after paying in the browser";
+    stashPayCard.setKeepAliveConfig(keepAliveConfig);
     stashPayCard.setListener(new StashNativeCard.StashNativeCardListener() {
       @Override
       public void onPaymentSuccess(String order) {
