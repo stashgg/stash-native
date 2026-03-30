@@ -72,7 +72,7 @@ Latest pre-built binaries are always available on [Releases Page](https://github
 
 Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory.
 
-> **Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`). Same root cause as in [Known limitations](#known-limitations) (emulator row).
+> **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
 
 Or try in the browser emulators via Appetize:
 
@@ -110,7 +110,8 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 ## Presentation modes
 
-The library exposes three ways to open Stash URL (Stash Pay, Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered), and **openBrowser** (Chrome Custom Tabs / SFSafariViewController). Use **openCard** or **openModal** for full in-app checkout experience; use **openBrowser** for a browser-based checkout.
+The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Chrome Custom Tabs / SFSafariViewController). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
+
 
 
 
@@ -353,7 +354,7 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 
 ### openBrowser
 
-Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view.
+Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fall-abck method for openCard and openModal.
 
 **Android**
 
@@ -361,7 +362,7 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
 ```
 
-**Optional: Keep-alive service (low-memory Android devices)**
+**Optional: Keep-alive service (low-memory Android / Android Go devices)**
 
 When the user leaves your app for Chrome Custom Tabs or the system browser, Android may kill your app on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and improves survival on budget / Android Go–class devices:
 
@@ -416,13 +417,13 @@ Requirements, OS coverage, vendor notes, and edge cases for each platform are be
 
 #### Android version support
 
-| Android Version | API Level | Status | Notes |
+| Android Version | API Level | Status | Compatibility Notes |
 |-----------------|-----------|--------|-------|
 | Android 14 (Upside Down Cake) | 34 | Full | Target SDK |
 | Android 13 (Tiramisu) | 33 | Full | |
 | Android 12/12L | 31-32 | Full | |
-| Android 11 | 30 | Full | Enhanced window insets |
-| Android 10 | 29 | Full | Dark mode support |
+| Android 11 | 30 | Full | Enhanced window insets (For phones with notch/camera cut-out) |
+| Android 10 | 29 | Full | Added automatic dark mode support |
 | Android 9 (Pie) | 28 | Full | |
 | Android 8/8.1 (Oreo) | 26-27 | Full | |
 | Android 7/7.1 (Nougat) | 24-25 | Full | |
@@ -430,58 +431,45 @@ Requirements, OS coverage, vendor notes, and edge cases for each platform are be
 | Android 5/5.1 (Lollipop) | 21-22 | Full | Minimum SDK |
 | Android 4.4 and below | <=20 | Not Supported | |
 
-#### Vendor-specific compatibility
+#### Vendor-specific support
 
 | Vendor / Skin | Compatibility | WebView Source | Notes |
 |---------------|--------------|----------------|-------|
 | Google Pixel / Stock Android | Full | Google WebView (Play Store updates) | Reference implementation |
 | Samsung (One UI / TouchWiz) | Full | Samsung Internet / Chrome WebView | No known issues |
-| Xiaomi (MIUI) | Full | Chrome WebView | Some MIUI versions show battery optimization warnings |
+| Xiaomi (MIUI) | Full | Chrome WebView | Some MIUI versions show "battery optimization" warnings, during browser flows. |
 | OnePlus (OxygenOS) | Full | Chrome WebView | Stock-like behavior |
 | Oppo (ColorOS) | Full | Chrome WebView | |
 | Vivo (Funtouch OS) | Full | Chrome WebView | |
 | Realme (Realme UI) | Full | Chrome WebView | |
-| Huawei (EMUI, pre-2019) | Full | Google WebView | Devices with GMS |
-| Huawei (HarmonyOS/EMUI, 2019+) | Partial | Huawei WebView | No GMS; Chrome Custom Tabs unavailable; in-app WebView works |
+| Huawei (EMUI, pre-2019) | Full | Google WebView | Huawei devices with Google Mobile Services |
+| Huawei (HarmonyOS/EMUI, 2019+) | **Partial** | Huawei WebView | No Google Mobile Services; Chrome Custom Tabs unavailable; in-app WebView works |
 | Honor (post-Huawei) | Full | Chrome WebView | Devices with GMS |
-| Nokia (Android One) | Full | Google WebView | Stock Android |
+| Nokia (Android One) | Full | Google WebView | Stock Android, **use keep-alive service** recommended. |
 | Motorola | Full | Chrome WebView | Near-stock Android |
-| LG | Full | Chrome WebView | Legacy devices supported |
+| LG | Full | Chrome WebView | Legacy devices supported, **use keep-alive service** recommended. |
 | Sony Xperia | Full | Chrome WebView | |
 | ASUS (ZenUI) | Full | Chrome WebView | |
-| Android Go Edition | Supported | Chrome WebView | Limited memory; may experience slower load times |
-| Amazon Fire OS | Partial | Amazon WebView | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
+| Android Go Edition | Supported | Chrome WebView | Limited memory; may experience slower load times, **use keep-alive service**. |
+| Amazon Fire OS | **Partial** | Amazon WebView | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
+
 
 #### Dependencies
 
 | Dependency | Version | Required | Purpose |
 |------------|---------|----------|----------|
 | androidx.appcompat:appcompat | 1.6.1+ | Yes | Activity/Fragment support |
-| androidx.browser:browser | 1.7.0+ | Yes | Chrome Custom Tabs (openBrowser) |
+| androidx.browser:browser | 1.7.0+ | Yes | Chrome Custom Tabs support (openBrowser) |
 
-#### Feature availability by API level
+#### Feature restrictions by API level
 
-| Feature | Min API | Notes |
-|---------|---------|-------|
-| In-app WebView (openCard, openModal) | 21 | Core functionality |
-| Third-party cookies | 21 | Required for payment flows |
-| Chrome Custom Tabs (openBrowser) | 21 | Requires compatible browser |
-| Automatic dark mode detection | 29 | Falls back to light theme on older versions |
-| Edge-to-edge display | 30 | Graceful fallback on older versions |
-
-#### Version-gated behavior
-
-Core functionality (slide-up card, modal, WebView, animations, payment callbacks) works identically across all supported Android versions (API 21+). The following features have graceful fallbacks on older versions:
+Core functionality (slide-up card, modal, WebView, animations, payment callbacks) works identically across all supported Android versions (API 21+). The following features have graceful fallbacks on older Android versions:
 
 **API 21-28 (Android 5.0-9.0)**
-- Dark mode: Not automatically detected. Pass `theme=dark` or `theme=light` as a URL parameter to control appearance.
-- Window insets: Uses legacy status bar handling.
+- Dark mode: Not automatically detected. Light mode used as fallback.
+- Window insets: Uses legacy status bar handling, there might be slight overlaps with menu/status bar on some devices or
+visual artefacts.
 
-**API 29+ (Android 10+)**
-- Dark mode: Automatically detected from system settings via `Configuration.UI_MODE_NIGHT_MASK`.
-
-**API 30+ (Android 11+)**
-- Edge-to-edge: Uses `WindowInsets` API for proper safe area handling on devices with rounded corners or camera cutouts.
 
 ### iOS
 
@@ -511,25 +499,7 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | iPhone (all models iOS 13+) | Full | Portrait/landscape, card slides from bottom |
 | iPad | Full | Centered presentation, all orientations |
 | iPad (Split View / Slide Over) | Full | Responsive layout |
-| Mac (Catalyst) | Untested | Should work; not officially tested |
-
-#### Framework dependencies
-
-| Framework | Required | Purpose |
-|-----------|----------|----------|
-| WebKit | Yes | WKWebView for in-app checkout |
-| SafariServices | Yes | SFSafariViewController (openBrowser) |
-| Foundation | Yes | Core framework |
-| UIKit | Yes | UI components |
-
-#### Language support
-
-| Language | Status | Notes |
-|----------|--------|-------|
-| Swift | Full | Native API |
-| Objective-C | Full | Native API |
-| ARC | Full | Automatic Reference Counting |
-| Non-ARC | Full | Manual memory management (Unreal Engine compatibility) |
+| Mac (Catalyst) | Untested | Should work; not officially tested yet |
 
 ### Testing
 
@@ -538,13 +508,13 @@ We test this library using BrowserStack App Automate devices. Supported environm
 ### Known limitations
 
 **Android**
-- Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally
-- Android Go: Performance may vary on low-memory devices (<1GB RAM)
-- WebView updates: Devices without Play Store may have outdated WebView; recommend users update Android System WebView
+- Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally.
+- Android Go: Performance may vary on low-memory devices (<1GB RAM), please use the [keep-alive service](#keep-alive-service).
+- WebView updates: Devices without Play Store may have outdated WebView.
 - Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](#sample-apps) (GPU / `swangle` note)
 
 **iOS**
-- iOS 13 Dark Mode: Requires explicit theme parameter in URL; automatic detection not available on iOS 13.0-13.3
+- iOS 13: Automatic theme detection not available on iOS 13.0-13.3. Fixed in iOS 13.4
 
 ---
 

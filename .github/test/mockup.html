@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iOS Wireframe Preview (simplified modal bg)</title>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <script>
+    (function () {
+      if (new URLSearchParams(location.search).get("transparent") === "1") {
+        document.documentElement.classList.add("wireframe-export-transparent");
+      }
+    })();
+  </script>
+  <style>
+    html, body { margin: 0; background: #fff; color: #000; }
+    html.wireframe-export-transparent,
+    html.wireframe-export-transparent body {
+      background: transparent !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+// iOS Wireframe Skeletons — three screens (preview copy of Claude session output)
+// Append ?transparent=1 for PNG export with no page background (see export-wireframe-png.mjs).
+
+const EXPORT_TRANSPARENT =
+  typeof window !== "undefined" &&
+  new URLSearchParams(window.location.search).get("transparent") === "1";
+
+const PhoneFrame = ({ children, label }) => (
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div style={{
+      width: 300, height: 620,
+      borderRadius: 52,
+      border: "2px solid #222",
+      background: "#0d0d0d",
+      position: "relative",
+      overflow: "hidden",
+      flexShrink: 0,
+      boxShadow: "0 0 0 1px #111, 0 32px 72px rgba(0,0,0,0.6)",
+    }}>
+      <div style={{
+        position: "absolute", top: 10, left: "50%",
+        transform: "translateX(-50%)",
+        width: 90, height: 26,
+        background: "#0d0d0d",
+        borderRadius: 20, zIndex: 30,
+      }} />
+      {children}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 50,
+          padding: "20px 16px 14px",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "flex-end",
+          background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)",
+          pointerEvents: "none",
+        }}
+      >
+        <span style={{
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#fff",
+          letterSpacing: "0.04em",
+          textShadow: "0 1px 6px rgba(0,0,0,0.9)",
+        }}>{label}</span>
+      </div>
+    </div>
+  </div>
+);
+
+const Bar = ({ w = "100%", h = 8, radius = 4, color = "#2a2a2a", mb = 0, mx = "0" }) => (
+  <div style={{
+    width: w, height: h,
+    background: color, borderRadius: radius,
+    marginBottom: mb,
+    marginLeft: mx, marginRight: mx,
+    flexShrink: 0,
+  }} />
+);
+
+const Pill = ({ h = 48, fill, outline, radius = 14, children }) => (
+  <div style={{
+    width: "100%", height: h,
+    background: fill || "transparent",
+    border: outline ? `1.5px solid ${outline}` : "none",
+    borderRadius: radius,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
+  }}>
+    {children}
+  </div>
+);
+
+const StatusBar = () => (
+  <div style={{
+    display: "flex", justifyContent: "space-between", alignItems: "center",
+    padding: "50px 22px 0",
+  }}>
+    <Bar w={28} h={10} color="#333" radius={3} />
+    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+      <Bar w={14} h={8} color="#333" radius={2} />
+      <Bar w={12} h={8} color="#333" radius={2} />
+      <Bar w={24} h={10} color="#333" radius={3} />
+    </div>
+  </div>
+);
+
+const Divider = ({ my = 12 }) => (
+  <div style={{ height: 1, background: "#222", margin: `${my}px 0`, flexShrink: 0 }} />
+);
+
+const BottomSheet = () => (
+  <div style={{ width: "100%", height: "100%", position: "relative", background: "#161618" }}>
+    <StatusBar />
+    <div style={{ padding: "18px 20px 0" }}>
+      <Bar w={100} h={14} color="#2a2a2c" radius={4} mb={16} />
+      <Bar w={40} h={8} color="#262628" radius={3} mb={6} />
+      {[0, 1].map(i => (
+        <div key={i} style={{
+          height: 44, background: "#1e1e20",
+          borderRadius: i === 0 ? "10px 10px 0 0" : "0 0 10px 10px",
+          marginBottom: i === 0 ? 1 : 0,
+          display: "flex", alignItems: "center", gap: 10, padding: "0 14px",
+        }}>
+          <div style={{ width: 16, height: 16, background: "#2c2c2e", borderRadius: 4, flexShrink: 0 }} />
+          <Bar w={70} h={8} color="#2a2a2c" radius={3} />
+          <Bar w={100} h={7} color="#242426" radius={3} />
+        </div>
+      ))}
+    </div>
+    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.42)", pointerEvents: "none" }} />
+    {/* top + bottom pins height (~65% of 620px phone); minHeight % was unreliable inside nested 100% heights */}
+    <div style={{
+      position: "absolute", top: "35%", left: 0, right: 0, bottom: 0,
+      background: "#1c1c1e",
+      borderTopLeftRadius: 22, borderTopRightRadius: 22,
+      borderBottomLeftRadius: 50, borderBottomRightRadius: 50,
+      border: "1px solid #b3ff39",
+      padding: "10px 16px 28px",
+      display: "flex", flexDirection: "column", gap: 0,
+      boxSizing: "border-box",
+    }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+        <div style={{ width: 36, height: 4, background: "#3a3a3a", borderRadius: 2 }} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#2c2c2e" }} />
+        <Bar w={70} h={11} color="#333" radius={4} />
+        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#2c2c2e" }} />
+      </div>
+      <div style={{
+        height: 80, background: "#2c2c2e", borderRadius: 14,
+        display: "flex", alignItems: "center", gap: 14, padding: "0 16px",
+        marginBottom: 14, flexShrink: 0,
+      }}>
+        <div style={{ width: 48, height: 48, background: "#3a3a3a", borderRadius: 12, flexShrink: 0 }} />
+        <Bar w="50%" h={10} color="#3a3a3a" radius={3} />
+        <div style={{ marginLeft: "auto" }}>
+          <Bar w={22} h={10} color="#2a2a2a" radius={3} />
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <Bar w={45} h={11} color="#333" radius={3} />
+        <Bar w={40} h={11} color="#333" radius={3} />
+      </div>
+      <Pill h={50} fill="#48484a" />
+      <Divider my={12} />
+      <div style={{ flex: 1, minHeight: 16 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "center" }}>
+        {[90, 80, 95, 60].map((w, i) => (
+          <Bar key={i} w={`${w}%`} h={6} color="#222" radius={3} mx="auto" />
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
+        <Bar w={50} h={6} color="#222" radius={3} />
+        <Bar w={36} h={10} color="#2a2a2a" radius={3} />
+      </div>
+    </div>
+  </div>
+);
+
+const CenteredModal = () => (
+  <div style={{ width: "100%", height: "100%", position: "relative", background: "#161618", isolation: "isolate" }}>
+    <div style={{ position: "relative", zIndex: 0 }}>
+      <StatusBar />
+      <div style={{ padding: "14px 16px 0" }}>
+        <Bar w={120} h={18} color="#3a3a3c" radius={5} mb={16} />
+        <div style={{
+          height: 200,
+          background: "#222224",
+          borderRadius: 14,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 12,
+          padding: "0 18px",
+        }}>
+          <Bar w="55%" h={8} color="#343436" radius={3} />
+          <Bar w="78%" h={8} color="#343436" radius={3} />
+          <Bar w="42%" h={8} color="#343436" radius={3} />
+        </div>
+      </div>
+    </div>
+
+    {/* Below modal + scrim so it never tints the dialog */}
+    <div style={{
+      position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1,
+      background: "#1c1c1e",
+      borderTopLeftRadius: 22, borderTopRightRadius: 22,
+      padding: "12px 16px 20px",
+      opacity: 0.35,
+    }}>
+      <Bar w={40} h={7} color="#222" radius={3} mb={8} />
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{ height: 36, background: "#222", borderRadius: 8, marginBottom: 2 }} />
+      ))}
+    </div>
+
+    <div style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(0,0,0,0.48)", pointerEvents: "none" }} />
+
+    <div style={{
+      position: "absolute",
+      top: "50%", left: "50%",
+      transform: "translate(-50%, -50%)",
+      zIndex: 3,
+      width: "82%",
+      backgroundColor: "#1c1c1e",
+      borderRadius: 22,
+      border: "1px solid #b3ff39",
+      overflow: "hidden",
+      display: "flex", flexDirection: "column",
+      boxShadow: "0 24px 64px rgba(0,0,0,0.85)",
+    }}>
+      <div style={{ padding: "22px 20px 14px", display: "flex", justifyContent: "center" }}>
+        <Bar w="65%" h={13} color="#333" radius={4} />
+      </div>
+      <div style={{
+        height: 100, background: "#111", borderRadius: 12,
+        margin: "0 14px 14px",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <div style={{ width: 36, height: 36, border: "1.5px solid #2a2a2a", borderRadius: 8 }} />
+      </div>
+      <div style={{ padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        {[85, 95, 60].map((w, i) => (
+          <Bar key={i} w={`${w}%`} h={7} color="#2a2a2a" radius={3} />
+        ))}
+      </div>
+      <div style={{ padding: "0 14px 10px" }}>
+        <Pill h={50} fill="#48484a" />
+      </div>
+      <div style={{ padding: "0 14px 18px" }}>
+        <Pill h={50} fill="#2c2c2e" />
+      </div>
+    </div>
+  </div>
+);
+
+const InAppBrowser = () => (
+  <div style={{ width: "100%", height: "100%", background: "#000", display: "flex", flexDirection: "column" }}>
+    <StatusBar />
+    <div style={{
+      display: "flex", alignItems: "center",
+      padding: "8px 14px 10px",
+      gap: 0,
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%", background: "#2a2a2a",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <svg width="10" height="10" viewBox="0 0 10 10">
+          <line x1="1.5" y1="1.5" x2="8.5" y2="8.5" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/>
+          <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
+        <Bar w={140} h={10} color="#333" radius={3} />
+      </div>
+      <div style={{
+        width: 32, height: 32, borderRadius: "50%", background: "#2a2a2a",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0,
+      }}>
+        <svg width="14" height="14" viewBox="0 0 14 14">
+          <rect x="1" y="1" width="12" height="12" rx="3" stroke="#999" strokeWidth="1.2" fill="none"/>
+          <rect x="4" y="4" width="6" height="6" rx="1.5" stroke="#999" strokeWidth="1" fill="none"/>
+        </svg>
+      </div>
+    </div>
+    <div style={{ height: 1, background: "#1a1a1a", flexShrink: 0 }} />
+    <div style={{
+      flex: 1, overflow: "hidden",
+      background: "#0a0a0a",
+      display: "flex", flexDirection: "column",
+    }}>
+      <div style={{ padding: "16px 16px 0", display: "flex", flexDirection: "column" }}>
+        <div style={{
+          display: "flex", alignItems: "center",
+          marginBottom: 20, padding: "0 2px",
+        }}>
+          <div style={{ flex: 1 }} />
+          <Bar w={75} h={12} color="#2a2a2a" radius={4} />
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#222" }} />
+          </div>
+        </div>
+        <div style={{
+          minHeight: 80,
+          background: "#161616", borderRadius: 14,
+          display: "flex", alignItems: "center", gap: 14, padding: "16px",
+          marginBottom: 18, flexShrink: 0,
+        }}>
+          <div style={{ width: 48, height: 48, background: "#222", borderRadius: 12, flexShrink: 0 }} />
+          <Bar w="45%" h={10} color="#252525" radius={3} />
+          <div style={{ marginLeft: "auto" }}>
+            <Bar w={18} h={9} color="#1e1e1e" radius={3} />
+          </div>
+        </div>
+        <div style={{
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          marginBottom: 18, padding: "0 2px",
+        }}>
+          <Bar w={42} h={12} color="#2a2a2a" radius={3} />
+          <Bar w={38} h={12} color="#2a2a2a" radius={3} />
+        </div>
+        <Pill h={50} fill="#48484a" />
+        <Divider my={14} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, marginBottom: 6 }}>
+          {[92, 88, 94, 58].map((w, i) => (
+            <Bar key={i} w={`${w}%`} h={5} color="#181818" radius={3} />
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 }}>
+          <Bar w={48} h={5} color="#181818" radius={3} />
+          <Bar w={34} h={10} color="#1e1e1e" radius={3} />
+        </div>
+      </div>
+      <div style={{ flex: 1 }} />
+    </div>
+    <div style={{
+      display: "flex", alignItems: "center",
+      padding: "10px 16px 6px",
+      flexShrink: 0,
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 22, background: "#1e1e1e",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="10" height="16" viewBox="0 0 10 16">
+          <polyline points="8,1.5 2,8 8,14.5" fill="none" stroke="#888" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1 }} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 22, background: "#1e1e1e",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="14" height="16" viewBox="0 0 14 16">
+            <path d="M7 1.5v8" stroke="#888" strokeWidth="1.4" strokeLinecap="round"/>
+            <polyline points="4,4 7,1 10,4" fill="none" stroke="#888" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M2.5 7.5v5.5a1.5 1.5 0 001.5 1.5h6a1.5 1.5 0 001.5-1.5V7.5" stroke="#888" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <div style={{
+          width: 40, height: 40, borderRadius: 22, background: "#1e1e1e",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="14" height="14" viewBox="0 0 14 14">
+            <path d="M12 7a5 5 0 11-1.8-3.8" stroke="#888" strokeWidth="1.4" fill="none" strokeLinecap="round"/>
+            <polyline points="12.5,1 12.5,4 9.5,4" fill="none" stroke="#888" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <div style={{
+          width: 40, height: 40, borderRadius: 22, background: "#1e1e1e",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg width="14" height="14" viewBox="0 0 14 14">
+            <circle cx="7" cy="7" r="5.5" stroke="#888" strokeWidth="1.3" fill="none"/>
+            <circle cx="7" cy="7" r="1" fill="#888"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <div style={{ width: 80, height: 4, background: "#222", borderRadius: 2 }} />
+    </div>
+  </div>
+);
+
+function App() {
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: EXPORT_TRANSPARENT ? "transparent" : "#fff",
+      color: "#000",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "48px 32px",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+    }}>
+      <div style={{ display: "flex", gap: 40, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
+        <PhoneFrame label="OpenCard">
+          <BottomSheet />
+        </PhoneFrame>
+        <PhoneFrame label="OpenModal">
+          <CenteredModal />
+        </PhoneFrame>
+        <PhoneFrame label="OpenBrowser">
+          <InAppBrowser />
+        </PhoneFrame>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+  </script>
+</body>
+</html>
