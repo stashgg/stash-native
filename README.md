@@ -10,13 +10,21 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Table of contents
 
+**Overview**
+
 - [Platforms](#platforms)
-- [Game Engine Wrappers](#wrappers)
+- [Game engine wrappers](#wrappers)
 - [Downloads](#downloads)
-- [Sample Apps](#sample-apps)
+- [Sample apps](#sample-apps)
+
+**Setup**
+
 - [Installation](#installation)
   - [Android](#android)
   - [iOS](#ios)
+
+**API**
+
 - [Presentation modes](#presentation-modes)
   - [openCard](#opencard)
     - [Config](#config)
@@ -25,13 +33,16 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
     - [Config](#config-1)
     - [Callbacks](#callbacks-1)
   - [openBrowser](#openbrowser)
-- [Versioning](#versioning)
-- [Support](#support)
+
+**Reference**
+
 - [Compatibility](#compatibility)
   - [Android](#android-1)
   - [iOS](#ios-1)
-  - [Internal Testing](#testing)
-  - [Known Limitations](#known-limitations)
+  - [Internal testing](#testing)
+  - [Known limitations](#known-limitations)
+- [Versioning](#versioning)
+- [Support](#support)
 
 ## Platforms
 
@@ -40,9 +51,9 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 | Android  | Android library (AAR).       |
 | iOS      | iOS framework (XCFramework). |
 
-## Wrappers
+## Game Engine Wrappers
 
-If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools—such as full flow testing directly in the Unity Editor.
+If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools such as full flow testing directly in the Engine Editor.
 
 |                                                                                             | Engine        | Repository                                              | Compatibility                   |
 | ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------- |
@@ -57,23 +68,20 @@ Latest pre-built binaries are always available on [Releases Page](https://github
 - **Android**: `stashnative-release.aar` (or `StashNative-<tag>.aar` from releases)
 - **iOS**: `StashNative.xcframework.zip`
 
-## Sample Apps
+## Sample apps
 
-Both platforms contain up-to-date sample apps that demonstrate the library usage and functions. You can run them from source 
+Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory.
 
-- **Android**: `./Android/sample/` - Run with `./gradlew :sample:installDebug`
-- **iOS**: `./iOS/Sample/` - Open `StashNativeSample.xcodeproj` in Xcode
+> **Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`). Same root cause as in [Known limitations](#known-limitations) (emulator row).
 
-> **Android emulator on Apple Silicon note:** The default GPU mode (`auto`) on arm64-v8a AVDs (Apple Silicon Macs) returns an empty `GL_VERSION` string that causes the WebView's Chromium GPU thread to crash. Set the AVD's GPU mode to **`swangle`** (SwiftShader software renderer via ANGLE) to avoid this. Either pass `-gpu swangle` when launching the emulator, or set `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`.
-
-or try them instantly in your browser using the Appetize online emulator:
+Or try in the browser emulators via Appetize:
 
 - [Android Sample App](https://appetize.io/app/b_3l3fzg5qiahx6p2xpwp3kcirhy)
 - [iOS Sample App](https://appetize.io/app/b_qbywqclhrfl6lk3i3ehovfqa2m)
 
 ---
 
-# Installation
+## Installation
 
 ### Android
 
@@ -100,13 +108,15 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 ---
 
-# Presentation Modes
+## Presentation modes
 
-The library provides three distinct ways to present Stash URLs within your app or game: **openCard**, **openModal**, and **openBrowser**. Each method lets you present different types of Stash experiences—such as Stash Pay checkout, Stash Web Shop, or Stash Opt-in—in a style that best fits your user flow. Details for each option are provided below.
+The library exposes three ways to open Stash URL (Stash Pay, Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered), and **openBrowser** (Chrome Custom Tabs / SFSafariViewController). Use **openCard** or **openModal** for full in-app checkout experience; use **openBrowser** for a browser-based checkout.
 
-## openCard
 
-Drawer-style card: slides up from the bottom on phones, centered on tablets. Suited for Stash Pay payment links or channel selection. [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration)
+
+### openCard
+
+Drawer-style card: slides up from the bottom on phones, centered on tablets (Mimics native Apple Pay, Google Pay experience). Suited for Stash Pay payment links or channel selection. [Integrating Stash Pay](https://docs.stash.gg/guides/stash-pay/integration)
 
 **Android**
 
@@ -129,20 +139,20 @@ StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil
 [[StashNativeCard sharedInstance] openCardWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
-### Config
+#### Config
 
-Pass a `CardConfig` (or `nil`/`null`) to control orientation and sizing. Pass `nil`/`null` for defaults.
+Pass a `CardConfig` (or `nil`/`null`) to configure presentation. Pass `nil`/`null` for defaults.
 
 | Aspect | Description |
 | ------ | ----------- |
 | **forcePortrait** | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
 | **Phone** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0). |
 | **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
-| **backgroundColor** | Optional HTML hex string (e.g. `#RRGGBB`). When set, the sheet background (WebView underpaint, loading spinner, drag handle, and `theme=` on the URL) follows that color instead of system light/dark. Omit or leave unset for SDK defaults. |
+| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Keep unset for best experience. |
 
 > **Background color:** Use `backgroundColor` only when you need the native shell to match **Stash Pay with a custom theme**. For the **default Stash theme**, leave it unset so the standard light/dark experience stays aligned with the system.
 
-> **Warning:** If using `forcePortrait`, ensure your app supports portrait or can unlock to portrait while the card is shown.
+> **Portrait Rotation:** If using `forcePortrait`, ensure your app supports portrait or can unlock to portrait while the card is shown.
 
 **Android**
 
@@ -164,16 +174,16 @@ config.cardHeightRatioPortrait = 0.68
 stashNative.openCard(withURL: url, config: config)
 ```
 
-### Callbacks
+#### Callbacks
 
 | Event            | Description |
 | ---------------- | ----------- |
-| Payment Success  | Called when the payment completes successfully. |
+| Payment Success  | Called when the payment completes successfully. Includes detail about order in the callback payload. |
 | Payment Failure  | Called when the payment fails. |
 | Dialog Dismissed | Called when the user dismisses the dialog. |
-| External payment | Some payment methods requires transacting outside the app. This callback fires when external payment started. |
+| External payment | Some payment methods requires transacting outside the app (Klarna, Bitcoin etc.). This callback fires when external payment flow has started. |
 | Opt-In Response  | Called when a channel selection response is received. |
-| Page Loaded      | Called when the page finishes loading (with load time). |
+| Page Loaded      | Called when the page finishes loading (with load time in ms). |
 | Network Error    | Called when the page load fails (no connection, HTTP error, timeout). |
 
 Set a listener (Android) or delegate (iOS) before calling `openCard` or `openModal`. Same callback interface is used for both.
@@ -280,7 +290,7 @@ extension YourViewController: StashNativeCardDelegate {
 
 ---
 
-## openModal
+### openModal
 
 Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
 
@@ -306,7 +316,7 @@ StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or n
 [[StashNativeCard sharedInstance] openModalWithURL:@"https://testcard.stashpreview.com" config:config];
 ```
 
-### Config
+#### Config
 
 Pass a `ModalConfig` (or `nil`/`null`) to control dismiss behavior and sizing. Pass `nil`/`null` for defaults. 
 
@@ -335,13 +345,13 @@ config.allowDismiss = true
 stashNative.openModal(withURL: url, config: config)
 ```
 
-### Callbacks
+#### Callbacks
 
-Same as **openCard**: same events and the same listener/delegate. Set it once as shown in the [Callbacks](#callbacks) section under openCard; it receives events for both card and modal.
+Same as **openCard**: same events and the same listener/delegate. Set it once as shown in the [Callbacks](#callbacks) section under openCard; it receives events for both card and modal calls.
 
 ---
 
-## openBrowser
+### openBrowser
 
 Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view.
 
@@ -351,9 +361,9 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
 ```
 
-**(Optional) Android Keep-alive Service**
+**Optional: Keep-alive service (low-memory Android devices)**
 
-When the user leaves your app for Chrome Custom Tabs or the system browser, Android may kill your process on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and prevents your app from sleeping on low-memory/budget devices:
+When the user leaves your app for Chrome Custom Tabs or the system browser, Android may kill your app on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and improves survival on budget / Android Go–class devices:
 
 ```java
 StashNativeCard.getInstance().setKeepAliveEnabled(true);
@@ -366,9 +376,9 @@ StashNativeCard.getInstance().setKeepAliveConfig(cfg);
 
 - **Default:** keep-alive is **off**; no behavior change for existing apps.
 - **Manifest:** the library merges `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SHORT_SERVICE`, and a non-exported `StashKeepAliveService` with `foregroundServiceType="shortService"`. You do not need to add these by hand. On Android 14+, `shortService` has a system-enforced time limit (about three minutes); the service is stopped when the user returns to your app (`Activity` resume).
-- **Opt out of the merged service** (e.g. policy reasons): in your app manifest, remove the library component, for example:
-  `tools:node="remove"` on `com.stash.stashnative.StashKeepAliveService` (with `xmlns:tools` on the manifest root).
+- **Opt out of the merged service** (e.g. policy reasons): in your app manifest, remove the library component, for example: `tools:node="remove"` on `com.stash.stashnative.StashKeepAliveService` (with `xmlns:tools` on the manifest root).
 - **Notifications:** the library does not add `POST_NOTIFICATIONS`; on Android 13+ the notification may be hidden until your app requests that permission, but the foreground service can still run.
+
 
 **iOS (Swift)**
 
@@ -390,24 +400,11 @@ On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser
 
 ---
 
-# Versioning
+## Compatibility
 
-This package follows [Semantic Versioning](https://semver.org/) (major.minor.patch):
+Requirements, OS coverage, vendor notes, and edge cases for each platform are below.
 
-- **Major**: Breaking changes
-- **Minor**: New features (backward compatible)
-- **Patch**: Bug fixes
-
-# Support
-
-- Documentation: https://docs.stash.gg
-- Email: developers@stash.gg
-
----
-
-# Compatibility
-
-## Android
+### Android
 
 | Attribute | Requirement |
 |-----------|-------------|
@@ -417,7 +414,7 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 | Java Version | Java 8 (source/target), JDK 17 for build |
 | Architecture | armeabi-v7a, arm64-v8a, x86, x86_64 |
 
-### Android Version Support
+#### Android version support
 
 | Android Version | API Level | Status | Notes |
 |-----------------|-----------|--------|-------|
@@ -433,7 +430,7 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 | Android 5/5.1 (Lollipop) | 21-22 | Full | Minimum SDK |
 | Android 4.4 and below | <=20 | Not Supported | |
 
-### Vendor-specific Compatibility
+#### Vendor-specific compatibility
 
 | Vendor / Skin | Compatibility | WebView Source | Notes |
 |---------------|--------------|----------------|-------|
@@ -455,14 +452,14 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 | Android Go Edition | Supported | Chrome WebView | Limited memory; may experience slower load times |
 | Amazon Fire OS | Partial | Amazon WebView | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
 
-### Dependencies
+#### Dependencies
 
 | Dependency | Version | Required | Purpose |
 |------------|---------|----------|----------|
 | androidx.appcompat:appcompat | 1.6.1+ | Yes | Activity/Fragment support |
 | androidx.browser:browser | 1.7.0+ | Yes | Chrome Custom Tabs (openBrowser) |
 
-### Feature Availability by API Level
+#### Feature availability by API level
 
 | Feature | Min API | Notes |
 |---------|---------|-------|
@@ -472,7 +469,7 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 | Automatic dark mode detection | 29 | Falls back to light theme on older versions |
 | Edge-to-edge display | 30 | Graceful fallback on older versions |
 
-### Version-Gated Behavior
+#### Version-gated behavior
 
 Core functionality (slide-up card, modal, WebView, animations, payment callbacks) works identically across all supported Android versions (API 21+). The following features have graceful fallbacks on older versions:
 
@@ -486,7 +483,7 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 **API 30+ (Android 11+)**
 - Edge-to-edge: Uses `WindowInsets` API for proper safe area handling on devices with rounded corners or camera cutouts.
 
-## iOS
+### iOS
 
 | Attribute | Requirement |
 |-----------|-------------|
@@ -495,7 +492,7 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | Xcode | 13.0+ |
 | Architecture | arm64, arm64e (devices), x86_64 (simulator) |
 
-### iOS Version Support
+#### iOS version support
 
 | iOS Version | Status | Notes |
 |-------------|--------|-------|
@@ -507,7 +504,7 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | iOS 13.x | Full | Minimum version |
 | iOS 12 and below | Not Supported | |
 
-### Device Support
+#### Device support
 
 | Device Type | Status | Notes |
 |-------------|--------|-------|
@@ -516,17 +513,50 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | iPad (Split View / Slide Over) | Full | Responsive layout |
 | Mac (Catalyst) | Untested | Should work; not officially tested |
 
-## Testing
+#### Framework dependencies
+
+| Framework | Required | Purpose |
+|-----------|----------|----------|
+| WebKit | Yes | WKWebView for in-app checkout |
+| SafariServices | Yes | SFSafariViewController (openBrowser) |
+| Foundation | Yes | Core framework |
+| UIKit | Yes | UI components |
+
+#### Language support
+
+| Language | Status | Notes |
+|----------|--------|-------|
+| Swift | Full | Native API |
+| Objective-C | Full | Native API |
+| ARC | Full | Automatic Reference Counting |
+| Non-ARC | Full | Manual memory management (Unreal Engine compatibility) |
+
+### Testing
 
 We test this library using BrowserStack App Automate devices. Supported environments are listed in the [App Automate list of browsers and platforms](https://www.browserstack.com/list-of-browsers-and-platforms/app_automate).
 
-## Known Limitations
+### Known limitations
 
 **Android**
 - Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally
 - Android Go: Performance may vary on low-memory devices (<1GB RAM)
-- WebView Updates: Devices without Play Store may have outdated WebView; recommend users update Android System WebView
-- Android Emulator (arm64-v8a, Apple Silicon): The default GPU mode (`auto`) can return an empty OpenGL ES `VERSION` string, causing a native crash in the WebView's GPU thread. Fix: set `hw.gpu.mode=swangle` in your AVD config (`~/.android/avd/<avd>.avd/config.ini`) or pass `-gpu swangle` to the emulator. This does not affect physical devices.
+- WebView updates: Devices without Play Store may have outdated WebView; recommend users update Android System WebView
+- Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](#sample-apps) (GPU / `swangle` note)
 
 **iOS**
 - iOS 13 Dark Mode: Requires explicit theme parameter in URL; automatic detection not available on iOS 13.0-13.3
+
+---
+
+## Versioning
+
+This package follows [Semantic Versioning](https://semver.org/) (major.minor.patch):
+
+- **Major**: Breaking changes
+- **Minor**: New features (backward compatible)
+- **Patch**: Bug fixes
+
+## Support
+
+- Documentation: https://docs.stash.gg
+- Email: developers@stash.gg
