@@ -351,9 +351,9 @@ Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariVi
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
 ```
 
-**Android — optional keep-alive (low-RAM devices)**
+**(Optional) Android Keep-alive Service**
 
-When the user leaves your app for Chrome Custom Tabs or the system browser (`openBrowser`, or `window.stash_sdk.external(url)` from checkout), the OS may kill your process on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and improves survival on budget / Android Go–class devices:
+When the user leaves your app for Chrome Custom Tabs or the system browser, Android may kill your process on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and prevents your app from sleeping on low-memory/budget devices:
 
 ```java
 StashNativeCard.getInstance().setKeepAliveEnabled(true);
@@ -433,7 +433,7 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 | Android 5/5.1 (Lollipop) | 21-22 | Full | Minimum SDK |
 | Android 4.4 and below | <=20 | Not Supported | |
 
-### Vendor Compatibility (Android 7+)
+### Vendor-specific Compatibility
 
 | Vendor / Skin | Compatibility | WebView Source | Notes |
 |---------------|--------------|----------------|-------|
@@ -515,24 +515,6 @@ Core functionality (slide-up card, modal, WebView, animations, payment callbacks
 | iPad | Full | Centered presentation, all orientations |
 | iPad (Split View / Slide Over) | Full | Responsive layout |
 | Mac (Catalyst) | Untested | Should work; not officially tested |
-
-### Framework Dependencies
-
-| Framework | Required | Purpose |
-|-----------|----------|----------|
-| WebKit | Yes | WKWebView for in-app checkout |
-| SafariServices | Yes | SFSafariViewController (openBrowser) |
-| Foundation | Yes | Core framework |
-| UIKit | Yes | UI components |
-
-### Language Support
-
-| Language | Status | Notes |
-|----------|--------|-------|
-| Swift | Full | Native API |
-| Objective-C | Full | Native API |
-| ARC | Full | Automatic Reference Counting |
-| Non-ARC | Full | Manual memory management (Unreal Engine compatibility) |
 
 ## Testing
 
