@@ -112,6 +112,10 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Chrome Custom Tabs / SFSafariViewController). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/stashgg/stash-native/refs/heads/main/.github/assets/presentations.png" alt="Presentation Modes" width="640" />
+</p>
+
 
 
 
