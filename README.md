@@ -8,6 +8,30 @@
 
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application.
 
+## Table of contents
+
+- [Platforms](#platforms)
+- [Wrappers](#wrappers)
+- [Downloads](#downloads)
+- [Sample Apps](#sample-apps)
+- [Installation](#installation)
+  - [Android](#android)
+  - [iOS](#ios)
+- [Presentation modes](#presentation-modes)
+  - [openCard](#opencard)
+    - [Config](#config)
+    - [Callbacks](#callbacks)
+  - [openModal](#openmodal)
+    - [Config](#config-1)
+    - [Callbacks](#callbacks-1)
+  - [openBrowser](#openbrowser)
+- [Versioning](#versioning)
+- [Support](#support)
+- [Compatibility](#compatibility)
+  - [Android](#android-1)
+  - [iOS](#ios-1)
+  - [Known Limitations](#known-limitations)
+
 ## Platforms
 
 | Platform | Description                  |

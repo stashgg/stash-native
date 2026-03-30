@@ -332,9 +332,9 @@
         }
         
         function triggerSuccess() {
-            updateStatus('Called: onPaymentSuccess({}) — order is JSON-stringified for native');
+            updateStatus('Called: onPaymentSuccess({})');
             if (window.stash_sdk && window.stash_sdk.onPaymentSuccess) {
-                window.stash_sdk.onPaymentSuccess({"test": "test"});
+                window.stash_sdk.onPaymentSuccess({"orderId": "test_order_id"});
             }
         }
         
