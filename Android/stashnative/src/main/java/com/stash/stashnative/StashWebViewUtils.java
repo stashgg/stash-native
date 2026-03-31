@@ -78,10 +78,10 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".collapse(); } catch(e) {}"
       + "  };"
-      + "  window.stash_sdk.external = function(url) {"
+      + "  window.stash_sdk.openExternalBrowser = function(url) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".external((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
       + "  };"
       + "  try { window.close = function() { try { "
       + JS_INTERFACE_NAME
@@ -255,7 +255,7 @@ public class StashWebViewUtils {
    * @return URL with theme param, or original if null/empty
    */
   /**
-   * Validates and normalizes a URL for {@code window.stash_sdk.external(url)}: {@code http} or
+   * Validates and normalizes a URL for {@code window.stash_sdk.openExternalBrowser(url)}: {@code http} or
    * {@code https} only. Trims input; prepends {@code https://} when no scheme is present.
    *
    * @return canonical URL string, or {@code null} if invalid

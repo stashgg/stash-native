@@ -147,8 +147,10 @@ public final class CardConstants {
   
   /** Expanded phone card height ratio. */
   public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
-  
-  
+
+  /** Tablet SDK expand: height multiplier from base card height (+50%; clamped to screen via {@link #EXPANDED_CARD_HEIGHT_RATIO}). */
+  public static final float TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER = 1.5f;
+
   /** Minimum phone popup/card width in dp . */
   public static final float MIN_PHONE_CARD_WIDTH_DP = 300f;
   
@@ -336,7 +338,7 @@ public final class CardConstants {
   public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
   /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
-  /** URL for {@code window.stash_sdk.external(url)} (includes theme query when applicable). */
+  /** URL for {@code window.stash_sdk.openExternalBrowser(url)} (includes theme query when applicable). */
   public static final String BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL = "stashExternalPaymentUrl";
 
   /** Message types for notifyListenerAndDismiss (success/failure/optin). */

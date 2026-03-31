@@ -448,7 +448,7 @@ public class StashNativeCardPlugin {
     }
 
     @JavascriptInterface
-    public void external(String url) {
+    public void openExternalBrowser(String url) {
       new Handler(Looper.getMainLooper()).post(() -> {
         try {
           String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
@@ -488,7 +488,7 @@ public class StashNativeCardPlugin {
             }
           }
         } catch (Exception e) {
-          Log.w(TAG, "Error in external: " + e.getMessage(), e);
+          Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
         }
       });
     }

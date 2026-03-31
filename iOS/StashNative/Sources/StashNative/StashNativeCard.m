@@ -329,9 +329,12 @@ static const NSTimeInterval kDismissAnimationDurationPopup = 0.35;
 static const CGFloat kSpringVelocityExpand = 0.5f;
 static const CGFloat kSpringVelocityCollapse = 0.3f;
 
-#pragma mark - iPad Collapsed Size
+#pragma mark - iPad SDK expand/collapse (height only, clamped)
 
-static const CGFloat kIPadCollapsedSizeRatio = 0.7f;
+/** Base height × this value when expanded via JS (50% growth); clamped by max card height. */
+static const CGFloat kTabletSdkExpandHeightMultiplier = 1.5f;
+/** Matches Android CardConstants.EXPANDED_CARD_HEIGHT_RATIO — max card height when expanding via SDK. */
+static const CGFloat kExpandedCardHeightScreenRatio = 0.95f;
 
 #pragma mark - Progress Thresholds (corner radius)
 
@@ -410,6 +413,9 @@ static UIColor *stash_parseHTMLHexColor(NSString *hex);
 
 BOOL isRunningOniPad(void);
 CGSize calculateiPadCardSize(CGRect screenBounds);
+CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView);
+CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView);
+CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
 CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
 CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 UIColor* getSystemBackgroundColor(void);
@@ -1008,9 +1014,13 @@ initialSpringVelocity:kSpringVelocityCollapse
         self.expandDisplayLink = nil;
         _isCardExpanded = YES;
         if (cardView) {
-            CGFloat radius = isRunningOniPad() ? kCornerRadiusExpanded : kCornerRadiusDefault;
-            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, radius);
-            cardView.layer.mask = maskLayer;
+            if (isRunningOniPad()) {
+                CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+                cardView.layer.mask = maskLayer;
+            } else {
+                CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+                cardView.layer.mask = maskLayer;
+            }
         }
         [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
         void (^completion)(void) = self.expandCompletion;
@@ -1053,15 +1063,15 @@ initialSpringVelocity:kSpringVelocityCollapse
 
     if (isRunningOniPad()) {
         CGSize cardSize = calculateiPadCardSize(screenBounds);
-        expandedWidth = cardSize.width;
-        expandedHeight = cardSize.height;
-        expandedX = (screenBounds.size.width - expandedWidth) / 2;
-        expandedY = (screenBounds.size.height - expandedHeight) / 2;
-
-        collapsedWidth = expandedWidth * kIPadCollapsedSizeRatio;
-        collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
-        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
-        collapsedY = (screenBounds.size.height - collapsedHeight) / 2;
+        CGFloat baseW = cardSize.width;
+        CGFloat baseH = cardSize.height;
+        CGFloat expandedH = stashTabletSdkExpandedHeightFromBase(baseH, screenBounds, cardView);
+        collapsedWidth = expandedWidth = baseW;
+        collapsedHeight = baseH;
+        expandedHeight = expandedH;
+        collapsedX = expandedX = (screenBounds.size.width - baseW) / 2.0;
+        collapsedY = (screenBounds.size.height - collapsedHeight) / 2.0;
+        expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
     } else {
         // iPhone: use same canonical collapsed frame as initial present (includes min clamp)
         CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
@@ -1144,8 +1154,8 @@ initialSpringVelocity:kSpringVelocityCollapse
     CGFloat collapsedHeight, expandedHeight;
     if (isRunningOniPad()) {
         CGSize cardSize = calculateiPadCardSize(screenBounds);
-        expandedHeight = cardSize.height;
-        collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
+        collapsedHeight = cardSize.height;
+        expandedHeight = stashTabletSdkExpandedHeightFromBase(collapsedHeight, screenBounds, cardView);
     } else {
         CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
         collapsedHeight = collapsedFrame.size.height;
@@ -1171,14 +1181,15 @@ initialSpringVelocity:kSpringVelocityCollapse
     CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
     if (isRunningOniPad()) {
         CGSize cardSize = calculateiPadCardSize(screenBounds);
-        expandedWidth = cardSize.width;
-        expandedHeight = cardSize.height;
-        expandedX = (screenBounds.size.width - expandedWidth) / 2;
-        expandedY = (screenBounds.size.height - expandedHeight) / 2;
-        collapsedWidth = expandedWidth * kIPadCollapsedSizeRatio;
-        collapsedHeight = expandedHeight * kIPadCollapsedSizeRatio;
-        collapsedX = (screenBounds.size.width - collapsedWidth) / 2;
-        collapsedY = (screenBounds.size.height - collapsedHeight) / 2;
+        CGFloat baseW = cardSize.width;
+        CGFloat baseH = cardSize.height;
+        CGFloat expandedH = stashTabletSdkExpandedHeightFromBase(baseH, screenBounds, cardView);
+        collapsedWidth = expandedWidth = baseW;
+        collapsedHeight = baseH;
+        expandedHeight = expandedH;
+        collapsedX = expandedX = (screenBounds.size.width - baseW) / 2.0;
+        collapsedY = (screenBounds.size.height - collapsedHeight) / 2.0;
+        expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
     } else {
         CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
         collapsedWidth = collapsedFrame.size.width;
@@ -1451,11 +1462,9 @@ initialSpringVelocity:kSpringVelocityCollapse
         // Snap back: iPad to center, iPhone to expanded/collapsed
         if (isRunningOniPad()) {
             CGRect screenBounds = [UIScreen mainScreen].bounds;
-            CGSize cardSize = calculateiPadCardSize(screenBounds);
-            CGFloat originalWidth = cardSize.width;
-            CGFloat originalHeight = cardSize.height;
-            CGPoint screenCenter = CGPointMake(screenBounds.size.width / 2.0, screenBounds.size.height / 2.0);
-            CGRect newBounds = CGRectMake(0, 0, originalWidth, originalHeight);
+            CGRect targetFrame = stashFrameForIPadSdkCard(screenBounds, cardView);
+            CGFloat originalWidth = targetFrame.size.width;
+            CGFloat originalHeight = targetFrame.size.height;
             
             [UIView animateWithDuration:kAnimationDurationFast 
                                   delay:0 
@@ -1463,8 +1472,7 @@ initialSpringVelocity:kSpringVelocityCollapse
                   initialSpringVelocity:fabs(velocity.y) / kVelocityDivisorForSpring 
                                 options:UIViewAnimationOptionCurveEaseOut 
                              animations:^{
-                cardView.bounds = newBounds;
-                cardView.center = screenCenter;
+                cardView.frame = targetFrame;
                 
                 UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
                 if (dragTray) {
@@ -1580,21 +1588,19 @@ initialSpringVelocity:kSpringVelocityCollapse
             [self cleanupCardInstance];
         }];
     } else if ([name isEqualToString:kMessageHandlerExpand]) {
-        // Modal and tablets use fixed sizing - ignore expand/collapse messages
-        if (_useModalPresentation || isRunningOniPad()) {
+        if (_useModalPresentation || _usePopupPresentation) {
             return;
         }
         
-        if (!_usePopupPresentation && !_isCardExpanded && self.currentPresentedVC) {
+        if (!_isCardExpanded && self.currentPresentedVC) {
             [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
         }
     } else if ([name isEqualToString:kMessageHandlerCollapse]) {
-        // Modal and tablets use fixed sizing - ignore expand/collapse messages
-        if (_useModalPresentation || isRunningOniPad()) {
+        if (_useModalPresentation || _usePopupPresentation) {
             return;
         }
         
-        if (!_usePopupPresentation && _isCardExpanded && self.currentPresentedVC) {
+        if (_isCardExpanded && self.currentPresentedVC) {
             [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
         }
     } else if ([name isEqualToString:kMessageHandlerExternalPayment]) {
@@ -1908,6 +1914,45 @@ CGFloat getSafeAreaTopForView(UIView *view) {
     return 0;
 }
 
+CGFloat getSafeAreaBottomForView(UIView *view) {
+    if (!view) return 0;
+    if (@available(iOS 11.0, *)) {
+        UIView *parentView = view.superview;
+        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
+            return parentView.safeAreaInsets.bottom;
+        }
+    }
+    return 0;
+}
+
+CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView) {
+    CGFloat ratioCap = screenBounds.size.height * kExpandedCardHeightScreenRatio;
+    CGFloat safeTop = getSafeAreaTopForView(cardView);
+    CGFloat safeBottom = getSafeAreaBottomForView(cardView);
+    CGFloat insetsCap = screenBounds.size.height - safeTop - safeBottom;
+    if (insetsCap < 1.0f) {
+        insetsCap = screenBounds.size.height;
+    }
+    return MIN(ratioCap, insetsCap);
+}
+
+CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView) {
+    CGFloat maxH = stashTabletSdkMaxCardHeight(screenBounds, cardView);
+    return MIN(baseHeight * kTabletSdkExpandHeightMultiplier, maxH);
+}
+
+CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView) {
+    CGSize base = calculateiPadCardSize(screenBounds);
+    CGFloat w = base.width;
+    CGFloat h = base.height;
+    if (_isCardExpanded) {
+        h = stashTabletSdkExpandedHeightFromBase(base.height, screenBounds, cardView);
+    }
+    CGFloat x = (screenBounds.size.width - w) / 2.0;
+    CGFloat y = (screenBounds.size.height - h) / 2.0;
+    return CGRectMake(x, y, w, h);
+}
+
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape) {
     CGFloat cardWidth, cardHeight, cardX, cardY;
     const CGFloat minPhone = 300.0f;
@@ -1962,15 +2007,24 @@ WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
     return nil;
 }
 
-/// Sets the WebView (and other fill-the-card subviews) to cardView.bounds so the card and WebView stay in sync after rotation or any card frame change.
+/// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
+/// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
 void layoutCardContentToBounds(UIView *cardView) {
     if (!cardView) return;
     CGRect bounds = cardView.bounds;
     for (UIView *subview in cardView.subviews) {
-        if ([subview isKindOfClass:[WKWebView class]]) {
-            subview.frame = bounds;
-            break;
+        if (subview.tag == kDragTrayViewTag) {
+            continue;
         }
+        NSMutableArray *constraintsToRemove = [NSMutableArray array];
+        for (NSLayoutConstraint *constraint in cardView.constraints) {
+            if (constraint.firstItem == subview || constraint.secondItem == subview) {
+                [constraintsToRemove addObject:constraint];
+            }
+        }
+        [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
+        subview.translatesAutoresizingMaskIntoConstraints = YES;
+        subview.frame = bounds;
     }
     updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
 }
@@ -2962,8 +3016,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
     internal.portraitWindow = cardWindow;
     internal.currentPresentedVC = containerVC;
     
-    // iPad tablets don't use expand/collapse
-    _isCardExpanded = YES;
+    _isCardExpanded = NO;
     
     UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
     
@@ -3306,7 +3359,7 @@ NSString* appendThemeQueryParameter(NSString* url) {
         "window.stash_sdk.collapse = function() {"
             "window.webkit.messageHandlers.%@.postMessage({});"
         "};"
-        "window.stash_sdk.external = function(url) {"
+        "window.stash_sdk.openExternalBrowser = function(url) {"
             "var s = (url !== undefined && url !== null) ? String(url) : '';"
             "window.webkit.messageHandlers.%@.postMessage(s);"
         "};"

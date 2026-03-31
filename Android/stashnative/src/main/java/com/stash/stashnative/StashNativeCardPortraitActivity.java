@@ -95,6 +95,8 @@ public class StashNativeCardPortraitActivity extends Activity {
    * collapse animation matches the actual initial/collapsed card height.
    */
   private int collapsedCardTargetHeightPx = -1;
+  /** Tablet: configured base card height for SDK collapse (updated on rotation). */
+  private int tabletSdkBaseHeightPx = -1;
   /** Running {@link #animateCardHeight} animator; cancelled before starting a new height change. */
   private ValueAnimator cardHeightAnimator;
   
@@ -466,7 +468,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       int[] cardSize = calculateTabletCardSize(metrics);
       cardWidth = cardSize[0];
       cardHeight = cardSize[1];
-      isExpanded = true;
+      tabletSdkBaseHeightPx = cardHeight;
+      isExpanded = false;
     } else {
       boolean isLandscape = getResources().getConfiguration().orientation
           == Configuration.ORIENTATION_LANDSCAPE;
@@ -948,26 +951,56 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (cardContainer == null) {
       return;
     }
-    
-    // Tablets use fixed sizing - ignore expand/collapse
-    boolean isTablet = cachedIsTablet;
-    if (isTablet) {
+
+    DisplayMetrics metrics = getResources().getDisplayMetrics();
+    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+    if (params == null) {
       return;
     }
-    
-    DisplayMetrics metrics = getResources().getDisplayMetrics();
-    
-    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-    if (params != null && params.height > 0) {
+
+    boolean isTablet = cachedIsTablet;
+    if (isTablet) {
+      if (isExpanded) {
+        return;
+      }
+      int base =
+          tabletSdkBaseHeightPx > 0
+              ? tabletSdkBaseHeightPx
+              : (params.height > 0 ? params.height : cardContainer.getHeight());
+      if (base <= 0) {
+        return;
+      }
+      int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+      int target =
+          Math.min(
+              Math.round(base * CardConstants.TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER), maxH);
+      if (target <= base) {
+        return;
+      }
+      animateCardHeight(target, 450);
+      cardContainer
+          .animate()
+          .translationY(0)
+          .alpha(1f)
+          .scaleX(1f)
+          .scaleY(1f)
+          .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
+          .setInterpolator(new SpringInterpolator())
+          .start();
+      isExpanded = true;
+      return;
+    }
+
+    if (params.height > 0) {
       collapsedCardTargetHeightPx = params.height;
     }
-    
+
     int expandedHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-    int expandedWidth = params.width;
-    
+
     animateCardHeight(expandedHeight, 450);
-    
-    cardContainer.animate()
+
+    cardContainer
+        .animate()
         .translationY(0)
         .alpha(1f)
         .scaleX(1f)
@@ -975,7 +1008,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
         .setInterpolator(new SpringInterpolator())
         .start();
-    
+
     isExpanded = true;
   }
   
@@ -983,15 +1016,47 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (cardContainer == null || !isExpanded) {
       return;
     }
-    
-    // Tablets use fixed sizing - ignore expand/collapse
+
     boolean isTablet = cachedIsTablet;
     if (isTablet) {
+      DisplayMetrics metrics = getResources().getDisplayMetrics();
+      int collapsedHeight = tabletSdkBaseHeightPx;
+      if (collapsedHeight <= 0) {
+        collapsedHeight = calculateTabletCardSize(metrics)[1];
+        tabletSdkBaseHeightPx = collapsedHeight;
+      }
+      FrameLayout.LayoutParams layoutParams =
+          (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+      if (layoutParams == null) {
+        return;
+      }
+      int startHeight = layoutParams.height;
+      if (startHeight <= 0) {
+        startHeight = cardContainer.getHeight();
+      }
+      if (startHeight <= 0) {
+        return;
+      }
+      if (startHeight == collapsedHeight
+          && Math.abs(cardContainer.getTranslationY()) < 0.5f
+          && cardContainer.getAlpha() >= 0.99f) {
+        isExpanded = false;
+        return;
+      }
+      cardContainer.animate().cancel();
+      if (cardHeightAnimator != null) {
+        cardHeightAnimator.cancel();
+        cardHeightAnimator = null;
+      }
+      cardContainer.setScaleX(1f);
+      cardContainer.setScaleY(1f);
+      isExpanded = false;
+      animateCardHeight(collapsedHeight, CardConstants.ANIMATION_DURATION_COLLAPSE);
       return;
     }
-    
+
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    
+
     int collapsedHeight = collapsedCardTargetHeightPx > 0
         ? collapsedCardTargetHeightPx
         : computeCollapsedPhoneCardHeight(metrics);
@@ -1907,7 +1972,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
 
     @JavascriptInterface
-    public void external(String url) {
+    public void openExternalBrowser(String url) {
       try {
         runOnUiThread(() -> {
           try {
@@ -1924,11 +1989,11 @@ public class StashNativeCardPortraitActivity extends Activity {
                 StashNativeCardPortraitActivity.this, themed);
             dismissWithAnimation();
           } catch (Exception e) {
-            Log.w(TAG, "Error in external: " + e.getMessage(), e);
+            Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
           }
         });
       } catch (Exception e) {
-        Log.w(TAG, "Error scheduling external: " + e.getMessage(), e);
+        Log.w(TAG, "Error scheduling openExternalBrowser: " + e.getMessage(), e);
       }
     }
   }
@@ -2040,39 +2105,48 @@ public class StashNativeCardPortraitActivity extends Activity {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     int[] newSize = calculateTabletCardSize(metrics);
     int newWidth = newSize[0];
-    int newHeight = newSize[1];
-    
+    int newBaseHeight = newSize[1];
+    tabletSdkBaseHeightPx = newBaseHeight;
+    int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+    int targetHeight =
+        isExpanded
+            ? Math.min(
+                Math.round(newBaseHeight * CardConstants.TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER), maxH)
+            : newBaseHeight;
+
     FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
     int currentWidth = params.width;
     int currentHeight = params.height;
-    
+
     // Animate width
     if (currentWidth != newWidth) {
       ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
       widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
       widthAnim.setInterpolator(new SpringInterpolator());
-      widthAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.width = (int) (Integer) animation.getAnimatedValue();
-          cardContainer.setLayoutParams(p);
-        }
-      });
+      widthAnim.addUpdateListener(
+          animation -> {
+            if (cardContainer != null) {
+              FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+              p.width = (Integer) animation.getAnimatedValue();
+              cardContainer.setLayoutParams(p);
+            }
+          });
       widthAnim.start();
     }
-    
+
     // Animate height
-    if (currentHeight != newHeight) {
-      ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
+    if (currentHeight != targetHeight) {
+      ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, targetHeight);
       heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
       heightAnim.setInterpolator(new SpringInterpolator());
-      heightAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.height = (int) (Integer) animation.getAnimatedValue();
-          cardContainer.setLayoutParams(p);
-        }
-      });
+      heightAnim.addUpdateListener(
+          animation -> {
+            if (cardContainer != null) {
+              FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+              p.height = (Integer) animation.getAnimatedValue();
+              cardContainer.setLayoutParams(p);
+            }
+          });
       heightAnim.start();
     }
   }

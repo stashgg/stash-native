@@ -44,7 +44,7 @@ import android.app.Activity;
  *
  *     {@literal @}Override
  *     public void onExternalPayment(String url) {
- *         // {@code window.stash_sdk.external(url)} — URL includes theme query when applicable
+ *         // {@code window.stash_sdk.openExternalBrowser(url)} — URL includes theme query when applicable
  *     }
  * });
  *
@@ -105,7 +105,7 @@ public class StashNativeCard {
     void onNetworkError();
 
     /**
-     * Called when the checkout page calls {@code window.stash_sdk.external(url)}. The SDK closes
+     * Called when the checkout page calls {@code window.stash_sdk.openExternalBrowser(url)}. The SDK closes
      * the card/modal without invoking {@link #onDialogDismissed()}, then opens the URL in Chrome
      * Custom Tabs (or the system browser as fallback). The {@code url} includes the theme query
      * parameter when applicable.
@@ -441,7 +441,7 @@ public class StashNativeCard {
 
   /**
    * When true, opening Chrome Custom Tabs or the system browser for {@link #openBrowser(String)},
-   * {@code window.stash_sdk.external(url)}, or portrait checkout external flows may start a short
+   * {@code window.stash_sdk.openExternalBrowser(url)}, or portrait checkout external flows may start a short
    * foreground service so the app is less likely to be killed on low-RAM devices. Default false.
    *
    * @param enabled whether to use the keep-alive helper

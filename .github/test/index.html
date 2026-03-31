@@ -369,15 +369,15 @@
         function triggerExternal() {
             var el = document.getElementById('externalUrl');
             var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com';
-            if (window.stash_sdk && typeof window.stash_sdk.external === 'function') {
-                updateStatus('Called: external("' + url + '")');
+            if (window.stash_sdk && typeof window.stash_sdk.openExternalBrowser === 'function') {
+                updateStatus('Called: openExternalBrowser("' + url + '")');
                 try {
-                    window.stash_sdk.external(url);
+                    window.stash_sdk.openExternalBrowser(url);
                 } catch (e) {
-                    updateStatus('external() error: ' + (e && e.message ? e.message : e));
+                    updateStatus('openExternalBrowser() error: ' + (e && e.message ? e.message : e));
                 }
             } else {
-                updateStatus('stash_sdk.external not available (requires native Stash SDK)');
+                updateStatus('stash_sdk.openExternalBrowser not available (requires native Stash SDK)');
             }
         }
         

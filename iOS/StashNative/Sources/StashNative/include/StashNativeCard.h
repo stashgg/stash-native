@@ -169,7 +169,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stashNativeCardDidEncounterNetworkError;
 
 /**
- * Called when the checkout page calls \c window.stash_sdk.external(url). The SDK closes the
+ * Called when the checkout page calls \c window.stash_sdk.openExternalBrowser(url). The SDK closes the
  * checkout without invoking \c stashNativeCardDidDismiss, then opens the URL in
  * \c SFSafariViewController (same behavior as \c -openBrowserWithURL:). The \c url string includes
  * the theme query parameter when applicable.

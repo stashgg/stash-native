@@ -48,6 +48,7 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
 
 extern BOOL isRunningOniPad(void);
 extern CGSize calculateiPadCardSize(CGRect screenBounds);
+extern CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
 extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 extern UIInterfaceOrientation getInterfaceOrientation(void);
 extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
@@ -230,19 +231,18 @@ extern void resetCardExpandedStateAfterRotation(void);
     if (!cardView) return;
     
     CGRect targetScreenBounds = CGRectMake(0, 0, size.width, size.height);
-    CGSize newCardSize = calculateiPadCardSize(targetScreenBounds);
-    
-    CGFloat newX = (size.width - newCardSize.width) / 2.0;
-    CGFloat newY = (size.height - newCardSize.height) / 2.0;
-    CGRect newFrame = CGRectMake(newX, newY, newCardSize.width, newCardSize.height);
+    CGRect newFrame = stashFrameForIPadSdkCard(targetScreenBounds, cardView);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         cardView.frame = newFrame;
-        updateDragTrayAndHandleInCardView(cardView, newCardSize.width);
+        layoutCardContentToBounds(cardView);
         [cardView layoutIfNeeded];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         self.previousScreenSize = size;
         self.customFrame = newFrame;
+        cardView.frame = newFrame;
+        layoutCardContentToBounds(cardView);
+        [cardView layoutIfNeeded];
         [self updateCornerRadiusMaskForCardView];
     }];
 }
