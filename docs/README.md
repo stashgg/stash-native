@@ -2,12 +2,6 @@
 
 This folder contains implementation-level documentation for maintaining the Stash Native SDK across Android and iOS.
 
-## Audience
-
-- Engineers onboarding to the repository.
-- Engineers changing platform runtime behavior.
-- Engineers troubleshooting callback, WebView, and external-browser flows.
-
 ## Document Map
 
 - [Architecture Overview](./architecture-overview.md)
