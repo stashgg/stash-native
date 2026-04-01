@@ -63,7 +63,7 @@ flowchart LR
 
 ### JavaScript contract
 
-- Checkout pages communicate via `window.stash_sdk` (see [Android Implementation](./android.md) and [iOS Implementation](./ios.md)). Wrappers **do not** redefine that web surface for production checkout. Editor-only test harnesses may call the same APIs against test URLs; keep those code paths separate from shipping builds.
+- Checkout pages communicate via `window.stash_sdk`. The full contract is documented in [JavaScript `stash_sdk` API](./stash-sdk-js.md); platform implementation details remain in [Android Implementation](./android.md) and [iOS Implementation](./ios.md). Wrappers **do not** redefine that web surface for production checkout. Editor-only test harnesses may call the same APIs against test URLs; keep those code paths separate from shipping builds.
 
 ## Platform-Specific Wrapper Layers
 
@@ -111,6 +111,7 @@ Unity and Unreal wrappers often ship editor play-mode tools to exercise flows wi
 ## Further Reading
 
 - [Architecture Overview](./architecture-overview.md) — shared runtime model.
+- [JavaScript `stash_sdk` API](./stash-sdk-js.md) — web page contract for checkout and webshop.
 - [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, isolated process, `StashCheckoutBridge`.
 - [iOS Implementation](./ios.md) — message handlers, presentation modes, load errors.
 - [Maintenance and Testing](./maintenance-and-testing.md) — building AAR/XCFramework and CI expectations.

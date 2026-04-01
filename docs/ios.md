@@ -36,6 +36,8 @@ Internal routing: search `openURLInternal:` and `openInCardUI:` in [`StashNative
 
 ## Injection And Bridge Model
 
+For checkout page authors, see [JavaScript `stash_sdk` API](./stash-sdk-js.md) (behavior and parity notes).
+
 - Script assembly and `WKUserScript` registration: [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (search `stashSDKScript` / `WKUserScript`).
 - Handler registration: `addScriptMessageHandler:name:` for each bridge channel.
 - Dispatch: `userContentController:didReceiveScriptMessage:` in the same file.

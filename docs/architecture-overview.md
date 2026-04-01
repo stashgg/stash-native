@@ -75,6 +75,8 @@ Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/
 - External browser launch (`openExternalBrowser(url)`).
 - Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
 
+Authoritative reference for page-side calls: [JavaScript `stash_sdk` API](./stash-sdk-js.md).
+
 ## Payment Event Flow (Simplified)
 
 ```mermaid
@@ -105,6 +107,7 @@ Listener or delegate notification and dismissal ordering are specified in [`Stas
 
 ## Platform Deep Dives
 
+- [JavaScript `stash_sdk` API](./stash-sdk-js.md) — checkout page contract (`onPaymentSuccess`, `openExternalBrowser`, and so on).
 - [Android Implementation](./android.md) — file-by-file map, process model, bridge tables.
 - [iOS Implementation](./ios.md) — handlers, presentation entry points, load delegate.
 - [Maintenance and Testing](./maintenance-and-testing.md) — CI, local commands, QA harnesses.

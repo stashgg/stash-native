@@ -80,7 +80,7 @@ Produces release artifacts:
 
 ## Manual QA Surfaces
 
-- JS bridge and callback harness: [`.github/test/index.html`](../.github/test/index.html)
+- JS bridge and callback harness: [`.github/test/index.html`](../.github/test/index.html) (exercises `window.stash_sdk`; see [JavaScript `stash_sdk` API](./stash-sdk-js.md))
 - UI mockup for communication: [`.github/test/mockup.html`](../.github/test/mockup.html)
 - Platform sample apps:
   - [`Android/sample/`](../Android/sample/)

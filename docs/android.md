@@ -48,6 +48,8 @@ Implemented on [`StashNativeCard`](../Android/stashnative/src/main/java/com/stas
 
 The injected script is the string constant `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). It defines `window.stash_sdk.*` and calls into the JavaScript interface name `StashAndroid` (`JS_INTERFACE_NAME`).
 
+For checkout page authors, see the consolidated web API reference: [JavaScript `stash_sdk` API](./stash-sdk-js.md).
+
 | JS function | Typical native target |
 |-------------|------------------------|
 | `onPaymentSuccess(order)` | `StashAndroid.onPaymentSuccess` |
