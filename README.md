@@ -61,6 +61,8 @@ If you're using one of the game engines listed below, we offer dedicated wrapper
 | <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal)                 | Unreal Engine 5.0+                |
 | <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27-plus           |
 
+For custom engines or third-party frameworks, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a new-wrapper checklist.
+
 ## Downloads
 
 Latest pre-built binaries are always available on [Releases Page](https://github.com/stashgg/stash-native/releases):

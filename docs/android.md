@@ -2,182 +2,179 @@
 
 ## What The Android Library Does
 
-The Android library provides native checkout presentation and callback handling around web-based checkout content. It exposes a host-facing SDK (`StashNativeCard`) and routes checkout events through native listeners.
+The Android library provides native checkout presentation and callback handling around web-based checkout content. It exposes a host-facing SDK (`StashNativeCard`) and routes checkout events through `StashNativeCardListener`.
 
 It supports:
 
 - Embedded checkout surfaces (card and modal).
-- Popup/card layout behavior and expand/collapse gestures.
-- Browser handoff flows.
-- JS bridge events from `window.stash_sdk`.
-- Optional keep-alive foreground service during external browser handoff.
+- Popup or overlay WebView paths in the host process (`StashNativeCardPlugin`).
+- Isolated-process full-screen checkout (`StashNativeCardPortraitActivity` in `:stash_webview`).
+- Browser handoff (Chrome Custom Tabs or system browser).
+- JS bridge under `window.stash_sdk`.
+- Optional foreground short service during external browser handoff (`StashKeepAliveService`).
 
-## Core Components
+## Source Files (Module `Android/stashnative`)
 
-- `StashNativeCard`: public entry API and configuration surface.
-- `StashNativeCardPlugin`: internal runtime coordinator in host process.
-- `StashNativeCardPortraitActivity`: isolated checkout activity (`:stash_webview` process).
-- `StashCheckoutBridge`: broadcast bridge between isolated activity and host process.
-- `StashWebViewUtils`: WebView setup, JS SDK injection, URL normalization, browser launch helpers.
-- `StashKeepAliveService`: optional foreground short service for process survivability.
-- `CardConstants`: event/action names and runtime constants.
+All paths are relative to the repository root.
+
+| Role | File |
+|------|------|
+| Public API and configs | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) |
+| Host-process coordinator, popup/modal WebView, receivers | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) |
+| Isolated activity, timers, gestures, in-activity WebView | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) |
+| JS shim string, WebView settings, URL helpers, CCT | [`Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) |
+| Broadcast intents between processes | [`Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) |
+| Actions, extras, timing constants | [`Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java`](../Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java) |
+| Foreground keep-alive | [`Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java) |
+| Background color / luminance for theme | [`Android/stashnative/src/main/java/com/stash/stashnative/StashBackgroundColorUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashBackgroundColorUtils.java) |
+| Manifest: process, activities, service | [`Android/stashnative/src/main/AndroidManifest.xml`](../Android/stashnative/src/main/AndroidManifest.xml) |
+
+Supporting UI helpers: [`TopRoundedFrameLayout.java`](../Android/stashnative/src/main/java/com/stash/stashnative/TopRoundedFrameLayout.java), [`SpringInterpolator.java`](../Android/stashnative/src/main/java/com/stash/stashnative/SpringInterpolator.java).
+
+Sample integration: [`Android/sample/src/main/java/com/stash/stashnative/sample/MainActivity.java`](../Android/sample/src/main/java/com/stash/stashnative/sample/MainActivity.java).
 
 ## Entry Points And API Surface
 
-Main host entry points are implemented in `StashNativeCard`:
+Implemented on [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java):
 
-- `setActivity(Activity activity)`
-- `setListener(StashNativeCardListener listener)`
-- `openCard(String url)` and config overloads
-- `openModal(String url)` and config overloads
-- `openPopup(String url)` and config overloads
-- `openBrowser(String url)`
-- `dismiss()`
-- `resetPresentationState()`
-- keep-alive controls: `setKeepAliveEnabled`, `setKeepAliveConfig`
+- `setActivity(Activity activity)` — required before opening UI; forwards to [`StashNativeCardPlugin`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java).
+- `setListener(StashNativeCardListener listener)` — see listener methods in the same file.
+- `openCard`, `openModal`, `openPopup` (and overloads with `CardConfig`, `ModalConfig`, `PopupSizeConfig`).
+- `openBrowser(String url)` — host-triggered external browser path.
+- `dismiss()`, `resetPresentationState()`.
+- Keep-alive: `setKeepAliveEnabled`, `setKeepAliveConfig` — consumed when starting browser handoff in the plugin (see `startKeepAliveBeforeBrowser` in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java)).
 
 ## Injection And Bridge Model
 
-The SDK injects JavaScript under `window.stash_sdk` and maps calls to `@JavascriptInterface` methods.
+The injected script is the string constant `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). It defines `window.stash_sdk.*` and calls into the JavaScript interface name `StashAndroid` (`JS_INTERFACE_NAME`).
 
-Injected bridge functions include:
+| JS function | Typical native target |
+|-------------|------------------------|
+| `onPaymentSuccess(order)` | `StashAndroid.onPaymentSuccess` |
+| `onPaymentFailure(data)` | `StashAndroid.onPaymentFailure` |
+| `onPurchaseProcessing(data)` | `StashAndroid.onPurchaseProcessing` |
+| `setPaymentChannel(optinType)` | `StashAndroid.setPaymentChannel` |
+| `expand()` | `StashAndroid.expand` |
+| `collapse()` | `StashAndroid.collapse` |
+| `openExternalBrowser(url)` | `StashAndroid.openExternalBrowser` |
+| `window.close()` | `StashAndroid.requestCloseFromPage` |
 
-- `onPaymentSuccess(order)`
-- `onPaymentFailure(data)`
-- `onPurchaseProcessing(data)`
-- `setPaymentChannel(optinType)`
-- `expand()`
-- `collapse()`
-- `openExternalBrowser(url)`
-- `window.close()`
+`@JavascriptInterface` implementations:
 
-Android interface binding details:
+- [`StashNativeCardPlugin.StashJavaScriptInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) — popup/modal WebView in host process.
+- [`StashNativeCardPortraitActivity.JSInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) — WebView inside `:stash_webview`.
 
-- JS interface name: `StashAndroid`
-- Script source: `StashWebViewUtils.JS_SDK_SCRIPT`
-- Implementations:
-  - `StashNativeCardPlugin.StashJavaScriptInterface`
-  - `StashNativeCardPortraitActivity.JSInterface`
+Method names on the Java side must match the strings emitted by `JS_SDK_SCRIPT` (for example `.openExternalBrowser(...)` in the script).
 
 ## Architecture And Process Model
 
 ```mermaid
 flowchart LR
-    HostApp[HostApp Activity]
-    Facade[StashNativeCard]
+    Host[StashNativeCard]
     Plugin[StashNativeCardPlugin]
-    PortraitActivity[StashNativeCardPortraitActivity :stash_webview]
-    Bridge[StashCheckoutBridge Broadcasts]
-    Listener[StashNativeCardListener]
-    WebView[WebView and StashAndroid Bridge]
+    Act[PortraitActivity]
+    Bridge[StashCheckoutBridge]
+    L[StashNativeCardListener]
 
-    HostApp --> Facade
-    Facade --> Plugin
-    Plugin --> PortraitActivity
-    PortraitActivity --> WebView
-    WebView --> PortraitActivity
-    PortraitActivity --> Bridge
+    Host --> Plugin
+    Plugin --> Act
+    Act --> Bridge
     Bridge --> Plugin
-    Plugin --> Listener
+    Plugin --> L
 ```
 
-## Runtime Callback Sequence
+- [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) is the singleton facade the app holds.
+- [`StashNativeCardPlugin`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) runs in the default app process, registers for [`StashCheckoutBridge`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) intents, and starts [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) when the card flow uses the isolated process (see manifest `android:process` on that activity).
+
+## Runtime Callback Sequence (Isolated Activity Path)
+
+When checkout runs in [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java), success is not delivered synchronously to the listener from the activity; it goes through [`StashCheckoutBridge.emitPaymentSuccess`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) (and siblings) and is received in the plugin.
 
 ```mermaid
 sequenceDiagram
     participant Page as CheckoutPage
     participant JS as window.stash_sdk
-    participant Native as JSInterface
+    participant JI as JSInterface
     participant Bridge as StashCheckoutBridge
     participant Plugin as StashNativeCardPlugin
     participant Listener as StashNativeCardListener
 
-    Page->>JS: onPaymentSuccess(order)
-    JS->>Native: StashAndroid.onPaymentSuccess(payload)
-    Native->>Bridge: emitPaymentSuccess(...)
-    Bridge->>Plugin: receive broadcast intent
-    Plugin->>Listener: onPaymentSuccess(order)
+    Page->>JS: onPaymentSuccess
+    JS->>JI: StashAndroid.onPaymentSuccess
+    JI->>Bridge: emitPaymentSuccess
+    Bridge->>Plugin: broadcast intent
+    Plugin->>Listener: onPaymentSuccess
 ```
+
+Dispatch implementation: `dispatchCheckoutBridgeIntent` and related methods in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java).
 
 ## External Browser Flow
 
-`openExternalBrowser(url)` can originate from page JS or host API `openBrowser(url)`.
+Triggers:
 
-Processing stages:
+- Page: `openExternalBrowser` in `JS_SDK_SCRIPT` ([`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)).
+- Host: `StashNativeCard.openBrowser` → plugin `openBrowser`.
 
-1. URL validation and normalization via `normalizeExternalPaymentUrl`.
-2. Theme propagation with `appendThemeQueryParameter`.
-3. Listener callback (`onExternalPayment(url)`).
-4. Browser launch (`openWithChromeCustomTabs` or fallback `openInSystemBrowser`).
-5. Optional keep-alive service before handoff.
+Shared helpers in [`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java):
+
+- `normalizeExternalPaymentUrl`
+- `appendThemeQueryParameter`
+- `openWithChromeCustomTabs`, `openInSystemBrowser`
+
+Keep-alive: [`StashKeepAliveService`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java), started from the plugin via `startKeepAliveBeforeBrowser` where configured.
 
 ```mermaid
 sequenceDiagram
-    participant Page as CheckoutPage
-    participant Native as JSInterface
+    participant Page as Page
+    participant JI as JSInterface
     participant Utils as StashWebViewUtils
     participant Plugin as StashNativeCardPlugin
-    participant Service as StashKeepAliveService
-    participant Browser as ChromeCustomTabsOrBrowser
+    participant Browser as CCTOrSystemBrowser
 
-    Page->>Native: openExternalBrowser(url)
-    Native->>Utils: normalizeExternalPaymentUrl(url)
-    Utils-->>Native: normalized URL
-    Native->>Utils: appendThemeQueryParameter(url,isDark)
-    Native->>Plugin: route external payment event
-    Plugin->>Service: startKeepAliveBeforeBrowser(...)
-    Plugin->>Browser: openWithChromeCustomTabs(...) or openInSystemBrowser(...)
+    Page->>JI: openExternalBrowser
+    JI->>Utils: normalizeExternalPaymentUrl
+    JI->>Utils: appendThemeQueryParameter
+    JI->>Plugin: listener and dismiss path
+    Plugin->>Browser: openWithChromeCustomTabs or openInSystemBrowser
 ```
 
 ## Presentation Modes And UX Behavior
 
-- Card mode: bottom-sheet style checkout with expand/collapse behavior.
-- Modal mode: centered/full-screen style overlay by configuration.
-- Popup mode: configurable popup dimensions (legacy/custom sizing options).
-- Orientation and gesture handling is implemented primarily in `StashNativeCardPortraitActivity` and plugin touch handlers.
+- Card and modal layouts, drag, expand/collapse: [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) (`createCard`, `createModal`, `animateExpand`, `animateCollapse`, touch listeners).
+- Popup overlay in host process: [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) (`setupPopupWebView`, overlay drag handling — search `CheckoutOverlay` / `Drag` in that file).
 
 ## Error Handling And Recovery
 
-Implemented resilience mechanisms:
+Primary implementation in [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java):
 
-- Initial load timers and stall retry (`scheduleInitialLoadTimers`).
-- Hard network deadline fallback to network error callback.
-- Main-frame HTTP and navigation error handling.
-- WebView render-process-gone handling and cleanup.
-- Presentation state cleanup on process death and host lifecycle resume.
+- `scheduleInitialLoadTimers` — stall retry and hard deadline.
+- `handleNetworkError` — user-visible error and bridge emission.
+- `WebViewClient` / `onReceivedError` / `onReceivedHttpError` for main-frame failures.
+- `onRenderProcessGone` — recovery path into `handleNetworkError` or cleanup.
+
+Host-process WebView: `handleWebViewRenderProcessGone` in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java).
 
 ```mermaid
 flowchart TD
-    LoadStart[scheduleInitialLoadTimers]
-    Commit[didCommitNavigation]
-    Finish[didFinishNavigation]
-    Retry[retryAfterStallRunnable]
-    Deadline[networkDeadlineRunnable]
-    NetErr[handleNetworkError]
-    Callback[Listener onNetworkError]
-    Cleanup[cleanup and reset state]
+    T[scheduleInitialLoadTimers]
+    R[retryAfterStallRunnable]
+    D[networkDeadlineRunnable]
+    E[handleNetworkError]
 
-    LoadStart --> Commit
-    Commit --> Finish
-    LoadStart --> Retry
-    LoadStart --> Deadline
-    Retry --> Commit
-    Deadline --> NetErr
-    NetErr --> Callback
-    NetErr --> Cleanup
+    T --> R
+    T --> D
+    D --> E
 ```
 
 ## Theming
 
-- Effective theme is derived from app/system conditions and optional custom background.
-- External URLs may include `theme=dark` or `theme=light`.
-- Theme handling utility methods are centralized in `StashWebViewUtils`.
+- `effectiveDarkThemeForCheckout` and related helpers in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
+- Optional sheet background parsing: [`StashBackgroundColorUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashBackgroundColorUtils.java).
 
 ## Maintenance Notes
 
-- Isolated process flow depends on manifest declarations in `AndroidManifest.xml`.
-- Broadcast bridge actions and extra keys are defined in `CardConstants`.
-- Any change to JS bridge method names must be kept consistent across:
-  - `JS_SDK_SCRIPT`
-  - `@JavascriptInterface` method names
-  - test harness page `.github/test/index.html`
+- Bridge contract must stay aligned across:
+  - [`JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)
+  - `@JavascriptInterface` method names in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java)
+  - [`.github/test/index.html`](../.github/test/index.html)
+- Broadcast contract: action strings and extras in [`CardConstants.java`](../Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java) and emit helpers in [`StashCheckoutBridge.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java).

@@ -2,191 +2,155 @@
 
 ## What The iOS Library Does
 
-The iOS library provides a native wrapper around web-based checkout using `WKWebView`, native presentation controllers, and a JavaScript bridge under `window.stash_sdk`.
+The iOS library wraps web checkout in `WKWebView`, presents it in card, modal, or popup containers, and exposes a JavaScript bridge under `window.stash_sdk`. Host apps implement `StashNativeCardDelegate` for payment, dismissal, load metrics, external payment, and network errors.
 
-It supports:
+Minimum platform: see [`iOS/StashNative/Package.swift`](../iOS/StashNative/Package.swift) (`platforms`).
 
-- Checkout in card, modal, and popup presentation modes.
-- Browser handoff via Safari view controller flows.
-- Delegate callbacks for payment, dismissal, loading, external payment, and network errors.
-- URL theming and custom background alignment.
+## Source Files (Target StashNative)
 
-## Core Components
+Paths relative to repository root.
 
-- `StashNativeCard.h`: public API and delegate contract.
-- `StashNativeCard.m`: singleton/runtime state, routing, JS injection, message handling, presentation entry points.
-- `StashNativeCardPrivate.h`: shared private symbols and helper contracts.
-- `StashNativeCardWebViewDelegates.m`: navigation/timeout/retry/error behavior.
-- `StashNativeCardViewControllers.m`: platform-specific presentation and orientation controllers.
+| Role | File |
+|------|------|
+| Public API, delegate protocol, config types | [`iOS/StashNative/Sources/StashNative/include/StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) |
+| Singleton, routing, WKWebView factory, JS injection, message handling | [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) |
+| Private shared declarations | [`iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h`](../iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h) |
+| `WKNavigationDelegate` / `WKUIDelegate`, timeouts, retries, errors | [`iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) |
+| Card/modal/popup view controllers, orientation | [`iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) |
+| Xcode project (library) | [`iOS/StashNative/StashNative.xcodeproj`](../iOS/StashNative/StashNative.xcodeproj) |
+
+Sample app (Swift delegate wiring): [`iOS/Sample/StashNativeSample/StashNativeSample/ViewController+StashNativeDelegate.swift`](../iOS/Sample/StashNativeSample/StashNativeSample/ViewController+StashNativeDelegate.swift), [`ViewController+Actions.swift`](../iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Actions.swift).
 
 ## Public API Surface
 
-Primary entry points in `StashNativeCard`:
+Declared in [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h), implemented in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m):
 
 - `+sharedInstance`
-- `-openCardWithURL:config:`
-- `-openModalWithURL:config:`
-- `-openPopupWithURL:sizeConfig:`
-- `-openBrowserWithURL:`
-- `-closeBrowser`
-- `-dismissSafariViewControllerWithResult:`
-- `-dismiss`
-- `-resetPresentationState`
+- `-openCardWithURL:config:`, `-openModalWithURL:config:`, `-openPopupWithURL:sizeConfig:`
+- `-openBrowserWithURL:`, `-closeBrowser`, `-dismissSafariViewControllerWithResult:`
+- `-dismiss`, `-resetPresentationState`
 
-Core delegate callbacks in `StashNativeCardDelegate` include:
+Delegate callbacks (same header): `stashNativeCardDidCompletePaymentWithOrder:`, `stashNativeCardDidFailPayment`, `stashNativeCardDidReceiveOptIn:`, `stashNativeCardDidDismiss`, `stashNativeCardDidLoadPage:`, `stashNativeCardDidRequestExternalPaymentWithURL:`, `stashNativeCardDidEncounterNetworkError`.
 
-- `stashNativeCardDidCompletePaymentWithOrder:`
-- `stashNativeCardDidFailPayment`
-- `stashNativeCardDidReceiveOptIn:`
-- `stashNativeCardDidDismiss`
-- `stashNativeCardDidLoadPage:`
-- `stashNativeCardDidRequestExternalPaymentWithURL:`
-- `stashNativeCardDidEncounterNetworkError`
+Internal routing: search `openURLInternal:` and `openInCardUI:` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Injection And Bridge Model
 
-The bridge script is injected with `WKUserScript` and defines functions under `window.stash_sdk`.
+- Script assembly and `WKUserScript` registration: [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (search `stashSDKScript` / `WKUserScript`).
+- Handler registration: `addScriptMessageHandler:name:` for each bridge channel.
+- Dispatch: `userContentController:didReceiveScriptMessage:` in the same file.
 
-Injected functions:
+Message handler name constants (examples — verify in source): defined as `static NSString * const kMessageHandler...` near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
-- `onPaymentSuccess(order)`
-- `onPaymentFailure(data)`
-- `onPurchaseProcessing(data)`
-- `setPaymentChannel(optinType)`
-- `expand()`
-- `collapse()`
-- `openExternalBrowser(url)`
-- `window.close()`
+| JS entry | Typical handler name (see source) |
+|----------|-------------------------------------|
+| `onPaymentSuccess` | `stashNativementSuccess` (typo preserved in codebase) |
+| `onPaymentFailure` | `stashNativementFailure` |
+| `onPurchaseProcessing` | `stashPurchaseProcessing` |
+| `setPaymentChannel` | `stashOptin` |
+| `expand` | `stashExpand` |
+| `collapse` | `stashCollapse` |
+| `openExternalBrowser` | `stashExternalPayment` |
+| `window.close` | `stashWindowClose` |
+| page ready (injected) | `stashNativePageReady` |
 
-JS posts to named message handlers, handled by:
-
-- `userContentController:didReceiveScriptMessage:`
-
-Representative handler names include:
-
-- `stashNativementSuccess`
-- `stashNativementFailure`
-- `stashPurchaseProcessing`
-- `stashOptin`
-- `stashExpand`
-- `stashCollapse`
-- `stashExternalPayment`
-- `stashWindowClose`
-- `stashNativePageReady`
+Always confirm exact strings in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) before changing the web contract.
 
 ## Runtime Architecture
 
 ```mermaid
-flowchart LR
-    HostApp[HostApp]
-    Facade[StashNativeCard sharedInstance]
-    Router[openURLInternal and openInCardUI]
-    Controllers[Presentation ViewControllers]
-    Web[WKWebView and WKUserScript]
-    Handlers[userContentController didReceiveScriptMessage]
-    Delegate[StashNativeCardDelegate]
+flowchart TB
+    App[HostApp]
+    Card[StashNativeCard]
+    VC[ViewControllers]
+    Web[WKWebView]
+    Del[StashNativeCardDelegate]
 
-    HostApp --> Facade
-    Facade --> Router
-    Router --> Controllers
-    Controllers --> Web
-    Web --> Handlers
-    Handlers --> Facade
-    Facade --> Delegate
+    App --> Card
+    Card --> VC
+    VC --> Web
+    Web --> Card
+    Card --> Del
 ```
+
+[`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) contains `IPhoneCardViewController`, modal controllers, and orientation helpers referenced from [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Presentation Modes
 
-Routing is handled in `openInCardUI:` and related methods:
+Entry points in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) under `openInCardUI:` and related `present*` methods:
 
-- `presentIPhoneCardWithURL:` for forced portrait card UX.
-- `presentIPhoneCardInCurrentOrientationWithURL:` for rotation-aware card UX.
-- `presentiPadModalWithURL:` for iPad-specific modal behavior.
-- `presentModalWithURL:` for centered modal flow.
-- `presentPopupWithURL:` for popup flow.
+- `presentIPhoneCardWithURL:` — forced portrait card.
+- `presentIPhoneCardInCurrentOrientationWithURL:` — rotation-aware card.
+- `presentiPadModalWithURL:` — iPad-oriented presentation.
+- `presentModalWithURL:` — centered modal.
+- `presentPopupWithURL:` — popup sizing.
 
-Presentation controllers and orientation-specific behavior are implemented in `StashNativeCardViewControllers.m`.
+Layout and rotation: [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m).
 
 ## External Browser Flow
 
-External browser handoff can be triggered by:
+- Host: `-openBrowserWithURL:` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (Safari Services path).
+- Page: `window.stash_sdk.openExternalBrowser(url)` posts to the external-payment handler; handled in `userContentController:didReceiveScriptMessage:`.
 
-- Host API: `openBrowserWithURL:`
-- Page JS: `window.stash_sdk.openExternalBrowser(url)`
+Pipeline (read implementation for ordering):
 
-Processing pipeline:
-
-1. Message handler receives `stashExternalPayment`.
-2. URL is validated by `NormalizeExternalPaymentURL`.
-3. Theme parameter is appended using `appendThemeQueryParameter`.
-4. Delegate is informed (`stashNativeCardDidRequestExternalPaymentWithURL:`).
-5. Card UI is dismissed and Safari is opened.
+1. Normalize: C function `NormalizeExternalPaymentURL` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+2. Theme: `appendThemeQueryParameter` (same file).
+3. Delegate: `stashNativeCardDidRequestExternalPaymentWithURL:` ([`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h)).
+4. Dismiss card UI and present Safari (see `openInSafariViewController` / related in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
 
 ```mermaid
 sequenceDiagram
-    participant Page as CheckoutPage
-    participant Handler as didReceiveScriptMessage
-    participant URL as NormalizeExternalPaymentURL
-    participant SDK as StashNativeCard
-    participant Delegate as StashNativeCardDelegate
-    participant Safari as SafariViewController
+    participant Page as Page
+    participant Card as StashNativeCard
+    participant Del as Delegate
+    participant Safari as SFSafariViewController
 
-    Page->>Handler: stashExternalPayment url
-    Handler->>URL: normalize and validate
-    URL-->>Handler: normalized URL
-    Handler->>SDK: appendThemeQueryParameter
-    SDK->>Delegate: stashNativeCardDidRequestExternalPaymentWithURL
-    SDK->>Safari: openBrowserWithURL
+    Page->>Card: stashExternalPayment message
+    Card->>Del: stashNativeCardDidRequestExternalPaymentWithURL
+    Card->>Safari: open browser
 ```
 
 ## Loading, Timeout, Retry, And Error Semantics
 
-Web loading behavior is implemented in `StashNativeCardWebViewDelegates.m`:
+Implemented in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) (`WebViewLoadDelegate` and related):
 
-- Network timeout deadline (`kNetworkTimeoutInterval`).
-- Retry timer (`kRetryTimeoutInterval`) with bounded retry attempts.
-- Main-frame HTTP error handling (`>= 400` as failure path).
-- Web content process termination handling and limited recovery.
-- Foreground stale-load recovery helpers.
+- Constants `kNetworkTimeoutInterval`, `kRetryTimeoutInterval` (file header or top of implementation).
+- `armRetryTimerIfNeededForMainFrameURL`, `handleRetryTimer`, `handleNetworkTimeout`, `handleNetworkError`.
+- HTTP main-frame status `>= 400` treated as failure where implemented.
+- `webViewWebContentProcessDidTerminate:` — limited reload policy.
+- Foreground recovery: `recoverStaleLoadAfterApplicationForegroundIfNeeded`.
+
+Failure surface to app: `stashNativeCardDidEncounterNetworkError` and `resetPresentationState` behavior (see [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) call sites from the load delegate).
 
 ```mermaid
 flowchart TD
-    Begin[WebView load begin]
-    RetryArm[armRetryTimerIfNeededForMainFrameURL]
-    Commit[didCommitNavigation]
-    Finish[didFinishNavigation]
-    RetryHandle[handleRetryTimer]
-    Timeout[handleNetworkTimeout]
-    NetworkErr[handleNetworkError]
-    DelegateErr[stashNativeCardDidEncounterNetworkError]
-    Reset[resetPresentationState]
+    Arm[armRetryTimerIfNeeded]
+    Retry[handleRetryTimer]
+    TOut[handleNetworkTimeout]
+    Err[handleNetworkError]
 
-    Begin --> RetryArm
-    RetryArm --> Commit
-    Commit --> Finish
-    RetryArm --> RetryHandle
-    RetryArm --> Timeout
-    RetryHandle --> Commit
-    Timeout --> NetworkErr
-    NetworkErr --> DelegateErr
-    NetworkErr --> Reset
+    Arm --> Retry
+    Arm --> TOut
+    TOut --> Err
 ```
 
 ## Theming And Appearance
 
-- Theme propagation is URL-based (`theme=light|dark`).
-- Effective dark mode is computed using runtime helpers (including custom background color logic).
-- `WKWebView` and document styling are aligned with the sheet background where required.
+- URL query `theme`: `appendThemeQueryParameter` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- Effective dark mode: `stash_effectiveThemeIsDark` and sheet background helpers in the same file.
+- Dark document injection: search `StashNativeDarkSheetBackgroundJavaScript` / `StashNativeSheetUsesDarkWebTheme` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## State Model And Safety
 
-- The implementation uses singleton state with presentation guards to prevent overlapping presentations.
-- Session token checks are used to avoid stale callback handling.
-- Dismissal/cleanup paths centralize timer and web-load termination to reduce race conditions.
+- Presentation guards and flags: search `_isCardCurrentlyPresented`, `_paymentSuccessHandled` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- Session token: `presentationSessionToken` / `StashNativeCurrentPresentationSessionToken()` to drop stale callbacks after teardown.
+- Centralized teardown: `beginDismissStoppingLoadAndTimers`, `cleanupCardInstance` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Maintenance Notes
 
-- Keep JS function names and message handler contracts synchronized with documentation and test pages.
-- For callback behavior changes, update both:
-  - public header comments (`StashNativeCard.h`)
-  - sample delegate usage in `iOS/Sample/StashNativeSample`
+- Any change to handler names or `window.stash_sdk` functions requires updates in:
+  - [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)
+  - [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) comments
+  - [`.github/test/index.html`](../.github/test/index.html)
+  - Sample: [`iOS/Sample/StashNativeSample`](../iOS/Sample/StashNativeSample)

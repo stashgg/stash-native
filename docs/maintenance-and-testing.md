@@ -17,9 +17,11 @@ There is no repository-level unit/instrumentation test suite wired in CI today; 
 
 ## CI Workflows
 
+Workflow files live under [`.github/workflows/`](../.github/workflows/).
+
 ### Main Build and Deploy
 
-Reference: `.github/workflows/main.yml`
+Reference: [`.github/workflows/main.yml`](../.github/workflows/main.yml)
 
 High-level responsibilities:
 
@@ -36,17 +38,17 @@ High-level responsibilities:
 
 ### Lint Workflow
 
-Reference: `.github/workflows/lint.yml`
+Reference: [`.github/workflows/lint.yml`](../.github/workflows/lint.yml)
 
 Includes:
 
-- Android Checkstyle using `Android/checkstyle.xml`.
+- Android Checkstyle using [`Android/checkstyle.xml`](../Android/checkstyle.xml).
 - iOS static analysis via `xcodebuild analyze`.
-- SwiftLint checks using `.swiftlint.yml`.
+- SwiftLint checks using [`.swiftlint.yml`](../.swiftlint.yml).
 
 ### Release Workflow
 
-Reference: `.github/workflows/release.yml`
+Reference: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 
 Produces release artifacts:
 
@@ -78,13 +80,15 @@ Produces release artifacts:
 
 ## Manual QA Surfaces
 
-- JS bridge and callback harness:
-  - `.github/test/index.html`
-- UI mockup for communication:
-  - `.github/test/mockup.html`
+- JS bridge and callback harness: [`.github/test/index.html`](../.github/test/index.html)
+- UI mockup for communication: [`.github/test/mockup.html`](../.github/test/mockup.html)
 - Platform sample apps:
-  - `Android/sample`
-  - `iOS/Sample/StashNativeSample`
+  - [`Android/sample/`](../Android/sample/)
+  - [`iOS/Sample/StashNativeSample/`](../iOS/Sample/StashNativeSample/)
+
+## Documentation
+
+- Technical docs for maintainers: [`docs/README.md`](./README.md) (this folder).
 
 ## Change Management Checklist
 
@@ -107,21 +111,17 @@ For release-impacting changes:
 
 ```mermaid
 flowchart LR
-    Source[Repository Source]
-    Lint[Lint Workflow]
-    Build[Main Build Workflow]
-    Release[Release Workflow]
-    Artifacts[Build Artifacts]
-    DeviceCloud[BrowserStack and Appetize]
-    Engineers[Maintainer Verification]
+    Repo[Git repo]
+    Lint[lint.yml]
+    Build[main.yml]
+    Rel[release.yml]
+    Out[Artifacts]
 
-    Source --> Lint
-    Source --> Build
-    Source --> Release
-    Lint --> Engineers
-    Build --> Artifacts
-    Build --> DeviceCloud
-    Artifacts --> Engineers
-    DeviceCloud --> Engineers
-    Release --> Artifacts
+    Repo --> Lint
+    Repo --> Build
+    Repo --> Rel
+    Build --> Out
+    Rel --> Out
 ```
+
+`main.yml` also uploads builds to BrowserStack and Appetize for manual or automated device runs; see job steps in that workflow file.
