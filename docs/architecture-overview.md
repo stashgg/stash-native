@@ -89,7 +89,7 @@ sequenceDiagram
     Sdk->>App: success callback
 ```
 
-Concrete routing differs by platform: Android may use [`StashCheckoutBridge`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) when the WebView runs in `:stash_webview`. See [Android Implementation](./android.md) and [iOS Implementation](./ios.md).
+On Android, portrait checkout uses [`StashCheckoutBridge`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) package-local broadcasts from [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) to the plugin (same app process by default). See [Android Implementation](./android.md) and [iOS Implementation](./ios.md).
 
 ## External Browser (Simplified)
 

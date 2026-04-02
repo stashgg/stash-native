@@ -320,7 +320,8 @@ public final class CardConstants {
       "modalTabletHeightRatioLandscape";
 
   // ============================================================================
-  // Cross-process checkout bridge (PortraitActivity runs in :stash_webview)
+  // Checkout bridge: PortraitActivity sends package-local broadcasts consumed by StashNativeCardPlugin
+  // (same app process by default; still used when activity and listener share one process).
   // ============================================================================
 
   public static final String BROADCAST_CHECKOUT_PAYMENT_SUCCESS =

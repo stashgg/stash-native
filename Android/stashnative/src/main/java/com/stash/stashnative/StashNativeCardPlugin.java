@@ -81,7 +81,12 @@ public class StashNativeCardPlugin {
   
   /** Accessed from UI and JS threads; volatile for visibility. */
   private volatile boolean isCurrentlyPresented;
-  /** True while card checkout runs in {@link StashNativeCardPortraitActivity} ({@code :stash_webview}). */
+  /**
+   * True only when checkout used a separate WebView OS process. With the default manifest,
+   * {@link StashNativeCardPortraitActivity} runs in the host app process (required for Unity and
+   * similar engines), so this stays false and {@link #clearPresentationIfCheckoutProcessDied} is a
+   * no-op.
+   */
   private volatile boolean presentationUsesIsolatedWebviewProcess;
   /** Accessed from UI and JS threads; volatile for visibility. */
   private volatile boolean paymentSuccessHandled;
@@ -139,9 +144,10 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * If checkout ran in {@code :stash_webview} and that process died without sending a broadcast
+   * If checkout used an isolated WebView process and that process died without sending a broadcast
    * (e.g. native Chromium abort), clear state and surface {@link
    * StashNativeCard.StashNativeCardListener#onNetworkError()} once the host activity resumes.
+   * No-op when {@link #presentationUsesIsolatedWebviewProcess} is false (default: same process as host).
    */
   private void clearPresentationIfCheckoutProcessDied(Context context) {
     if (!presentationUsesIsolatedWebviewProcess || !isCurrentlyPresented || context == null) {
@@ -199,7 +205,8 @@ public class StashNativeCardPlugin {
 
   /**
    * Registers a package-local receiver so events from {@link StashNativeCardPortraitActivity}
-   * (process {@code :stash_webview}) reach {@link StashNativeCard.StashNativeCardListener}.
+   * reach {@link StashNativeCard.StashNativeCardListener} on the main thread (same-process default;
+   * broadcasts remain the activity-to-plugin contract).
    */
   private void ensureCheckoutBridgeReceiver(Context context) {
     if (checkoutBridgeReceiverRegistered || context == null) {
@@ -859,10 +866,10 @@ public class StashNativeCardPlugin {
           if (usePopupPresentation) {
             createAndShowPopupDialog(finalUrl, finalActivity);
           } else {
-            // Both card and modal use PortraitActivity (process :stash_webview). This gives modal
-            // the same retry/timeout/loading behaviour as the card and crash-isolates the WebView
-            // renderer so a Chromium fault cannot kill the host app. The Activity reads the
-            // useModal flag from the Intent and calls createModal() instead of createCard().
+            // Both card and modal use PortraitActivity in the host app process (avoids a second
+            // process taking foreground, which breaks Unity and similar engines). Modal shares the
+            // same retry/timeout/loading behaviour as card. The Activity reads the useModal flag
+            // from the Intent and calls createModal() instead of createCard().
             launchPortraitActivity(finalUrl, finalActivity);
           }
         } catch (Exception e) {
@@ -941,12 +948,11 @@ public class StashNativeCardPlugin {
       }
       
       // Same task as host app (no NEW_TASK / MULTIPLE_TASK): avoids a second entry in Recents.
-      // WebView still runs in :stash_webview via manifest android:process for crash isolation.
       intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
 
       activity.startActivity(intent);
       activity.overridePendingTransition(0, 0);
-      presentationUsesIsolatedWebviewProcess = true;
+      presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());

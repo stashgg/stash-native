@@ -35,8 +35,8 @@ public class StashKeepAliveService extends Service {
   public static final String EXTRA_ICON_RES_ID = "com.stash.stashnative.keepalive.ICON_RES_ID";
 
   /**
-   * Starts the foreground keep-alive service. Safe to call from the main or {@code :stash_webview}
-   * process; the service runs in the app's default process.
+   * Starts the foreground keep-alive service. Safe to call from any app context; the service runs
+   * in the app's default process.
    */
   public static void start(
       Context appContext,

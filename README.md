@@ -421,6 +421,8 @@ Requirements, OS coverage, vendor notes, and edge cases for each platform are be
 | Java Version | Java 8 (source/target), JDK 17 for build |
 | Architecture | armeabi-v7a, arm64-v8a, x86, x86_64 |
 
+**Game engines (Unity, Unreal, and similar):** `openCard` and `openModal` present checkout in `StashNativeCardPortraitActivity` in the **same app process** as the host (no `android:process` isolate). That keeps a single OS process so engines such as Unity are not killed when checkout takes the foreground. Use the [Unity / Unreal wrappers](#wrappers) for integrated builds.
+
 #### Android version support
 
 | Android Version | API Level | Status | Compatibility Notes |
