@@ -37,10 +37,7 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import androidx.annotation.RequiresApi;
-import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 /**
  * Activity that displays the Stash Pay checkout as a card or popup overlay.
@@ -277,7 +274,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
           // Edge-to-edge disabled; we apply system bar insets as padding on rootLayout so the
           // bottom sheet and modal sit above nav bars (3-button, gesture, etc.).
-          WindowCompat.setDecorFitsSystemWindows(window, false);
+          StashWindowCompat.setDecorFitsSystemWindows(window, false);
           if (chromeColorOverrideActive) {
             StashWebViewUtils.applySystemBarAppearanceForSheet(
                 window, window.getDecorView(), sheetChromeBackgroundArgb);
@@ -363,14 +360,10 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       setContentView(rootLayout);
-      ViewCompat.setOnApplyWindowInsetsListener(rootLayout, (v, windowInsets) -> {
-        Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-        v.setPadding(bars.left, bars.top, bars.right, bars.bottom);
-        // Consume only system bar insets so IME/windowDecor still propagate to WebView.
-        return new WindowInsetsCompat.Builder(windowInsets)
-            .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.NONE)
-            .build();
-      });
+      ViewCompat.setOnApplyWindowInsetsListener(
+          rootLayout,
+          (v, windowInsets) ->
+              StashWindowCompat.onApplySystemBarInsetsPadding(v, windowInsets));
       ViewCompat.requestApplyInsets(rootLayout);
     } catch (Exception e) {
       Log.w(TAG, "Error in createUI: " + e.getMessage(), e);

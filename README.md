@@ -100,6 +100,8 @@ dependencies {
 
 To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
 
+**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers ([`StashWindowCompat`](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
+
 ### iOS
 
 **XCFramework (recommended):** Download `StashNative.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, add `StashNative.xcframework` to your Xcode project, and under **Frameworks, Libraries, and Embedded Content** set it to **Embed & Sign**.

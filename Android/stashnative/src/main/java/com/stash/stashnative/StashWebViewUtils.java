@@ -22,7 +22,6 @@ import androidx.browser.customtabs.CustomTabColorSchemeParams;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
-import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
 /**
@@ -124,7 +123,8 @@ public class StashWebViewUtils {
     }
     try {
       boolean darkBg = StashBackgroundColorUtils.isDarkBackground(sheetArgb);
-      WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+      WindowInsetsControllerCompat controller =
+          StashWindowCompat.getInsetsController(window, decorView);
       window.setStatusBarColor(Color.TRANSPARENT);
       window.setNavigationBarColor(sheetArgb);
       if (controller != null) {
@@ -145,7 +145,8 @@ public class StashWebViewUtils {
       return;
     }
     try {
-      WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decorView);
+      WindowInsetsControllerCompat controller =
+          StashWindowCompat.getInsetsController(window, decorView);
       if (darkTheme) {
         window.setStatusBarColor(Color.TRANSPARENT);
         window.setNavigationBarColor(Color.parseColor(COLOR_DARK_BG));
