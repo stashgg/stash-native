@@ -14,7 +14,6 @@ import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-import androidx.core.app.ServiceCompat;
 
 /**
  * Optional foreground service that raises process priority while an external browser or Chrome
@@ -125,11 +124,14 @@ public class StashKeepAliveService extends Service {
             .build();
 
     try {
-      int fgsType = 0;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        fgsType = ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE;
+        startForeground(
+            NOTIFICATION_ID,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE);
+      } else {
+        startForeground(NOTIFICATION_ID, notification);
       }
-      ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, fgsType);
     } catch (Exception e) {
       Log.e(TAG, "startForeground failed: " + e.getMessage(), e);
       stopSelf(startId);
