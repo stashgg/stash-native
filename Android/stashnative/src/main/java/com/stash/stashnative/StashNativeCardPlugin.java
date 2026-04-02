@@ -266,21 +266,8 @@ public class StashNativeCardPlugin {
         }
         Activity extActivity = getActivity();
         if (extActivity != null && !url.isEmpty()) {
-          try {
-            startKeepAliveBeforeBrowser(extActivity);
-            if (StashWebViewUtils.isChromeCustomTabsAvailable(extActivity)) {
-              StashWebViewUtils.openWithChromeCustomTabs(extActivity, url);
-            } else {
-              StashWebViewUtils.openInSystemBrowser(extActivity, url);
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error opening external payment URL: " + e.getMessage(), e);
-            try {
-              StashWebViewUtils.openInSystemBrowser(extActivity, url);
-            } catch (Exception e2) {
-              Log.w(TAG, "Fallback browser open failed: " + e2.getMessage(), e2);
-            }
-          }
+          startKeepAliveBeforeBrowser(extActivity);
+          StashUrlLauncher.openExternalUrl(extActivity, url);
         }
         return;
       }
@@ -479,21 +466,8 @@ public class StashNativeCardPlugin {
           if (act == null || themed.isEmpty()) {
             return;
           }
-          try {
-            startKeepAliveBeforeBrowser(act);
-            if (StashWebViewUtils.isChromeCustomTabsAvailable(act)) {
-              StashWebViewUtils.openWithChromeCustomTabs(act, themed);
-            } else {
-              StashWebViewUtils.openInSystemBrowser(act, themed);
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error opening external payment URL: " + e.getMessage(), e);
-            try {
-              StashWebViewUtils.openInSystemBrowser(act, themed);
-            } catch (Exception e2) {
-              Log.w(TAG, "Fallback browser open failed: " + e2.getMessage(), e2);
-            }
-          }
+          startKeepAliveBeforeBrowser(act);
+          StashUrlLauncher.openExternalUrl(act, themed);
         } catch (Exception e) {
           Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
         }
@@ -636,7 +610,8 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Opens the URL in Chrome Custom Tabs or system browser.
+   * Opens the URL via {@link StashUrlLauncher#openExternalUrl(Context, String)} (Custom Tabs when
+   * available, else system browser).
    *
    * @param url URL to open
    */
@@ -661,11 +636,7 @@ public class StashNativeCardPlugin {
       activity.runOnUiThread(() -> {
         try {
           startKeepAliveBeforeBrowser(finalActivity);
-          if (StashWebViewUtils.isChromeCustomTabsAvailable(finalActivity)) {
-            StashWebViewUtils.openWithChromeCustomTabs(finalActivity, finalUrl);
-          } else {
-            StashWebViewUtils.openInSystemBrowser(finalActivity, finalUrl);
-          }
+          StashUrlLauncher.openExternalUrl(finalActivity, finalUrl);
         } catch (Exception e) {
           Log.w(TAG, "Error in openBrowser: " + e.getMessage(), e);
         }
@@ -1903,42 +1874,6 @@ public class StashNativeCardPlugin {
       });
     } catch (Exception e) {
       Log.w(TAG, "Error scheduling hide loading indicator: " + e.getMessage(), e);
-    }
-  }
-  
-  private void openWithChromeCustomTabs(String url, Activity activity) {
-    try {
-      if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
-        if (BuildConfig.DEBUG) {
-          Log.d(TAG, "Opening URL with Chrome Custom Tabs");
-        }
-        startKeepAliveBeforeBrowser(activity);
-        StashWebViewUtils.openWithChromeCustomTabs(activity, url);
-        presentationUsesIsolatedWebviewProcess = false;
-        isCurrentlyPresented = true;
-        new Handler(Looper.getMainLooper()).postDelayed(() -> {
-          try {
-            StashNativeCard.StashNativeCardListener l = getListener();
-            if (l != null) {
-              l.onDialogDismissed();
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error sending dialog dismissed: " + e.getMessage(), e);
-          }
-        }, CardConstants.DIALOG_DISMISS_DELAY_MS);
-      } else {
-        Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
-        startKeepAliveBeforeBrowser(activity);
-        StashWebViewUtils.openInSystemBrowser(activity, url);
-      }
-    } catch (Exception e) {
-      Log.e(TAG, "Failed to open browser: " + e.getMessage());
-      try {
-        startKeepAliveBeforeBrowser(activity);
-        StashWebViewUtils.openInSystemBrowser(activity, url);
-      } catch (Exception fallbackException) {
-        Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());
-      }
     }
   }
   

@@ -409,8 +409,8 @@ public class StashNativeCard {
   }
   
   /**
-   * Opens a URL in Chrome Custom Tabs (platform browser).
-   * No callbacks or configuration - simple browser presentation.
+   * Opens a URL in Chrome Custom Tabs when {@code androidx.browser} is present, otherwise in the
+   * system browser ({@code ACTION_VIEW}). No callbacks or configuration.
    *
    * @param url The URL to open in the browser
    */

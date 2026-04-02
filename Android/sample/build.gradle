@@ -33,6 +33,8 @@ android {
 
 dependencies {
     implementation project(':stashnative')
+    // So the sample APK includes Custom Tabs classes; the AAR does not require this for hosts.
+    implementation 'androidx.browser:browser:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'

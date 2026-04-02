@@ -22,7 +22,8 @@ All paths are relative to the repository root.
 | Public API and configs | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) |
 | Host-process coordinator, popup/modal WebView, receivers | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) |
 | Card/modal activity, timers, gestures, in-activity WebView | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) |
-| JS shim string, WebView settings, URL helpers, CCT | [`Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) |
+| JS shim string, WebView settings, URL helpers | [`Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) |
+| External URLs: Custom Tabs (reflection) or `ACTION_VIEW` | [`Android/stashnative/src/main/java/com/stash/stashnative/StashUrlLauncher.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashUrlLauncher.java) |
 | Package-local broadcast bridge (activity to plugin) | [`Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) |
 | Actions, extras, timing constants | [`Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java`](../Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java) |
 | Foreground keep-alive | [`Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java) |
@@ -117,19 +118,24 @@ Triggers:
 - Page: `openExternalBrowser` in `JS_SDK_SCRIPT` ([`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)).
 - Host: `StashNativeCard.openBrowser` → plugin `openBrowser`.
 
-Shared helpers in [`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java):
-
-- `normalizeExternalPaymentUrl`
-- `appendThemeQueryParameter`
-- `openWithChromeCustomTabs`, `openInSystemBrowser`
+Shared helpers: [`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (`normalizeExternalPaymentUrl`, `appendThemeQueryParameter`, legacy `isChromeCustomTabsAvailable` / `openInSystemBrowser` delegating to the launcher). URL launch: [`StashUrlLauncher.openExternalUrl`](../Android/stashnative/src/main/java/com/stash/stashnative/StashUrlLauncher.java) — tries Chrome Custom Tabs via reflection when `androidx.browser` is on the classpath, otherwise `Intent.ACTION_VIEW`. Hosts do not need to depend on `androidx.browser`.
 
 Keep-alive: [`StashKeepAliveService`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java), started from the plugin via `startKeepAliveBeforeBrowser` where configured.
+
+**Manual checks (no automated test in-repo yet):**
+
+| Setup | Expected |
+|-------|----------|
+| App without `androidx.browser` on the classpath | `openExternalUrl` uses `ACTION_VIEW`; no `NoClassDefFoundError`. |
+| App with `androidx.browser` and a default Custom Tabs provider | Custom Tab opens for http(s) URLs. |
+| Browser classes present but no activity handles the URL | Reflection or `startActivity` fails gracefully; falls back or logs; no crash. |
 
 ```mermaid
 sequenceDiagram
     participant Page as Page
     participant JI as JSInterface
     participant Utils as StashWebViewUtils
+    participant Launcher as StashUrlLauncher
     participant Plugin as StashNativeCardPlugin
     participant Browser as CCTOrSystemBrowser
 
@@ -137,7 +143,8 @@ sequenceDiagram
     JI->>Utils: normalizeExternalPaymentUrl
     JI->>Utils: appendThemeQueryParameter
     JI->>Plugin: listener and dismiss path
-    Plugin->>Browser: openWithChromeCustomTabs or openInSystemBrowser
+    Plugin->>Launcher: openExternalUrl
+    Launcher->>Browser: CustomTabs (reflection) or ACTION_VIEW
 ```
 
 ## Presentation Modes And UX Behavior

@@ -1536,43 +1536,14 @@ public class StashNativeCardPortraitActivity extends Activity {
         }
       }
       
-      openWithChromeCustomTabs(urlWithParam, this);
+      StashNativeCardPlugin.getInstance().startKeepAliveBeforeBrowser(this);
+      if (BuildConfig.DEBUG && StashUrlLauncher.isCustomTabsClassAvailable()) {
+        Log.d(TAG, "Opening Google Pay URL (Custom Tabs if available, else system browser)");
+      }
+      StashUrlLauncher.openExternalUrl(this, urlWithParam);
       dismissWithAnimation();
     } catch (Exception e) {
       Log.e(TAG, "Failed to open Google Pay URL: " + e.getMessage());
-    }
-  }
-  
-  private void openWithChromeCustomTabs(String url, Activity activity) {
-    try {
-      StashNativeCardPlugin.getInstance().startKeepAliveBeforeBrowser(activity);
-      if (StashWebViewUtils.isChromeCustomTabsAvailable(activity)) {
-        if (BuildConfig.DEBUG) {
-          Log.d(TAG, "Opening Google Pay URL with Chrome Custom Tabs");
-        }
-        StashWebViewUtils.openWithChromeCustomTabs(activity, url);
-      } else {
-        Log.w(TAG, "Chrome Custom Tabs not available. Falling back to default browser.");
-        openInSystemBrowser(url);
-      }
-    } catch (Exception e) {
-      Log.e(TAG, "Failed to open browser: " + e.getMessage());
-      try {
-        openInSystemBrowser(url);
-      } catch (Exception fallbackException) {
-        Log.e(TAG, "Failed to open default browser: " + fallbackException.getMessage());
-      }
-    }
-  }
-  
-  private void openInSystemBrowser(String url) {
-    try {
-      Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-      browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-      startActivity(browserIntent);
-      dismissWithAnimation();
-    } catch (Exception e) {
-      Log.e(TAG, "Failed to open URL in system browser: " + e.getMessage());
     }
   }
   

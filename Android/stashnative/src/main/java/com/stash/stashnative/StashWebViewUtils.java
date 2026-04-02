@@ -2,7 +2,6 @@ package com.stash.stashnative;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -18,8 +17,6 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
-import androidx.browser.customtabs.CustomTabColorSchemeParams;
-import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -487,44 +484,36 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Returns true if Chrome Custom Tabs is available on the device.
+   * True when {@code androidx.browser} Custom Tabs classes are on the classpath (CCT may still fail
+   * at runtime if no handler is installed; {@link StashUrlLauncher} falls back to {@code
+   * ACTION_VIEW}).
    */
   public static boolean isChromeCustomTabsAvailable(Context context) {
-    return context != null;
+    return context != null && StashUrlLauncher.isCustomTabsClassAvailable();
   }
 
   /**
-   * Opens the given URL in Chrome Custom Tabs.
+   * Opens the URL using Custom Tabs when possible, else system browser ({@code ACTION_VIEW}).
+   *
+   * @deprecated Prefer {@link StashUrlLauncher#openExternalUrl(Context, String)}; kept for call
+   *     sites that expect this name.
    */
+  @Deprecated
   public static void openWithChromeCustomTabs(Activity activity, String url) throws Exception {
     if (activity == null || url == null || url.isEmpty()) {
       throw new IllegalArgumentException("Invalid activity or URL");
     }
-
-    CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
-    builder.setShowTitle(true);
-    CustomTabColorSchemeParams darkParams = new CustomTabColorSchemeParams.Builder()
-        .setToolbarColor(Color.parseColor(CardConstants.COLOR_DARK_BG))
-        .build();
-    builder.setDefaultColorSchemeParams(darkParams);
-    CustomTabsIntent customTabsIntent = builder.build();
-    customTabsIntent.launchUrl(activity, Uri.parse(url));
+    StashUrlLauncher.openExternalUrl(activity, url);
   }
 
   /**
-   * Opens the given URL in the system default browser (fallback when Chrome Custom Tabs
-   * is not available).
+   * Opens the URL using Custom Tabs when possible, else system browser — same as {@link
+   * #openWithChromeCustomTabs} after the optional-browser refactor.
    */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
       return;
     }
-    try {
-      Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-      activity.startActivity(intent);
-    } catch (Exception e) {
-      // Ignore if no browser can handle the URL
-    }
+    StashUrlLauncher.openExternalUrl(activity, url);
   }
 }

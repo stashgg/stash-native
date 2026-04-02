@@ -94,7 +94,8 @@ Or try in the browser emulators via Appetize:
 dependencies {
     implementation files('libs/StashNative-<tag>.aar')
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.browser:browser:1.7.0'
+    // Optional: add androidx.browser for Chrome Custom Tabs on external URLs; without it the SDK uses ACTION_VIEW.
+    // implementation 'androidx.browser:browser:1.7.0'
 }
 ```
 
@@ -114,7 +115,7 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 ## Presentation modes
 
-The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Chrome Custom Tabs / SFSafariViewController). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
+The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Custom Tabs or system browser on Android when `androidx.browser` is absent; SFSafariViewController on iOS). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/stashgg/stash-native/refs/heads/main/.github/assets/presentations.png" alt="Presentation Modes" width="840" />
@@ -362,7 +363,7 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 
 ### openBrowser
 
-Opens the URL in the platform browser (Chrome Custom Tabs on Android, SFSafariViewController on iOS). No in-app UI, no config, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fall-abck method for openCard and openModal.
+Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI, no config, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fall-abck method for openCard and openModal.
 
 **Android**
 
@@ -469,7 +470,7 @@ Requirements, OS coverage, vendor notes, and edge cases for each platform are be
 | Dependency | Version | Required | Purpose |
 |------------|---------|----------|----------|
 | androidx.appcompat:appcompat | 1.6.1+ | Yes | Activity/Fragment support |
-| androidx.browser:browser | 1.7.0+ | Yes | Chrome Custom Tabs support (openBrowser) |
+| androidx.browser:browser | 1.7.0+ | No | Chrome Custom Tabs when present; otherwise system browser (`ACTION_VIEW`) |
 
 #### Feature restrictions by API level
 
