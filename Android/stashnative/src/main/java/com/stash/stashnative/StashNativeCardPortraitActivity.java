@@ -8,6 +8,7 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
@@ -139,6 +140,22 @@ public class StashNativeCardPortraitActivity extends Activity {
   /** WebView force-dark, URL theme=, home/error styling. */
   private boolean effectiveIsDarkForContent;
   private OnBackInvokedCallback onBackInvokedCallback;
+
+  @Override
+  protected void attachBaseContext(Context newBase) {
+    super.attachBaseContext(newBase);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+      String processName = android.app.Application.getProcessName();
+      if (processName != null && processName.contains(":")) {
+        String suffix = processName.substring(processName.indexOf(':') + 1);
+        try {
+          WebView.setDataDirectorySuffix(suffix);
+        } catch (IllegalStateException e) {
+          Log.w(TAG, "WebView data directory suffix already set");
+        }
+      }
+    }
+  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {

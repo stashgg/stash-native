@@ -5,6 +5,18 @@
 
 import UIKit
 
+/// Navigation controller that forwards supportedInterfaceOrientations to its top view controller.
+/// This mirrors how Unity's UnityAppController and Unreal's IOSAppDelegate work — the root VC
+/// controls the allowed orientations, letting ViewController simulate a landscape-locked game.
+final class ForwardingNavigationController: UINavigationController {
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        topViewController?.supportedInterfaceOrientations ?? .all
+    }
+    override var shouldAutorotate: Bool {
+        topViewController?.shouldAutorotate ?? true
+    }
+}
+
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
@@ -17,7 +29,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let window = UIWindow(windowScene: windowScene)
-        let nav = UINavigationController(rootViewController: ViewController())
+        let nav = ForwardingNavigationController(rootViewController: ViewController())
         nav.navigationBar.prefersLargeTitles = true
         window.rootViewController = nav
         self.window = window

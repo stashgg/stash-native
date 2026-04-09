@@ -467,6 +467,18 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 @property (nonatomic, assign) NSUInteger presentationSessionToken;
 /// YES after beginDismissStoppingLoadAndTimers until cleanup finishes (avoids double token bump).
 @property (nonatomic, assign) BOOL isDismissingCard;
+/// The scene orientation mask in effect before forcePortrait was applied; restored on dismiss.
+@property (nonatomic, assign) UIInterfaceOrientationMask previousSceneOrientationMask;
+/// Dedicated portrait window created for SFSafariViewController on the external-payment path.
+@property (nonatomic, strong) UIWindow *safariPresentationWindow;
+/// YES when the external-payment path is about to present SFSafariViewController immediately
+/// after card dismissal. cleanupCardInstance keeps the portrait window alive so Safari can
+/// be presented from it without any scene-rotation animation between the card and Safari.
+@property (nonatomic, assign) BOOL isHandingOffPortraitWindowToSafari;
+/// YES while SFSafariViewController is actively presented in a forced-portrait window.
+/// Causes the orientation swizzle to return UIInterfaceOrientationMaskPortrait for the
+/// SDK window, preventing iOS from rotating Safari to landscape when the device rotates.
+@property (nonatomic, assign) BOOL isSafariPortraitLocked;
 
 + (instancetype)sharedInstance;
 - (void)beginDismissStoppingLoadAndTimers;
@@ -486,6 +498,7 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 - (void)startKeyboardObserving;
 - (void)stopKeyboardObserving;
 - (BOOL)isIPhoneLandscapeCurrentOrientation;
+- (void)restorePrePortraitOrientation;
 
 @end
 
@@ -713,19 +726,32 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }
     
     if (self.portraitWindow) {
-        if (self.portraitWindow.rootViewController) {
-            [self.portraitWindow.rootViewController dismissViewControllerAnimated:NO completion:nil];
+        if (self.isHandingOffPortraitWindowToSafari) {
+            // External-payment path: Safari is about to be presented from this portrait window.
+            // Keep the window and scene in portrait — no rotation animations.
+            // Give the window a solid background so nothing shows through during the
+            // brief gap between card teardown and Safari sliding up.
+            self.portraitWindow.backgroundColor = stash_sheetBackgroundUIColor();
+        } else {
+            if (self.portraitWindow.rootViewController) {
+                [self.portraitWindow.rootViewController dismissViewControllerAnimated:NO completion:nil];
+            }
+            
+            self.portraitWindow.hidden = YES;
+            self.portraitWindow.rootViewController = nil;
+            
+            if (self.previousKeyWindow) {
+                [self.previousKeyWindow makeKeyAndVisible];
+                if (_forcePortraitOnCheckout) {
+                    // Restore landscape before clearing previousKeyWindow so the
+                    // restore method can still resolve the scene via previousKeyWindow.windowScene.
+                    [self restorePrePortraitOrientation];
+                }
+                self.previousKeyWindow = nil;
+            }
+            
+            self.portraitWindow = nil;
         }
-        
-        self.portraitWindow.hidden = YES;
-        self.portraitWindow.rootViewController = nil;
-        
-        if (self.previousKeyWindow) {
-            [self.previousKeyWindow makeKeyAndVisible];
-            self.previousKeyWindow = nil;
-        }
-        
-        self.portraitWindow = nil;
     }
     
     self.currentPresentedVC = nil;
@@ -741,6 +767,42 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
     _presentationBackgroundColorHex = nil;
+}
+
+- (void)restorePrePortraitOrientation {
+    if (self.previousSceneOrientationMask == 0) return;
+    UIInterfaceOrientationMask mask = self.previousSceneOrientationMask;
+    self.previousSceneOrientationMask = 0;
+
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = nil;
+        if (self.previousKeyWindow) {
+            scene = self.previousKeyWindow.windowScene;
+        }
+        if (!scene) {
+            for (UIScene *s in [UIApplication sharedApplication].connectedScenes) {
+                if ([s isKindOfClass:[UIWindowScene class]] &&
+                    s.activationState == UISceneActivationStateForegroundActive) {
+                    scene = (UIWindowScene *)s;
+                    break;
+                }
+            }
+        }
+        if (scene) {
+            UIWindowSceneGeometryPreferencesIOS *prefs =
+                [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+            [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *e) {
+                STASH_DEBUG_LOG(@"StashNative landscape restore failed: %@", e);
+            }];
+        }
+    } else {
+        UIInterfaceOrientation target =
+            (mask == UIInterfaceOrientationMaskLandscapeLeft)
+                ? UIInterfaceOrientationLandscapeLeft
+                : UIInterfaceOrientationLandscapeRight;
+        [[UIDevice currentDevice] setValue:@(target) forKey:@"orientation"];
+        [UIViewController attemptRotationToDeviceOrientation];
+    }
 }
 
 - (void)dismissWithAnimation:(void (^)(void))completion {
@@ -795,10 +857,40 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
+    // Unlock portrait before any window teardown so the scene can freely rotate
+    // back to landscape as we restore the game window.
+    self.isSafariPortraitLocked = NO;
+
+    // If we created a dedicated Safari portrait window (standalone browser path), tear it down.
+    if (self.safariPresentationWindow) {
+        self.safariPresentationWindow.hidden = YES;
+        self.safariPresentationWindow.rootViewController = nil;
+        if (self.previousKeyWindow) {
+            [self.previousKeyWindow makeKeyAndVisible];
+            // Restore landscape before clearing previousKeyWindow so the scene lookup works.
+            [self restorePrePortraitOrientation];
+            self.previousKeyWindow = nil;
+        }
+        self.safariPresentationWindow = nil;
+    }
+
     if (_safariOpenedViaOpenBrowser) {
         _safariOpenedViaOpenBrowser = NO;
         _isCardCurrentlyPresented = NO;
         self.currentSafariViewController = nil;
+
+        // External-payment handoff OR openBrowserWithURL:forcePortrait:YES — the portrait
+        // window was kept/created so Safari ran in portrait. Tear it down and restore landscape.
+        if (self.portraitWindow) {
+            self.portraitWindow.hidden = YES;
+            self.portraitWindow.rootViewController = nil;
+            if (self.previousKeyWindow) {
+                [self.previousKeyWindow makeKeyAndVisible];
+                [self restorePrePortraitOrientation];
+                self.previousKeyWindow = nil;
+            }
+            self.portraitWindow = nil;
+        }
     } else {
         [self cleanupCardInstance];
         [self callDelegateCallbackOnce];
@@ -1620,6 +1712,11 @@ initialSpringVelocity:kSpringVelocityCollapse
                 [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:themed];
             }
             StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+            // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
+            // presented from it immediately — no scene-rotation animation between card and Safari.
+            if (_forcePortraitOnCheckout) {
+                internal.isHandingOffPortraitWindowToSafari = YES;
+            }
             [internal dismissWithAnimation:^{
                 [internal cleanupCardInstance];
                 [[StashNativeCard sharedInstance] openBrowserWithURL:normalized];
@@ -2305,7 +2402,79 @@ NSString* appendThemeQueryParameter(NSString* url) {
 @property (nonatomic, assign) BOOL isCardExpanded;
 @end
 
+// ============================================================================
+// Orientation unlock swizzle
+//
+// When forcePortrait is used the SDK installs a one-time swizzle on
+// application:supportedInterfaceOrientationsForWindow: on the AppDelegate class.
+// This lets the SDK's portrait window (and the dedicated Safari portrait window)
+// rotate to portrait even when the host app's Info.plist is landscape-only —
+// the common case for Unity, Unreal, and other landscape-locked game engines.
+//
+// The swizzle is surgical: for non-SDK windows it always calls through to the
+// original implementation, so nothing else in the app changes behaviour.
+// dispatch_once guarantees the swizzle is installed exactly once and only when
+// it is first needed (not at app launch).
+// ============================================================================
+
+static void stashInstallOrientationSwizzleIfNeeded(void) {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        id appDelegate = [UIApplication sharedApplication].delegate;
+        if (!appDelegate) return;
+
+        Class delegateClass = [appDelegate class];
+        SEL sel = @selector(application:supportedInterfaceOrientationsForWindow:);
+
+        // We need a stable reference to originalIMP that the block can capture and call.
+        // __block + a C-function-pointer typedef makes this safe.
+        typedef UIInterfaceOrientationMask (*OriginalIMP)(id, SEL, UIApplication *, UIWindow *);
+        __block OriginalIMP originalIMP = NULL;
+
+        IMP newIMP = imp_implementationWithBlock(
+            ^UIInterfaceOrientationMask(id blockSelf, UIApplication *app, UIWindow *window) {
+                StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+                if (window && (window == internal.portraitWindow ||
+                               window == internal.safariPresentationWindow)) {
+                    // While Safari is actively presented in forced-portrait mode, lock the window
+                    // to portrait so the device physically rotating to landscape doesn't flip it.
+                    // During the initial setup / rotation-to-portrait phase, allow all so iOS can
+                    // reach portrait even in landscape-locked games (Unity, Unreal, etc.).
+                    if (internal.isSafariPortraitLocked) {
+                        return UIInterfaceOrientationMaskPortrait;
+                    }
+                    return UIInterfaceOrientationMaskAll;
+                }
+                // Non-SDK windows: forward to original.
+                if (originalIMP) {
+                    return originalIMP(blockSelf, sel, app, window);
+                }
+                return UIInterfaceOrientationMaskAll; // safe fallback when app had no original
+            });
+
+        Method method = class_getInstanceMethod(delegateClass, sel);
+        if (method) {
+            // Method exists on this class (or a superclass) — replace and save the original.
+            originalIMP = (OriginalIMP)method_setImplementation(method, newIMP);
+        } else {
+            // Method doesn't exist — add it; "originalIMP" stays NULL (no original to call).
+            // Type encoding: return UIInterfaceOrientationMask (NSUInteger = 8 bytes on 64-bit),
+            // args: self (id @8), _cmd (SEL @8), UIApplication * (@8), UIWindow * (@8) → 40 bytes.
+            class_addMethod(delegateClass, sel, newIMP, "Q40@0:8@16@24");
+        }
+    });
+}
+
 @implementation StashNativeCard
+
++ (UIInterfaceOrientationMask)supportedInterfaceOrientationsForWindow:(nullable UIWindow *)window {
+    if (!window) return 0;
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    if (window == internal.portraitWindow || window == internal.safariPresentationWindow) {
+        return UIInterfaceOrientationMaskAll;
+    }
+    return 0;
+}
 
 + (instancetype)sharedInstance {
     static StashNativeCard *sharedInstance = nil;
@@ -2366,8 +2535,8 @@ NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return;
     }
-    NSString *urlWithTheme = appendThemeQueryParameter(url);
     _safariOpenedViaOpenBrowser = YES;
+    NSString *urlWithTheme = appendThemeQueryParameter(url);
     [self openInSafariViewController:urlWithTheme];
 }
 
@@ -2461,15 +2630,133 @@ NSString* appendThemeQueryParameter(NSString* url) {
 - (void)openInSafariViewController:(NSString *)url {
     NSURL *nsurl = [NSURL URLWithString:url];
     if (!nsurl) return;
-    
+
     SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:nsurl];
     safariVC.delegate = [StashNativeCardInternal sharedInstance];
     [StashNativeCardInternal sharedInstance].currentSafariViewController = safariVC;
-    
-    UIViewController *topVC = getTopPresentedViewController();
-    [topVC presentViewController:safariVC animated:YES completion:^{
-        _isCardCurrentlyPresented = YES;
-    }];
+
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    UIViewController *presenter;
+    // Delay before presenting Safari to let the scene settle after a rotation request.
+    // Without this delay, Safari spawns in landscape then snaps to portrait (visible glitch).
+    NSTimeInterval rotationDelay = 0.0;
+
+    if (internal.portraitWindow) {
+        // Portrait window alive (card handoff or inline card Safari).
+        // Swap to a clean SafariPortraitContainerViewController — no leftover card state.
+        SafariPortraitContainerViewController *safariContainer =
+            [[SafariPortraitContainerViewController alloc] init];
+        safariContainer.view.backgroundColor = stash_sheetBackgroundUIColor();
+        internal.portraitWindow.rootViewController = safariContainer;
+        presenter = safariContainer;
+
+        // Handoff complete — flag cleared so safariViewControllerDidFinish: owns teardown.
+        internal.isHandingOffPortraitWindowToSafari = NO;
+
+        // Defensive portrait request: if the scene is already portrait this is a true no-op
+        // (no animation). Only needed if rotation somehow slipped during card dismiss.
+        CGRect sceneBounds = [UIScreen mainScreen].bounds;
+        BOOL sceneIsLandscape = (sceneBounds.size.width > sceneBounds.size.height);
+        if (sceneIsLandscape) {
+            // Scene slipped — request portrait and wait for it to settle.
+            rotationDelay = kRotationDelayAfterLandscape;
+            if (@available(iOS 16.0, *)) {
+                UIWindowScene *scene = internal.portraitWindow.windowScene;
+                if (scene) {
+                    UIWindowSceneGeometryPreferencesIOS *prefs =
+                        [[UIWindowSceneGeometryPreferencesIOS alloc]
+                            initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
+                    [scene requestGeometryUpdateWithPreferences:prefs errorHandler:nil];
+                }
+            } else {
+                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                            forKey:@"orientation"];
+                [UIViewController attemptRotationToDeviceOrientation];
+            }
+        }
+        // else: scene is already portrait — present Safari immediately with no animation.
+
+    } else if (_forcePortraitOnCheckout) {
+        // Standalone openBrowser after a forcePortrait card — keep Safari in portrait.
+        CGRect screen = [UIScreen mainScreen].bounds;
+        BOOL wasLandscape = (screen.size.width > screen.size.height);
+        rotationDelay = wasLandscape ? kRotationDelayAfterLandscape : 0.0;
+        presenter = [self createSafariPortraitPresenter];
+    } else {
+        presenter = getTopPresentedViewController();
+    }
+
+    // Present Safari after the scene has settled.
+    // rotationDelay = 0 → fires on the next runloop turn (no visible delay).
+    // rotationDelay > 0 → waits for the rotation animation to complete first.
+    BOOL lockPortrait = (internal.portraitWindow != nil || internal.safariPresentationWindow != nil);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        // Guard: if the window was torn down during the delay, abort.
+        if (rotationDelay > 0 && internal.currentSafariViewController != safariVC) return;
+        // Lock the SDK window to portrait so the scene can't rotate to landscape while
+        // Safari is shown. Cleared on dismissal in safariViewControllerDidFinish:.
+        if (lockPortrait) {
+            internal.isSafariPortraitLocked = YES;
+        }
+        [presenter presentViewController:safariVC animated:YES completion:^{
+            _isCardCurrentlyPresented = YES;
+        }];
+    });
+}
+
+- (UIViewController *)createSafariPortraitPresenter {
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+
+    if (!self.disableAutoOrientationUnlock) {
+        stashInstallOrientationSwizzleIfNeeded();
+    }
+
+    UIWindow *gameWindow = getKeyWindow();
+    internal.previousKeyWindow = gameWindow;
+
+    CGRect screen = [UIScreen mainScreen].bounds;
+    BOOL isLS = screen.size.width > screen.size.height;
+    CGRect portraitFrame = CGRectMake(0, 0,
+        isLS ? screen.size.height : screen.size.width,
+        isLS ? screen.size.width  : screen.size.height);
+
+    UIWindow *safariWindow = [[UIWindow alloc] initWithFrame:portraitFrame];
+    attachWindowToKeyWindowScene(safariWindow, gameWindow);
+    safariWindow.windowLevel = UIWindowLevelAlert;
+
+    SafariPortraitContainerViewController *vc = [[SafariPortraitContainerViewController alloc] init];
+    safariWindow.rootViewController = vc;
+    internal.safariPresentationWindow = safariWindow;
+    [safariWindow makeKeyAndVisible];
+
+    // Capture current orientation and request portrait, mirroring the card path.
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = safariWindow.windowScene;
+        if (scene) {
+            UIInterfaceOrientation cur = scene.interfaceOrientation;
+            internal.previousSceneOrientationMask =
+                (cur == UIInterfaceOrientationLandscapeLeft)  ? UIInterfaceOrientationMaskLandscapeLeft  :
+                (cur == UIInterfaceOrientationLandscapeRight) ? UIInterfaceOrientationMaskLandscapeRight :
+                                                                UIInterfaceOrientationMaskLandscape;
+            UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
+                initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
+            [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                STASH_DEBUG_LOG(@"StashNative Safari portrait request failed: %@", error);
+            }];
+        }
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
+#pragma clang diagnostic pop
+        internal.previousSceneOrientationMask =
+            (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
+                                                         : UIInterfaceOrientationMaskLandscapeRight;
+        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
+        [UIViewController attemptRotationToDeviceOrientation];
+    }
+    return vc;
 }
 
 - (void)openInCardUI:(NSString *)url {
@@ -2530,7 +2817,14 @@ NSString* appendThemeQueryParameter(NSString* url) {
 
 - (void)presentIPhoneCardWithURL:(NSString *)url {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    
+
+    // Unlock portrait in the AppDelegate delegate method so iOS 13–15 and landscape-locked
+    // game engines (Unity, Unreal) allow the portrait rotation, unless the integrator has
+    // opted out to handle orientation unlocking themselves.
+    if (!self.disableAutoOrientationUnlock) {
+        stashInstallOrientationSwizzleIfNeeded();
+    }
+
     // Store previous key window
     internal.previousKeyWindow = getKeyWindow();
     
@@ -2563,30 +2857,32 @@ NSString* appendThemeQueryParameter(NSString* url) {
     cardWindow.rootViewController = containerVC;
     internal.currentPresentedVC = containerVC;
     
-    // For pre-iOS 16 only: request portrait before showing the window.
+    // Capture current orientation for restoration on dismiss, then request portrait.
     if (@available(iOS 16.0, *)) {
-        // iOS 16+ uses requestGeometryUpdateWithPreferences below.
-    } else {
-        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
-        [UIViewController attemptRotationToDeviceOrientation];
-    }
-    
-    // For iOS 16+, also request geometry update
-    if (@available(iOS 16.0, *)) {
-        UIWindowScene *windowScene = nil;
-        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
-                windowScene = (UIWindowScene *)scene;
-                break;
-            }
-        }
-        if (windowScene) {
-            UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc] 
+        // cardWindow.windowScene is already set by attachWindowToKeyWindowScene above.
+        UIWindowScene *scene = cardWindow.windowScene;
+        if (scene) {
+            UIInterfaceOrientation cur = scene.interfaceOrientation;
+            internal.previousSceneOrientationMask =
+                (cur == UIInterfaceOrientationLandscapeLeft)  ? UIInterfaceOrientationMaskLandscapeLeft  :
+                (cur == UIInterfaceOrientationLandscapeRight) ? UIInterfaceOrientationMaskLandscapeRight :
+                                                                UIInterfaceOrientationMaskLandscape;
+            UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
                 initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
-            [windowScene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
-                // Silently handle - rotation may still work via UIDevice.setValue
+            [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                STASH_DEBUG_LOG(@"StashNative portrait request failed: %@", error);
             }];
         }
+    } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
+#pragma clang diagnostic pop
+        internal.previousSceneOrientationMask =
+            (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
+                                                         : UIInterfaceOrientationMaskLandscapeRight;
+        [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
+        [UIViewController attemptRotationToDeviceOrientation];
     }
     
     // Make window visible AFTER rotation request

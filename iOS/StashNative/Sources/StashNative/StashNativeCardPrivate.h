@@ -84,6 +84,11 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 - (void)updateCornerRadiusMask;
 @end
 
+/// Minimal portrait-only root VC for the dedicated UIWindow used to host SFSafariViewController
+/// on the external-payment path (after the card portrait window has been torn down).
+@interface SafariPortraitContainerViewController : UIViewController
+@end
+
 @interface WebViewLoadDelegate : NSObject <WKNavigationDelegate>
 @property (nonatomic, assign) CFAbsoluteTime pageLoadStartTime;
 - (instancetype)initWithWebView:(WKWebView *)webView

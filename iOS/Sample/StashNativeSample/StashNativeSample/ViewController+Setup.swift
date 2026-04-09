@@ -11,6 +11,15 @@ import UIKit
 
 extension ViewController {
 
+    func setupGameSimulation() {
+        simulateLandscapeSwitch.isOn = false
+        simulateLandscapeSwitch.addTarget(
+            self,
+            action: #selector(simulateLandscapeToggled(_:)),
+            for: .valueChanged
+        )
+    }
+
     func setupCheckoutSlidersAndSwitches() {
         forcePortraitOnCheckoutSwitch.isOn = false
         forcePortraitOnCheckoutSwitch.addTarget(

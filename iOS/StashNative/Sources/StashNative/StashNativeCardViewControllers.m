@@ -299,6 +299,31 @@ extern void resetCardExpandedStateAfterRotation(void);
 
 @end
 
+#pragma mark - SafariPortraitContainerViewController
+
+/// Minimal portrait-only root VC for the dedicated UIWindow used to host SFSafariViewController
+/// on the external-payment path (when the card window has already been dismissed and the game's
+/// landscape window is key).  Presenting Safari from this VC gives it — and the system keyboard —
+/// the correct portrait orientation and safe-area insets.
+@interface SafariPortraitContainerViewController : UIViewController
+@end
+
+@implementation SafariPortraitContainerViewController
+
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return UIInterfaceOrientationMaskPortrait;
+}
+
+- (BOOL)shouldAutorotate {
+    return NO;
+}
+
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    return UIInterfaceOrientationPortrait;
+}
+
+@end
+
 #pragma mark - OrientationLockedViewController (Popup rotation only; modal uses ModalViewController)
 
 @interface OrientationLockedViewController : UIViewController

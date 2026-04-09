@@ -48,6 +48,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let checkoutPhoneLandscapeHeightSlider = UISlider()
     let checkoutPhoneLandscapeHeightLabel = UILabel()
 
+    // MARK: - Game simulation
+    var simulateLandscapeGame = false
+    let simulateLandscapeSwitch = UISwitch()
+
     let modalAllowDismissSwitch = UISwitch()
     let modalPhonePortraitWidthSlider = UISlider()
     let modalPhonePortraitWidthLabel = UILabel()
@@ -72,6 +76,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         case browser
         case presentationOptions
         case checkoutGenerationSettings
+        case gameSimulation
     }
 
     /// Card option rows (when card expandable is expanded).
@@ -123,6 +128,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         setupTextFields()
         setupCheckoutSlidersAndSwitches()
         setupModalSlidersAndSwitches()
+        setupGameSimulation()
         setupStashNativeCard()
 
         view.addSubview(tableView)
@@ -147,8 +153,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        return .all
+        simulateLandscapeGame ? .landscape : .all
     }
+
+    override var shouldAutorotate: Bool { true }
 
     // MARK: - Setup
 

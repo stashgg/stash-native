@@ -35,6 +35,14 @@ extension ViewController {
             return "Use your own API key if needed. Prefilled with demo API test key."
         case .presentationOptions:
             return nil
+        case .gameSimulation:
+            return """
+                Simulates a landscape-locked game engine (Unity, Unreal). \
+                Test: 1. Toggle on → app stays landscape. \
+                2. Enable "Force Portrait on Card" above. \
+                3. Open card → card and keyboard appear in portrait. \
+                4. Dismiss → app returns to landscape.
+                """
         }
     }
 
@@ -121,6 +129,14 @@ extension ViewController {
         } else {
             return urlCell(textField: apiKeyTextField, label: "API Key", imageName: "key")
         }
+    }
+
+    func gameSimulationCell(for indexPath: IndexPath) -> UITableViewCell {
+        return switchCell(
+            title: "Lock app to Landscape",
+            subtitle: "Simulates a landscape-locked game engine",
+            switchView: simulateLandscapeSwitch
+        )
     }
 
     func urlCell(textField: UITextField, label: String, imageName: String) -> UITableViewCell {

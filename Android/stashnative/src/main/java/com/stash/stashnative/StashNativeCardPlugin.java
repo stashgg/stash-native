@@ -923,7 +923,7 @@ public class StashNativeCardPlugin {
 
       activity.startActivity(intent);
       activity.overridePendingTransition(0, 0);
-      presentationUsesIsolatedWebviewProcess = false;
+      presentationUsesIsolatedWebviewProcess = true;
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());

@@ -25,6 +25,7 @@ extension ViewController {
             return 1 + (isCheckoutAdvancedExpanded ? CheckoutOptionRow.allCases.count : 0)
                 + 1 + (isModalAdvancedExpanded ? ModalOptionRow.allCases.count : 0)
         case .checkoutGenerationSettings: return 2
+        case .gameSimulation: return 1
         }
     }
 
@@ -37,6 +38,7 @@ extension ViewController {
         case .browser: title = "BROWSER"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .checkoutGenerationSettings: title = "CHECKOUT GENERATION SETTINGS"
+        case .gameSimulation: title = "GAME ENGINE SIMULATION"
         }
         guard let titleText = title else { return nil }
         let label = UILabel()
@@ -104,6 +106,8 @@ extension ViewController {
             return presentationOptionCell(for: indexPath)
         case .checkoutGenerationSettings:
             return checkoutGenerationCell(for: indexPath)
+        case .gameSimulation:
+            return gameSimulationCell(for: indexPath)
         }
     }
 

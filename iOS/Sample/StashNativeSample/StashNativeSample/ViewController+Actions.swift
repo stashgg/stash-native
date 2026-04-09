@@ -12,6 +12,16 @@ import StashNative
 
 extension ViewController {
 
+    @objc func simulateLandscapeToggled(_ sender: UISwitch) {
+        simulateLandscapeGame = sender.isOn
+        if #available(iOS 16.0, *) {
+            setNeedsUpdateOfSupportedInterfaceOrientations()
+            navigationController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        } else {
+            UIViewController.attemptRotationToDeviceOrientation()
+        }
+    }
+
     @objc func forcePortraitOnCheckoutToggled(_ sender: UISwitch) {
         // Config is built at open time; no-op here.
     }
