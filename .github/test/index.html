@@ -3,369 +3,620 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stash Card Test Kit</title>
+    <title>Checkout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
     <style>
+        @font-face {
+            font-family: "Factor A";
+            src: url("https://checkout.stashstaging.com/_next/static/media/1c7bd21d3a53ff52-s.p.woff2") format("woff2");
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Factor A";
+            src: url("https://checkout.stashstaging.com/_next/static/media/58426b036a50613a-s.p.woff2") format("woff2");
+            font-weight: 500;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Factor A";
+            src: url("https://checkout.stashstaging.com/_next/static/media/ce5549b6dc6b2323-s.p.woff2") format("woff2");
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Factor A Extrabold";
+            src: url("https://checkout.stashstaging.com/_next/static/media/48f950569b553d83-s.p.woff2") format("woff2");
+            font-weight: 800;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        :root {
+            color-scheme: light;
+            --font-factor-a: "Factor A", system-ui, -apple-system, sans-serif;
+            --font-work-sans: "Work Sans", system-ui, -apple-system, sans-serif;
+            --pay-ui-theme-primary-color: #e5ff11;
+            --pay-ui-theme-primary-hover-color: #e5ff11;
+            --pay-ui-theme-primary-gradient: linear-gradient(101deg, #e5ff11 41.9%, #48ff17 94.12%);
+            --pay-ui-theme-focus-gradient: linear-gradient(0deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.04)), linear-gradient(90deg, #cee50f 11.06%, #48ff17 35.58%, #00e0ff);
+            --pay-ui-theme-fg-primary-color: #1e1e1e;
+            --pay-ui-theme-fg-secondary-color: #424242;
+            --pay-ui-theme-paper-color: #f7f9f4;
+            --pay-ui-theme-paper-gradient: linear-gradient(0deg, rgba(30, 30, 30, 0.02), rgba(30, 30, 30, 0.02)), #f7f9f4;
+            --pay-ui-theme-border-color: rgba(30, 30, 30, 0.08);
+            --pay-ui-theme-input-bg: #f7f9f4;
+            --pay-ui-theme-bg: #ebede8;
+            --pay-ui-theme-fg-muted-color: #787878;
+            --pay-ui-theme-bg-secondary: #ebede8;
+            --pay-ui-theme-sheet-bg: #f7f9f4;
+            /* Pay UI neutral pill (checkout eb584c4efc014f52.css :root) */
+            --pay-ui-theme-neutral-button-bg: #ffffff;
+            --pay-ui-theme-neutral-button-border: rgba(30, 30, 30, 0.08);
+            --pay-ui-theme-neutral-button-bg-hover: #f5f5f5;
+            --pay-ui-theme-fg-red-color: #df1c41;
+            --pay-ui-theme-focus-outline-color: #1e1e1e;
+        }
+
+        :root[data-color-scheme="dark"] {
+            color-scheme: dark;
+            --pay-ui-theme-focus-gradient: linear-gradient(101deg, #e5ff11, #48ff17 50%, #11ffcc);
+            --pay-ui-theme-fg-primary-color: #fff;
+            --pay-ui-theme-fg-secondary-color: #cccdc9;
+            --pay-ui-theme-paper-color: #1e1e1e;
+            --pay-ui-theme-paper-gradient: linear-gradient(0deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)), #1e1e1e;
+            --pay-ui-theme-border-color: rgba(255, 255, 255, 0.08);
+            --pay-ui-theme-input-bg: #1e1e1e;
+            --pay-ui-theme-bg: #000000;
+            --pay-ui-theme-fg-muted-color: #949592;
+            --pay-ui-theme-bg-secondary: #000000;
+            --pay-ui-theme-sheet-bg: #1e1e1e;
+            --pay-ui-theme-neutral-button-bg: #272727;
+            --pay-ui-theme-neutral-button-border: rgba(255, 255, 255, 0.08);
+            --pay-ui-theme-neutral-button-bg-hover: #323232;
+            --pay-ui-theme-focus-outline-color: #ffffff;
+        }
+
+        /* Partner / checkout link theme (matches staging sample with ?theme=dark) */
+        :root[data-checkout-partner="1"] {
+            --pay-ui-theme-bg: #bdc579;
+            --pay-ui-theme-bg-secondary: #bdc579;
+        }
+
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #fff;
-            padding: 30px 20px;
-        }
-        
-        .container {
-            max-width: 280px;
-            margin: 0 auto;
-        }
-        
-        h1 {
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 16px;
-            color: #000;
-        }
-        
-        h2 {
-            font-size: 14px;
-            font-weight: 500;
-            margin-top: 20px;
-            margin-bottom: 8px;
-            color: #ff6b6b;
-        }
-        
-        .external-hint {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 8px;
-            line-height: 1.35;
-        }
-        
-        button {
-            width: 100%;
-            padding: 8px 12px;
-            font-size: 13px;
+            font-family: var(--font-factor-a);
+            font-size: 1rem;
+            line-height: 1.375rem;
             font-weight: 400;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            background: #fff;
-            color: #000;
+            background: var(--pay-ui-theme-bg-secondary);
+            color: var(--pay-ui-theme-fg-primary-color);
+            min-height: 100dvh;
+        }
+
+        .page {
+            min-height: 100dvh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            background: var(--pay-ui-theme-bg-secondary);
+        }
+
+        .sheet {
+            flex: 1;
+            position: relative;
+            margin-top: -1rem;
+            background: var(--pay-ui-theme-sheet-bg);
+            border: 1px solid var(--pay-ui-theme-border-color);
+            border-radius: 0.75rem 0.75rem 0 0;
+        }
+
+        .sheet-inner {
+            margin-left: 1rem;
+            margin-right: 1rem;
+            padding-top: 1.5rem;
+            padding-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .header-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .header-title {
+            font-family: var(--font-factor-a);
+            font-weight: 700;
+            font-size: 1.25rem;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+            text-align: center;
+            color: var(--pay-ui-theme-fg-primary-color);
+        }
+
+        .header-close {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            height: 2.5rem;
+            border: none;
+            border-radius: 9999px;
+            background: transparent;
+            color: var(--pay-ui-theme-fg-muted-color);
             cursor: pointer;
-            margin-bottom: 6px;
+            padding: 0;
         }
-        
-        button:hover {
-            background: #f5f5f5;
+
+        .header-close:hover {
+            opacity: 0.7;
         }
-        
-        button:active {
-            background: #e8e8e8;
+
+        .section-title {
+            font-family: "Factor A Extrabold", var(--font-factor-a);
+            font-weight: 800;
+            font-size: 1.25rem;
+            line-height: 1;
+            letter-spacing: -0.0375rem;
+            color: var(--pay-ui-theme-fg-primary-color);
         }
-        
+
+        .section-title-sm {
+            font-family: var(--font-factor-a);
+            font-weight: 700;
+            font-size: 1.25rem;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
+            color: var(--pay-ui-theme-fg-primary-color);
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--pay-ui-theme-border-color);
+            margin: 0;
+        }
+
+        .field-label {
+            display: block;
+            font-family: var(--font-work-sans);
+            font-weight: 500;
+            font-size: 0.875rem;
+            line-height: 1.2;
+            color: var(--pay-ui-theme-fg-secondary-color);
+            margin-bottom: 0.5rem;
+        }
+
         input[type="text"] {
             width: 100%;
-            padding: 8px 12px;
-            font-size: 13px;
-            font-weight: 400;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            background: #fff;
-            color: #000;
-            margin-bottom: 12px;
+            height: 2.25rem;
+            padding: 0.5rem 0.75rem;
+            font-family: var(--font-factor-a);
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: var(--pay-ui-theme-fg-primary-color);
+            background: var(--pay-ui-theme-input-bg);
+            border: 1px solid var(--pay-ui-theme-border-color);
+            border-radius: 0.25rem;
             outline: none;
+            margin-bottom: 0;
         }
-        
+
+        input[type="text"]::placeholder {
+            color: var(--pay-ui-theme-fg-muted-color);
+        }
+
         input[type="text"]:focus {
-            border-color: #000;
+            border-color: transparent;
+            box-shadow: 0 0 0 2px transparent;
+            background: var(--pay-ui-theme-input-bg);
         }
-        
-        .status {
-            margin-top: 16px;
-            padding: 8px;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            font-size: 11px;
-            color: #666;
+
+        .input-focus-ring:focus {
+            outline: none;
+            border-color: transparent;
+            box-shadow: none;
+            position: relative;
+        }
+
+        .input-wrap {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .input-wrap:focus-within::before {
+            content: "";
+            position: absolute;
+            inset: -2px;
+            border-radius: 6px;
+            background: var(--pay-ui-theme-focus-gradient);
+            padding: 2px;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        .input-wrap input {
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        button.btn {
+            box-sizing: border-box;
+            width: 100%;
+            min-height: 2.5rem;
+            /* Vertical centering via flex only — avoids text vs icon baseline drift */
+            padding: 0 1rem;
+            margin: 0;
+            font-family: var(--font-factor-a);
+            font-size: 0.875rem;
+            font-weight: 500;
+            line-height: 1;
+            /* Checkout mobile: Tailwind rounded-full on payment row controls */
+            border-radius: 9999px;
+            cursor: pointer;
+            border-width: 1px;
+            border-style: solid;
+            transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        button.btn > svg {
+            display: block;
+            width: 1.125rem;
+            height: 1.125rem;
+            flex-shrink: 0;
+        }
+
+        button.btn .btn-label {
+            display: block;
+            line-height: 1;
+            text-align: start;
+        }
+
+        button.btn:active {
+            transform: scale(0.99);
+        }
+
+        button.btn-primary {
+            background: var(--pay-ui-theme-neutral-button-bg);
+            color: var(--pay-ui-theme-fg-primary-color);
+            border-color: var(--pay-ui-theme-neutral-button-border);
+        }
+
+        button.btn-primary:hover {
+            background: var(--pay-ui-theme-neutral-button-bg-hover);
+        }
+
+        button.btn-danger {
+            background: transparent;
+            color: var(--pay-ui-theme-fg-red-color);
+            border-color: rgba(223, 28, 65, 0.45);
+        }
+
+        :root[data-color-scheme="light"] button.btn-danger {
+            border-color: rgba(223, 28, 65, 0.35);
+        }
+
+        .legal {
+            font-family: var(--font-work-sans);
+            font-weight: 400;
+            font-size: 0.75rem;
+            line-height: 1.4;
             text-align: center;
+            color: var(--pay-ui-theme-fg-secondary-color);
         }
-        
-        .theme-info {
-            margin-top: 8px;
-            padding: 6px;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
+
+        .legal strong {
+            font-weight: 600;
+            color: var(--pay-ui-theme-fg-primary-color);
+        }
+
+        .powered {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 0.25rem;
+        }
+
+        .powered-label {
+            font-family: var(--font-factor-a);
+            font-weight: 500;
             font-size: 10px;
-            color: #999;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: uppercase;
+            color: var(--pay-ui-theme-fg-muted-color);
+        }
+
+        .powered svg {
+            display: block;
+            color: var(--pay-ui-theme-fg-primary-color);
+        }
+
+        .status-panel {
+            font-family: var(--font-work-sans);
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: var(--pay-ui-theme-fg-secondary-color);
+            text-align: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--pay-ui-theme-border-color);
+            background: var(--pay-ui-theme-paper-gradient);
+        }
+
+        .meta-hint {
+            font-family: var(--font-work-sans);
+            font-size: 0.6875rem;
+            line-height: 1.35;
+            color: var(--pay-ui-theme-fg-muted-color);
             text-align: center;
         }
-        
-        .user-agent-info {
-            margin-top: 8px;
-            padding: 6px;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            font-size: 9px;
-            color: #999;
-            text-align: center;
-            word-break: break-all;
-            line-height: 1.3;
+
+        .stack-gap-sm {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
         }
-        
-        /* Dark theme styles - applied when body has 'theme-dark' class */
-        body.theme-dark {
-            background: #000;
+
+        .stack-gap-md {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
-        
-        body.theme-dark h1 {
-            color: #fff;
-        }
-        
-        body.theme-dark h2 {
-            color: #ff6b6b;
-        }
-        
-        body.theme-dark p {
-            color: #8e8e93;
-        }
-        
-        body.theme-dark code {
-            color: #a1a1a6;
-        }
-        
-        body.theme-dark .external-hint {
-            color: #8e8e93;
-        }
-        
-        body.theme-dark button {
-            background: #1c1c1e;
-            color: #fff;
-            border-color: #3a3a3c;
-        }
-        
-        body.theme-dark button:hover {
-            background: #2c2c2e;
-        }
-        
-        body.theme-dark button:active {
-            background: #3a3a3c;
-        }
-        
-        body.theme-dark input[type="text"] {
-            background: #1c1c1e;
-            color: #fff;
-            border-color: #3a3a3c;
-        }
-        
-        body.theme-dark input[type="text"]:focus {
-            border-color: #fff;
-        }
-        
-        body.theme-dark .status {
-            background: #1c1c1e;
-            color: #8e8e93;
-            border-color: #3a3a3c;
-        }
-        
-        body.theme-dark .theme-info {
-            background: #1c1c1e;
-            color: #5e5e63;
-            border-color: #3a3a3c;
-        }
-        
-        /* Fallback to system preference if no theme class is set */
-        @media (prefers-color-scheme: dark) {
-            body:not(.theme-light):not(.theme-dark) {
-                background: #000;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) h1 {
-                color: #fff;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) .external-hint {
-                color: #8e8e93;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) button {
-                background: #1c1c1e;
-                color: #fff;
-                border-color: #3a3a3c;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) button:hover {
-                background: #2c2c2e;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) button:active {
-                background: #3a3a3c;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) input[type="text"] {
-                background: #1c1c1e;
-                color: #fff;
-                border-color: #3a3a3c;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) input[type="text"]:focus {
-                border-color: #fff;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) .status {
-                background: #1c1c1e;
-                color: #8e8e93;
-                border-color: #3a3a3c;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) .theme-info {
-                background: #1c1c1e;
-                color: #5e5e63;
-                border-color: #3a3a3c;
-            }
-            
-            body:not(.theme-light):not(.theme-dark) .user-agent-info {
-                background: #1c1c1e;
-                color: #5e5e63;
-                border-color: #3a3a3c;
-            }
-        }
-        
-        body.theme-dark .user-agent-info {
-            background: #1c1c1e;
-            color: #5e5e63;
-            border-color: #3a3a3c;
+
+        .input-wrap:focus-within input {
+            border-color: transparent;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Stash Callback Test</h1>
-        
-        <input type="text" placeholder="Sample text input" />
-        
-        <button onclick="triggerSuccess()">Payment Success</button>
-        <button onclick="triggerFailure()">Payment Failure</button>
-        <button onclick="triggerProcessing()">Purchase Processing</button>
-        <button onclick="triggerExpand()">Expand</button>
-        <button onclick="triggerCollapse()">Collapse</button>
-        
-        <h2>External payment</h2>
-        <input type="text" id="externalUrl" placeholder="https://example.com" value="https://example.com" />
-        <button onclick="triggerExternal()">External payment</button>
-        
-        <h2>Exception Tests</h2>
-        <button onclick="triggerJSError()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Throw JavaScript Error</button>
-        <button onclick="triggerMemoryLeak()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Memory Leak Test</button>
-        <button onclick="triggerInfiniteLoop()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Infinite Loop (May Freeze)</button>
-        <button onclick="triggerLargeDOM()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Create Large DOM</button>
-        <button onclick="triggerInvalidAPICall()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Invalid SDK Call</button>
-        <button onclick="triggerUncaughtPromise()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Uncaught Promise</button>
-        <button onclick="triggerRecursiveError()" style="background: #ff6b6b; color: #fff; border-color: #ff5252;">Recursive Error</button>
-        
-        <div id="status" class="status">Ready</div>
-        <div id="theme-info" class="theme-info"></div>
-        <div id="user-agent-info" class="user-agent-info"></div>
+    <div class="page">
+        <div class="sheet">
+            <div class="sheet-inner">
+                <div class="header-row">
+                    <h1 class="header-title">Test Card</h1>
+                    <button type="button" class="header-close" aria-label="Close" onclick="triggerCollapse()">
+                        <svg fill="none" height="16" viewBox="0 0 14 14" width="16" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12.75 0.75L0.75 12.75M0.75 0.75L12.75 12.75" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="stack-gap-md">
+                    <div class="input-wrap">
+                        <label class="field-label" for="sample-input">Sample field</label>
+                        <input type="text" id="sample-input" class="input-focus-ring" placeholder="Sample text input" />
+                    </div>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerSuccess()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                            <span class="btn-label">Payment Success</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerFailure()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                            <span class="btn-label">Payment Failure</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerProcessing()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                            <span class="btn-label">Purchase Processing</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerExpand()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                            <span class="btn-label">Expand</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerCollapse()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9H3v6M15 15h6v-6M21 9l-6 6M3 15l6-6"/></svg>
+                            <span class="btn-label">Collapse</span>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="divider" />
+
+                <div class="stack-gap-md">
+                    <span class="section-title-sm">External payment</span>
+                    <div class="input-wrap">
+                        <label class="field-label" for="externalUrl">URL</label>
+                        <input type="text" id="externalUrl" class="input-focus-ring" placeholder="https://example.com" value="https://example.com" />
+                    </div>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerExternal()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">External payment</span>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="divider" />
+
+                <div class="stack-gap-sm">
+                    <span class="section-title-sm">Exception tests</span>
+                    <div class="btn-stack">
+                    <button type="button" class="btn btn-danger" onclick="triggerJSError()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+                            <span class="btn-label">Throw JavaScript Error</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerMemoryLeak()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                            <span class="btn-label">Memory Leak Test</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerInfiniteLoop()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+                            <span class="btn-label">Infinite Loop (May Freeze)</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerLargeDOM()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            <span class="btn-label">Create Large DOM</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerInvalidAPICall()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 9 6 6M15 9l-6 6"/></svg>
+                            <span class="btn-label">Invalid SDK Call</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerUncaughtPromise()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            <span class="btn-label">Uncaught Promise</span>
+                        </button>
+                    <button type="button" class="btn btn-danger" onclick="triggerRecursiveError()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+                            <span class="btn-label">Recursive Error</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="powered">
+                    <span class="powered-label">Powered by</span>
+                    <div aria-hidden="true">
+                        <svg fill="none" height="21" viewBox="0 0 80 21" width="80" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M40.7653 5.03396H39.661C37.2165 5.03396 35.3854 5.60468 34.1631 6.74613C32.9409 7.88757 32.3321 9.5374 32.3321 11.6908V16.175C32.3321 17.4028 32.653 18.3524 33.2948 19.0191C33.9366 19.6905 34.7861 20.0214 35.8479 20.0214C36.5322 20.0214 37.1881 19.8632 37.8252 19.5514C38.4623 19.2397 39.2646 18.6977 40.232 17.9304L43.1202 15.6139V19.772H47.476V6.5399C45.0786 5.53754 42.8465 5.03875 40.77 5.03875L40.7653 5.03396ZM38.8918 15.5324C38.5756 15.7098 38.2452 15.801 37.9055 15.801C37.5185 15.801 37.2165 15.6811 36.9947 15.4413C36.7729 15.2015 36.6643 14.8609 36.6643 14.4245V11.8107C36.6643 9.91148 37.6648 8.95708 39.6657 8.95708H40.1518C41.1759 8.95708 42.1763 9.14892 43.1532 9.5326V12.204L40.2934 14.5348C39.6846 15.024 39.2221 15.3549 38.9059 15.5324H38.8918Z" fill="currentColor"></path>
+                            <path d="M31.0671 9.33775V5.39065H22.7141V0.0335225H18.3441V5.38585H14.7764V9.33295H18.3725V14.2488C18.3725 16.2632 18.8633 17.7451 19.8448 18.6947C20.8264 19.6443 22.4215 20.1191 24.6348 20.1191H24.8C27.0039 20.1191 28.5989 19.6395 29.5852 18.6851C30.5716 17.7307 31.0624 16.2488 31.0624 14.2441V11.8269H26.6924V14.2441C26.6924 14.8819 26.5414 15.3567 26.2346 15.6685C25.9326 15.9802 25.4512 16.1385 24.7953 16.1385H24.6301C23.9647 16.1385 23.4786 15.985 23.1719 15.6733C22.8651 15.3615 22.7094 14.8867 22.7094 14.2393V9.32336H31.0624L31.0671 9.33775Z" fill="currentColor"></path>
+                            <path d="M78.5967 6.13805C77.9549 5.46661 77.1055 5.13569 76.0436 5.13569C75.3594 5.13569 74.7223 5.34671 74.0521 5.61529C72.9054 6.0757 68.7289 9.44729 68.7289 9.44729V0H64.4014V19.7779H68.7289V12.9627L71.5887 10.6319C72.1881 10.1523 72.6506 9.82617 72.9809 9.63913C73.3112 9.45208 73.6369 9.36576 73.9672 9.36576C74.3542 9.36576 74.6562 9.48565 74.878 9.72545C75.0998 9.96525 75.2084 10.3058 75.2084 10.7422V19.7779H79.55V8.98687C79.55 7.7591 79.2291 6.80949 78.5873 6.14285L78.5967 6.13805Z" fill="currentColor"></path>
+                            <path d="M0.486076 19.7774L0.514392 15.8303H8.91927C9.39119 15.8303 9.72153 15.7488 9.91974 15.5905C10.1179 15.4322 10.217 15.1972 10.217 14.8903C10.217 14.2716 9.83951 13.9359 9.08444 13.8783L4.8938 13.6241C1.63284 13.4371 0 12.075 0 9.53315C0 8.23343 0.448323 7.21668 1.34969 6.4829C2.25105 5.74911 3.62906 5.38461 5.48842 5.38461H13.4544L13.4827 9.33172H5.48842C5.02594 9.33172 4.70031 9.40845 4.50683 9.55713C4.31334 9.7058 4.21424 9.92642 4.21424 10.219C4.21424 10.7993 4.59177 11.1254 5.34684 11.2022L9.67434 11.4563C12.8456 11.6146 14.4313 12.9527 14.4313 15.461C14.4313 16.7895 13.9782 17.8446 13.0769 18.6168C12.1755 19.3889 10.8069 19.7774 8.97118 19.7774H0.486076Z" fill="currentColor"></path>
+                            <path d="M49.2645 19.7774L49.2928 15.8303H57.6977C58.1696 15.8303 58.4999 15.7488 58.6981 15.5905C58.8963 15.4322 58.9954 15.1972 58.9954 14.8903C58.9954 14.2716 58.6179 13.9359 57.8628 13.8783L53.6722 13.6241C50.4112 13.4371 48.7784 12.075 48.7784 9.53315C48.7784 8.23343 49.2267 7.21668 50.1281 6.4829C51.0294 5.74911 52.4074 5.38461 54.2668 5.38461H62.2328L62.2611 9.33172H54.2715C53.8091 9.33172 53.4834 9.40845 53.2899 9.55713C53.0965 9.7058 52.9973 9.92642 52.9973 10.219C52.9973 10.7993 53.3749 11.1254 54.13 11.2022L58.4575 11.4563C61.6287 11.6146 63.2144 12.9527 63.2144 15.461C63.2144 16.7895 62.7614 17.8446 61.86 18.6168C60.9586 19.3889 59.5901 19.7774 57.7543 19.7774H49.2645Z" fill="currentColor"></path>
+                        </svg>
+                    </div>
+                </div>
+
+                <div id="status" class="status-panel">Ready</div>
+                <div id="theme-info" class="meta-hint"></div>
+                <div id="user-agent-info" class="meta-hint"></div>
+            </div>
+        </div>
     </div>
-    
+
     <script>
-        // Read theme from URL query parameter
         function getThemeFromURL() {
             const urlParams = new URLSearchParams(window.location.search);
             const theme = urlParams.get('theme');
             return theme ? theme.toLowerCase() : null;
         }
-        
-        // Apply theme based on URL parameter
+
         function applyTheme() {
             const theme = getThemeFromURL();
+            const html = document.documentElement;
             const body = document.body;
-            
-            // Remove existing theme classes
+
+            html.removeAttribute('data-color-scheme');
+            html.removeAttribute('data-checkout-partner');
             body.classList.remove('theme-dark', 'theme-light');
-            
+
             if (theme === 'dark') {
+                html.setAttribute('data-color-scheme', 'dark');
+                html.setAttribute('data-checkout-partner', '1');
                 body.classList.add('theme-dark');
             } else if (theme === 'light') {
+                html.setAttribute('data-color-scheme', 'light');
                 body.classList.add('theme-light');
+            } else {
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                html.setAttribute('data-color-scheme', prefersDark ? 'dark' : 'light');
             }
-            // If no theme parameter, rely on system preference (handled by CSS media query)
         }
-        
+
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
         }
-        
+
         function updateThemeInfo() {
             const theme = getThemeFromURL();
             const systemIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            
             let themeText = '';
             if (theme) {
-                themeText = 'URL Theme: ' + theme.charAt(0).toUpperCase() + theme.slice(1);
+                themeText = 'URL theme: ' + theme.charAt(0).toUpperCase() + theme.slice(1);
             } else {
-                themeText = 'System Theme: ' + (systemIsDark ? 'Dark' : 'Light') + ' (no theme param)';
+                themeText = 'System: ' + (systemIsDark ? 'Dark' : 'Light') + ' (no theme param)';
             }
-            
             document.getElementById('theme-info').textContent = themeText;
         }
-        
-        // Display user agent
+
         function updateUserAgentInfo() {
             const userAgent = navigator.userAgent || 'Unknown';
-            document.getElementById('user-agent-info').textContent = 'User Agent: ' + userAgent;
+            document.getElementById('user-agent-info').textContent = 'User agent: ' + userAgent;
         }
-        
-        // Apply theme on page load
+
         applyTheme();
         updateThemeInfo();
         updateUserAgentInfo();
-        
-        // Update theme info if system preference changes (only if no URL theme is set)
+
         if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
                 if (!getThemeFromURL()) {
+                    applyTheme();
                     updateThemeInfo();
                 }
             });
         }
-        
+
         function triggerSuccess() {
             updateStatus('Called: onPaymentSuccess({})');
             if (window.stash_sdk && window.stash_sdk.onPaymentSuccess) {
-                window.stash_sdk.onPaymentSuccess({"orderId": "test_order_id"});
+                window.stash_sdk.onPaymentSuccess({ orderId: 'test_order_id' });
             }
         }
-        
+
         function triggerFailure() {
             updateStatus('Called: onPaymentFailure()');
             if (window.stash_sdk && window.stash_sdk.onPaymentFailure) {
                 window.stash_sdk.onPaymentFailure({});
             }
         }
-        
+
         function triggerProcessing() {
             updateStatus('Called: onPurchaseProcessing()');
             if (window.stash_sdk && window.stash_sdk.onPurchaseProcessing) {
                 window.stash_sdk.onPurchaseProcessing({});
             }
         }
-        
+
         function triggerExpand() {
             updateStatus('Called: expand()');
             if (window.stash_sdk && window.stash_sdk.expand) {
                 window.stash_sdk.expand();
             }
         }
-        
+
         function triggerCollapse() {
             updateStatus('Called: collapse()');
             if (window.stash_sdk && window.stash_sdk.collapse) {
                 window.stash_sdk.collapse();
             }
         }
-        
+
         function triggerExternal() {
             var el = document.getElementById('externalUrl');
             var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com';
@@ -380,42 +631,36 @@
                 updateStatus('stash_sdk.openExternalBrowser not available (requires native Stash SDK)');
             }
         }
-        
-        // Exception test functions
+
         function triggerJSError() {
             updateStatus('Throwing JavaScript Error...');
             try {
-                // Throw a synchronous error
                 throw new Error('Test JavaScript Error - This should be caught by native exception handler');
             } catch (e) {
                 updateStatus('Error caught: ' + e.message);
-                // Re-throw to potentially crash
                 throw e;
             }
         }
-        
+
         function triggerMemoryLeak() {
             updateStatus('Creating memory leak...');
-            // Create a large array that grows indefinitely
             window.memoryLeakArray = window.memoryLeakArray || [];
             for (let i = 0; i < 100000; i++) {
                 window.memoryLeakArray.push(new Array(1000).fill(Math.random()));
             }
             updateStatus('Created ~100MB of data. Repeat to increase memory usage.');
         }
-        
+
         function triggerInfiniteLoop() {
             updateStatus('Starting infinite loop (may freeze browser)...');
-            // This will freeze the page
             while (true) {
-                // Intentionally infinite - browser may kill the tab
                 Math.random();
             }
         }
-        
+
         function triggerLargeDOM() {
             updateStatus('Creating large DOM structure...');
-            const container = document.querySelector('.container');
+            const container = document.querySelector('.sheet-inner');
             for (let i = 0; i < 10000; i++) {
                 const div = document.createElement('div');
                 div.style.padding = '10px';
@@ -426,46 +671,40 @@
             }
             updateStatus('Created 10,000 DOM elements');
         }
-        
+
         function triggerInvalidAPICall() {
             updateStatus('Calling invalid SDK method...');
             try {
-                // Try to call non-existent methods or with invalid parameters
                 if (window.stash_sdk) {
-                    // Call with invalid parameters
                     if (window.stash_sdk.onPaymentSuccess) {
                         window.stash_sdk.onPaymentSuccess(null);
                         window.stash_sdk.onPaymentSuccess(undefined);
                         window.stash_sdk.onPaymentSuccess('invalid');
                         window.stash_sdk.onPaymentSuccess({ invalid: 'data', nested: { deep: { very: { deep: { object: 'test' } } } } });
                     }
-                    // Try calling non-existent methods
                     if (window.stash_sdk.nonExistentMethod) {
                         window.stash_sdk.nonExistentMethod();
                     }
                 } else {
-                    // SDK not available - try to access it anyway
                     window.stash_sdk.invalidMethod();
                 }
                 updateStatus('Invalid API calls attempted');
             } catch (e) {
                 updateStatus('Error: ' + e.message);
-                throw e; // Re-throw to potentially crash
+                throw e;
             }
         }
-        
+
         function triggerUncaughtPromise() {
             updateStatus('Creating uncaught promise rejection...');
-            // Create a promise that rejects without a catch handler
             Promise.reject(new Error('Uncaught Promise Rejection - Test Error'));
-            // Also create an async function that throws
-            (async function() {
-                await new Promise(resolve => setTimeout(resolve, 100));
+            (async function () {
+                await new Promise(function (resolve) { setTimeout(resolve, 100); });
                 throw new Error('Async function error');
             })();
             updateStatus('Uncaught promise created');
         }
-        
+
         function triggerRecursiveError() {
             updateStatus('Triggering recursive error...');
             function recursiveFunction(depth) {
@@ -478,24 +717,21 @@
                 recursiveFunction(0);
             } catch (e) {
                 updateStatus('Recursive error: ' + e.message);
-                throw e; // Re-throw
+                throw e;
             }
         }
-        
-        // Override console.error to catch errors
+
         const originalConsoleError = console.error;
-        console.error = function(...args) {
-            originalConsoleError.apply(console, args);
-            updateStatus('Console Error: ' + args.join(' '));
+        console.error = function () {
+            originalConsoleError.apply(console, arguments);
+            updateStatus('Console Error: ' + Array.prototype.join.call(arguments, ' '));
         };
-        
-        // Catch unhandled promise rejections
-        window.addEventListener('unhandledrejection', function(event) {
-            updateStatus('Unhandled Promise Rejection: ' + (event.reason?.message || event.reason));
+
+        window.addEventListener('unhandledrejection', function (event) {
+            updateStatus('Unhandled Promise Rejection: ' + (event.reason && event.reason.message ? event.reason.message : event.reason));
         });
-        
-        // Catch general errors
-        window.addEventListener('error', function(event) {
+
+        window.addEventListener('error', function (event) {
             updateStatus('Global Error: ' + (event.message || 'Unknown error'));
         });
     </script>
