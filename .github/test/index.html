@@ -240,11 +240,16 @@
         }
 
         .input-wrap {
-            position: relative;
             margin-bottom: 1rem;
         }
 
-        .input-wrap:focus-within::before {
+        /* Gradient ring only around the control — label stays outside this shell */
+        .input-focus-shell {
+            position: relative;
+            display: block;
+        }
+
+        .input-focus-shell:focus-within::before {
             content: "";
             position: absolute;
             inset: -2px;
@@ -258,7 +263,7 @@
             pointer-events: none;
         }
 
-        .input-wrap input {
+        .input-focus-shell input {
             position: relative;
             z-index: 1;
         }
@@ -400,7 +405,52 @@
             gap: 0.75rem;
         }
 
-        .input-wrap:focus-within input {
+        .collapsible-section-toggle {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin: 0;
+            padding: 0;
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: inherit;
+            text-align: left;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .collapsible-section-toggle:hover {
+            opacity: 0.85;
+        }
+
+        .collapsible-section-toggle .section-title-sm {
+            margin: 0;
+        }
+
+        .collapsible-chevron {
+            display: block;
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+            color: var(--pay-ui-theme-fg-muted-color);
+            transition: transform 0.2s ease;
+        }
+
+        .collapsible-section:not(.collapsible-section--open) .collapsible-chevron {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-section-panel {
+            margin-top: 0.5rem;
+        }
+
+        .collapsible-section:not(.collapsible-section--open) .collapsible-section-panel {
+            display: none;
+        }
+
+        .input-focus-shell:focus-within input {
             border-color: transparent;
         }
     </style>
@@ -411,7 +461,7 @@
             <div class="sheet-inner">
                 <div class="header-row">
                     <h1 class="header-title">Test Card</h1>
-                    <button type="button" class="header-close" aria-label="Close" onclick="triggerCollapse()">
+                    <button type="button" class="header-close" aria-label="Close" onclick="window.close()">
                         <svg fill="none" height="16" viewBox="0 0 14 14" width="16" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12.75 0.75L0.75 12.75M0.75 0.75L12.75 12.75" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
                         </svg>
@@ -420,8 +470,10 @@
 
                 <div class="stack-gap-md">
                     <div class="input-wrap">
-                        <label class="field-label" for="sample-input">Sample field</label>
-                        <input type="text" id="sample-input" class="input-focus-ring" placeholder="Sample text input" />
+                        <label class="field-label" for="sample-input">Keyboard Input Test</label>
+                        <div class="input-focus-shell">
+                            <input type="text" id="sample-input" class="input-focus-ring" placeholder="Sample text input" />
+                        </div>
                     </div>
                     <div class="btn-stack">
                         <button type="button" class="btn btn-primary" onclick="triggerSuccess()">
@@ -453,7 +505,9 @@
                     <span class="section-title-sm">External payment</span>
                     <div class="input-wrap">
                         <label class="field-label" for="externalUrl">URL</label>
-                        <input type="text" id="externalUrl" class="input-focus-ring" placeholder="https://example.com" value="https://example.com" />
+                        <div class="input-focus-shell">
+                            <input type="text" id="externalUrl" class="input-focus-ring" placeholder="https://example.com" value="https://example.com" />
+                        </div>
                     </div>
                     <div class="btn-stack">
                         <button type="button" class="btn btn-primary" onclick="triggerExternal()">
@@ -465,8 +519,12 @@
 
                 <hr class="divider" />
 
-                <div class="stack-gap-sm">
-                    <span class="section-title-sm">Exception tests</span>
+                <div id="exception-tests-section" class="stack-gap-sm collapsible-section">
+                    <button type="button" class="collapsible-section-toggle" id="exception-tests-heading" aria-expanded="false" aria-controls="exception-tests-panel">
+                        <span class="section-title-sm">Exception tests</span>
+                        <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div id="exception-tests-panel" class="collapsible-section-panel" role="region" aria-labelledby="exception-tests-heading">
                     <div class="btn-stack">
                     <button type="button" class="btn btn-danger" onclick="triggerJSError()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
@@ -496,6 +554,7 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
                             <span class="btn-label">Recursive Error</span>
                         </button>
+                    </div>
                     </div>
                 </div>
 
@@ -572,6 +631,16 @@
         applyTheme();
         updateThemeInfo();
         updateUserAgentInfo();
+
+        (function initExceptionTestsCollapsible() {
+            var section = document.getElementById('exception-tests-section');
+            var toggle = document.getElementById('exception-tests-heading');
+            if (!section || !toggle) return;
+            toggle.addEventListener('click', function () {
+                var open = section.classList.toggle('collapsible-section--open');
+                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        })();
 
         if (window.matchMedia) {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
