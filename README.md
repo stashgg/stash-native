@@ -1,5 +1,9 @@
-# Stash for Android / iOS [Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
+# Stash for Android / iOS [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
+
+<p align="left">
+  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_native.png" width="128" height="128" alt="Stash Native Logo"/>
+</p>
 
 
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application.
@@ -42,24 +46,20 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Platforms
 
-
 | Platform | Description                  |
 | -------- | ---------------------------- |
 | Android  | Android library (AAR).       |
 | iOS      | iOS framework (XCFramework). |
 
-
 ## Game Engine Wrappers
 
 If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools such as full flow testing directly in the Engine Editor.
 
-
-|     | Engine          | Repository                                                                         | Compatibility                   |
-| --- | --------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
-|     | Unity           | [stash-unity](https://github.com/stashgg/stash-unity)                              | Unity 2019.4+ (LTS recommended) |
-|     | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal)                     | Unreal Engine 5.0+              |
-|     | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27-plus         |
-
+|                                                                                             | Engine        | Repository                                              | Compatibility                   |
+| ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------- |
+| <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   | Unity 2019.4+ (LTS recommended) |
+| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal)                 | Unreal Engine 5.0+                |
+| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27-plus           |
 
 For custom engines or third-party frameworks, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a new-wrapper checklist.
 
@@ -74,7 +74,7 @@ Latest pre-built binaries are always available on [Releases Page](https://github
 
 Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory.
 
-> **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use `**swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
+> **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
 
 Or try in the browser emulators via Appetize:
 
@@ -101,7 +101,7 @@ dependencies {
 
 To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
 
-**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers (`[StashWindowCompat](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)`) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
+**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers ([`StashWindowCompat`](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
 
 ### iOS
 
@@ -116,6 +116,11 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 ## Presentation modes
 
 The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Custom Tabs or system browser on Android when `androidx.browser` is absent; SFSafariViewController on iOS). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/stashgg/stash-native/refs/heads/main/.github/assets/presentations.png" alt="Presentation Modes" width="840" />
+</p>
+
 
 
 
