@@ -126,8 +126,8 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
     if (self) {
         _forcePortrait = NO;
         _cardHeightRatioPortrait = 0.68f;
-        _cardWidthRatioLandscape = 0.9f;
-        _cardHeightRatioLandscape = 0.6f;
+        _cardWidthRatioLandscape = 0.7f;
+        _cardHeightRatioLandscape = 0.9f;
         _tabletWidthRatioPortrait = 0.4f;
         _tabletHeightRatioPortrait = 0.5f;
         _tabletWidthRatioLandscape = 0.3f;
@@ -159,8 +159,8 @@ static CGFloat _originalTabletHeightRatio = 0.75;
 static BOOL _forcePortraitOnCheckout = NO;
 // Phone card: portrait = full width + height ratio; landscape = width/height ratios when not forcing portrait
 static CGFloat _cardHeightRatioPortrait = 0.68;
-static CGFloat _cardWidthRatioLandscape = 0.9f;
-static CGFloat _cardHeightRatioLandscape = 0.6f;
+static CGFloat _cardWidthRatioLandscape = 0.7f;
+static CGFloat _cardHeightRatioLandscape = 0.9f;
 
 // Orientation-specific tablet (iPad) card configuration
 static CGFloat _tabletWidthRatioPortrait = 0.4;
@@ -182,6 +182,14 @@ static BOOL _safariOpenedViaOpenBrowser = NO;
 BOOL _usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
 static BOOL _showScrollbar = NO;
+
+// --- Landscape / force-portrait orientation flags (phones only; reset on cleanup) ---
+/// YES when the card was opened in the current (landscape) orientation without forcing portrait.
+/// Card stays at its configured size; expand/collapse have no effect.
+static BOOL _cardIsInLandscape = NO;
+/// Safe-area top inset (notch / Dynamic Island) of the active card window, in points.
+/// Used to clamp card height so the card never overlaps the notch. Reset to 0 on cleanup.
+static CGFloat _cardSafeAreaTop = 0.0f;
 
 // --- Modal configuration (reset on cleanup) ---
 // Non-static: referenced by StashNativeCardViewControllers.m
@@ -741,12 +749,10 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             self.portraitWindow.rootViewController = nil;
             
             if (self.previousKeyWindow) {
+                // Restore scene orientation whenever it was locked during this card session.
+                // restorePrePortraitOrientation is a no-op if previousSceneOrientationMask == 0.
+                [self restorePrePortraitOrientation];
                 [self.previousKeyWindow makeKeyAndVisible];
-                if (_forcePortraitOnCheckout) {
-                    // Restore landscape before clearing previousKeyWindow so the
-                    // restore method can still resolve the scene via previousKeyWindow.windowScene.
-                    [self restorePrePortraitOrientation];
-                }
                 self.previousKeyWindow = nil;
             }
             
@@ -767,6 +773,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
     _presentationBackgroundColorHex = nil;
+    _cardIsInLandscape = NO;
+    _cardSafeAreaTop = 0.0f;
 }
 
 - (void)restorePrePortraitOrientation {
@@ -796,12 +804,18 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             }];
         }
     } else {
-        UIInterfaceOrientation target =
-            (mask == UIInterfaceOrientationMaskLandscapeLeft)
-                ? UIInterfaceOrientationLandscapeLeft
-                : UIInterfaceOrientationLandscapeRight;
-        [[UIDevice currentDevice] setValue:@(target) forKey:@"orientation"];
-        [UIViewController attemptRotationToDeviceOrientation];
+        // The UIDevice orientation hack is only needed for the forcePortrait path (restoring to a
+        // specific landscape orientation). For the current-orientation lock the card window is
+        // simply hidden and the host app resumes control, so no explicit rotation request is needed.
+        if (mask == UIInterfaceOrientationMaskLandscapeLeft ||
+            mask == UIInterfaceOrientationMaskLandscapeRight) {
+            UIInterfaceOrientation target =
+                (mask == UIInterfaceOrientationMaskLandscapeLeft)
+                    ? UIInterfaceOrientationLandscapeLeft
+                    : UIInterfaceOrientationLandscapeRight;
+            [[UIDevice currentDevice] setValue:@(target) forKey:@"orientation"];
+            [UIViewController attemptRotationToDeviceOrientation];
+        }
     }
 }
 
@@ -866,9 +880,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         self.safariPresentationWindow.hidden = YES;
         self.safariPresentationWindow.rootViewController = nil;
         if (self.previousKeyWindow) {
-            [self.previousKeyWindow makeKeyAndVisible];
-            // Restore landscape before clearing previousKeyWindow so the scene lookup works.
             [self restorePrePortraitOrientation];
+            [self.previousKeyWindow makeKeyAndVisible];
             self.previousKeyWindow = nil;
         }
         self.safariPresentationWindow = nil;
@@ -885,8 +898,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             self.portraitWindow.hidden = YES;
             self.portraitWindow.rootViewController = nil;
             if (self.previousKeyWindow) {
-                [self.previousKeyWindow makeKeyAndVisible];
                 [self restorePrePortraitOrientation];
+                [self.previousKeyWindow makeKeyAndVisible];
                 self.previousKeyWindow = nil;
             }
             self.portraitWindow = nil;
@@ -1422,6 +1435,9 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (currentTravel < 0) {
             if (_isCardExpanded) {
                 currentProgress = 1.0;
+            } else if (_cardIsInLandscape) {
+                // Landscape card stays at its configured size; don't show expand visual feedback.
+                currentProgress = 0.0;
             } else {
                 CGFloat dragAmount = fabs(currentTravel);
                 CGFloat heightRange = expandedHeight - collapsedHeight;
@@ -1493,7 +1509,8 @@ initialSpringVelocity:kSpringVelocityCollapse
         CGFloat dismissThreshold = height * kDismissDragThresholdRatio;
 
         if (currentTravel < -expandThreshold || velocity.y < kExpandVelocityThreshold) {
-            if (!_isCardExpanded) shouldExpand = YES;
+            // Landscape cards stay at their configured size; drag-up expand has no effect.
+            if (!_isCardExpanded && !_cardIsInLandscape) shouldExpand = YES;
         } else if (currentTravel > 0) {
             if (_isCardExpanded) {
                 if (currentTravel > dismissThreshold && velocity.y > kDismissVelocityThreshold) {
@@ -1683,7 +1700,11 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (_useModalPresentation || _usePopupPresentation) {
             return;
         }
-        
+        // Phones only: landscape cards stay at their configured size.
+        if (_cardIsInLandscape) {
+            return;
+        }
+
         if (!_isCardExpanded && self.currentPresentedVC) {
             [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
         }
@@ -1691,7 +1712,11 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (_useModalPresentation || _usePopupPresentation) {
             return;
         }
-        
+        // Phones only: landscape cards stay at their configured size.
+        if (_cardIsInLandscape) {
+            return;
+        }
+
         if (_isCardExpanded && self.currentPresentedVC) {
             [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
         }
@@ -2065,6 +2090,10 @@ CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandsc
         cardHeight = bounds.size.height * _cardHeightRatioPortrait;
         cardX = 0;
         cardY = bounds.size.height - cardHeight;
+    }
+    if (cardY < _cardSafeAreaTop) {
+        cardY = _cardSafeAreaTop;
+        cardHeight = bounds.size.height - _cardSafeAreaTop;
     }
     if (cardY < 0) cardY = 0;
     return CGRectMake(cardX, cardY, cardWidth, cardHeight);
@@ -2770,6 +2799,15 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
     _isCardExpanded = NO;
+
+    // Determine phone-only orientation flags (tablets always use normal expand/collapse logic).
+    if (!isRunningOniPad() && !_useModalPresentation && !_usePopupPresentation) {
+        CGRect sb = [UIScreen mainScreen].bounds;
+        BOOL isLandscape = sb.size.width > sb.size.height;
+        _cardIsInLandscape = !_forcePortraitOnCheckout && isLandscape;
+    } else {
+        _cardIsInLandscape = NO;
+    }
     
     // Store original (collapsed) configuration from orientation-specific values
     _originalTabletWidthRatio = _tabletWidthRatioPortrait;
@@ -2989,8 +3027,21 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             startY = actualBounds.size.height + cardHeight;
         }
         
+        // Compute safe-area top for clamping the card so it never overlaps the notch.
+        CGFloat safeTop = 0;
+        if (@available(iOS 11.0, *)) {
+            safeTop = cardWindow.safeAreaInsets.top;
+        }
+        _cardSafeAreaTop = safeTop;
+
+        // Cap the card so its top edge never overlaps the notch / Dynamic Island.
+        if (cardFinalY < safeTop) {
+            cardFinalY = safeTop;
+            cardHeight = actualBounds.size.height - safeTop;
+            startY = actualBounds.size.height + cardHeight;
+        }
         if (cardFinalY < 0) cardFinalY = 0;
-        
+
         // Create cardView
         UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];
         cardView.backgroundColor = stash_sheetBackgroundUIColor();
@@ -3096,15 +3147,40 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     containerVC.view.backgroundColor = [UIColor clearColor];
     containerVC.view.frame = screenBounds;
     containerVC.skipLayoutDuringInitialSetup = YES;
-    
+
+    // Lock to the orientation the card was opened in so the user cannot rotate while the card is visible.
+    UIInterfaceOrientationMask lockMask = isLandscape ? UIInterfaceOrientationMaskLandscape
+                                                      : UIInterfaceOrientationMaskPortrait;
+    containerVC.lockedOrientationMask = lockMask;
+    // Store "allow all" so cleanupCardInstance/restorePrePortraitOrientation releases the lock on iOS 16+.
+    internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
+
     cardWindow.rootViewController = containerVC;
     internal.currentPresentedVC = containerVC;
-    
+
+    // iOS 16+: lock the scene geometry before making the window visible.
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = cardWindow.windowScene;
+        if (scene) {
+            UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
+                initWithInterfaceOrientations:lockMask];
+            [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                STASH_DEBUG_LOG(@"StashNative orientation lock failed: %@", error);
+            }];
+        }
+    }
+
     cardWindow.hidden = NO;
     [cardWindow makeKeyAndVisible];
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
-    
+
+    // Cache safe-area top so computePhoneCardFrameForBoundsAndOrientation uses the same clamp.
+    _cardSafeAreaTop = 0;
+    if (@available(iOS 11.0, *)) {
+        _cardSafeAreaTop = cardWindow.safeAreaInsets.top;
+    }
+
     CGRect actualBounds = screenBounds;
     CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
     
@@ -3124,7 +3200,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         cardFinalY = actualBounds.size.height - cardHeight;
         startY = actualBounds.size.height + cardHeight;
     }
-    
+
+    // Cap so the card top never overlaps the notch / Dynamic Island.
+    if (cardFinalY < _cardSafeAreaTop) {
+        cardFinalY = _cardSafeAreaTop;
+        cardHeight = actualBounds.size.height - _cardSafeAreaTop;
+        startY = actualBounds.size.height + cardHeight;
+    }
     if (cardFinalY < 0) cardFinalY = 0;
     
     UIView *cardView = [[UIView alloc] initWithFrame:CGRectMake(cardX, startY, cardWidth, cardHeight)];

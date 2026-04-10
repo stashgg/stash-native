@@ -119,17 +119,21 @@ extern void resetCardExpandedStateAfterRotation(void);
 @property (nonatomic, assign) CGRect cardFrame;
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+@property (nonatomic, assign) UIInterfaceOrientationMask lockedOrientationMask;
 - (void)updateCornerRadiusMask;
 @end
 
 @implementation IPhoneCardCurrentOrientationViewController
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    if (self.lockedOrientationMask != 0) {
+        return self.lockedOrientationMask;
+    }
     return UIInterfaceOrientationMaskAll;
 }
 
 - (BOOL)shouldAutorotate {
-    return YES;
+    return (self.lockedOrientationMask == 0);
 }
 
 - (void)updateCornerRadiusMask {

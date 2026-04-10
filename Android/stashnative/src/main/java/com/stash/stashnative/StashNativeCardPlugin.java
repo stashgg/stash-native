@@ -866,8 +866,6 @@ public class StashNativeCardPlugin {
         android.view.Display display = activity.getWindowManager().getDefaultDisplay();
         rotation = display.getRotation();
       }
-      boolean isLandscape = (rotation == Surface.ROTATION_90 || rotation == Surface.ROTATION_270);
-      
       Intent intent = new Intent();
       intent.setClassName(activity, StashNativeCardPortraitActivity.class.getName());
       intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
@@ -890,7 +888,6 @@ public class StashNativeCardPlugin {
           tabletHeightRatioLandscape);
       intent.putExtra(CardConstants.INTENT_EXTRA_USE_POPUP, usePopupPresentation);
       intent.putExtra(CardConstants.INTENT_EXTRA_USE_MODAL, useModalPresentation);
-      intent.putExtra(CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, isLandscape);
       String bgForIntent = backgroundColorHexForPresentation();
       if (bgForIntent != null) {
         intent.putExtra(CardConstants.INTENT_EXTRA_BACKGROUND_COLOR, bgForIntent);
@@ -2082,6 +2079,8 @@ public class StashNativeCardPlugin {
       int screenHeight = metrics.heightPixels;
       boolean isLandscape = activity.getResources().getConfiguration().orientation
           == Configuration.ORIENTATION_LANDSCAPE;
+      int maxCardHeight = screenHeight - StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
+      if (maxCardHeight <= 0) maxCardHeight = screenHeight;
       int cardWidth;
       int cardHeight;
       if (isLandscape) {
@@ -2095,10 +2094,10 @@ public class StashNativeCardPlugin {
           h = minPx;
         }
         cardWidth = w;
-        cardHeight = h;
+        cardHeight = Math.min(h, maxCardHeight);
       } else {
         cardWidth = screenWidth;
-        cardHeight = (int) (screenHeight * cardHeightRatioPortrait);
+        cardHeight = Math.min((int) (screenHeight * cardHeightRatioPortrait), maxCardHeight);
       }
       return new int[]{cardWidth, cardHeight};
     } catch (Exception e) {

@@ -60,8 +60,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean usePopup;
   private boolean useModal;
   private boolean isExpanded;
-  private boolean wasLandscapeBeforePortrait;
   private boolean isDismissing;
+  private boolean pendingCreateUIAfterRotation;
   private boolean callbackSent;
   private boolean googlePayRedirectHandled;
   private boolean isPurchaseProcessing;
@@ -173,8 +173,6 @@ public class StashNativeCardPortraitActivity extends Activity {
       initialURL = intent.getStringExtra(CardConstants.INTENT_EXTRA_INITIAL_URL);
       usePopup = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_USE_POPUP, false);
       useModal = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_USE_MODAL, false);
-      wasLandscapeBeforePortrait = intent.getBooleanExtra(
-          CardConstants.INTENT_EXTRA_WAS_LANDSCAPE, false);
 
       cardHeightRatioPortrait = intent.getFloatExtra(
           CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT,
@@ -267,6 +265,12 @@ public class StashNativeCardPortraitActivity extends Activity {
           }
         } else if (!cachedIsTablet && forcePortraitOnCheckout) {
           // Checkout on phone: force portrait only when enabled
+          int currentOrientation = getResources().getConfiguration().orientation;
+          if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
+            // Defer card creation until onConfigurationChanged delivers portrait metrics so
+            // animateSlideUp starts from the correct (portrait) screen dimensions.
+            pendingCreateUIAfterRotation = true;
+          }
           setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         } else if (!cachedIsTablet && !forcePortraitOnCheckout) {
           // Checkout on phone without force portrait: lock to current orientation
@@ -304,8 +308,10 @@ public class StashNativeCardPortraitActivity extends Activity {
         }
       }
       
-      createUI();
-      registerBackCallbackIfNeeded();
+      if (!pendingCreateUIAfterRotation) {
+        createUI();
+        registerBackCallbackIfNeeded();
+      }
     } catch (Exception e) {
       Log.w(TAG, "Error in onCreate: " + e.getMessage(), e);
       finish();
@@ -483,6 +489,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     } else {
       boolean isLandscape = getResources().getConfiguration().orientation
           == Configuration.ORIENTATION_LANDSCAPE;
+      // Cap card height so it never extends behind the status bar / notch.
+      int maxCardHeight = metrics.heightPixels
+          - StashWindowCompat.getSystemTopInsetPx(getWindow());
+      if (maxCardHeight <= 0) maxCardHeight = metrics.heightPixels;
+
       if (isLandscape && !forcePortraitOnCheckout) {
         // Phone checkout in landscape without forcing portrait: use landscape ratios
         int w = (int) (metrics.widthPixels * cardWidthRatioLandscape);
@@ -496,18 +507,19 @@ public class StashNativeCardPortraitActivity extends Activity {
           h = minPx;
         }
         cardWidth = w;
-        cardHeight = h;
-        isExpanded = true;
+        cardHeight = Math.min(h, maxCardHeight);
+        // Landscape phone card is fixed to configured size (dismiss-only gesture behavior).
+        isExpanded = false;
       } else {
-        float effectiveHeightRatio;
-        if (wasLandscapeBeforePortrait) {
-          effectiveHeightRatio = CardConstants.EXPANDED_CARD_HEIGHT_RATIO;
-          isExpanded = true;
-        } else {
-          effectiveHeightRatio = cardHeightRatioPortrait;
-          isExpanded = false;
-        }
-        cardHeight = (int) (metrics.heightPixels * effectiveHeightRatio);
+        // When forcePortrait is active, createCard() runs before the rotation completes.
+        // The metrics still reflect landscape dimensions, so widthPixels is the true
+        // portrait height (the long dimension of the device).
+        int portraitHeight = (forcePortraitOnCheckout && isLandscape)
+            ? metrics.widthPixels : metrics.heightPixels;
+        int portraitMaxH = portraitHeight - StashWindowCompat.getSystemTopInsetPx(getWindow());
+        if (portraitMaxH <= 0) portraitMaxH = portraitHeight;
+        isExpanded = false;
+        cardHeight = Math.min((int) (portraitHeight * cardHeightRatioPortrait), portraitMaxH);
         cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
       }
     }
@@ -698,6 +710,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       boolean isTablet = cachedIsTablet;
+      boolean isLandscape = isLandscapeMode();
       
       switch (event.getAction()) {
         case MotionEvent.ACTION_DOWN:
@@ -722,14 +735,15 @@ public class StashNativeCardPortraitActivity extends Activity {
           float deltaY = event.getRawY() - initialY;
 
           if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(StashNativeCardPortraitActivity.this, 10)) {
-            // Tablet or Modal: only treat as drag when moving downward (dismiss gesture)
-            isDragging = (isTablet || useModal) ? (deltaY > 0) : true;
+            // Landscape phone behaves like a fixed-size sheet: dismiss-only drag (downward).
+            // Tablet and modal are also dismiss-only.
+            isDragging = (isTablet || useModal || isLandscape) ? (deltaY > 0) : true;
             
             if (deltaY > 0) {
               // Drag down: same feedback for tablet, modal, and phone
               applyDragDownFeedback(deltaY);
-            } else if (!isTablet && !useModal && !isExpanded && !wasLandscapeBeforePortrait) {
-              // Phone only (not modal): drag up to expand
+            } else if (!isTablet && !useModal && !isExpanded && !isLandscape) {
+              // Phone only (not modal, not landscape): drag up to expand
               float cardHeight = cardContainer.getHeight();
               float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
               float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
@@ -763,50 +777,68 @@ public class StashNativeCardPortraitActivity extends Activity {
                 animateSnapBack();
               }
             } else {
-              // Phone: Three-state system with velocity
-              if (finalDeltaY > 0) {
-                // Drag down
-                float dismissThreshold =
-                    metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
-                float collapseThreshold =
-                    cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
-                
-                if (isExpanded) {
-                  // From expanded: collapse or dismiss
-                  if (finalDeltaY > dismissThreshold
-                      && velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
-                    animateDismiss();
-                  } else if (finalDeltaY > collapseThreshold
-                      || velocity > CardConstants.COLLAPSE_VELOCITY_THRESHOLD) {
-                    animateCollapse();
-                  } else {
-                    animateSnapBack();
-                  }
-                } else {
-                  // From collapsed: dismiss
+              // Phone: landscape is dismiss-only; portrait keeps expand/collapse behavior.
+              if (isLandscape) {
+                if (finalDeltaY > 0) {
+                  float dismissThreshold =
+                      metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
                   if (finalDeltaY > dismissThreshold
                       || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
                     animateDismiss();
                   } else {
                     animateSnapBack();
                   }
-                }
-              } else if (finalDeltaY < 0 && !isExpanded && !wasLandscapeBeforePortrait) {
-                // Drag up: expand (phone only)
-                float expandThreshold =
-                    cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
-                if (Math.abs(finalDeltaY) > expandThreshold
-                    || velocity < CardConstants.EXPAND_VELOCITY_THRESHOLD) {
-                  animateExpand();
                 } else {
                   cardContainer.setScaleX(1.0f);
                   cardContainer.setScaleY(1.0f);
                   animateSnapBack();
                 }
               } else {
-                cardContainer.setScaleX(1.0f);
-                cardContainer.setScaleY(1.0f);
-                animateSnapBack();
+                // Portrait phone: three-state system with velocity.
+                if (finalDeltaY > 0) {
+                  // Drag down
+                  float dismissThreshold =
+                      metrics.heightPixels * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
+                  float collapseThreshold =
+                      cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
+                  
+                  if (isExpanded) {
+                    // From expanded: collapse or dismiss
+                    if (finalDeltaY > dismissThreshold
+                        && velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                      animateDismiss();
+                    } else if (finalDeltaY > collapseThreshold
+                        || velocity > CardConstants.COLLAPSE_VELOCITY_THRESHOLD) {
+                      animateCollapse();
+                    } else {
+                      animateSnapBack();
+                    }
+                  } else {
+                    // From collapsed: dismiss
+                    if (finalDeltaY > dismissThreshold
+                        || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
+                      animateDismiss();
+                    } else {
+                      animateSnapBack();
+                    }
+                  }
+                } else if (finalDeltaY < 0 && !isExpanded) {
+                  // Drag up: expand (portrait phone only)
+                  float expandThreshold =
+                      cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
+                  if (Math.abs(finalDeltaY) > expandThreshold
+                      || velocity < CardConstants.EXPAND_VELOCITY_THRESHOLD) {
+                    animateExpand();
+                  } else {
+                    cardContainer.setScaleX(1.0f);
+                    cardContainer.setScaleY(1.0f);
+                    animateSnapBack();
+                  }
+                } else {
+                  cardContainer.setScaleX(1.0f);
+                  cardContainer.setScaleY(1.0f);
+                  animateSnapBack();
+                }
               }
             }
           }
@@ -888,15 +920,23 @@ public class StashNativeCardPortraitActivity extends Activity {
     boolean isLandscape = getResources().getConfiguration().orientation
         == Configuration.ORIENTATION_LANDSCAPE;
     if (isLandscape && !forcePortraitOnCheckout) {
+      int maxH = metrics.heightPixels - StashWindowCompat.getSystemTopInsetPx(getWindow());
+      if (maxH <= 0) maxH = metrics.heightPixels;
       int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
       int minPx = (int) StashWebViewUtils.dpToPx(
           this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
       if (h < minPx) {
         h = minPx;
       }
-      return h;
+      return Math.min(h, maxH);
     }
-    return (int) (metrics.heightPixels * cardHeightRatioPortrait);
+    // When forcePortrait is active during landscape (rotation not yet complete), widthPixels
+    // is the true portrait height — the long dimension of the device.
+    int portraitHeight = (forcePortraitOnCheckout && isLandscape)
+        ? metrics.widthPixels : metrics.heightPixels;
+    int maxH = portraitHeight - StashWindowCompat.getSystemTopInsetPx(getWindow());
+    if (maxH <= 0) maxH = portraitHeight;
+    return Math.min((int) (portraitHeight * cardHeightRatioPortrait), maxH);
   }
 
   private void animateCardHeight(int targetHeight, int duration) {
@@ -1164,9 +1204,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (isTablet) {
       // Tablet: single fixed size - keep current height, only reset translation/alpha/scale
       targetHeight = params.height;
-    } else if (wasLandscapeBeforePortrait) {
-      targetHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-      isExpanded = true;
     } else if (isExpanded) {
       targetHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
     } else {
@@ -1844,6 +1881,15 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
+  /**
+   * Returns true when the card is currently displaying in landscape orientation.
+   * In landscape the card is fixed to its configured size; expand/collapse gestures and
+   * JS API calls have no effect.
+   */
+  private boolean isLandscapeMode() {
+    return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
+  }
+
   private class JSInterface {
     @JavascriptInterface
     public void onPaymentSuccess(String order) {
@@ -1900,7 +1946,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         runOnUiThread(() -> {
           try {
-            if (!usePopup && !isExpanded) {
+            if (!usePopup && !isExpanded && !isLandscapeMode()) {
               animateExpand();
             }
           } catch (Exception e) {
@@ -1922,7 +1968,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         runOnUiThread(() -> {
           try {
-            if (!usePopup && isExpanded) {
+            if (!usePopup && isExpanded && !isLandscapeMode()) {
               animateCollapse();
             }
           } catch (Exception e) {
@@ -2052,7 +2098,22 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   public void onConfigurationChanged(Configuration newConfig) {
     super.onConfigurationChanged(newConfig);
-    
+
+    // forcePortrait from landscape: card creation was deferred until rotation completes so that
+    // animateSlideUp uses the correct portrait screen dimensions from the very first frame.
+    if (pendingCreateUIAfterRotation
+        && newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
+      pendingCreateUIAfterRotation = false;
+      try {
+        createUI();
+        registerBackCallbackIfNeeded();
+      } catch (Exception e) {
+        Log.w(TAG, "Error creating UI after rotation: " + e.getMessage(), e);
+        finish();
+      }
+      return;
+    }
+
     if (useModal && cardContainer != null && rootLayout != null) {
       // Modal mode: always animate resize on rotation
       animateModalRotation();
@@ -2064,20 +2125,6 @@ public class StashNativeCardPortraitActivity extends Activity {
       } else if (!forcePortraitOnCheckout) {
         // Phone checkout without force portrait: resize card to orientation-specific dimensions
         animatePhoneCheckoutRotation();
-      } else {
-        if (wasLandscapeBeforePortrait) {
-          if (!isExpanded) {
-            animateExpand();
-          } else {
-            DisplayMetrics metrics = getResources().getDisplayMetrics();
-            FrameLayout.LayoutParams params =
-                (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-            int expandedHeight =
-                (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-            params.height = expandedHeight;
-            cardContainer.setLayoutParams(params);
-          }
-        }
       }
     }
   }

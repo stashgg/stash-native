@@ -33,13 +33,13 @@ extension ViewController {
             action: #selector(phoneCardHeightChanged),
             for: .valueChanged
         )
-        configureSlider(checkoutPhoneLandscapeWidthSlider, label: checkoutPhoneLandscapeWidthLabel, value: 90)
+        configureSlider(checkoutPhoneLandscapeWidthSlider, label: checkoutPhoneLandscapeWidthLabel, value: 70)
         checkoutPhoneLandscapeWidthSlider.addTarget(
             self,
             action: #selector(checkoutPhoneLandscapeWidthChanged),
             for: .valueChanged
         )
-        configureSlider(checkoutPhoneLandscapeHeightSlider, label: checkoutPhoneLandscapeHeightLabel, value: 60)
+        configureSlider(checkoutPhoneLandscapeHeightSlider, label: checkoutPhoneLandscapeHeightLabel, value: 90)
         checkoutPhoneLandscapeHeightSlider.addTarget(
             self,
             action: #selector(checkoutPhoneLandscapeHeightChanged),

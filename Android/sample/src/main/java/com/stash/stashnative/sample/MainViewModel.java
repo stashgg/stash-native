@@ -49,8 +49,8 @@ public class MainViewModel extends AndroidViewModel {
   // Checkout options
   private boolean forcePortraitOnCheckout = false;
   private int phoneCardHeight = 58;
-  private int checkoutPhoneLandscapeW = 80;
-  private int checkoutPhoneLandscapeH = 50;
+  private int checkoutPhoneLandscapeW = 60;
+  private int checkoutPhoneLandscapeH = 80;
   private int checkoutTabletPortraitW = 30;
   private int checkoutTabletPortraitH = 40;
   private int checkoutTabletLandscapeW = 20;

@@ -92,7 +92,13 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface StashNativeCardConfig : NSObject
 
-/** When YES, phone card forces portrait orientation. Default NO. */
+/**
+ * When YES, phone card forces portrait orientation. Default NO.
+ * On iOS this rotates the shared UIWindowScene to portrait for the whole checkout; the host
+ * app's window is in that scene, so its layout/orientation follows until checkout dismisses.
+ * Landscape-locked hosts that must not change geometry should keep this NO (e.g. use modal/popup
+ * or current-orientation presentation instead).
+ */
 @property (nonatomic, assign) BOOL forcePortrait;
 /** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
 @property (nonatomic, assign) CGFloat cardHeightRatioPortrait;

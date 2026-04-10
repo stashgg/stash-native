@@ -53,11 +53,13 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 - (void)updateCornerRadiusMask;
 @end
 
-/// Phone card in current orientation (no rotation); allows all orientations.
+/// Phone card in current orientation with rotation locked for the card's lifetime.
 @interface IPhoneCardCurrentOrientationViewController : UIViewController
 @property (nonatomic, assign) CGRect cardFrame;
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
+/// Orientation mask to lock to while the card is presented (0 = no lock, allow all).
+@property (nonatomic, assign) UIInterfaceOrientationMask lockedOrientationMask;
 - (void)updateCornerRadiusMask;
 @end
 

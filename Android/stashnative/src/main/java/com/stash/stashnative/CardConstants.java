@@ -140,10 +140,10 @@ public final class CardConstants {
   
   
   /** Default phone card width ratio in landscape (when not forcing portrait). */
-  public static final float DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE = 0.9f;
+  public static final float DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE = 0.7f;
 
   /** Default phone card height ratio in landscape (when not forcing portrait). */
-  public static final float DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE = 0.6f;
+  public static final float DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE = 0.9f;
   
   /** Expanded phone card height ratio. */
   public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
@@ -283,7 +283,6 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_URL = "url";
   public static final String INTENT_EXTRA_INITIAL_URL = "initialURL";
   public static final String INTENT_EXTRA_USE_POPUP = "usePopup";
-  public static final String INTENT_EXTRA_WAS_LANDSCAPE = "wasLandscape";
   public static final String INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT = "cardHeightRatioPortrait";
   public static final String INTENT_EXTRA_FORCE_PORTRAIT_ON_CHECKOUT = "forcePortraitOnCheckout";
   public static final String INTENT_EXTRA_CARD_WIDTH_RATIO_LANDSCAPE = "cardWidthRatioLandscape";

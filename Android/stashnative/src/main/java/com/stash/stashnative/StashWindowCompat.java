@@ -67,6 +67,25 @@ final class StashWindowCompat {
   }
 
   /**
+   * Returns the status-bar (top) system inset in pixels for the given window; 0 if unavailable.
+   * Used to cap card heights so they never extend behind the notch / status bar.
+   */
+  static int getSystemTopInsetPx(Window window) {
+    if (window == null) return 0;
+    try {
+      View decorView = window.getDecorView();
+      android.view.WindowInsets rawInsets = decorView.getRootWindowInsets();
+      if (rawInsets == null) return 0;
+      WindowInsetsCompat insets = WindowInsetsCompat.toWindowInsetsCompat(rawInsets, decorView);
+      int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
+      if (top > 0) return top;
+      // Older AndroidX fallback
+      return rawInsets.getSystemWindowInsetTop();
+    } catch (Exception ignored) {}
+    return 0;
+  }
+
+  /**
    * Applies system bar insets as padding and returns insets with system bars cleared for children.
    * Works with older {@code androidx.core} where {@link WindowInsetsCompat.Type#systemBars()} is
    * absent (falls back to {@link WindowInsetsCompat#getSystemWindowInsetLeft()} etc.).
