@@ -579,19 +579,19 @@ The SDK uses only public, documented APIs on both platforms. Below is a summary 
 
 | Technique | Purpose | Store Risk |
 |-----------|---------|------------|
-| **AppDelegate method swizzle** (`application:supportedInterfaceOrientationsForWindow:`) | Allows the SDK's portrait window to rotate in landscape-locked games (Unity, Unreal). Opt-out available via `disableAutoOrientationUnlock`. | Very low — public `UIApplicationDelegate` selector; common in SDKs. |
-| **`UIDevice` KVC orientation** (`setValue:forKey:@"orientation"`) | Forces portrait/landscape rotation on pre-iOS 16 devices. iOS 16+ uses the public `requestGeometryUpdateWithPreferences:` API instead. | Very low — legacy fallback only; industry-standard pattern. |
-| **WKWebView form toolbar removal** (dynamic subclass of `WKContentView`) | Removes the Prev/Next/Done bar above the keyboard to avoid orientation issues in landscape-locked game engines. Uses public ObjC runtime functions and the public `inputAccessoryView` property. | Very low — same technique used by React Native WebView, Cordova, and thousands of App Store apps. |
-| **Deprecated API fallbacks** (`keyWindow`, `statusBarOrientation`) | Backward compatibility with iOS 13–15. All behind `@available` guards with modern scene-based alternatives. | None — deprecated ≠ private. |
+| AppDelegate swizzle (`application:supportedInterfaceOrientationsForWindow:`) | Allows portrait window in landscape-locked games | Very low |
+| `UIDevice` KVC (`setValue:forKey:@"orientation"`) | Forces orientation on older iOS | Very low |
+| Remove WKWebView keyboard toolbar | Prevents orientation issues in game engines | Very low |
+| Deprecated API usage | Backwards compatibility | None |
 
 ### Android
 
 | Technique | Purpose | Store Risk |
 |-----------|---------|------------|
-| **`@JavascriptInterface` bridge** | Communicates payment results and UI commands between the checkout WebView and native code. | None for rejection — standard WebView pattern. Host app should verify orders server-side. |
-| **Reflection on AndroidX classes** (`WindowCompat`, `CustomTabsIntent`) | Graceful fallback when the host app bundles older AndroidX versions (common in Unity). Reflects public library APIs, not hidden platform APIs. | None — not subject to Android's non-SDK restrictions. |
-| **Third-party cookies** (`setAcceptThirdPartyCookies`) | Required for 3DS payment verification and SSO flows. | None for rejection — host app's Data Safety form may need to disclose cookie usage. |
-| **Short foreground service** (`StashKeepAliveService`) | Optional; keeps the app process alive during external browser payment flows on low-memory devices. Uses `foregroundServiceType="shortService"`. | None if declared — host app must declare foreground service usage in Play Console when applicable. |
+| `@JavascriptInterface` bridge | Native↔WebView communication | None |
+| Reflection on AndroidX classes | Ensures compatibility with older libraries | None |
+| Third-party cookies | Needed for payments and SSO | None |
+| Short foreground service | Keeps app alive for payment in browser | None |
 
 ## Support
 
