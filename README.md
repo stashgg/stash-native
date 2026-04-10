@@ -577,21 +577,21 @@ The SDK uses only public, documented APIs on both platforms. Below is a summary 
 
 ### iOS
 
-| Technique | Purpose | Store Risk |
-|-----------|---------|------------|
-| AppDelegate swizzle (`application:supportedInterfaceOrientationsForWindow:`) | Allows portrait window in landscape-locked games | Very low |
-| `UIDevice` KVC (`setValue:forKey:@"orientation"`) | Forces orientation on older iOS | Very low |
-| Remove WKWebView keyboard toolbar | Prevents orientation issues in game engines | Very low |
-| Deprecated API usage | Backwards compatibility | None |
+| Technique | Purpose |
+|-----------|---------|
+| AppDelegate swizzle (`application:supportedInterfaceOrientationsForWindow:`) | Allows portrait window in landscape-locked games |
+| `UIDevice` KVC (`setValue:forKey:@"orientation"`) | Forces orientation on older iOS |
+| Remove WKWebView keyboard toolbar | Prevents orientation issues in game engines |
+| Deprecated API usage | Backwards compatibility |
 
 ### Android
 
-| Technique | Purpose | Store Risk |
-|-----------|---------|------------|
-| `@JavascriptInterface` bridge | Native↔WebView communication | None |
-| Reflection on AndroidX classes | Ensures compatibility with older libraries | None |
-| Third-party cookies | Needed for payments and SSO | None |
-| Short foreground service | Keeps app alive for payment in browser | None |
+| Technique | Purpose |
+|-----------|---------|
+| `@JavascriptInterface` bridge | Native↔WebView communication |
+| Reflection on AndroidX classes | Ensures compatibility with older libraries |
+| Third-party cookies | Needed for payments and SSO |
+| Short foreground service | Keeps app alive for payment in browser |
 
 ## Support
 
