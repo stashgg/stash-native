@@ -36,11 +36,7 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 **Reference**
 
-- [Compatibility](#compatibility)
-  - [Android](#android-1)
-  - [iOS](#ios-1)
-  - [Internal testing](#testing)
-  - [Known limitations](#known-limitations)
+- [Compatibility, platform API & store review](COMPATIBILITY.md)
 - [Versioning](#versioning)
 - [Support](#support)
 
@@ -149,36 +145,11 @@ Pass a `CardConfig` (or `nil`/`null`) to configure presentation. Pass `nil`/`nul
 
 | Aspect              | Description                                                                                                                                                    |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **forcePortrait**   | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
-| **Phone**           | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0).                                                                    |
-| **Tablet**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0).                                  |
-| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Keep unset for best experience.             |
+| **forcePortrait**   | Forces the card to display in portrait mode, even if the host app or game is locked to landscape orientation. |
+| **Phone Dimensions**           | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0).                                                                    |
+| **Tablet Dimensions**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0).                                  |
+| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Keep unset for best experience. Only for custom UIs, leave unchanged.            |
 
-
-> **Background color:** Use `backgroundColor` only when you need the native shell to match **Stash Pay with a custom theme**. For the **default Stash theme**, leave it unset so the standard light/dark experience stays aligned with the system.
-
-#### Portrait orientation on iOS (landscape-locked games)
-
-When `forcePortrait = true` on iOS, the SDK automatically unlocks portrait orientation for its card and browser windows at runtime — including in landscape-locked Unity, Unreal, and custom game engine builds. **No AppDelegate changes or Info.plist edits are required.**
-
-The SDK installs a one-time hook on `application:supportedInterfaceOrientationsForWindow:` that returns all orientations for the SDK's own windows while passing through the original result for every other window. The game remains landscape-locked; only the card/browser window can rotate to portrait.
-
-**Opting out** (advanced): If you manage orientation unlocking yourself, disable the automatic hook and call the SDK bridge method manually:
-
-```objc
-// Before first openCard call:
-StashNativeCard.sharedInstance().disableAutoOrientationUnlock = YES;
-
-// In your AppDelegate:
-- (UIInterfaceOrientationMask)application:(UIApplication *)app
-    supportedInterfaceOrientationsForWindow:(UIWindow *)window {
-    UIInterfaceOrientationMask stash = [StashNativeCard supportedInterfaceOrientationsForWindow:window];
-    if (stash) return stash;
-    return UIInterfaceOrientationMaskLandscape; // your game default
-}
-```
-
-> **Known edge case (iOS 16+):** If your project explicitly sets `UISceneSupportedInterfaceOrientations` to landscape-only inside the scene configuration in `Info.plist`, iOS enforces that at the scene level and the automatic hook cannot override it. Remove that key or add `UIInterfaceOrientationPortrait` to it. This key is **not** set by default in Unity or Unreal projects.
 
 **Android**
 
@@ -199,6 +170,33 @@ config.cardHeightRatioPortrait = 0.68
 // ... tabletWidthRatioPortrait, tabletHeightRatioPortrait, etc. (see table above)
 stashNative.openCard(withURL: url, config: config)
 ```
+
+#### Forcing Portrait Orientation
+
+Use `forcePortrait` when the host game or app is **landscape-only** but you want the Stash card in portrait.
+
+**Android:** When `forcePortrait` is `true`, checkout opens in `StashNativeCardPortraitActivity`, a dedicated activity that is **portrait-locked** in the library manifest. It runs in the **same process** as your app (including Unity and Unreal), so the engine is not moved to an isolated process. If the user was in landscape, the system rotates into portrait when that activity is shown; the SDK coordinates layout with that transition. 
+
+**iOS:** When `forcePortrait = true`, the SDK unlocks portrait for its **card and browser** windows at runtime including in landscape-locked Unity, Unreal, and custom game engine builds. **No AppDelegate changes or Info.plist edits are required.** The SDK installs a one-time hook on `application:supportedInterfaceOrientationsForWindow:` that returns all orientations for the SDK's own windows while passing through the original result for every other window. The game remains landscape-locked; only the card/browser window can rotate to portrait.
+
+**Swizzling Opting out (iOS, advanced):** If you manage orientation unlocking yourself, disable the automatic hook and call the SDK bridge method manually:
+
+```objc
+// Before first openCard call:
+StashNativeCard.sharedInstance().disableAutoOrientationUnlock = YES;
+
+// In your AppDelegate:
+- (UIInterfaceOrientationMask)application:(UIApplication *)app
+    supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    UIInterfaceOrientationMask stash = [StashNativeCard supportedInterfaceOrientationsForWindow:window];
+    if (stash) return stash;
+    return UIInterfaceOrientationMaskLandscape; // your game default
+}
+```
+
+> **Known edge case (iOS 16+):** If your project explicitly sets `UISceneSupportedInterfaceOrientations` to landscape-only inside the scene configuration in `Info.plist`, iOS enforces that at the scene level and the automatic hook cannot override it. Remove that key or add `UIInterfaceOrientationPortrait` to it. This key is **not** set by default in Unity or Unreal projects.
+
+> **Visual artifacts and sizing:** Forcing portrait from a landscape-locked host can still produce **visual artifacts** (brief flicker, letterboxing, dimmed regions, or system-bar quirks) on some devices and OS versions—the library **cannot** fully guarantee a seamless transition in every case. For landscape-locked games we recommend sizing the card to cover the full screen.
 
 #### Callbacks
 
@@ -320,7 +318,7 @@ extension YourViewController: StashNativeCardDelegate {
 
 ### openModal
 
-Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
+Centered modal on all devices. Same layout on phone and tablet; allows dynamic rotation. Suited for channel selection or an alternative checkout style.
 
 **Android**
 
@@ -428,138 +426,7 @@ On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser
 
 ---
 
-## Compatibility
-
-Requirements, OS coverage, vendor notes, and edge cases for each platform are below.
-
-### Android
-
-
-| Attribute    | Requirement                              |
-| ------------ | ---------------------------------------- |
-| Minimum SDK  | API 21 (Android 5.0 Lollipop)            |
-| Target SDK   | API 34 (Android 14)                      |
-| Compile SDK  | 34                                       |
-| Java Version | Java 8 (source/target), JDK 17 for build |
-| Architecture | armeabi-v7a, arm64-v8a, x86, x86_64      |
-
-
-**Game engines (Unity, Unreal, and similar):** `openCard` and `openModal` present checkout in `StashNativeCardPortraitActivity` in the **same app process** as the host (no `android:process` isolate). That keeps a single OS process so engines such as Unity are not killed when checkout takes the foreground. Use the [Unity / Unreal wrappers](#wrappers) for integrated builds.
-
-#### Android version support
-
-
-| Android Version               | API Level | Status        | Compatibility Notes                                           |
-| ----------------------------- | --------- | ------------- | ------------------------------------------------------------- |
-| Android 14 (Upside Down Cake) | 34        | Full          | Target SDK                                                    |
-| Android 13 (Tiramisu)         | 33        | Full          |                                                               |
-| Android 12/12L                | 31-32     | Full          |                                                               |
-| Android 11                    | 30        | Full          | Enhanced window insets (For phones with notch/camera cut-out) |
-| Android 10                    | 29        | Full          | Added automatic dark mode support                             |
-| Android 9 (Pie)               | 28        | Full          |                                                               |
-| Android 8/8.1 (Oreo)          | 26-27     | Full          |                                                               |
-| Android 7/7.1 (Nougat)        | 24-25     | Full          |                                                               |
-| Android 6 (Marshmallow)       | 23        | Full          |                                                               |
-| Android 5/5.1 (Lollipop)      | 21-22     | Full          | Minimum SDK                                                   |
-| Android 4.4 and below         | <=20      | Not Supported |                                                               |
-
-
-#### Vendor-specific support
-
-
-| Vendor / Skin                  | Compatibility | WebView Source                      | Notes                                                                                   |
-| ------------------------------ | ------------- | ----------------------------------- | --------------------------------------------------------------------------------------- |
-| Google Pixel / Stock Android   | Full          | Google WebView (Play Store updates) | Reference implementation                                                                |
-| Samsung (One UI / TouchWiz)    | Full          | Samsung Internet / Chrome WebView   | No known issues                                                                         |
-| Xiaomi (MIUI)                  | Full          | Chrome WebView                      | Some MIUI versions show "battery optimization" warnings, during browser flows.          |
-| OnePlus (OxygenOS)             | Full          | Chrome WebView                      | Stock-like behavior                                                                     |
-| Oppo (ColorOS)                 | Full          | Chrome WebView                      |                                                                                         |
-| Vivo (Funtouch OS)             | Full          | Chrome WebView                      |                                                                                         |
-| Realme (Realme UI)             | Full          | Chrome WebView                      |                                                                                         |
-| Huawei (EMUI, pre-2019)        | Full          | Google WebView                      | Huawei devices with Google Mobile Services                                              |
-| Huawei (HarmonyOS/EMUI, 2019+) | **Partial**   | Huawei WebView                      | No Google Mobile Services; Chrome Custom Tabs unavailable; in-app WebView works         |
-| Honor (post-Huawei)            | Full          | Chrome WebView                      | Devices with GMS                                                                        |
-| Nokia (Android One)            | Full          | Google WebView                      | Stock Android, **use keep-alive service** recommended.                                  |
-| Motorola                       | Full          | Chrome WebView                      | Near-stock Android                                                                      |
-| LG                             | Full          | Chrome WebView                      | Legacy devices supported, **use keep-alive service** recommended.                       |
-| Sony Xperia                    | Full          | Chrome WebView                      |                                                                                         |
-| ASUS (ZenUI)                   | Full          | Chrome WebView                      |                                                                                         |
-| Android Go Edition             | Supported     | Chrome WebView                      | Limited memory; may experience slower load times, **use keep-alive service**.           |
-| Amazon Fire OS                 | **Partial**   | Amazon WebView                      | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
-
-
-#### Dependencies
-
-
-| Dependency                   | Version | Required | Purpose                                                                   |
-| ---------------------------- | ------- | -------- | ------------------------------------------------------------------------- |
-| androidx.appcompat:appcompat | 1.6.1+  | Yes      | Activity/Fragment support                                                 |
-| androidx.browser:browser     | 1.7.0+  | No       | Chrome Custom Tabs when present; otherwise system browser (`ACTION_VIEW`) |
-
-
-#### Feature restrictions by API level
-
-Core functionality (slide-up card, modal, WebView, animations, payment callbacks) works identically across all supported Android versions (API 21+). The following features have graceful fallbacks on older Android versions:
-
-**API 21-28 (Android 5.0-9.0)**
-
-- Dark mode: Not automatically detected. Light mode used as fallback.
-- Window insets: Uses legacy status bar handling, there might be slight overlaps with menu/status bar on some devices or
-visual artefacts.
-
-### iOS
-
-
-| Attribute     | Requirement                                 |
-| ------------- | ------------------------------------------- |
-| Minimum iOS   | iOS 13.0                                    |
-| Swift Version | 5.5+                                        |
-| Xcode         | 13.0+                                       |
-| Architecture  | arm64, arm64e (devices), x86_64 (simulator) |
-
-
-#### iOS version support
-
-
-| iOS Version      | Status        | Notes           |
-| ---------------- | ------------- | --------------- |
-| iOS 18.x         | Full          | Latest          |
-| iOS 17.x         | Full          |                 |
-| iOS 16.x         | Full          |                 |
-| iOS 15.x         | Full          |                 |
-| iOS 14.x         | Full          |                 |
-| iOS 13.x         | Full          | Minimum version |
-| iOS 12 and below | Not Supported |                 |
-
-
-#### Device support
-
-
-| Device Type                    | Status   | Notes                                       |
-| ------------------------------ | -------- | ------------------------------------------- |
-| iPhone (all models iOS 13+)    | Full     | Portrait/landscape, card slides from bottom |
-| iPad                           | Full     | Centered presentation, all orientations     |
-| iPad (Split View / Slide Over) | Full     | Responsive layout                           |
-| Mac (Catalyst)                 | Untested | Should work; not officially tested yet      |
-
-
-### Testing
-
-We test this library using BrowserStack App Automate devices. Supported environments are listed in the [App Automate list of browsers and platforms](https://www.browserstack.com/list-of-browsers-and-platforms/app_automate).
-
-### Known limitations
-
-**Android**
-
-- Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally.
-- Android Go: Performance may vary on low-memory devices (<1GB RAM), please use the [keep-alive service](#keep-alive-service).
-- WebView updates: Devices without Play Store may have outdated WebView.
-- Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](#sample-apps) (GPU / `swangle` note)
-
-**iOS**
-
-- iOS 13: Automatic theme detection not available on iOS 13.0-13.3. Fixed in iOS 13.4
-- **Landscape-locked games (Unity, Unreal):** `forcePortrait` works automatically — the SDK hooks `application:supportedInterfaceOrientationsForWindow:` to unlock portrait for its windows without affecting the rest of the app. The one exception is an explicit `UISceneSupportedInterfaceOrientations` key set to landscape-only in the scene configuration in `Info.plist` — see [Portrait orientation on iOS](#portrait-orientation-on-ios-landscape-locked-games) for the fix.
+Requirements, OS matrices, testing environments, known limitations, and platform API / store compliance notes are documented in **[COMPATIBILITY.md](COMPATIBILITY.md)**.
 
 ---
 
@@ -570,28 +437,6 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 - **Major**: Breaking changes
 - **Minor**: New features (backward compatible)
 - **Patch**: Bug fixes
-
-## Platform API & Store Compliance Notes
-
-The SDK uses only public, documented APIs on both platforms. Below is a summary of techniques that are worth noting for store review awareness.
-
-### iOS
-
-| Technique | Purpose |
-|-----------|---------|
-| AppDelegate swizzle (`application:supportedInterfaceOrientationsForWindow:`) | Allows portrait window in landscape-locked games |
-| `UIDevice` KVC (`setValue:forKey:@"orientation"`) | Forces orientation on older iOS |
-| Remove WKWebView keyboard toolbar | Prevents orientation issues in game engines |
-| Deprecated API usage | Backwards compatibility |
-
-### Android
-
-| Technique | Purpose |
-|-----------|---------|
-| `@JavascriptInterface` bridge | Native↔WebView communication |
-| Reflection on AndroidX classes | Ensures compatibility with older libraries |
-| Third-party cookies | Needed for payments and SSO |
-| Short foreground service | Keeps app alive for payment in browser |
 
 ## Support
 
