@@ -76,11 +76,6 @@ Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/`
 
 > **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
 
-Or try in the browser emulators via Appetize:
-
-- [Android Sample App](https://appetize.io/app/b_3l3fzg5qiahx6p2xpwp3kcirhy)
-- [iOS Sample App](https://appetize.io/app/b_qbywqclhrfl6lk3i3ehovfqa2m)
-
 ---
 
 ## Installation
@@ -100,8 +95,6 @@ dependencies {
 ```
 
 To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
-
-**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers ([`StashWindowCompat`](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
 
 ### iOS
 
