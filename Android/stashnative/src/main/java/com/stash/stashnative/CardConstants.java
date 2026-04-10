@@ -51,11 +51,6 @@ public final class CardConstants {
   public static final int DIALOG_DISMISS_DELAY_MS = 300;
   
   // ============================================================================
-  // Spring Animation Parameters (aligned with iOS)
-  // ============================================================================
-  
-  
-  // ============================================================================
   // Gesture Thresholds (Velocity-based, aligned across platforms)
   // ============================================================================
   

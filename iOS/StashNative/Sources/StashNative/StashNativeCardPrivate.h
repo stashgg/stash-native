@@ -81,8 +81,6 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-@property (nonatomic, assign) CGSize previousScreenSize;
-@property (nonatomic, assign) BOOL isModalPresentation;
 - (void)updateCornerRadiusMask;
 @end
 

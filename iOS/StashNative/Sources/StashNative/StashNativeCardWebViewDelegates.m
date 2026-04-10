@@ -259,7 +259,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     _stallReloadCount += 1;
     STASH_DEBUG_LOG(@"StashNativeRetryTrace stall timer FIRE reload %d/2 url=%@ session=%lu",
           _stallReloadCount, _checkoutURL.absoluteString, (unsigned long)_expectedPresentationSessionToken);
-    NSLog(@"StashNative: stall retry %d/2 — reloading %@", _stallReloadCount, _checkoutURL.absoluteString);
+    STASH_DEBUG_LOG(@"StashNative: stall retry %d/2 — reloading %@", _stallReloadCount, _checkoutURL.absoluteString);
 
     // Issue the new request directly — WKWebView cancels the stalled navigation internally
     // and fires didFailNavigation with NSURLErrorCancelled (which we already suppress).
@@ -301,7 +301,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
     if (!_initialLoadComplete && !_networkErrorHandled) {
-        NSLog(@"StashNative: TIMEOUT %.0fs — no main-frame HTTP success (initial + %d stall reload(s))",
+        STASH_DEBUG_LOG(@"StashNative: TIMEOUT %.0fs — no main-frame HTTP success (initial + %d stall reload(s))",
               kNetworkTimeoutInterval, _stallReloadCount);
         STASH_DEBUG_LOG(@"StashNativeRetryTrace network timeout %.0fs stallReloads=%d session=%lu",
               kNetworkTimeoutInterval, _stallReloadCount, (unsigned long)_expectedPresentationSessionToken);
@@ -388,7 +388,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     (void)webView;
     STASH_DEBUG_LOG(@"StashNativeRetryTrace webContentProcessTerminate session=%lu stallReloads=%d recoveryUsed=%d",
           (unsigned long)_expectedPresentationSessionToken, _stallReloadCount, _processTerminateRecoveryUsed);
-    NSLog(@"StashNative: WebContent process terminated — reloading");
+    STASH_DEBUG_LOG(@"StashNative: WebContent process terminated — reloading");
     if (![self sessionIsValidForCallbacks]) {
         STASH_DEBUG_LOG(@"StashNativeRetryTrace processTerminate ignored (stale session)");
         return;
@@ -429,7 +429,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     NSURL *url = navigationAction.request.URL;
     NSString *urlString = url.absoluteString;
-    NSLog(@"StashNative: navigationAction type=%ld url=%@", (long)navigationAction.navigationType, urlString);
+    STASH_DEBUG_LOG(@"StashNative: navigationAction type=%ld url=%@", (long)navigationAction.navigationType, urlString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace navigationAction type=%ld url=%@ session=%lu",
           (long)navigationAction.navigationType, urlString, (unsigned long)_expectedPresentationSessionToken);
 
@@ -483,14 +483,14 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)navigationResponse.response;
             NSInteger statusCode = httpResponse.statusCode;
-            NSLog(@"StashNative: navigationResponse mainFrame=%d status=%ld url=%@",
+            STASH_DEBUG_LOG(@"StashNative: navigationResponse mainFrame=%d status=%ld url=%@",
                   navigationResponse.isForMainFrame, (long)statusCode, httpResponse.URL.absoluteString);
             STASH_DEBUG_LOG(@"StashNativeRetryTrace navigationResponse mainFrame=%d status=%ld url=%@ session=%lu",
                   navigationResponse.isForMainFrame, (long)statusCode, httpResponse.URL.absoluteString,
                   (unsigned long)_expectedPresentationSessionToken);
 
             if (statusCode >= 400) {
-                NSLog(@"StashNative: HTTP error on main frame during initial load: %ld", (long)statusCode);
+                STASH_DEBUG_LOG(@"StashNative: HTTP error on main frame during initial load: %ld", (long)statusCode);
                 decisionHandler(WKNavigationResponsePolicyCancel);
                 [self handleNetworkError];
                 return;
@@ -640,7 +640,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     if (webView) {
         configureScrollViewForWebView(webView.scrollView);
     }
-    NSLog(@"StashNative: didCommitNavigation url=%@", webView.URL.absoluteString);
+    STASH_DEBUG_LOG(@"StashNative: didCommitNavigation url=%@", webView.URL.absoluteString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didCommit url=%@ session=%lu", webView.URL.absoluteString, (unsigned long)_expectedPresentationSessionToken);
     // Do not clear stall timers here: didCommit runs for each redirect leg; only
     // decidePolicyForNavigationResponse (non-redirect HTTP) marks progress.
@@ -655,7 +655,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    NSLog(@"StashNative: didFailNavigation domain=%@ code=%ld msg=%@ url=%@",
+    STASH_DEBUG_LOG(@"StashNative: didFailNavigation domain=%@ code=%ld msg=%@ url=%@",
           error.domain, (long)error.code, error.localizedDescription, webView.URL.absoluteString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didFailNavigation code=%ld session=%lu",
           (long)error.code, (unsigned long)_expectedPresentationSessionToken);
@@ -675,7 +675,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    NSLog(@"StashNative: didFailProvisionalNavigation domain=%@ code=%ld msg=%@ url=%@",
+    STASH_DEBUG_LOG(@"StashNative: didFailProvisionalNavigation domain=%@ code=%ld msg=%@ url=%@",
           error.domain, (long)error.code, error.localizedDescription,
           [error.userInfo[NSURLErrorFailingURLStringErrorKey] description] ?: webView.URL.absoluteString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didFailProvisional code=%ld session=%lu",
@@ -732,6 +732,11 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {
+    UIViewController *presenter = getTopPresentedViewController();
+    if (!presenter) {
+        completionHandler();
+        return;
+    }
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -740,10 +745,15 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }];
     [alert addAction:okAction];
     
-    [getTopPresentedViewController() presentViewController:alert animated:YES completion:nil];
+    [presenter presentViewController:alert animated:YES completion:nil];
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler {
+    UIViewController *presenter = getTopPresentedViewController();
+    if (!presenter) {
+        completionHandler(NO);
+        return;
+    }
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil
                                                                    message:message
                                                             preferredStyle:UIAlertControllerStyleAlert];
@@ -756,7 +766,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     [alert addAction:cancelAction];
     [alert addAction:okAction];
     
-    [getTopPresentedViewController() presentViewController:alert animated:YES completion:nil];
+    [presenter presentViewController:alert animated:YES completion:nil];
 }
 
 @end

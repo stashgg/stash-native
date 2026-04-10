@@ -246,13 +246,6 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Appends the theme query parameter to the URL.
-   *
-   * @param url URL to modify
-   * @param isDarkTheme true for dark theme
-   * @return URL with theme param, or original if null/empty
-   */
-  /**
    * Validates and normalizes a URL for {@code window.stash_sdk.openExternalBrowser(url)}: {@code http} or
    * {@code https} only. Trims input; prepends {@code https://} when no scheme is present.
    *
@@ -359,8 +352,7 @@ public class StashWebViewUtils {
       FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
           FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
       loadingContainer.setLayoutParams(containerParams);
-      
-      // Create spinner
+
       ProgressBar loadingIndicator = new ProgressBar(context);
       
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -385,49 +377,6 @@ public class StashWebViewUtils {
       loadingContainer.bringToFront();
 
       return loadingContainer;
-    } catch (Exception e) {
-      Log.w(TAG, "Error showing loading: " + e.getMessage());
-      return null;
-    }
-  }
-
-  /**
-   * Creates and shows a loading spinner (deprecated; use createAndShowLoadingView).
-   *
-   * @param context context
-   * @param container parent to add the spinner to
-   * @return the progress bar, or null on error
-   */
-  @Deprecated
-  public static ProgressBar createAndShowLoading(Context context, ViewGroup container) {
-    if (context == null || container == null) {
-      return null;
-    }
-    
-    try {
-      ProgressBar loadingIndicator = new ProgressBar(context);
-      
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-        loadingIndicator.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-      }
-      
-      loadingIndicator.setIndeterminate(true);
-      
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        loadingIndicator.setIndeterminateTintList(
-            android.content.res.ColorStateList.valueOf(
-                isDarkTheme(context) ? Color.WHITE : Color.DKGRAY));
-      }
-      
-      int size = dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP);
-      FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(size, size);
-      params.gravity = Gravity.CENTER;
-      loadingIndicator.setLayoutParams(params);
-      
-      container.addView(loadingIndicator);
-      loadingIndicator.bringToFront();
-      
-      return loadingIndicator;
     } catch (Exception e) {
       Log.w(TAG, "Error showing loading: " + e.getMessage());
       return null;
@@ -484,31 +433,8 @@ public class StashWebViewUtils {
   }
 
   /**
-   * True when {@code androidx.browser} Custom Tabs classes are on the classpath (CCT may still fail
-   * at runtime if no handler is installed; {@link StashUrlLauncher} falls back to {@code
-   * ACTION_VIEW}).
-   */
-  public static boolean isChromeCustomTabsAvailable(Context context) {
-    return context != null && StashUrlLauncher.isCustomTabsClassAvailable();
-  }
-
-  /**
-   * Opens the URL using Custom Tabs when possible, else system browser ({@code ACTION_VIEW}).
-   *
-   * @deprecated Prefer {@link StashUrlLauncher#openExternalUrl(Context, String)}; kept for call
-   *     sites that expect this name.
-   */
-  @Deprecated
-  public static void openWithChromeCustomTabs(Activity activity, String url) throws Exception {
-    if (activity == null || url == null || url.isEmpty()) {
-      throw new IllegalArgumentException("Invalid activity or URL");
-    }
-    StashUrlLauncher.openExternalUrl(activity, url);
-  }
-
-  /**
-   * Opens the URL using Custom Tabs when possible, else system browser — same as {@link
-   * #openWithChromeCustomTabs} after the optional-browser refactor.
+   * Opens the URL using Custom Tabs when possible, else system browser.
+   * Delegates to {@link StashUrlLauncher#openExternalUrl(Context, String)}.
    */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {

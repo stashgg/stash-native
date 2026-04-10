@@ -181,7 +181,6 @@ CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
 static BOOL _safariOpenedViaOpenBrowser = NO;
 BOOL _usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
-static BOOL _showScrollbar = NO;
 
 // --- Landscape / force-portrait orientation flags (phones only; reset on cleanup) ---
 /// YES when the card was opened in the current (landscape) orientation without forcing portrait.
@@ -211,11 +210,6 @@ static NSString *_presentationBackgroundColorHex = nil;
 
 #pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
 
-/// Primary duration for all card motion (present, expand, collapse, snap-back). Matches system sheet feel.
-__unused static const NSTimeInterval kCardAnimationDuration = 0.5;
-/// Spring damping for card animations. 0.82 = subtle bounce, Apple-like.
-__unused static const CGFloat kSpringDampingCard = 0.82f;
-/// Legacy names for call sites that expect these symbols
 static const CGFloat kSpringDampingDefault = 0.82f;
 static const CGFloat kSpringDampingTight = 0.82f;
 static const CGFloat kAnimationDurationDefault = 0.5f;
@@ -273,9 +267,6 @@ static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
     CGFloat u = t - 1.0f;
     return 1.0f + (k + 1.0f) * u * u * u + k * u * u;
 }
-__unused static inline CGFloat easeOutBack(CGFloat t) {
-    return easeOutBackWithOvershoot(t, kEaseOutBackOvershoot);
-}
 static const NSTimeInterval kRotationDelayAfterLandscape = 0.35;
 
 #pragma mark - Shadow (iPhone card vs iPad/popup)
@@ -302,12 +293,6 @@ static NSString * const kThemeDark = @"dark";
 
 static const CGFloat kVerticalPositionThresholdBottom = 0.1f;
 static const CGFloat kVerticalPositionThresholdTop = 0.9f;
-
-static const CGFloat kMinRatio = 0.1f;
-static const CGFloat kMaxRatio = 1.0f;
-__unused static CGFloat clampRatio(CGFloat ratio) {
-    return ratio < kMinRatio ? kMinRatio : (ratio > kMaxRatio ? kMaxRatio : ratio);
-}
 
 /// Recursively find the first WKWebView in a view subtree.
 static WKWebView *findWebViewInView(UIView *view) {
@@ -375,7 +360,6 @@ static const NSTimeInterval kCollapseAnimationDurationFast = 0.45;
 static const NSTimeInterval kDismissAnimationDurationFast = 0.35;
 static const NSTimeInterval kDismissAnimationDurationNormal = 0.45;
 static const CGFloat kVelocityDivisorForSpring = 1000.0f;
-__unused static const CGFloat kVelocityDivisorForSpringFast = 800.0f;
 static const CGFloat kVelocityThresholdForFastCollapse = 600.0f;
 static const CGFloat kVelocityThresholdForFastDismiss = 1000.0f;
 
@@ -1363,7 +1347,6 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
 
 - (void)keyboardWillHide:(NSNotification *)notification {
-    // Keep expanded after keyboard hides - user can collapse manually
 }
 
 - (void)handleDragTrayPanGesture:(UIPanGestureRecognizer *)gesture {
@@ -2517,7 +2500,6 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 - (instancetype)init {
     self = [super init];
     if (self) {
-        // No instance-specific defaults; card sizing comes from config passed to openCardWithURL:config:
     }
     return self;
 }
@@ -2625,7 +2607,6 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
     } else {
-        // Use defaults
         _modalAllowDismiss = YES;
         _modalPhoneWidthRatioPortrait = 0.9f;
         _modalPhoneHeightRatioPortrait = 0.7f;
@@ -2695,7 +2676,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                     UIWindowSceneGeometryPreferencesIOS *prefs =
                         [[UIWindowSceneGeometryPreferencesIOS alloc]
                             initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
-                    [scene requestGeometryUpdateWithPreferences:prefs errorHandler:nil];
+                    [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                        STASH_DEBUG_LOG(@"StashNative: geometry update error: %@", error);
+                    }];
                 }
             } else {
                 [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
@@ -2923,15 +2906,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         [UIViewController attemptRotationToDeviceOrientation];
     }
     
-    // Make window visible AFTER rotation request
-    // The portrait-only VC will help maintain the rotation
+    // Make window visible after rotation request.
     cardWindow.hidden = NO;
     [cardWindow makeKeyAndVisible];
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
-    
-    // Create WebView before rotation delay; loadRequest runs after WebView is in the card
-    // hierarchy (inside the block below) to avoid WebKit edge cases with off-screen loads.
+
+    // Create WebView early so networking starts during the rotation delay.
     WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
     webView.translatesAutoresizingMaskIntoConstraints = NO;
     webView.alpha = 0.0;
@@ -2939,7 +2920,6 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
     loadingView.translatesAutoresizingMaskIntoConstraints = NO;
     loadingView.alpha = 1.0;
-    // Load is deferred until after addSubview; no extra delay on the first stall-retry arm.
     NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
     
     WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
@@ -2949,15 +2929,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     webView.navigationDelegate = delegate;
     WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
     webView.UIDelegate = uiDelegate;
-    // Associate before any delayed work so cleanupCardInstance can always find delegates
-    // (e.g. user dismisses during the landscape rotation delay before the block runs).
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     internal.activeWebViewLoadDelegate = delegate;
     internal.activeWebViewUIDelegate = uiDelegate;
     
-    // Start navigation while waiting for rotation / next runloop — WebView is attached off-screen on containerVC
-    // so networking begins before overlay fade and card slide (perceived load time improves).
+    // Preload: attach WebView off-screen so networking begins before the card slides in.
     CGFloat preloadH = portraitBounds.size.height * _cardHeightRatioPortrait;
     CGFloat preloadW = portraitBounds.size.width;
     UIView *preloadHost = [[UIView alloc] initWithFrame:CGRectMake(0, -10000, preloadW, preloadH)];
@@ -3007,6 +2984,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         // Update window frame to actual screen bounds
         cardWindow.frame = actualBounds;
         containerVC.view.frame = actualBounds;
+
+        if (@available(iOS 16.0, *)) {
+            [containerVC setNeedsUpdateOfSupportedInterfaceOrientations];
+        }
         
         // Calculate card dimensions using portrait dimensions
         CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
@@ -3067,7 +3048,6 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         [loadingView removeFromSuperview];
         [preloadHost removeFromSuperview];
         
-        // WebView was already loading off-screen; reattach to the card (same navigation continues).
         [cardView addSubview:webView];
         [cardView addSubview:loadingView];
         
@@ -3669,6 +3649,28 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
 #pragma mark - WebView Creation Helper
 
+/// Removes WKWebView's built-in form input toolbar (Prev/Next/Done) by dynamically
+/// subclassing the internal WKContentView and overriding inputAccessoryView → nil.
+/// Uses only public UIResponder API and standard ObjC runtime functions.
+static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
+    static const char *kSubclassName = "StashNative_WKContentView";
+    for (UIView *subview in webView.scrollView.subviews) {
+        if (![NSStringFromClass([subview class]) containsString:@"WKContent"]) continue;
+
+        Class subclass = objc_getClass(kSubclassName);
+        if (!subclass) {
+            subclass = objc_allocateClassPair([subview class], kSubclassName, 0);
+            IMP nilIMP = imp_implementationWithBlock(^UIView *(id _self) {
+                return nil;
+            });
+            class_addMethod(subclass, @selector(inputAccessoryView), nilIMP, "@@:");
+            objc_registerClassPair(subclass);
+        }
+        object_setClass(subview, subclass);
+        break;
+    }
+}
+
 - (WKWebView *)createConfiguredWebViewWithInternal:(StashNativeCardInternal *)internal {
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
     // Use the default WKProcessPool (do not assign config.processPool). A custom singleton
@@ -3857,9 +3859,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         webView.underPageBackgroundColor = chromeBackgroundColor;
     }
     webView.scrollView.scrollEnabled = YES;
-    webView.scrollView.showsVerticalScrollIndicator = _showScrollbar;
+    webView.scrollView.showsVerticalScrollIndicator = NO;
     webView.scrollView.showsHorizontalScrollIndicator = NO;
     
+    stashRemoveFormInputAccessoryView(webView);
     return webView;
 }
 

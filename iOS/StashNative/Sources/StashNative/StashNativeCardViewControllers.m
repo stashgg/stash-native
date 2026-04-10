@@ -334,7 +334,6 @@ extern void resetCardExpandedStateAfterRotation(void);
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL enforcePortrait;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-@property (nonatomic, assign) CGSize previousScreenSize;
 - (void)updateCornerRadiusMask;
 @end
 
@@ -368,7 +367,6 @@ extern void resetCardExpandedStateAfterRotation(void);
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     
-    // Handle both popup and modal presentation rotation/resize
     if (!_usePopupPresentation) {
         return;
     }

@@ -359,11 +359,11 @@ public class StashNativeCard {
   /**
    * Opens a URL in a centered modal dialog with default configuration.
    *
-   * <p>Unlike openCheckout which uses different presentations on phones vs tablets,
+   * <p>Unlike openCard which uses different presentations on phones vs tablets,
    * openModal always shows a centered modal on all devices. The modal resizes
    * seamlessly when the device rotates.
    *
-   * <p>Uses default sizing ratios and shows drag bar with dismiss enabled.
+   * <p>Uses default sizing ratios with dismiss enabled.
    *
    * @param url The URL to load in the modal
    */
@@ -374,12 +374,12 @@ public class StashNativeCard {
   /**
    * Opens a URL in a centered modal dialog with custom configuration.
    *
-   * <p>Unlike openCheckout which uses different presentations on phones vs tablets,
+   * <p>Unlike openCard which uses different presentations on phones vs tablets,
    * openModal always shows a centered modal on all devices. The modal resizes
    * seamlessly when the device rotates.
    *
    * @param url The URL to load in the modal
-   * @param config Configuration for sizing, drag bar, and dismiss behavior (null for defaults)
+   * @param config Configuration for sizing and dismiss behavior (null for defaults)
    */
   public void openModal(String url, ModalConfig config) {
     plugin.openModal(url, config);

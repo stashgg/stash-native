@@ -1,6 +1,5 @@
 package com.stash.stashnative;
 
-import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.app.Application;
@@ -13,7 +12,6 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -21,7 +19,6 @@ import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,15 +26,12 @@ import android.view.ViewOutlineProvider;
 import android.view.ViewTreeObserver;
 import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import androidx.annotation.RequiresApi;
 import java.lang.ref.WeakReference;
 
@@ -94,18 +88,12 @@ public class StashNativeCardPlugin {
   private volatile boolean isPurchaseProcessing;
   private boolean usePopupPresentation;
   private boolean useModalPresentation;
-  private boolean useCheckoutOverlayPresentation;
-  /** When true, checkout overlay (no force portrait) is expanded to ~95% height. */
-  private boolean isCheckoutOverlayExpanded = false;
   private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
-  /** Top drag strip on checkout overlay / dialog; faded when purchase processing blocks dismiss. */
-  private View checkoutOverlayDragHandleArea;
   
   // Modal configuration (used when useModalPresentation is true)
   private StashNativeCard.ModalConfig currentModalConfig;
 
-  /** Custom background (#hex) for card presentation; modal uses {@link #currentModalConfig}. */
-  /** Normalized #hex from last {@code openCard} config (used when portrait activity is not involved). */
+  /** Normalized #hex from last {@code openCard} config; modal uses {@link #currentModalConfig}. */
   private String presentationBackgroundColorHex;
   
   private boolean useCustomSize;
@@ -118,8 +106,11 @@ public class StashNativeCardPlugin {
 
   private BroadcastReceiver checkoutBridgeReceiver;
   private boolean checkoutBridgeReceiverRegistered;
+  /** Stashed at registration time so cleanup() can unregister even if the Activity has been GC'd. */
+  private Context registeredAppContext;
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
+  private Runnable pendingHideLoadingRunnable;
 
   /** When true, a short foreground service may run while an external browser / Custom Tabs is open. */
   private volatile boolean keepAliveEnabled;
@@ -238,6 +229,7 @@ public class StashNativeCardPlugin {
         app.registerReceiver(checkoutBridgeReceiver, filter);
       }
       checkoutBridgeReceiverRegistered = true;
+      registeredAppContext = app;
     } catch (Exception e) {
       Log.e(TAG, "Failed to register checkout bridge receiver: " + e.getMessage(), e);
     }
@@ -317,7 +309,7 @@ public class StashNativeCardPlugin {
         }
         dismissCurrentDialog();
       } catch (Exception e) {
-        Log.w(TAG, "Error in runOnMainAndDismiss: " + e.getMessage());
+        Log.w(TAG, "Error in runOnMainAndDismiss: " + e.getMessage(), e);
         cleanupAllViews();
       }
     });
@@ -357,22 +349,17 @@ public class StashNativeCardPlugin {
 
     @JavascriptInterface
     public void onPurchaseProcessing() {
-      try {
-        isPurchaseProcessing = true;
-        new Handler(Looper.getMainLooper()).post(() -> {
-          try {
-            if (currentDialog != null && currentDialog.isShowing()) {
-              currentDialog.setCanceledOnTouchOutside(false);
-              currentDialog.setCancelable(false);
-            }
-            applyCheckoutOverlayDragHandlePurchaseProcessingFade(true);
-          } catch (Exception e) {
-            Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
+      isPurchaseProcessing = true;
+      new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+          if (currentDialog != null && currentDialog.isShowing()) {
+            currentDialog.setCanceledOnTouchOutside(false);
+            currentDialog.setCancelable(false);
           }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
-      }
+        } catch (Exception e) {
+          Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
+        }
+      });
     }
     
     @JavascriptInterface
@@ -387,44 +374,10 @@ public class StashNativeCardPlugin {
 
     @JavascriptInterface
     public void expand() {
-      runOnMainSafely(() -> {
-        try {
-          if (!useCheckoutOverlayPresentation) {
-            return;
-          }
-          Activity a = getActivity();
-          if (a == null || currentContainer == null || currentDialog == null
-              || !currentDialog.isShowing()) {
-            return;
-          }
-          if (!isCheckoutOverlayExpanded) {
-            animateCheckoutOverlayExpand(a);
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in expand from WebView: " + e.getMessage(), e);
-        }
-      });
     }
 
     @JavascriptInterface
     public void collapse() {
-      runOnMainSafely(() -> {
-        try {
-          if (!useCheckoutOverlayPresentation) {
-            return;
-          }
-          Activity a = getActivity();
-          if (a == null || currentContainer == null || currentDialog == null
-              || !currentDialog.isShowing()) {
-            return;
-          }
-          if (isCheckoutOverlayExpanded) {
-            animateCheckoutOverlayCollapse(a);
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in collapse from WebView: " + e.getMessage(), e);
-        }
-      });
     }
 
     @JavascriptInterface
@@ -629,7 +582,7 @@ public class StashNativeCardPlugin {
         url = StashWebViewUtils.appendThemeQueryParameter(url,
             StashWebViewUtils.isDarkTheme(activity));
       } catch (Exception e) {
-        Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+        Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
       }
       final String finalUrl = url;
       final Activity finalActivity = activity;
@@ -740,8 +693,11 @@ public class StashNativeCardPlugin {
 
   public void cleanup() {
     cleanupAllViews();
-    Activity activity = getActivity();
-    Context appContext = activity != null ? activity.getApplicationContext() : null;
+    Context appContext = registeredAppContext;
+    if (appContext == null) {
+      Activity activity = getActivity();
+      appContext = activity != null ? activity.getApplicationContext() : null;
+    }
     if (checkoutBridgeReceiverRegistered && appContext != null && checkoutBridgeReceiver != null) {
       try {
         appContext.unregisterReceiver(checkoutBridgeReceiver);
@@ -761,6 +717,7 @@ public class StashNativeCardPlugin {
       checkoutHostLifecycleRegistered = false;
       checkoutHostLifecycleCallbacks = null;
     }
+    registeredAppContext = null;
   }
 
   /**
@@ -769,12 +726,7 @@ public class StashNativeCardPlugin {
    * @return true if presented
    */
   public boolean isCurrentlyPresented() {
-    try {
-      return isCurrentlyPresented;
-    } catch (Exception e) {
-      Log.w(TAG, "Error in isCurrentlyPresented: " + e.getMessage(), e);
-      return false;
-    }
+    return isCurrentlyPresented;
   }
 
   // ============================================================================
@@ -799,12 +751,7 @@ public class StashNativeCardPlugin {
    * @return true if processing
    */
   public boolean isPurchaseProcessing() {
-    try {
-      return isPurchaseProcessing;
-    } catch (Exception e) {
-      Log.w(TAG, "Error in isPurchaseProcessing: " + e.getMessage(), e);
-      return false;
-    }
+    return isPurchaseProcessing;
   }
   
   private void openUrlInternal(String url) {
@@ -826,7 +773,7 @@ public class StashNativeCardPlugin {
         url = StashWebViewUtils.appendThemeQueryParameter(url,
             StashWebViewUtils.effectiveDarkThemeForCheckout(activity, bgHex));
       } catch (Exception e) {
-        Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+        Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
       }
 
       final String finalUrl = url;
@@ -920,7 +867,6 @@ public class StashNativeCardPlugin {
 
       activity.startActivity(intent);
       activity.overridePendingTransition(0, 0);
-      presentationUsesIsolatedWebviewProcess = true;
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
@@ -950,9 +896,7 @@ public class StashNativeCardPlugin {
             
             try {
               int[] newDimensions;
-              if (plugin.useCheckoutOverlayPresentation) {
-                newDimensions = plugin.calculateCheckoutOverlayDimensions(activity);
-              } else if (plugin.useModalPresentation) {
+              if (plugin.useModalPresentation) {
                 newDimensions = plugin.calculateModalDimensions(activity);
               } else {
                 newDimensions = plugin.calculatePopupDimensions(activity);
@@ -960,13 +904,7 @@ public class StashNativeCardPlugin {
               FrameLayout.LayoutParams params =
                   (FrameLayout.LayoutParams) plugin.currentContainer.getLayoutParams();
 
-              if (plugin.useCheckoutOverlayPresentation) {
-                plugin.isCheckoutOverlayExpanded = false;
-                params.width = newDimensions[0];
-                params.height = newDimensions[1];
-                params.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-                plugin.currentContainer.setLayoutParams(params);
-              } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
                 plugin.currentContainer.animate()
                     .scaleX(0.95f)
                     .scaleY(0.95f)
@@ -982,7 +920,7 @@ public class StashNativeCardPlugin {
                             .setDuration(200)
                             .start();
                       } catch (Exception e) {
-                        Log.w(TAG, "Error in animation end action: " + e.getMessage(), e);
+                        Log.d(TAG, "Error in animation end action: " + e.getMessage(), e);
                       }
                     })
                     .start();
@@ -992,282 +930,14 @@ public class StashNativeCardPlugin {
                 plugin.currentContainer.setLayoutParams(params);
               }
             } catch (Exception e) {
-              Log.w(TAG, "Error calculating or applying dimensions: " + e.getMessage(), e);
+              Log.d(TAG, "Error calculating or applying dimensions: " + e.getMessage(), e);
             }
           }
         }
       } catch (Exception e) {
-        Log.w(TAG, "Error in onGlobalLayout: " + e.getMessage(), e);
+        Log.d(TAG, "Error in onGlobalLayout: " + e.getMessage(), e);
       }
     }
-  }
-
-  /**
-   * Touch listener for checkout overlay drag bar: expand (drag up), collapse (drag down when
-   * expanded), dismiss (drag down when collapsed).
-   */
-  private class CheckoutOverlayDragTouchListener implements View.OnTouchListener {
-    private final Activity activity;
-    private float initialY;
-    private int initialHeight;
-    private boolean isDragging;
-    private long lastMoveTime;
-    private float lastMoveY;
-    private float velocity;
-    private DisplayMetrics displayMetrics;
-
-    CheckoutOverlayDragTouchListener(Activity activity) {
-      this.activity = activity;
-    }
-
-    @Override
-    public boolean onTouch(View v, MotionEvent event) {
-      if (currentContainer == null || currentDialog == null || !currentDialog.isShowing()
-          || !useCheckoutOverlayPresentation) {
-        return false;
-      }
-      if (isPurchaseProcessing) {
-        return false;
-      }
-
-      switch (event.getAction()) {
-        case MotionEvent.ACTION_DOWN:
-          initialY = event.getRawY();
-          FrameLayout.LayoutParams params =
-              (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-          initialHeight = params.height;
-          isDragging = false;
-          lastMoveTime = System.currentTimeMillis();
-          lastMoveY = event.getRawY();
-          velocity = 0;
-          displayMetrics = activity.getResources().getDisplayMetrics();
-          return true;
-
-        case MotionEvent.ACTION_MOVE:
-          long currentTime = System.currentTimeMillis();
-          float timeDelta = (currentTime - lastMoveTime) / 1000f;
-          if (timeDelta > 0) {
-            velocity = (event.getRawY() - lastMoveY) / timeDelta;
-          }
-          lastMoveTime = currentTime;
-          lastMoveY = event.getRawY();
-          float deltaY = event.getRawY() - initialY;
-
-          if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(activity, 10)) {
-            isDragging = true;
-            if (deltaY > 0) {
-              if (isCheckoutOverlayExpanded) {
-                float cardHeight = currentContainer.getHeight();
-                float collapseThreshold = cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
-                float progress = Math.min(deltaY / collapseThreshold, 1.0f);
-                int[] collapsed = calculateCheckoutOverlayDimensions(activity);
-                int expandedHeight = (int) (displayMetrics.heightPixels
-                    * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-                int newHeight = (int) (expandedHeight - progress * (expandedHeight - collapsed[1]));
-                params = (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-                params.height = Math.max(newHeight, collapsed[1]);
-                currentContainer.setLayoutParams(params);
-              } else {
-                float newTranslationY = deltaY;
-                currentContainer.setTranslationY(newTranslationY);
-                float progress = Math.min(deltaY / displayMetrics.heightPixels, 1.0f);
-                currentContainer.setAlpha(1.0f - (progress * CardConstants.ALPHA_FADE_MULTIPLIER));
-              }
-            } else if (!isCheckoutOverlayExpanded) {
-              float cardHeight = currentContainer.getHeight();
-              float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
-              float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
-              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                currentContainer.setScaleX(1.0f + (dragProgress * 0.02f));
-                currentContainer.setScaleY(1.0f + (dragProgress * 0.02f));
-              }
-            }
-          }
-          return true;
-
-        case MotionEvent.ACTION_UP:
-        case MotionEvent.ACTION_CANCEL:
-          if (isDragging) {
-            float finalDeltaY = event.getRawY() - initialY;
-            DisplayMetrics metrics = displayMetrics != null
-                ? activity.getResources().getDisplayMetrics()
-                : activity.getResources().getDisplayMetrics();
-            int cardHeight = currentContainer.getHeight();
-
-            if (finalDeltaY > 0) {
-              if (isCheckoutOverlayExpanded) {
-                float dismissThreshold = metrics.heightPixels
-                    * CardConstants.DISMISS_DISTANCE_THRESHOLD_TABLET;
-                float collapseThreshold = cardHeight * CardConstants.COLLAPSE_DISTANCE_THRESHOLD;
-                if (finalDeltaY > dismissThreshold
-                    && velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
-                  animateCheckoutOverlayDismiss();
-                } else if (finalDeltaY > collapseThreshold
-                    || velocity > CardConstants.COLLAPSE_VELOCITY_THRESHOLD) {
-                  animateCheckoutOverlayCollapse(activity);
-                } else {
-                  animateCheckoutOverlaySnapBackExpand(activity);
-                }
-              } else {
-                float dismissThreshold = metrics.heightPixels
-                    * CardConstants.DISMISS_DISTANCE_THRESHOLD_PHONE;
-                if (finalDeltaY > dismissThreshold
-                    || velocity > CardConstants.DISMISS_VELOCITY_THRESHOLD) {
-                  animateCheckoutOverlayDismiss();
-                } else {
-                  animateCheckoutOverlaySnapBackCollapsed(activity);
-                }
-              }
-            } else if (finalDeltaY < 0 && !isCheckoutOverlayExpanded) {
-              float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
-              if (Math.abs(finalDeltaY) > expandThreshold
-                  || velocity < CardConstants.EXPAND_VELOCITY_THRESHOLD) {
-                animateCheckoutOverlayExpand(activity);
-              } else {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                  currentContainer.animate()
-                      .scaleX(1f)
-                      .scaleY(1f)
-                      .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
-                      .setInterpolator(new SpringInterpolator())
-                      .start();
-                }
-              }
-            } else {
-              if (isCheckoutOverlayExpanded) {
-                animateCheckoutOverlaySnapBackExpand(activity);
-              } else {
-                animateCheckoutOverlaySnapBackCollapsed(activity);
-              }
-            }
-          }
-          return true;
-        default:
-          return false;
-      }
-    }
-  }
-
-  private void animateCheckoutOverlayExpand(Activity activity) {
-    if (currentContainer == null || activity == null) {
-      return;
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      currentContainer.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
-    }
-    FrameLayout.LayoutParams params =
-        (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-    int expandedHeight = (int) (activity.getResources().getDisplayMetrics().heightPixels
-        * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-    ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, expandedHeight);
-    heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_EXPAND);
-    heightAnimator.setInterpolator(new SpringInterpolator());
-    heightAnimator.addUpdateListener(animation -> {
-      if (currentContainer != null) {
-        FrameLayout.LayoutParams p =
-            (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-        p.height = (Integer) animation.getAnimatedValue();
-        currentContainer.setLayoutParams(p);
-      }
-    });
-    heightAnimator.start();
-    currentContainer.setTranslationY(0);
-    currentContainer.setAlpha(1f);
-    isCheckoutOverlayExpanded = true;
-  }
-
-  private void animateCheckoutOverlayCollapse(Activity activity) {
-    if (currentContainer == null || activity == null || !isCheckoutOverlayExpanded) {
-      return;
-    }
-    int[] dims = calculateCheckoutOverlayDimensions(activity);
-    FrameLayout.LayoutParams params =
-        (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-    ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, dims[1]);
-    heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_COLLAPSE);
-    heightAnimator.setInterpolator(new SpringInterpolator());
-    heightAnimator.addUpdateListener(animation -> {
-      if (currentContainer != null) {
-        FrameLayout.LayoutParams p =
-            (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-        p.height = (Integer) animation.getAnimatedValue();
-        currentContainer.setLayoutParams(p);
-      }
-    });
-    heightAnimator.start();
-    currentContainer.setTranslationY(0);
-    currentContainer.setAlpha(1f);
-    isCheckoutOverlayExpanded = false;
-  }
-
-  private void animateCheckoutOverlaySnapBackExpand(Activity activity) {
-    if (currentContainer == null) {
-      return;
-    }
-    int expandedHeight = (int) (activity.getResources().getDisplayMetrics().heightPixels
-        * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
-    FrameLayout.LayoutParams params =
-        (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-    ValueAnimator heightAnimator = ValueAnimator.ofInt(params.height, expandedHeight);
-    heightAnimator.setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK);
-    heightAnimator.setInterpolator(new SpringInterpolator());
-    heightAnimator.addUpdateListener(animation -> {
-      if (currentContainer != null) {
-        FrameLayout.LayoutParams p =
-            (FrameLayout.LayoutParams) currentContainer.getLayoutParams();
-        p.height = (Integer) animation.getAnimatedValue();
-        currentContainer.setLayoutParams(p);
-      }
-    });
-    heightAnimator.start();
-    currentContainer.setTranslationY(0);
-    currentContainer.setAlpha(1f);
-  }
-
-  private void animateCheckoutOverlaySnapBackCollapsed(Activity activity) {
-    if (currentContainer == null || activity == null) {
-      return;
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      currentContainer.animate()
-          .scaleX(1f)
-          .scaleY(1f)
-          .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
-          .setInterpolator(new SpringInterpolator())
-          .start();
-    }
-    currentContainer.setTranslationY(0);
-    currentContainer.setAlpha(1f);
-  }
-
-  private void animateCheckoutOverlayDismiss() {
-    if (currentDialog == null || currentContainer == null) {
-      return;
-    }
-    Activity a = getActivity();
-    int height = currentContainer.getHeight();
-    if (height <= 0 && a != null) {
-      height = (int) (a.getResources().getDisplayMetrics().heightPixels * cardHeightRatioPortrait);
-    }
-    if (height <= 0) {
-      height = 800;
-    }
-    final int finalHeight = height;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      currentContainer.animate()
-        .translationY(finalHeight)
-        .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
-        .setInterpolator(new android.view.animation.AccelerateInterpolator())
-        .withEndAction(() -> {
-          if (currentDialog != null) {
-            currentDialog.dismiss();
-          }
-        })
-          .start();
-    } else {
-      currentDialog.dismiss();
-    }
-    isCheckoutOverlayExpanded = false;
   }
 
   private void createAndShowPopupDialog(String url, final Activity activity) {
@@ -1289,7 +959,7 @@ public class StashNativeCardPlugin {
       try {
         mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
       } catch (Exception e) {
-        Log.w(TAG, "Error setting background color: " + e.getMessage(), e);
+        Log.d(TAG, "Error setting background color: " + e.getMessage(), e);
         mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
       }
       
@@ -1300,7 +970,7 @@ public class StashNativeCardPlugin {
             currentDialog.dismiss();
           }
         } catch (Exception e) {
-          Log.w(TAG, "Error in click handler: " + e.getMessage(), e);
+          Log.d(TAG, "Error in click handler: " + e.getMessage(), e);
         }
       });
 
@@ -1308,7 +978,7 @@ public class StashNativeCardPlugin {
       try {
         dimensions = calculatePopupDimensions(activity);
       } catch (Exception e) {
-        Log.w(TAG, "Error calculating dimensions: " + e.getMessage(), e);
+        Log.d(TAG, "Error calculating dimensions: " + e.getMessage(), e);
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         dimensions = new int[]{
           (int) (metrics.widthPixels * 0.9f),
@@ -1325,7 +995,7 @@ public class StashNativeCardPlugin {
       try {
         lastOrientation = activity.getResources().getConfiguration().orientation;
       } catch (Exception e) {
-        Log.w(TAG, "Error getting orientation: " + e.getMessage(), e);
+        Log.d(TAG, "Error getting orientation: " + e.getMessage(), e);
         lastOrientation = Configuration.ORIENTATION_PORTRAIT;
       }
       
@@ -1333,7 +1003,7 @@ public class StashNativeCardPlugin {
       try {
         mainFrame.getViewTreeObserver().addOnGlobalLayoutListener(orientationChangeListener);
       } catch (Exception e) {
-        Log.w(TAG, "Error adding layout listener: " + e.getMessage(), e);
+        Log.d(TAG, "Error adding layout listener: " + e.getMessage(), e);
       }
       
       try {
@@ -1352,14 +1022,14 @@ public class StashNativeCardPlugin {
               try {
                 outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
               } catch (Exception e) {
-                Log.w(TAG, "Error setting outline: " + e.getMessage(), e);
+                Log.d(TAG, "Error setting outline: " + e.getMessage(), e);
               }
             }
           });
           currentContainer.setClipToOutline(true);
         }
       } catch (Exception e) {
-        Log.w(TAG, "Error setting container background: " + e.getMessage(), e);
+        Log.d(TAG, "Error setting container background: " + e.getMessage(), e);
       }
       
       try {
@@ -1394,7 +1064,7 @@ public class StashNativeCardPlugin {
           StashWebViewUtils.applySystemBarAppearance(
               window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
         } catch (Exception e) {
-          Log.w(TAG, "Error configuring window: " + e.getMessage(), e);
+          Log.d(TAG, "Error configuring window: " + e.getMessage(), e);
         }
       }
 
@@ -1410,7 +1080,7 @@ public class StashNativeCardPlugin {
             l.onDialogDismissed();
           }
         } catch (Exception e) {
-          Log.w(TAG, "Error in dismiss listener: " + e.getMessage(), e);
+          Log.d(TAG, "Error in dismiss listener: " + e.getMessage(), e);
         }
         cleanupAllViews();
         presentationUsesIsolatedWebviewProcess = false;
@@ -1432,175 +1102,6 @@ public class StashNativeCardPlugin {
     }
   }
   
-  private void createAndShowModalDialog(String url, final Activity activity) {
-    if (activity == null || url == null || url.isEmpty()) {
-      Log.e(TAG, "Invalid activity or URL in createAndShowModalDialog");
-      return;
-    }
-    if (currentModalConfig == null) {
-      currentModalConfig = new StashNativeCard.ModalConfig();
-    }
-
-    cleanupAllViews();
-    useModalPresentation = true;
-    paymentSuccessHandled = false;
-
-    try {
-      currentDialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
-      currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-
-      FrameLayout mainFrame = new FrameLayout(activity);
-      try {
-        mainFrame.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
-      } catch (Exception e) {
-        Log.w(TAG, "Error setting background color: " + e.getMessage(), e);
-        mainFrame.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
-      }
-
-      mainFrame.setOnClickListener(v -> {
-        try {
-          if (currentModalConfig.allowDismiss && !isPurchaseProcessing && currentDialog != null
-              && currentDialog.isShowing() && v == mainFrame) {
-            currentDialog.dismiss();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in click handler: " + e.getMessage(), e);
-        }
-      });
-
-      int[] dimensions;
-      try {
-        dimensions = calculateModalDimensions(activity);
-      } catch (Exception e) {
-        Log.w(TAG, "Error calculating modal dimensions: " + e.getMessage(), e);
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        dimensions = new int[]{
-          (int) (metrics.widthPixels * 0.9f),
-          (int) (metrics.heightPixels * 0.5f)
-        };
-      }
-
-      currentContainer = new FrameLayout(activity);
-      FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
-          dimensions[0], dimensions[1]);
-      containerParams.gravity = Gravity.CENTER;
-      currentContainer.setLayoutParams(containerParams);
-
-      try {
-        lastOrientation = activity.getResources().getConfiguration().orientation;
-      } catch (Exception e) {
-        Log.w(TAG, "Error getting orientation: " + e.getMessage(), e);
-        lastOrientation = Configuration.ORIENTATION_PORTRAIT;
-      }
-
-      orientationChangeListener = new PopupOrientationListener(activity, this);
-      try {
-        mainFrame.getViewTreeObserver().addOnGlobalLayoutListener(orientationChangeListener);
-      } catch (Exception e) {
-        Log.w(TAG, "Error adding layout listener: " + e.getMessage(), e);
-      }
-
-      try {
-        GradientDrawable popupBg = new GradientDrawable();
-        popupBg.setColor(dialogSheetBackgroundArgb(activity));
-        float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
-        popupBg.setCornerRadius(radius);
-        currentContainer.setBackground(popupBg);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-          currentContainer.setElevation(
-              StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
-          currentContainer.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-              try {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-              } catch (Exception e) {
-                Log.w(TAG, "Error setting outline: " + e.getMessage(), e);
-              }
-            }
-          });
-          currentContainer.setClipToOutline(true);
-        }
-      } catch (Exception e) {
-        Log.w(TAG, "Error setting container background: " + e.getMessage(), e);
-      }
-
-      try {
-        webView = new WebView(activity);
-        FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        webView.setLayoutParams(webViewParams);
-        currentContainer.addView(webView);
-        setupPopupWebView(webView, url, activity);
-      } catch (Exception e) {
-        Log.w(TAG, "Error creating WebView: " + e.getMessage(), e);
-        cleanupAllViews();
-        return;
-      }
-
-      mainFrame.addView(currentContainer);
-      currentDialog.setContentView(mainFrame);
-
-      Window window = currentDialog.getWindow();
-      if (window != null) {
-        try {
-          window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
-              ViewGroup.LayoutParams.MATCH_PARENT);
-          window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-              WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          window.setBackgroundDrawableResource(android.R.color.transparent);
-          window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-          WindowManager.LayoutParams windowParams = window.getAttributes();
-          windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
-          window.setAttributes(windowParams);
-          if (dialogBackgroundColorOverrideActive()) {
-            StashWebViewUtils.applySystemBarAppearanceForSheet(
-                window, window.getDecorView(), dialogSheetBackgroundArgb(activity));
-          } else {
-            StashWebViewUtils.applySystemBarAppearance(
-                window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error configuring window: " + e.getMessage(), e);
-        }
-      }
-
-      currentContainer.setOnClickListener(v -> {});
-
-      currentDialog.setCanceledOnTouchOutside(
-          currentModalConfig.allowDismiss && !isPurchaseProcessing);
-      currentDialog.setCancelable(!isPurchaseProcessing);
-
-      currentDialog.setOnDismissListener(dialog -> {
-        try {
-          StashNativeCard.StashNativeCardListener l = getListener();
-          if (!paymentSuccessHandled && l != null) {
-            l.onDialogDismissed();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in dismiss listener: " + e.getMessage(), e);
-        }
-        cleanupAllViews();
-        presentationUsesIsolatedWebviewProcess = false;
-        isCurrentlyPresented = false;
-      });
-
-      try {
-        currentDialog.show();
-        animateFadeIn();
-        presentationUsesIsolatedWebviewProcess = false;
-        isCurrentlyPresented = true;
-      } catch (Exception e) {
-        Log.w(TAG, "Error showing modal dialog: " + e.getMessage(), e);
-        cleanupAllViews();
-      }
-    } catch (Exception e) {
-      Log.w(TAG, "Error creating modal: " + e.getMessage(), e);
-      cleanupAllViews();
-    }
-  }
-
   private void animateFadeIn() {
     try {
       if (currentContainer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
@@ -1616,7 +1117,7 @@ public class StashNativeCardPlugin {
             .start();
       }
     } catch (Exception e) {
-      Log.w(TAG, "Error in animateFadeIn: " + e.getMessage(), e);
+      Log.d(TAG, "Error in animateFadeIn: " + e.getMessage(), e);
     }
   }
   
@@ -1636,7 +1137,7 @@ public class StashNativeCardPlugin {
                     currentDialog.dismiss();
                   }
                 } catch (Exception e) {
-                  Log.w(TAG, "Error dismissing dialog in animation: " + e.getMessage(), e);
+                  Log.d(TAG, "Error dismissing dialog in animation: " + e.getMessage(), e);
                 }
               })
               .start();
@@ -1647,13 +1148,13 @@ public class StashNativeCardPlugin {
         currentDialog.dismiss();
       }
     } catch (Exception e) {
-      Log.w(TAG, "Error in dismissPopupDialog: " + e.getMessage(), e);
+      Log.d(TAG, "Error in dismissPopupDialog: " + e.getMessage(), e);
       try {
         if (currentDialog != null) {
           currentDialog.dismiss();
         }
       } catch (Exception e2) {
-        Log.w(TAG, "Error force dismissing dialog: " + e2.getMessage(), e2);
+        Log.d(TAG, "Error force dismissing dialog: " + e2.getMessage(), e2);
       }
     }
   }
@@ -1671,7 +1172,7 @@ public class StashNativeCardPlugin {
         try {
           currentDialog.setOnDismissListener(null);
         } catch (Exception e) {
-          Log.w(TAG, "Error clearing dismiss listener: " + e.getMessage(), e);
+          Log.d(TAG, "Error clearing dismiss listener: " + e.getMessage(), e);
         }
       }
       cleanupAllViews();
@@ -1723,7 +1224,7 @@ public class StashNativeCardPlugin {
     try {
       StashWebViewUtils.configureWebViewSettings(webView, effDark);
     } catch (Exception e) {
-      Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
+      Log.d(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
     }
     
     webView.setWebViewClient(new WebViewClient() {
@@ -1735,7 +1236,7 @@ public class StashNativeCardPlugin {
           showLoadingIndicator(activity);
           injectStashSDKFunctions();
         } catch (Exception e) {
-          Log.w(TAG, "Error in onPageStarted: " + e.getMessage(), e);
+          Log.d(TAG, "Error in onPageStarted: " + e.getMessage(), e);
         }
       }
       
@@ -1752,22 +1253,23 @@ public class StashNativeCardPlugin {
                 l.onPageLoaded(loadTimeMs);
               }
             } catch (Exception e) {
-              Log.w(TAG, "Error sending page loaded message: " + e.getMessage(), e);
+              Log.d(TAG, "Error sending page loaded message: " + e.getMessage(), e);
             }
             pageLoadStartTime = 0;
           }
           
           injectStashSDKFunctions();
-          view.postDelayed(() -> {
+          pendingHideLoadingRunnable = () -> {
             try {
               hideLoadingIndicator(activity);
               view.setVisibility(View.VISIBLE);
             } catch (Exception e) {
-              Log.w(TAG, "Error in delayed page finished handler: " + e.getMessage(), e);
+              Log.d(TAG, "Error in delayed page finished handler: " + e.getMessage(), e);
             }
-          }, CardConstants.HIDE_LOADING_DELAY_MS);
+          };
+          view.postDelayed(pendingHideLoadingRunnable, CardConstants.HIDE_LOADING_DELAY_MS);
         } catch (Exception e) {
-          Log.w(TAG, "Error in onPageFinished: " + e.getMessage(), e);
+          Log.d(TAG, "Error in onPageFinished: " + e.getMessage(), e);
         }
       }
       
@@ -1780,7 +1282,7 @@ public class StashNativeCardPlugin {
             Log.e(TAG, "WebView error: " + error.getDescription());
           }
         } catch (Exception e) {
-          Log.w(TAG, "Error in onReceivedError: " + e.getMessage(), e);
+          Log.d(TAG, "Error in onReceivedError: " + e.getMessage(), e);
         }
       }
 
@@ -1809,7 +1311,7 @@ public class StashNativeCardPlugin {
       try {
         urlThemed = StashWebViewUtils.appendThemeQueryParameter(url, effDark);
       } catch (Exception e) {
-        Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+        Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
       }
       webView.loadUrl(urlThemed);
     } catch (Exception e) {
@@ -1826,7 +1328,7 @@ public class StashNativeCardPlugin {
     try {
       webView.evaluateJavascript(StashWebViewUtils.JS_SDK_SCRIPT, null);
     } catch (Exception e) {
-      Log.w(TAG, "Error injecting SDK functions: " + e.getMessage(), e);
+      Log.d(TAG, "Error injecting SDK functions: " + e.getMessage(), e);
     }
   }
   
@@ -1847,11 +1349,11 @@ public class StashNativeCardPlugin {
           loadingOverlayView = StashWebViewUtils.createAndShowLoadingView(activity, currentContainer,
               sheetBg, StashBackgroundColorUtils.spinnerAccentFor(sheetBg));
         } catch (Exception e) {
-          Log.w(TAG, "Error showing loading indicator: " + e.getMessage(), e);
+          Log.d(TAG, "Error showing loading indicator: " + e.getMessage(), e);
         }
       });
     } catch (Exception e) {
-      Log.w(TAG, "Error scheduling loading indicator: " + e.getMessage(), e);
+      Log.d(TAG, "Error scheduling loading indicator: " + e.getMessage(), e);
     }
   }
   
@@ -1865,12 +1367,12 @@ public class StashNativeCardPlugin {
           StashWebViewUtils.hideLoadingOverlay(loadingOverlayView);
           loadingOverlayView = null;
         } catch (Exception e) {
-          Log.w(TAG, "Error hiding loading indicator: " + e.getMessage(), e);
+          Log.d(TAG, "Error hiding loading indicator: " + e.getMessage(), e);
           loadingOverlayView = null;
         }
       });
     } catch (Exception e) {
-      Log.w(TAG, "Error scheduling hide loading indicator: " + e.getMessage(), e);
+      Log.d(TAG, "Error scheduling hide loading indicator: " + e.getMessage(), e);
     }
   }
   
@@ -1887,14 +1389,18 @@ public class StashNativeCardPlugin {
   
   private void cleanupAllViews() {
     try {
-      useCheckoutOverlayPresentation = false;
+      if (pendingHideLoadingRunnable != null && webView != null) {
+        webView.removeCallbacks(pendingHideLoadingRunnable);
+      }
+      pendingHideLoadingRunnable = null;
+
       if (loadingOverlayView != null) {
         try {
           if (loadingOverlayView.getParent() != null) {
             ((ViewGroup) loadingOverlayView.getParent()).removeView(loadingOverlayView);
           }
         } catch (Exception e) {
-          Log.w(TAG, "Error cleaning up loading indicator: " + e.getMessage());
+          Log.d(TAG, "Error cleaning up loading indicator: " + e.getMessage());
         }
         loadingOverlayView = null;
       }
@@ -1917,7 +1423,7 @@ public class StashNativeCardPlugin {
           webView.removeJavascriptInterface(StashWebViewUtils.JS_INTERFACE_NAME);
           webView.destroy();
         } catch (Exception e) {
-          Log.w(TAG, "Error cleaning up WebView: " + e.getMessage());
+          Log.d(TAG, "Error cleaning up WebView: " + e.getMessage());
         }
         webView = null;
       }
@@ -1935,15 +1441,14 @@ public class StashNativeCardPlugin {
           }
           currentContainer.removeAllViews();
         } catch (Exception e) {
-          Log.w(TAG, "Error cleaning up container: " + e.getMessage());
+          Log.d(TAG, "Error cleaning up container: " + e.getMessage());
         }
         currentContainer = null;
       }
       
-      checkoutOverlayDragHandleArea = null;
       orientationChangeListener = null;
     } catch (Exception e) {
-      Log.w(TAG, "Error during cleanup: " + e.getMessage());
+      Log.d(TAG, "Error during cleanup: " + e.getMessage());
     }
 
     paymentSuccessHandled = false;
@@ -1991,7 +1496,7 @@ public class StashNativeCardPlugin {
 
       return new int[]{popupWidth, popupHeight};
     } catch (Exception e) {
-      Log.w(TAG, "Error calculating popup dimensions: " + e.getMessage(), e);
+      Log.d(TAG, "Error calculating popup dimensions: " + e.getMessage(), e);
       try {
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         return new int[]{
@@ -1999,7 +1504,7 @@ public class StashNativeCardPlugin {
           (int) (metrics.heightPixels * 0.7f)
         };
       } catch (Exception e2) {
-        Log.w(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
+        Log.d(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
         return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
       }
     }
@@ -2055,7 +1560,7 @@ public class StashNativeCardPlugin {
 
       return new int[]{cardWidth, cardHeight};
     } catch (Exception e) {
-      Log.w(TAG, "Error calculating modal dimensions: " + e.getMessage(), e);
+      Log.d(TAG, "Error calculating modal dimensions: " + e.getMessage(), e);
       try {
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         return new int[]{
@@ -2063,286 +1568,13 @@ public class StashNativeCardPlugin {
           (int) (metrics.heightPixels * 0.5f)
         };
       } catch (Exception e2) {
-        Log.w(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
+        Log.d(TAG, "Error getting fallback dimensions: " + e2.getMessage(), e2);
         return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
       }
     }
   }
   
-  private int[] calculateCheckoutOverlayDimensions(Activity activity) {
-    if (activity == null) {
-      return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
-    }
-    try {
-      DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-      int screenWidth = metrics.widthPixels;
-      int screenHeight = metrics.heightPixels;
-      boolean isLandscape = activity.getResources().getConfiguration().orientation
-          == Configuration.ORIENTATION_LANDSCAPE;
-      int maxCardHeight = screenHeight - StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-      if (maxCardHeight <= 0) maxCardHeight = screenHeight;
-      int cardWidth;
-      int cardHeight;
-      if (isLandscape) {
-        int w = (int) (screenWidth * cardWidthRatioLandscape);
-        int h = (int) (screenHeight * cardHeightRatioLandscape);
-        int minPx = StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-        if (w < minPx) {
-          w = minPx;
-        }
-        if (h < minPx) {
-          h = minPx;
-        }
-        cardWidth = w;
-        cardHeight = Math.min(h, maxCardHeight);
-      } else {
-        cardWidth = screenWidth;
-        cardHeight = Math.min((int) (screenHeight * cardHeightRatioPortrait), maxCardHeight);
-      }
-      return new int[]{cardWidth, cardHeight};
-    } catch (Exception e) {
-      Log.w(TAG, "Error calculating checkout overlay dimensions: " + e.getMessage(), e);
-      try {
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        return new int[]{
-          metrics.widthPixels,
-          (int) (metrics.heightPixels * CardConstants.DEFAULT_CARD_HEIGHT_RATIO)
-        };
-      } catch (Exception e2) {
-        return new int[]{CardConstants.FALLBACK_POPUP_WIDTH, CardConstants.FALLBACK_POPUP_HEIGHT};
-      }
-    }
-  }
   
-  private void createAndShowCheckoutOverlay(String url, final Activity activity) {
-    if (activity == null || url == null || url.isEmpty()) {
-      Log.e(TAG, "Invalid activity or URL in createAndShowCheckoutOverlay");
-      return;
-    }
-    cleanupAllViews();
-    useCheckoutOverlayPresentation = true;
-    paymentSuccessHandled = false;
-    try {
-      currentDialog = new Dialog(activity, android.R.style.Theme_Translucent_NoTitleBar_Fullscreen);
-      currentDialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-      FrameLayout mainFrame = new FrameLayout(activity);
-      mainFrame.setBackgroundColor(Color.TRANSPARENT);
-      View checkoutOverlayDim = new View(activity);
-      checkoutOverlayDim.setLayoutParams(new FrameLayout.LayoutParams(
-          FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-      try {
-        checkoutOverlayDim.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
-      } catch (Exception e) {
-        checkoutOverlayDim.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
-      }
-      checkoutOverlayDim.setAlpha(0f);
-      checkoutOverlayDim.setClickable(true);
-      checkoutOverlayDim.setOnClickListener(v -> {
-        try {
-          if (!isPurchaseProcessing && currentDialog != null && currentDialog.isShowing()) {
-            currentDialog.dismiss();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in checkout overlay click handler: " + e.getMessage(), e);
-        }
-      });
-      mainFrame.addView(checkoutOverlayDim);
-      int[] dimensions;
-      try {
-        dimensions = calculateCheckoutOverlayDimensions(activity);
-      } catch (Exception e) {
-        Log.w(TAG, "Error calculating checkout overlay dimensions: " + e.getMessage(), e);
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        dimensions = new int[]{
-          metrics.widthPixels,
-          (int) (metrics.heightPixels * cardHeightRatioPortrait)
-        };
-      }
-      currentContainer = new FrameLayout(activity);
-      FrameLayout.LayoutParams containerParams = new FrameLayout.LayoutParams(
-          dimensions[0], dimensions[1]);
-      containerParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-      currentContainer.setLayoutParams(containerParams);
-      try {
-        lastOrientation = activity.getResources().getConfiguration().orientation;
-      } catch (Exception e) {
-        lastOrientation = Configuration.ORIENTATION_PORTRAIT;
-      }
-      orientationChangeListener = new PopupOrientationListener(activity, this);
-      try {
-        mainFrame.getViewTreeObserver().addOnGlobalLayoutListener(orientationChangeListener);
-      } catch (Exception e) {
-        Log.w(TAG, "Error adding orientation listener: " + e.getMessage(), e);
-      }
-      try {
-        GradientDrawable popupBg = new GradientDrawable();
-        popupBg.setColor(dialogSheetBackgroundArgb(activity));
-        float radius = StashWebViewUtils.dpToPx(activity, (int) CardConstants.CORNER_RADIUS_DP);
-        popupBg.setCornerRadius(radius);
-        currentContainer.setBackground(popupBg);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-          currentContainer.setElevation(
-              StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
-          currentContainer.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-              try {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-              } catch (Exception e) {
-                Log.w(TAG, "Error setting outline: " + e.getMessage(), e);
-              }
-            }
-          });
-          currentContainer.setClipToOutline(true);
-        }
-      } catch (Exception e) {
-        Log.w(TAG, "Error setting container background: " + e.getMessage(), e);
-      }
-      try {
-        webView = new WebView(activity);
-        FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        webView.setLayoutParams(webViewParams);
-        currentContainer.addView(webView);
-        addCheckoutOverlayDragBar(activity);
-        int childCount = currentContainer.getChildCount();
-        View dragArea = childCount > 0 ? currentContainer.getChildAt(childCount - 1) : null;
-        if (dragArea != null) {
-          dragArea.setOnTouchListener(new CheckoutOverlayDragTouchListener(activity));
-        }
-        setupPopupWebView(webView, url, activity);
-      } catch (Exception e) {
-        Log.w(TAG, "Error creating WebView in checkout overlay: " + e.getMessage(), e);
-        cleanupAllViews();
-        return;
-      }
-      mainFrame.addView(currentContainer);
-      currentDialog.setContentView(mainFrame);
-      Window window = currentDialog.getWindow();
-      if (window != null) {
-        try {
-          window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
-              ViewGroup.LayoutParams.MATCH_PARENT);
-          window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-              WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          window.setBackgroundDrawableResource(android.R.color.transparent);
-          window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-          WindowManager.LayoutParams windowParams = window.getAttributes();
-          // Dim is animated on in-dialog layer (matches iOS overlay fade + delayed sheet).
-          windowParams.dimAmount = 0f;
-          window.setAttributes(windowParams);
-          if (dialogBackgroundColorOverrideActive()) {
-            StashWebViewUtils.applySystemBarAppearanceForSheet(
-                window, window.getDecorView(), dialogSheetBackgroundArgb(activity));
-          } else {
-            StashWebViewUtils.applySystemBarAppearance(
-                window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error configuring checkout overlay window: " + e.getMessage(), e);
-        }
-      }
-      currentContainer.setOnClickListener(v -> {});
-      currentDialog.setCanceledOnTouchOutside(!isPurchaseProcessing);
-      currentDialog.setCancelable(!isPurchaseProcessing);
-      currentDialog.setOnDismissListener(dialog -> {
-        try {
-          StashNativeCard.StashNativeCardListener l = getListener();
-          if (!paymentSuccessHandled && l != null) {
-            l.onDialogDismissed();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in checkout overlay dismiss listener: " + e.getMessage(), e);
-        }
-        cleanupAllViews();
-        presentationUsesIsolatedWebviewProcess = false;
-        isCurrentlyPresented = false;
-      });
-      currentDialog.show();
-      DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-      currentContainer.setTranslationY(metrics.heightPixels);
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-        checkoutOverlayDim.animate()
-            .alpha(1f)
-            .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
-            .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
-            .start();
-        long slideDelay = CardConstants.OVERLAY_FADE_IN_DURATION_MS
-            + CardConstants.CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS;
-        currentContainer.animate()
-            .setStartDelay(slideDelay)
-            .translationY(0)
-            .setDuration(CardConstants.ANIMATION_DURATION_DEFAULT)
-            .setInterpolator(new android.view.animation.DecelerateInterpolator())
-            .start();
-      } else {
-        currentContainer.setTranslationY(0);
-      }
-      presentationUsesIsolatedWebviewProcess = false;
-      isCurrentlyPresented = true;
-    } catch (Exception e) {
-      Log.w(TAG, "Error creating checkout overlay: " + e.getMessage(), e);
-      cleanupAllViews();
-    }
-  }
   
-  /**
-   * Adds the same visual drag bar as Activity cards (no touch handling).
-   */
-  private void addCheckoutOverlayDragBar(Activity activity) {
-    addVisualDragBarToContainer(activity, currentContainer, dialogSheetBackgroundArgb(activity));
-  }
 
-  /** Adds a visual-only drag bar to the given container (modal or overlay). No touch handling. */
-  private void addVisualDragBarToContainer(Activity activity, FrameLayout container,
-      int sheetBackgroundArgb) {
-    if (container == null || activity == null) {
-      return;
-    }
-    try {
-      LinearLayout dragArea = new LinearLayout(activity);
-      dragArea.setOrientation(LinearLayout.VERTICAL);
-      dragArea.setGravity(Gravity.CENTER_HORIZONTAL);
-      int padH = StashWebViewUtils.dpToPx(activity, 20);
-      int padTop =
-          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_HANDLE_TOP_INSET_DP));
-      int padBottom =
-          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
-      dragArea.setPadding(padH, padTop, padH, padBottom);
-      View handle = new View(activity);
-      GradientDrawable handleBg = new GradientDrawable();
-      handleBg.setColor(StashBackgroundColorUtils.dragHandleFor(sheetBackgroundArgb));
-      handleBg.setCornerRadius(
-          StashWebViewUtils.dpToPx(activity, Math.round(CardConstants.DRAG_HANDLE_CORNER_RADIUS_DP)));
-      handle.setBackground(handleBg);
-      handle.setLayoutParams(new LinearLayout.LayoutParams(
-          StashWebViewUtils.dpToPx(activity, (int) CardConstants.DRAG_HANDLE_WIDTH_DP),
-          StashWebViewUtils.dpToPx(activity, (int) CardConstants.DRAG_HANDLE_HEIGHT_DP)));
-      dragArea.addView(handle);
-      FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-          StashWebViewUtils.dpToPx(activity, 120), FrameLayout.LayoutParams.WRAP_CONTENT);
-      params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
-      dragArea.setLayoutParams(params);
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        dragArea.setElevation(StashWebViewUtils.dpToPx(activity, 8));
-      }
-      checkoutOverlayDragHandleArea = dragArea;
-      container.addView(dragArea);
-    } catch (Exception e) {
-      Log.w(TAG, "Error adding visual drag bar: " + e.getMessage(), e);
-    }
-  }
-
-  private void applyCheckoutOverlayDragHandlePurchaseProcessingFade(boolean hide) {
-    if (checkoutOverlayDragHandleArea == null) {
-      return;
-    }
-    checkoutOverlayDragHandleArea.animate().cancel();
-    checkoutOverlayDragHandleArea.animate()
-        .alpha(hide ? 0f : 1f)
-        .setDuration(CardConstants.OVERLAY_FADE_IN_DURATION_MS)
-        .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
-        .start();
-    checkoutOverlayDragHandleArea.setEnabled(!hide);
-  }
 }

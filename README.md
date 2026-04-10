@@ -1,9 +1,5 @@
-# Stash for Android / iOS [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
+# Stash for Android / iOS [Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
-
-<p align="left">
-  <img src="https://github.com/stashgg/stash-native/raw/main/.github/assets/stash_native.png" width="128" height="128" alt="Stash Native Logo"/>
-</p>
 
 
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application.
@@ -46,20 +42,24 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Platforms
 
+
 | Platform | Description                  |
 | -------- | ---------------------------- |
 | Android  | Android library (AAR).       |
 | iOS      | iOS framework (XCFramework). |
 
+
 ## Game Engine Wrappers
 
 If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project, along with added development tools such as full flow testing directly in the Engine Editor.
 
-|                                                                                             | Engine        | Repository                                              | Compatibility                   |
-| ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------- |
-| <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   | Unity 2019.4+ (LTS recommended) |
-| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal)                 | Unreal Engine 5.0+                |
-| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27-plus           |
+
+|     | Engine          | Repository                                                                         | Compatibility                   |
+| --- | --------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
+|     | Unity           | [stash-unity](https://github.com/stashgg/stash-unity)                              | Unity 2019.4+ (LTS recommended) |
+|     | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal)                     | Unreal Engine 5.0+              |
+|     | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27-plus         |
+
 
 For custom engines or third-party frameworks, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a new-wrapper checklist.
 
@@ -74,7 +74,7 @@ Latest pre-built binaries are always available on [Releases Page](https://github
 
 Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory.
 
-> **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
+> **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use `**swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
 
 Or try in the browser emulators via Appetize:
 
@@ -101,7 +101,7 @@ dependencies {
 
 To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
 
-**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers ([`StashWindowCompat`](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
+**AndroidX Core:** The library lists `androidx.core:core` as an `api` dependency. Window setup uses internal compat helpers (`[StashWindowCompat](Android/stashnative/src/main/java/com/stash/stashnative/StashWindowCompat.java)`) so hosts that still resolve an older Core (for example some Unity / EDM4U trees) avoid `NoSuchMethodError` on `WindowCompat.setDecorFitsSystemWindows` and related APIs. Aligning Core to **1.5.0+** when possible improves system-bar and inset behavior.
 
 ### iOS
 
@@ -116,11 +116,6 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 ## Presentation modes
 
 The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (sheet / drawer), **openModal** (centered popup), and **openBrowser** (Custom Tabs or system browser on Android when `androidx.browser` is absent; SFSafariViewController on iOS). Use **openCard** or **openModal** for full in-app experience; use **openBrowser** for a standard browser-based flows.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/stashgg/stash-native/refs/heads/main/.github/assets/presentations.png" alt="Presentation Modes" width="840" />
-</p>
-
 
 
 
@@ -153,16 +148,39 @@ StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil
 
 Pass a `CardConfig` (or `nil`/`null`) to configure presentation. Pass `nil`/`null` for defaults.
 
-| Aspect | Description |
-| ------ | ----------- |
-| **forcePortrait** | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
-| **Phone** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0). |
-| **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
-| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Keep unset for best experience. |
+
+| Aspect              | Description                                                                                                                                                    |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **forcePortrait**   | `true`: card opens portrait-locked (separate activity on Android, portrait-only on iOS). `false` (default): card appears in current orientation as an overlay. |
+| **Phone**           | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape` (0.1–1.0).                                                                    |
+| **Tablet**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0).                                  |
+| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Keep unset for best experience.             |
+
 
 > **Background color:** Use `backgroundColor` only when you need the native shell to match **Stash Pay with a custom theme**. For the **default Stash theme**, leave it unset so the standard light/dark experience stays aligned with the system.
 
-> **Portrait Rotation:** If using `forcePortrait`, ensure your app supports portrait or can unlock to portrait while the card is shown.
+#### Portrait orientation on iOS (landscape-locked games)
+
+When `forcePortrait = true` on iOS, the SDK automatically unlocks portrait orientation for its card and browser windows at runtime — including in landscape-locked Unity, Unreal, and custom game engine builds. **No AppDelegate changes or Info.plist edits are required.**
+
+The SDK installs a one-time hook on `application:supportedInterfaceOrientationsForWindow:` that returns all orientations for the SDK's own windows while passing through the original result for every other window. The game remains landscape-locked; only the card/browser window can rotate to portrait.
+
+**Opting out** (advanced): If you manage orientation unlocking yourself, disable the automatic hook and call the SDK bridge method manually:
+
+```objc
+// Before first openCard call:
+StashNativeCard.sharedInstance().disableAutoOrientationUnlock = YES;
+
+// In your AppDelegate:
+- (UIInterfaceOrientationMask)application:(UIApplication *)app
+    supportedInterfaceOrientationsForWindow:(UIWindow *)window {
+    UIInterfaceOrientationMask stash = [StashNativeCard supportedInterfaceOrientationsForWindow:window];
+    if (stash) return stash;
+    return UIInterfaceOrientationMaskLandscape; // your game default
+}
+```
+
+> **Known edge case (iOS 16+):** If your project explicitly sets `UISceneSupportedInterfaceOrientations` to landscape-only inside the scene configuration in `Info.plist`, iOS enforces that at the scene level and the automatic hook cannot override it. Remove that key or add `UIInterfaceOrientationPortrait` to it. This key is **not** set by default in Unity or Unreal projects.
 
 **Android**
 
@@ -186,15 +204,17 @@ stashNative.openCard(withURL: url, config: config)
 
 #### Callbacks
 
-| Event            | Description |
-| ---------------- | ----------- |
-| Payment Success  | Called when the payment completes successfully. Includes detail about order in the callback payload. |
-| Payment Failure  | Called when the payment fails. |
-| Dialog Dismissed | Called when the user dismisses the dialog. |
+
+| Event            | Description                                                                                                                                   |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Payment Success  | Called when the payment completes successfully. Includes detail about order in the callback payload.                                          |
+| Payment Failure  | Called when the payment fails.                                                                                                                |
+| Dialog Dismissed | Called when the user dismisses the dialog.                                                                                                    |
 | External payment | Some payment methods requires transacting outside the app (Klarna, Bitcoin etc.). This callback fires when external payment flow has started. |
-| Opt-In Response  | Called when a channel selection response is received. |
-| Page Loaded      | Called when the page finishes loading (with load time in ms). |
-| Network Error    | Called when the page load fails (no connection, HTTP error, timeout). |
+| Opt-In Response  | Called when a channel selection response is received.                                                                                         |
+| Page Loaded      | Called when the page finishes loading (with load time in ms).                                                                                 |
+| Network Error    | Called when the page load fails (no connection, HTTP error, timeout).                                                                         |
+
 
 Set a listener (Android) or delegate (iOS) before calling `openCard` or `openModal`. Same callback interface is used for both.
 
@@ -304,7 +324,6 @@ extension YourViewController: StashNativeCardDelegate {
 
 Centered modal on all devices. Same layout on phone and tablet; resizes on rotation. Suited for channel selection or an alternative checkout style. [Stash Pay Opt-In](https://docs.stash.gg/guides/stash-pay/opt-in)
 
-
 **Android**
 
 ```java
@@ -330,12 +349,14 @@ StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or n
 
 Pass a `ModalConfig` (or `nil`/`null`) to control dismiss behavior and sizing. Pass `nil`/`null` for defaults. 
 
-| Aspect | Description |
-| ------ | ----------- |
-| **Behavior** | `allowDismiss` (default `true`). |
-| **Phone** | `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait`, `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (0.1–1.0). |
-| **Tablet** | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
-| **backgroundColor** | Same optional HTML hex as on `CardConfig` / `StashNativeCardConfig`. Omit for SDK defaults. |
+
+| Aspect              | Description                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Behavior**        | `allowDismiss` (default `true`).                                                                                              |
+| **Phone**           | `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait`, `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (0.1–1.0).     |
+| **Tablet**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+| **backgroundColor** | Same optional HTML hex as on `CardConfig` / `StashNativeCardConfig`. Omit for SDK defaults.                                   |
+
 
 **Android**
 
@@ -363,7 +384,7 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 
 ### openBrowser
 
-Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI, no config, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fall-abck method for openCard and openModal.
+Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fallback method for openCard and openModal.
 
 **Android**
 
@@ -388,7 +409,6 @@ StashNativeCard.getInstance().setKeepAliveConfig(cfg);
 - **Manifest:** the library merges `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SHORT_SERVICE`, and a non-exported `StashKeepAliveService` with `foregroundServiceType="shortService"`. You do not need to add these by hand. On Android 14+, `shortService` has a system-enforced time limit (about three minutes); the service is stopped when the user returns to your app (`Activity` resume).
 - **Opt out of the merged service** (e.g. policy reasons): in your app manifest, remove the library component, for example: `tools:node="remove"` on `com.stash.stashnative.StashKeepAliveService` (with `xmlns:tools` on the manifest root).
 - **Notifications:** the library does not add `POST_NOTIFICATIONS`; on Android 13+ the notification may be hidden until your app requests that permission, but the foreground service can still run.
-
 
 **iOS (Swift)**
 
@@ -416,101 +436,114 @@ Requirements, OS coverage, vendor notes, and edge cases for each platform are be
 
 ### Android
 
-| Attribute | Requirement |
-|-----------|-------------|
-| Minimum SDK | API 21 (Android 5.0 Lollipop) |
-| Target SDK | API 34 (Android 14) |
-| Compile SDK | 34 |
+
+| Attribute    | Requirement                              |
+| ------------ | ---------------------------------------- |
+| Minimum SDK  | API 21 (Android 5.0 Lollipop)            |
+| Target SDK   | API 34 (Android 14)                      |
+| Compile SDK  | 34                                       |
 | Java Version | Java 8 (source/target), JDK 17 for build |
-| Architecture | armeabi-v7a, arm64-v8a, x86, x86_64 |
+| Architecture | armeabi-v7a, arm64-v8a, x86, x86_64      |
+
 
 **Game engines (Unity, Unreal, and similar):** `openCard` and `openModal` present checkout in `StashNativeCardPortraitActivity` in the **same app process** as the host (no `android:process` isolate). That keeps a single OS process so engines such as Unity are not killed when checkout takes the foreground. Use the [Unity / Unreal wrappers](#wrappers) for integrated builds.
 
 #### Android version support
 
-| Android Version | API Level | Status | Compatibility Notes |
-|-----------------|-----------|--------|-------|
-| Android 14 (Upside Down Cake) | 34 | Full | Target SDK |
-| Android 13 (Tiramisu) | 33 | Full | |
-| Android 12/12L | 31-32 | Full | |
-| Android 11 | 30 | Full | Enhanced window insets (For phones with notch/camera cut-out) |
-| Android 10 | 29 | Full | Added automatic dark mode support |
-| Android 9 (Pie) | 28 | Full | |
-| Android 8/8.1 (Oreo) | 26-27 | Full | |
-| Android 7/7.1 (Nougat) | 24-25 | Full | |
-| Android 6 (Marshmallow) | 23 | Full | |
-| Android 5/5.1 (Lollipop) | 21-22 | Full | Minimum SDK |
-| Android 4.4 and below | <=20 | Not Supported | |
+
+| Android Version               | API Level | Status        | Compatibility Notes                                           |
+| ----------------------------- | --------- | ------------- | ------------------------------------------------------------- |
+| Android 14 (Upside Down Cake) | 34        | Full          | Target SDK                                                    |
+| Android 13 (Tiramisu)         | 33        | Full          |                                                               |
+| Android 12/12L                | 31-32     | Full          |                                                               |
+| Android 11                    | 30        | Full          | Enhanced window insets (For phones with notch/camera cut-out) |
+| Android 10                    | 29        | Full          | Added automatic dark mode support                             |
+| Android 9 (Pie)               | 28        | Full          |                                                               |
+| Android 8/8.1 (Oreo)          | 26-27     | Full          |                                                               |
+| Android 7/7.1 (Nougat)        | 24-25     | Full          |                                                               |
+| Android 6 (Marshmallow)       | 23        | Full          |                                                               |
+| Android 5/5.1 (Lollipop)      | 21-22     | Full          | Minimum SDK                                                   |
+| Android 4.4 and below         | <=20      | Not Supported |                                                               |
+
 
 #### Vendor-specific support
 
-| Vendor / Skin | Compatibility | WebView Source | Notes |
-|---------------|--------------|----------------|-------|
-| Google Pixel / Stock Android | Full | Google WebView (Play Store updates) | Reference implementation |
-| Samsung (One UI / TouchWiz) | Full | Samsung Internet / Chrome WebView | No known issues |
-| Xiaomi (MIUI) | Full | Chrome WebView | Some MIUI versions show "battery optimization" warnings, during browser flows. |
-| OnePlus (OxygenOS) | Full | Chrome WebView | Stock-like behavior |
-| Oppo (ColorOS) | Full | Chrome WebView | |
-| Vivo (Funtouch OS) | Full | Chrome WebView | |
-| Realme (Realme UI) | Full | Chrome WebView | |
-| Huawei (EMUI, pre-2019) | Full | Google WebView | Huawei devices with Google Mobile Services |
-| Huawei (HarmonyOS/EMUI, 2019+) | **Partial** | Huawei WebView | No Google Mobile Services; Chrome Custom Tabs unavailable; in-app WebView works |
-| Honor (post-Huawei) | Full | Chrome WebView | Devices with GMS |
-| Nokia (Android One) | Full | Google WebView | Stock Android, **use keep-alive service** recommended. |
-| Motorola | Full | Chrome WebView | Near-stock Android |
-| LG | Full | Chrome WebView | Legacy devices supported, **use keep-alive service** recommended. |
-| Sony Xperia | Full | Chrome WebView | |
-| ASUS (ZenUI) | Full | Chrome WebView | |
-| Android Go Edition | Supported | Chrome WebView | Limited memory; may experience slower load times, **use keep-alive service**. |
-| Amazon Fire OS | **Partial** | Amazon WebView | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
+
+| Vendor / Skin                  | Compatibility | WebView Source                      | Notes                                                                                   |
+| ------------------------------ | ------------- | ----------------------------------- | --------------------------------------------------------------------------------------- |
+| Google Pixel / Stock Android   | Full          | Google WebView (Play Store updates) | Reference implementation                                                                |
+| Samsung (One UI / TouchWiz)    | Full          | Samsung Internet / Chrome WebView   | No known issues                                                                         |
+| Xiaomi (MIUI)                  | Full          | Chrome WebView                      | Some MIUI versions show "battery optimization" warnings, during browser flows.          |
+| OnePlus (OxygenOS)             | Full          | Chrome WebView                      | Stock-like behavior                                                                     |
+| Oppo (ColorOS)                 | Full          | Chrome WebView                      |                                                                                         |
+| Vivo (Funtouch OS)             | Full          | Chrome WebView                      |                                                                                         |
+| Realme (Realme UI)             | Full          | Chrome WebView                      |                                                                                         |
+| Huawei (EMUI, pre-2019)        | Full          | Google WebView                      | Huawei devices with Google Mobile Services                                              |
+| Huawei (HarmonyOS/EMUI, 2019+) | **Partial**   | Huawei WebView                      | No Google Mobile Services; Chrome Custom Tabs unavailable; in-app WebView works         |
+| Honor (post-Huawei)            | Full          | Chrome WebView                      | Devices with GMS                                                                        |
+| Nokia (Android One)            | Full          | Google WebView                      | Stock Android, **use keep-alive service** recommended.                                  |
+| Motorola                       | Full          | Chrome WebView                      | Near-stock Android                                                                      |
+| LG                             | Full          | Chrome WebView                      | Legacy devices supported, **use keep-alive service** recommended.                       |
+| Sony Xperia                    | Full          | Chrome WebView                      |                                                                                         |
+| ASUS (ZenUI)                   | Full          | Chrome WebView                      |                                                                                         |
+| Android Go Edition             | Supported     | Chrome WebView                      | Limited memory; may experience slower load times, **use keep-alive service**.           |
+| Amazon Fire OS                 | **Partial**   | Amazon WebView                      | Non-standard WebView; openCard/openModal work; openBrowser falls back to system browser |
 
 
 #### Dependencies
 
-| Dependency | Version | Required | Purpose |
-|------------|---------|----------|----------|
-| androidx.appcompat:appcompat | 1.6.1+ | Yes | Activity/Fragment support |
-| androidx.browser:browser | 1.7.0+ | No | Chrome Custom Tabs when present; otherwise system browser (`ACTION_VIEW`) |
+
+| Dependency                   | Version | Required | Purpose                                                                   |
+| ---------------------------- | ------- | -------- | ------------------------------------------------------------------------- |
+| androidx.appcompat:appcompat | 1.6.1+  | Yes      | Activity/Fragment support                                                 |
+| androidx.browser:browser     | 1.7.0+  | No       | Chrome Custom Tabs when present; otherwise system browser (`ACTION_VIEW`) |
+
 
 #### Feature restrictions by API level
 
 Core functionality (slide-up card, modal, WebView, animations, payment callbacks) works identically across all supported Android versions (API 21+). The following features have graceful fallbacks on older Android versions:
 
 **API 21-28 (Android 5.0-9.0)**
+
 - Dark mode: Not automatically detected. Light mode used as fallback.
 - Window insets: Uses legacy status bar handling, there might be slight overlaps with menu/status bar on some devices or
 visual artefacts.
 
-
 ### iOS
 
-| Attribute | Requirement |
-|-----------|-------------|
-| Minimum iOS | iOS 13.0 |
-| Swift Version | 5.5+ |
-| Xcode | 13.0+ |
-| Architecture | arm64, arm64e (devices), x86_64 (simulator) |
+
+| Attribute     | Requirement                                 |
+| ------------- | ------------------------------------------- |
+| Minimum iOS   | iOS 13.0                                    |
+| Swift Version | 5.5+                                        |
+| Xcode         | 13.0+                                       |
+| Architecture  | arm64, arm64e (devices), x86_64 (simulator) |
+
 
 #### iOS version support
 
-| iOS Version | Status | Notes |
-|-------------|--------|-------|
-| iOS 18.x | Full | Latest |
-| iOS 17.x | Full | |
-| iOS 16.x | Full | |
-| iOS 15.x | Full | |
-| iOS 14.x | Full | |
-| iOS 13.x | Full | Minimum version |
-| iOS 12 and below | Not Supported | |
+
+| iOS Version      | Status        | Notes           |
+| ---------------- | ------------- | --------------- |
+| iOS 18.x         | Full          | Latest          |
+| iOS 17.x         | Full          |                 |
+| iOS 16.x         | Full          |                 |
+| iOS 15.x         | Full          |                 |
+| iOS 14.x         | Full          |                 |
+| iOS 13.x         | Full          | Minimum version |
+| iOS 12 and below | Not Supported |                 |
+
 
 #### Device support
 
-| Device Type | Status | Notes |
-|-------------|--------|-------|
-| iPhone (all models iOS 13+) | Full | Portrait/landscape, card slides from bottom |
-| iPad | Full | Centered presentation, all orientations |
-| iPad (Split View / Slide Over) | Full | Responsive layout |
-| Mac (Catalyst) | Untested | Should work; not officially tested yet |
+
+| Device Type                    | Status   | Notes                                       |
+| ------------------------------ | -------- | ------------------------------------------- |
+| iPhone (all models iOS 13+)    | Full     | Portrait/landscape, card slides from bottom |
+| iPad                           | Full     | Centered presentation, all orientations     |
+| iPad (Split View / Slide Over) | Full     | Responsive layout                           |
+| Mac (Catalyst)                 | Untested | Should work; not officially tested yet      |
+
 
 ### Testing
 
@@ -519,13 +552,16 @@ We test this library using BrowserStack App Automate devices. Supported environm
 ### Known limitations
 
 **Android**
+
 - Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally.
 - Android Go: Performance may vary on low-memory devices (<1GB RAM), please use the [keep-alive service](#keep-alive-service).
 - WebView updates: Devices without Play Store may have outdated WebView.
 - Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](#sample-apps) (GPU / `swangle` note)
 
 **iOS**
+
 - iOS 13: Automatic theme detection not available on iOS 13.0-13.3. Fixed in iOS 13.4
+- **Landscape-locked games (Unity, Unreal):** `forcePortrait` works automatically — the SDK hooks `application:supportedInterfaceOrientationsForWindow:` to unlock portrait for its windows without affecting the rest of the app. The one exception is an explicit `UISceneSupportedInterfaceOrientations` key set to landscape-only in the scene configuration in `Info.plist` — see [Portrait orientation on iOS](#portrait-orientation-on-ios-landscape-locked-games) for the fix.
 
 ---
 
@@ -537,7 +573,30 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 - **Minor**: New features (backward compatible)
 - **Patch**: Bug fixes
 
+## Platform API & Store Compliance Notes
+
+The SDK uses only public, documented APIs on both platforms. Below is a summary of techniques that are worth noting for store review awareness.
+
+### iOS
+
+| Technique | Purpose | Store Risk |
+|-----------|---------|------------|
+| **AppDelegate method swizzle** (`application:supportedInterfaceOrientationsForWindow:`) | Allows the SDK's portrait window to rotate in landscape-locked games (Unity, Unreal). Opt-out available via `disableAutoOrientationUnlock`. | Very low — public `UIApplicationDelegate` selector; common in SDKs. |
+| **`UIDevice` KVC orientation** (`setValue:forKey:@"orientation"`) | Forces portrait/landscape rotation on pre-iOS 16 devices. iOS 16+ uses the public `requestGeometryUpdateWithPreferences:` API instead. | Very low — legacy fallback only; industry-standard pattern. |
+| **WKWebView form toolbar removal** (dynamic subclass of `WKContentView`) | Removes the Prev/Next/Done bar above the keyboard to avoid orientation issues in landscape-locked game engines. Uses public ObjC runtime functions and the public `inputAccessoryView` property. | Very low — same technique used by React Native WebView, Cordova, and thousands of App Store apps. |
+| **Deprecated API fallbacks** (`keyWindow`, `statusBarOrientation`) | Backward compatibility with iOS 13–15. All behind `@available` guards with modern scene-based alternatives. | None — deprecated ≠ private. |
+
+### Android
+
+| Technique | Purpose | Store Risk |
+|-----------|---------|------------|
+| **`@JavascriptInterface` bridge** | Communicates payment results and UI commands between the checkout WebView and native code. | None for rejection — standard WebView pattern. Host app should verify orders server-side. |
+| **Reflection on AndroidX classes** (`WindowCompat`, `CustomTabsIntent`) | Graceful fallback when the host app bundles older AndroidX versions (common in Unity). Reflects public library APIs, not hidden platform APIs. | None — not subject to Android's non-SDK restrictions. |
+| **Third-party cookies** (`setAcceptThirdPartyCookies`) | Required for 3DS payment verification and SSO flows. | None for rejection — host app's Data Safety form may need to disclose cookie usage. |
+| **Short foreground service** (`StashKeepAliveService`) | Optional; keeps the app process alive during external browser payment flows on low-memory devices. Uses `foregroundServiceType="shortService"`. | None if declared — host app must declare foreground service usage in Play Console when applicable. |
+
 ## Support
 
-- Documentation: https://docs.stash.gg
-- Email: developers@stash.gg
+- Documentation: [https://docs.stash.gg](https://docs.stash.gg)
+- Email: [developers@stash.gg](mailto:developers@stash.gg)
+
