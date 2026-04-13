@@ -241,8 +241,24 @@ static const CGFloat kOverlayDismissAlpha = 0.0f;
 static const CGFloat kDismissCardAlpha = 0.0f;
 static const CGFloat kDismissCardScale = 0.9f;
 static const CGFloat kOverlayOpacity = 0.4f;  /* Unified overlay dim (40%) - same on all modes and as Android */
+/// Backdrop is this many times larger than the card window (centered) so dimming edges stay off-screen during rotation.
+static const CGFloat kIPhoneCardBackdropOverscanFactor = 5.0f;
 static const CGFloat kIPhoneLandscapeExpandedHeightRatio = 0.9f;  /* Expand = 90% screen height in landscape */
 static const NSTimeInterval kOverlayFadeInDuration = 0.25;
+
+/// Centered frame larger than `windowBounds` so the dimming layer does not show rotating edges during scene orientation changes.
+static inline CGRect stashIPhoneCardOverscanBackdropFrameForWindowBounds(CGRect windowBounds) {
+    CGFloat w = windowBounds.size.width;
+    CGFloat h = windowBounds.size.height;
+    if (w <= 0 || h <= 0) {
+        return windowBounds;
+    }
+    CGFloat ow = w * kIPhoneCardBackdropOverscanFactor;
+    CGFloat oh = h * kIPhoneCardBackdropOverscanFactor;
+    CGFloat cx = CGRectGetMidX(windowBounds);
+    CGFloat cy = CGRectGetMidY(windowBounds);
+    return CGRectMake(cx - ow * 0.5f, cy - oh * 0.5f, ow, oh);
+}
 
 #pragma mark - Snap-Back / Entry Animation (same timing as card animations)
 
@@ -268,6 +284,13 @@ static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
     return 1.0f + (k + 1.0f) * u * u * u + k * u * u;
 }
 static const NSTimeInterval kRotationDelayAfterLandscape = 0.35;
+/// Poll interval while waiting for scene portrait geometry after opening force-portrait card from landscape.
+static const NSTimeInterval kPortraitSettlePollInterval = 0.016;
+/// Max time to wait for portrait before laying out the card (then fall back to in-landscape portrait strip).
+static const NSTimeInterval kPortraitSettleTimeout = 1.0;
+/// Elapsed time from settle start at which we retry `requestGeometryUpdate` (iOS 16+), if still landscape.
+static const NSTimeInterval kPortraitSettleGeometryRetryFirst = 0.40;
+static const NSTimeInterval kPortraitSettleGeometryRetrySecond = 0.70;
 
 #pragma mark - Shadow (iPhone card vs iPad/popup)
 
@@ -429,6 +452,7 @@ void setOverlayToDismissAppearance(UIView *overlayView);
 static NSString *NormalizeExternalPaymentURL(NSString *raw);
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
+CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
 #pragma mark - StashNativeCardInternal
 
@@ -471,6 +495,14 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 /// Causes the orientation swizzle to return UIInterfaceOrientationMaskPortrait for the
 /// SDK window, preventing iOS from rotating Safari to landscape when the device rotates.
 @property (nonatomic, assign) BOOL isSafariPortraitLocked;
+@property (nonatomic, copy) dispatch_block_t pendingIPhoneCardGeometryRelayoutBlock;
+@property (nonatomic, assign) BOOL iPhoneCardWindowGeometryObserversRegistered;
+/// While YES, the orientation swizzle locks the card window (and system keyboard) to the card's orientation.
+@property (nonatomic, assign) BOOL isIPhoneCardKeyboardVisible;
+/// Last valid `UIDeviceOrientation` while the iPhone card keyboard is visible (0 = unset). Used to dismiss the keyboard when the device rotates so the next focus can present a portrait keyboard.
+@property (nonatomic, assign) NSInteger stashLastValidDeviceOrientationForKeyboard;
+/// Scene size when keyboard lock was applied; used with `stashIPhoneCardGeometryMayHaveChanged` to dismiss when portrait/landscape geometry flips without a device-orientation notification.
+@property (nonatomic, assign) CGSize stashLastSceneSizeForKeyboardDismiss;
 
 + (instancetype)sharedInstance;
 - (void)beginDismissStoppingLoadAndTimers;
@@ -491,6 +523,15 @@ void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 - (void)stopKeyboardObserving;
 - (BOOL)isIPhoneLandscapeCurrentOrientation;
 - (void)restorePrePortraitOrientation;
+- (CGRect)referenceScreenBoundsForIPhoneCardLayout;
+- (CGRect)collapsedPhoneCardFrameForReferenceBounds:(CGRect)actualBounds;
+- (void)relayoutIPhoneCardWindowWithTargetBounds:(CGRect)targetBounds forcedCardExpansionProgress:(CGFloat)forcedProgress;
+- (void)registerIPhoneCardWindowGeometryObservers;
+- (void)unregisterIPhoneCardWindowGeometryObservers;
+- (void)stashIPhoneCardGeometryMayHaveChanged:(NSNotification *)note;
+- (UIInterfaceOrientationMask)stashKeyboardOrientationLockMaskForCardWindow;
+- (void)stashApplyKeyboardOrientationLockIfNeeded;
+- (void)stashClearKeyboardOrientationLockIfNeeded;
 
 @end
 
@@ -608,7 +649,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 - (BOOL)isIPhoneLandscapeCurrentOrientation {
     if (!self.currentPresentedVC) return NO;
     if (![self.currentPresentedVC isKindOfClass:[IPhoneCardCurrentOrientationViewController class]]) return NO;
-    CGRect b = [UIScreen mainScreen].bounds;
+    CGRect b = [self referenceScreenBoundsForIPhoneCardLayout];
     return b.size.width > b.size.height;
 }
 
@@ -644,6 +685,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (void)cleanupCardInstance {
+    [self unregisterIPhoneCardWindowGeometryObservers];
     [self stopKeyboardObserving];
     
     if (self.collapseDisplayLink) {
@@ -836,7 +878,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             // iPhone: slide down the cardView
             UIView *cardView = [self cardViewForCurrentPresentation];
             if (cardView) {
-                CGRect screenBounds = [UIScreen mainScreen].bounds;
+                CGRect screenBounds = self.portraitWindow ? self.portraitWindow.bounds : [UIScreen mainScreen].bounds;
                 CGFloat dismissY = screenBounds.size.height + cardView.frame.size.height;
                 
                 CGRect frame = cardView.frame;
@@ -929,7 +971,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
     _isCardExpanded = YES;
 
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
     CGRect fullScreenFrame;
     if ([self isIPhoneLandscapeCurrentOrientation]) {
@@ -984,7 +1026,7 @@ initialSpringVelocity:kSpringVelocityExpand
 
     _isCardExpanded = NO;
 
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat width, height;
 
     CGRect collapsedFrame;
@@ -1144,7 +1186,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 
     progress = MAX(0.0, MIN(1.0, progress));
 
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
 
     CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
@@ -1163,7 +1205,12 @@ initialSpringVelocity:kSpringVelocityCollapse
         expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
     } else {
         // iPhone: use same canonical collapsed frame as initial present (includes min clamp)
-        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        CGRect collapsedFrame;
+        if (self.portraitWindow && _forcePortraitOnCheckout) {
+            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
+        } else {
+            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        }
         collapsedWidth = collapsedFrame.size.width;
         collapsedHeight = collapsedFrame.size.height;
         collapsedX = collapsedFrame.origin.x;
@@ -1238,7 +1285,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 
 - (CGFloat)currentExpansionProgressForCardView:(UIView *)cardView {
     if (!cardView) return 0.0f;
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
     CGFloat collapsedHeight, expandedHeight;
     if (isRunningOniPad()) {
@@ -1246,7 +1293,12 @@ initialSpringVelocity:kSpringVelocityCollapse
         collapsedHeight = cardSize.height;
         expandedHeight = stashTabletSdkExpandedHeightFromBase(collapsedHeight, screenBounds, cardView);
     } else {
-        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        CGRect collapsedFrame;
+        if (self.portraitWindow && _forcePortraitOnCheckout) {
+            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
+        } else {
+            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        }
         collapsedHeight = collapsedFrame.size.height;
         if ([self isIPhoneLandscapeCurrentOrientation]) {
             expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
@@ -1264,7 +1316,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 - (CGRect)frameForExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
     if (!cardView) return CGRectZero;
     progress = (CGFloat)MAX(0.0, MIN(1.0, (double)progress));
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
+    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
     CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
     CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
@@ -1280,7 +1332,12 @@ initialSpringVelocity:kSpringVelocityCollapse
         collapsedY = (screenBounds.size.height - collapsedHeight) / 2.0;
         expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
     } else {
-        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        CGRect collapsedFrame;
+        if (self.portraitWindow && _forcePortraitOnCheckout) {
+            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
+        } else {
+            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        }
         collapsedWidth = collapsedFrame.size.width;
         collapsedHeight = collapsedFrame.size.height;
         collapsedX = collapsedFrame.origin.x;
@@ -1327,12 +1384,18 @@ initialSpringVelocity:kSpringVelocityCollapse
 - (void)stopKeyboardObserving {
     if (!self.isObservingKeyboard) return;
     self.isObservingKeyboard = NO;
-    
+    self.isIPhoneCardKeyboardVisible = NO;
+    self.stashLastValidDeviceOrientationForKeyboard = 0;
+    self.stashLastSceneSizeForKeyboardDismiss = CGSizeZero;
+
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
 }
 
 - (void)keyboardWillShow:(NSNotification *)notification {
+    (void)notification;
+    [self stashApplyKeyboardOrientationLockIfNeeded];
+
     if (_usePopupPresentation || _useModalPresentation || isRunningOniPad()) return;
     if (_isCardExpanded) return;
     
@@ -1343,10 +1406,17 @@ initialSpringVelocity:kSpringVelocityCollapse
         containerVC.skipLayoutDuringInitialSetup = YES;
     }
     
+    if (self.portraitWindow) {
+        CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(self.portraitWindow);
+        [self relayoutIPhoneCardWindowWithTargetBounds:b forcedCardExpansionProgress:-1.0];
+    }
+    
     [self expandCardToFullScreen];
 }
 
 - (void)keyboardWillHide:(NSNotification *)notification {
+    (void)notification;
+    [self stashClearKeyboardOrientationLockIfNeeded];
 }
 
 - (void)handleDragTrayPanGesture:(UIPanGestureRecognizer *)gesture {
@@ -1405,10 +1475,15 @@ initialSpringVelocity:kSpringVelocityCollapse
         return;
     }
     
-        CGRect screenBounds = [UIScreen mainScreen].bounds;
+        CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
         CGFloat safeTop = getSafeAreaTopForView(cardView);
         BOOL landscapeHeightOnly = [self isIPhoneLandscapeCurrentOrientation];
-        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
+        CGRect collapsedFrame;
+        if (self.portraitWindow && _forcePortraitOnCheckout) {
+            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
+        } else {
+            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
+        }
         CGFloat collapsedWidth = collapsedFrame.size.width;
         CGFloat collapsedHeight = collapsedFrame.size.height;
         CGFloat collapsedX = collapsedFrame.origin.x;
@@ -1750,7 +1825,374 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
 }
 
+#pragma mark - iPhone card window bounds / relayout
+
+- (CGRect)referenceScreenBoundsForIPhoneCardLayout {
+    if (self.portraitWindow) {
+        return self.portraitWindow.bounds;
+    }
+    return [UIScreen mainScreen].bounds;
+}
+
+- (CGRect)collapsedPhoneCardFrameForReferenceBounds:(CGRect)actualBounds {
+    if (_forcePortraitOnCheckout) {
+        CGFloat apw = MIN(actualBounds.size.width, actualBounds.size.height);
+        CGFloat aph = MAX(actualBounds.size.width, actualBounds.size.height);
+        BOOL rotationSucceeded = actualBounds.size.width < actualBounds.size.height;
+        CGRect r;
+        if (rotationSucceeded) {
+            r = computePhoneCardFrameForBoundsAndOrientation(actualBounds, NO);
+        } else {
+            CGFloat cardWidth = apw;
+            CGFloat cardHeight = aph * _cardHeightRatioPortrait;
+            CGFloat cardX = (actualBounds.size.width - cardWidth) / 2.0;
+            CGFloat cardFinalY = actualBounds.size.height - cardHeight;
+            r = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
+        }
+        if (r.origin.y < _cardSafeAreaTop) {
+            CGFloat cardH = actualBounds.size.height - _cardSafeAreaTop;
+            r = CGRectMake(r.origin.x, _cardSafeAreaTop, r.size.width, cardH);
+        }
+        if (r.origin.y < 0) {
+            r = CGRectMake(r.origin.x, 0, r.size.width, r.size.height);
+        }
+        return r;
+    }
+    BOOL isLandscape = actualBounds.size.width > actualBounds.size.height;
+    return computePhoneCardFrameForBoundsAndOrientation(actualBounds, isLandscape);
+}
+
+- (void)relayoutIPhoneCardWindowWithTargetBounds:(CGRect)targetBounds forcedCardExpansionProgress:(CGFloat)forcedProgress {
+    if (!_isCardCurrentlyPresented || !self.portraitWindow) {
+        return;
+    }
+    if (isRunningOniPad()) {
+        return;
+    }
+    if (_usePopupPresentation || _useModalPresentation) {
+        return;
+    }
+    UIViewController *vc = self.currentPresentedVC;
+    if (!vc || self.portraitWindow.rootViewController != vc) {
+        return;
+    }
+    if ([(id)vc skipLayoutDuringInitialSetup]) {
+        return;
+    }
+    UIWindow *w = self.portraitWindow;
+    if (!CGRectIsNull(targetBounds) && !CGRectIsInfinite(targetBounds) && targetBounds.size.width > 1.0 && targetBounds.size.height > 1.0) {
+        w.frame = targetBounds;
+    }
+    vc.view.frame = w.bounds;
+    if (@available(iOS 11.0, *)) {
+        _cardSafeAreaTop = w.safeAreaInsets.top;
+    }
+    UIView *overlay = objc_getAssociatedObject(vc, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
+    if (overlay) {
+        overlay.frame = stashIPhoneCardOverscanBackdropFrameForWindowBounds(w.bounds);
+    }
+    UIView *cardView = [w viewWithTag:kCardViewTag];
+    if (!cardView) {
+        return;
+    }
+    switchWebViewToFrameLayoutInCardView(cardView);
+    CGFloat p;
+    if (forcedProgress >= 0.0 && forcedProgress <= 1.0) {
+        p = (CGFloat)forcedProgress;
+    } else {
+        p = _isCardExpanded ? 1.0f : [self currentExpansionProgressForCardView:cardView];
+    }
+    [self updateCardExpansionProgress:p cardView:cardView];
+    if ([vc respondsToSelector:@selector(setCardFrame:)]) {
+        [(id)vc setCardFrame:cardView.frame];
+    }
+    [self updateCustomFrameIfSupported:cardView.frame forViewController:vc];
+}
+
+- (void)registerIPhoneCardWindowGeometryObservers {
+    if (self.iPhoneCardWindowGeometryObserversRegistered) {
+        return;
+    }
+    self.iPhoneCardWindowGeometryObserversRegistered = YES;
+    [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+    [nc addObserver:self selector:@selector(stashIPhoneCardGeometryMayHaveChanged:) name:UIDeviceOrientationDidChangeNotification object:nil];
+}
+
+- (void)unregisterIPhoneCardWindowGeometryObservers {
+    if (!self.iPhoneCardWindowGeometryObserversRegistered) {
+        return;
+    }
+    self.iPhoneCardWindowGeometryObserversRegistered = NO;
+    NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+    [nc removeObserver:self name:UIDeviceOrientationDidChangeNotification object:nil];
+    if (self.pendingIPhoneCardGeometryRelayoutBlock) {
+        dispatch_block_cancel(self.pendingIPhoneCardGeometryRelayoutBlock);
+        self.pendingIPhoneCardGeometryRelayoutBlock = nil;
+    }
+}
+
+- (void)stashIPhoneCardGeometryMayHaveChanged:(NSNotification *)note {
+    (void)note;
+    if (!self.portraitWindow || !self.currentPresentedVC) {
+        return;
+    }
+    if (isRunningOniPad() || _usePopupPresentation || _useModalPresentation) {
+        return;
+    }
+    // Force-portrait checkout: the system keyboard can still follow the host when the device rotates.
+    // Dismiss editing so the next tap can present the keyboard in a clean portrait state.
+    if (_forcePortraitOnCheckout && self.isIPhoneCardKeyboardVisible) {
+        UIDeviceOrientation d = [UIDevice currentDevice].orientation;
+        if (UIDeviceOrientationIsValidInterfaceOrientation(d)) {
+            NSInteger dn = (NSInteger)d;
+            if (self.stashLastValidDeviceOrientationForKeyboard != 0 &&
+                dn != self.stashLastValidDeviceOrientationForKeyboard) {
+                [self.portraitWindow endEditing:YES];
+            }
+            self.stashLastValidDeviceOrientationForKeyboard = dn;
+        }
+    }
+    if (self.pendingIPhoneCardGeometryRelayoutBlock) {
+        dispatch_block_cancel(self.pendingIPhoneCardGeometryRelayoutBlock);
+        self.pendingIPhoneCardGeometryRelayoutBlock = nil;
+    }
+    __weak typeof(self) weakSelf = self;
+    dispatch_block_t work = dispatch_block_create(0, ^{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf || !strongSelf.portraitWindow) {
+            return;
+        }
+        CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(strongSelf.portraitWindow);
+        if (_forcePortraitOnCheckout && strongSelf.isIPhoneCardKeyboardVisible) {
+            CGSize sz = b.size;
+            if (sz.width > 1.0 && sz.height > 1.0 && strongSelf.stashLastSceneSizeForKeyboardDismiss.width > 1.0) {
+                BOOL wasLandscape =
+                    strongSelf.stashLastSceneSizeForKeyboardDismiss.width > strongSelf.stashLastSceneSizeForKeyboardDismiss.height;
+                BOOL nowLandscape = sz.width > sz.height;
+                if (wasLandscape != nowLandscape) {
+                    [strongSelf.portraitWindow endEditing:YES];
+                }
+            }
+            if (sz.width > 1.0 && sz.height > 1.0) {
+                strongSelf.stashLastSceneSizeForKeyboardDismiss = sz;
+            }
+        }
+        [strongSelf relayoutIPhoneCardWindowWithTargetBounds:b forcedCardExpansionProgress:-1.0];
+        strongSelf.pendingIPhoneCardGeometryRelayoutBlock = nil;
+    });
+    self.pendingIPhoneCardGeometryRelayoutBlock = work;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), work);
+}
+
+- (UIInterfaceOrientationMask)stashKeyboardOrientationLockMaskForCardWindow {
+    if (_forcePortraitOnCheckout) {
+        return UIInterfaceOrientationMaskPortrait;
+    }
+    UIViewController *vc = self.currentPresentedVC;
+    if ([vc isKindOfClass:[IPhoneCardCurrentOrientationViewController class]]) {
+        IPhoneCardCurrentOrientationViewController *cvc = (IPhoneCardCurrentOrientationViewController *)vc;
+        if (cvc.lockedOrientationMask != 0) {
+            return cvc.lockedOrientationMask;
+        }
+    }
+    return UIInterfaceOrientationMaskPortrait;
+}
+
+- (void)stashApplyKeyboardOrientationLockIfNeeded {
+    if (isRunningOniPad() || _usePopupPresentation || _useModalPresentation) {
+        return;
+    }
+    if (!self.portraitWindow) {
+        return;
+    }
+    self.isIPhoneCardKeyboardVisible = YES;
+    {
+        UIDeviceOrientation d = [UIDevice currentDevice].orientation;
+        self.stashLastValidDeviceOrientationForKeyboard =
+            UIDeviceOrientationIsValidInterfaceOrientation(d) ? (NSInteger)d : 0;
+    }
+    if (_forcePortraitOnCheckout && self.portraitWindow.windowScene) {
+        self.stashLastSceneSizeForKeyboardDismiss = self.portraitWindow.windowScene.coordinateSpace.bounds.size;
+    } else {
+        self.stashLastSceneSizeForKeyboardDismiss = CGSizeZero;
+    }
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = self.portraitWindow.windowScene;
+        if (scene) {
+            UIInterfaceOrientationMask mask = [self stashKeyboardOrientationLockMaskForCardWindow];
+            UIWindowSceneGeometryPreferencesIOS *prefs =
+                [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+            [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                STASH_DEBUG_LOG(@"StashNative keyboard orientation lock: %@", error);
+            }];
+            if (_forcePortraitOnCheckout) {
+                CGRect cb = scene.coordinateSpace.bounds;
+                BOOL boundsLandscape = cb.size.width > cb.size.height;
+                BOOL ioLandscape = UIInterfaceOrientationIsLandscape(scene.interfaceOrientation);
+                if (boundsLandscape || ioLandscape) {
+                    [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+                        STASH_DEBUG_LOG(@"StashNative keyboard portrait reinforce: %@", error);
+                    }];
+                }
+            }
+        }
+    }
+}
+
+- (void)stashClearKeyboardOrientationLockIfNeeded {
+    if (!self.isIPhoneCardKeyboardVisible) {
+        return;
+    }
+    self.isIPhoneCardKeyboardVisible = NO;
+    self.stashLastValidDeviceOrientationForKeyboard = 0;
+    self.stashLastSceneSizeForKeyboardDismiss = CGSizeZero;
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = self.portraitWindow.windowScene;
+        if (!scene || !self.portraitWindow) {
+            return;
+        }
+        UIInterfaceOrientationMask mask = [self stashKeyboardOrientationLockMaskForCardWindow];
+        UIWindowSceneGeometryPreferencesIOS *prefs =
+            [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
+        [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+            STASH_DEBUG_LOG(@"StashNative keyboard orientation restore: %@", error);
+        }];
+    }
+}
+
 @end
+
+CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window) {
+    if (!window) {
+        return [UIScreen mainScreen].bounds;
+    }
+    if (@available(iOS 13.0, *)) {
+        UIWindowScene *ws = window.windowScene;
+        if (ws != nil) {
+            return ws.coordinateSpace.bounds;
+        }
+    }
+    return window.screen.bounds;
+}
+
+/// YES when the window scene looks portrait (short side = width) or reports a portrait interface orientation.
+static BOOL stashForcePortraitCardSceneLooksPortrait(UIWindow *window) {
+    if (!window) {
+        return NO;
+    }
+    CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(window);
+    if (b.size.width > 1.0 && b.size.height > 1.0 && b.size.width < b.size.height) {
+        return YES;
+    }
+    if (@available(iOS 13.0, *)) {
+        UIWindowScene *scene = window.windowScene;
+        if (scene) {
+            UIInterfaceOrientation io = scene.interfaceOrientation;
+            if (UIInterfaceOrientationIsPortrait(io) || io == UIInterfaceOrientationPortraitUpsideDown) {
+                return YES;
+            }
+        }
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    UIInterfaceOrientation io = [UIApplication sharedApplication].statusBarOrientation;
+#pragma clang diagnostic pop
+    return UIInterfaceOrientationIsPortrait(io);
+}
+
+static void stashRequestPortraitGeometryForIPhoneCardWindow(UIWindow *window) {
+    if (!window) {
+        return;
+    }
+    if (@available(iOS 16.0, *)) {
+        UIWindowScene *scene = window.windowScene;
+        if (!scene) {
+            return;
+        }
+        UIWindowSceneGeometryPreferencesIOS *prefs =
+            [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
+        [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
+            STASH_DEBUG_LOG(@"StashNative portrait settle geometry retry: %@", error);
+        }];
+    }
+}
+
+/// After opening from landscape, poll until the scene is portrait or timeout, optionally retrying geometry updates (iOS 16+).
+static void stashScheduleForcePortraitCardLayoutAfterPortraitSettle(UIWindow *cardWindow,
+                                                                     BOOL openedFromLandscape,
+                                                                     NSUInteger sessionToken,
+                                                                     StashNativeCardInternal *internal,
+                                                                     void (^onStaleSession)(void),
+                                                                     void (^onContinueLayout)(void)) {
+    if (!openedFromLandscape) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (onContinueLayout) {
+                onContinueLayout();
+            }
+        });
+        return;
+    }
+
+    __block CFAbsoluteTime t0 = 0;
+    __block unsigned geometryRetryPhase = 0;
+    __block void (^poll)(void);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-retain-cycles"
+    poll = ^{
+        if (internal.presentationSessionToken != sessionToken) {
+            if (onStaleSession) {
+                onStaleSession();
+            }
+            return;
+        }
+        if (t0 == 0) {
+            t0 = CFAbsoluteTimeGetCurrent();
+        }
+        if (stashForcePortraitCardSceneLooksPortrait(cardWindow)) {
+            CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
+            STASH_DEBUG_LOG(@"StashNative portrait settle ok bounds=%@ session=%lu",
+                            NSStringFromCGRect(b), (unsigned long)sessionToken);
+            if (onContinueLayout) {
+                onContinueLayout();
+            }
+            return;
+        }
+
+        CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - t0;
+        if (@available(iOS 16.0, *)) {
+            if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
+                geometryRetryPhase = 1;
+                stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
+            } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
+                geometryRetryPhase = 2;
+                stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
+            }
+        }
+
+        if (elapsed >= kPortraitSettleTimeout) {
+            CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
+            STASH_DEBUG_LOG(@"StashNative portrait settle timeout bounds=%@ session=%lu",
+                            NSStringFromCGRect(b), (unsigned long)sessionToken);
+            if (onContinueLayout) {
+                onContinueLayout();
+            }
+            return;
+        }
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPortraitSettlePollInterval * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(),
+                       poll);
+    };
+#pragma clang diagnostic pop
+
+    dispatch_async(dispatch_get_main_queue(), poll);
+}
+
+void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress) {
+    [[StashNativeCardInternal sharedInstance] relayoutIPhoneCardWindowWithTargetBounds:targetBounds
+                                                            forcedCardExpansionProgress:forcedCardExpansionProgress];
+}
 
 #pragma mark - Helper Functions
 
@@ -2448,12 +2890,22 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                 StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
                 if (window && (window == internal.portraitWindow ||
                                window == internal.safariPresentationWindow)) {
+                    // Dedicated Safari portrait window (external payment path).
+                    if (window == internal.safariPresentationWindow && internal.isSafariPortraitLocked) {
+                        return UIInterfaceOrientationMaskPortrait;
+                    }
                     // While Safari is actively presented in forced-portrait mode, lock the window
                     // to portrait so the device physically rotating to landscape doesn't flip it.
                     // During the initial setup / rotation-to-portrait phase, allow all so iOS can
                     // reach portrait even in landscape-locked games (Unity, Unreal, etc.).
                     if (internal.isSafariPortraitLocked) {
                         return UIInterfaceOrientationMaskPortrait;
+                    }
+                    // Card window + keyboard: lock to the card's orientation (must NOT answer
+                    // portrait for nil/host windows — that intersects to empty with landscape-only
+                    // roots and raises UIApplicationInvalidInterfaceOrientation).
+                    if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
+                        return [internal stashKeyboardOrientationLockMaskForCardWindow];
                     }
                     return UIInterfaceOrientationMaskAll;
                 }
@@ -2480,9 +2932,17 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 @implementation StashNativeCard
 
 + (UIInterfaceOrientationMask)supportedInterfaceOrientationsForWindow:(nullable UIWindow *)window {
-    if (!window) return 0;
+    if (!window) {
+        return 0;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     if (window == internal.portraitWindow || window == internal.safariPresentationWindow) {
+        if (internal.isSafariPortraitLocked) {
+            return UIInterfaceOrientationMaskPortrait;
+        }
+        if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
+            return [internal stashKeyboardOrientationLockMaskForCardWindow];
+        }
         return UIInterfaceOrientationMaskAll;
     }
     return 0;
@@ -2762,9 +3222,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
 #pragma clang diagnostic pop
-        internal.previousSceneOrientationMask =
-            (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
-                                                         : UIInterfaceOrientationMaskLandscapeRight;
+        if (UIInterfaceOrientationIsLandscape(cur)) {
+            internal.previousSceneOrientationMask =
+                (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
+                                                             : UIInterfaceOrientationMaskLandscapeRight;
+        } else {
+            internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
+        }
         [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
         [UIViewController attemptRotationToDeviceOrientation];
     }
@@ -2899,9 +3363,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
         UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
 #pragma clang diagnostic pop
-        internal.previousSceneOrientationMask =
-            (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
-                                                         : UIInterfaceOrientationMaskLandscapeRight;
+        if (UIInterfaceOrientationIsLandscape(cur)) {
+            internal.previousSceneOrientationMask =
+                (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
+                                                             : UIInterfaceOrientationMaskLandscapeRight;
+        } else {
+            internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
+        }
         [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait) forKey:@"orientation"];
         [UIViewController attemptRotationToDeviceOrientation];
     }
@@ -2920,8 +3388,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     UIView *loadingView = [self createLoadingViewWithFrame:CGRectZero];
     loadingView.translatesAutoresizingMaskIntoConstraints = NO;
     loadingView.alpha = 1.0;
-    NSTimeInterval rotationDelay = isLandscape ? kRotationDelayAfterLandscape : 0.0;
-    
+
     WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
                                                                      loadingView:loadingView
                                                                    retryArmDelay:0.0
@@ -2962,9 +3429,19 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         [webView loadRequest:preloadRequest];
     }
     
-    // Wait for rotation to complete before setting up the visual hierarchy.
+    // Wait for portrait scene geometry (when opening from landscape) before setting up the visual hierarchy.
     NSUInteger sessionWhenRotationBlockScheduled = internal.presentationSessionToken;
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    stashScheduleForcePortraitCardLayoutAfterPortraitSettle(cardWindow,
+                                                            isLandscape,
+                                                            sessionWhenRotationBlockScheduled,
+                                                            internal,
+                                                            ^{
+        STASH_DEBUG_LOG(@"StashNativeRetryTrace rotation block aborted stale session scheduled=%lu current=%lu",
+              (unsigned long)sessionWhenRotationBlockScheduled, (unsigned long)internal.presentationSessionToken);
+        [delegate invalidateAllTimers];
+        [preloadHost removeFromSuperview];
+    },
+                                                            ^{
         if (internal.presentationSessionToken != sessionWhenRotationBlockScheduled) {
             STASH_DEBUG_LOG(@"StashNativeRetryTrace rotation block aborted stale session scheduled=%lu current=%lu",
                   (unsigned long)sessionWhenRotationBlockScheduled, (unsigned long)internal.presentationSessionToken);
@@ -2972,8 +3449,8 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             [preloadHost removeFromSuperview];
             return;
         }
-        // Get actual screen bounds after rotation
-        CGRect actualBounds = [UIScreen mainScreen].bounds;
+        // Prefer scene coordinate space — UIScreen.main.bounds can lag during rotation.
+        CGRect actualBounds = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
         
         // If still landscape (rotation didn't work), we still use portrait dimensions
         // but the keyboard will be in landscape - this is the fallback behavior
@@ -3064,8 +3541,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         [cardWindow layoutIfNeeded];
         
         // Dimming backdrop after load has started; short hold after fade before slide gives WebKit time off-screen.
-        UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
-        
+        UIView *overlayView = createOverlayViewWithFrame(stashIPhoneCardOverscanBackdropFrameForWindowBounds(actualBounds),
+                                                         cardWindow,
+                                                         0,
+                                                         containerVC);
+        overlayView.autoresizingMask = UIViewAutoresizingNone;
+
         // Add drag tray so it is part of the card from the start (visible during slide-up)
         UIView *dragTray = [internal createDragTray:cardWidth];
         [cardView addSubview:dragTray];
@@ -3100,6 +3581,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
             
             [internal startKeyboardObserving];
+            [internal registerIPhoneCardWindowGeometryObservers];
             
             containerVC.skipLayoutDuringInitialSetup = NO;
         }];
@@ -3161,10 +3643,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         _cardSafeAreaTop = cardWindow.safeAreaInsets.top;
     }
 
-    CGRect actualBounds = screenBounds;
+    CGRect actualBounds = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
+    cardWindow.frame = actualBounds;
+    containerVC.view.frame = actualBounds;
+    BOOL isLandscapeLayout = actualBounds.size.width > actualBounds.size.height;
     CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
     
-    if (isLandscape) {
+    if (isLandscapeLayout) {
         cardWidth = actualBounds.size.width * _cardWidthRatioLandscape;
         cardHeight = actualBounds.size.height * _cardHeightRatioLandscape;
         CGFloat minPhone = 300.0f;
@@ -3254,8 +3739,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     }
     
     // Backdrop below card: insert after card is in hierarchy so stacking matches portrait-forced path.
-    UIView *overlayView = createOverlayViewWithFrame(actualBounds, cardWindow, 0, containerVC);
-    
+    UIView *overlayView = createOverlayViewWithFrame(stashIPhoneCardOverscanBackdropFrameForWindowBounds(actualBounds),
+                                                     cardWindow,
+                                                     0,
+                                                     containerVC);
+    overlayView.autoresizingMask = UIViewAutoresizingNone;
+
     [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
         overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
     } completion:nil];
@@ -3279,6 +3768,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         [overlayView addSubview:dismissButton];
         [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
         [internal startKeyboardObserving];
+        [internal registerIPhoneCardWindowGeometryObservers];
         containerVC.skipLayoutDuringInitialSetup = NO;
     }];
 }

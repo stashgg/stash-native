@@ -363,11 +363,12 @@ cfg.notificationIconResId = R.drawable.ic_notification; // optional; use 0 for l
 StashNativeCard.getInstance().setKeepAliveConfig(cfg);
 ```
 
-- **Default:** keep-alive is **off**; no behavior change for existing apps.
-- **Manifest:** the library merges `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_SHORT_SERVICE`, and a non-exported `StashKeepAliveService` with `foregroundServiceType="shortService"`. You do not need to add these by hand. On Android 14+, `shortService` has a system-enforced time limit (about three minutes); the service is stopped when the user returns to your app (`Activity` resume).
-- **Opt out of the merged service** (e.g. policy reasons): in your app manifest, remove the library component, for example: `tools:node="remove"` on `com.stash.stashnative.StashKeepAliveService` (with `xmlns:tools` on the manifest root).
-- **Notifications:** the library does not add `POST_NOTIFICATIONS`; on Android 13+ the notification may be hidden until your app requests that permission, but the foreground service can still run.
+- **Default:** keep-alive is **off**.
+- **Manifest:** required `foregroundService` entries are auto-merged; no manual changes needed. On Android 14+, service auto-stops after ~3 minutes or when your app resumes.
+- **Opt out:** remove `com.stash.stashnative.StashKeepAliveService` via `tools:node="remove"` in your manifest.
+- **Notifications:** no `POST_NOTIFICATIONS` permission is added; on Android 13+ notifications may be hidden unless requested, but the service still works.
 
+- **Permissions & Google Play:** With keep-alive, your manifest adds `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SHORT_SERVICE`. In Google Play Console, declare foreground service usage and the shortService type, and describe its use (e.g., keeping application alive after browser launch).
 
 ---
 

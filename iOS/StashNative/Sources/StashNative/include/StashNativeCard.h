@@ -326,7 +326,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Returns UIInterfaceOrientationMaskAll when the SDK's portrait card or browser window is the
- * active window, 0 otherwise.
+ * active window, UIInterfaceOrientationMaskPortrait while a force-portrait card has the keyboard
+ * open (SDK window only), or 0 otherwise.
  *
  * Call this from application:supportedInterfaceOrientationsForWindow: in your AppDelegate only
  * when disableAutoOrientationUnlock is YES and you want manual control.

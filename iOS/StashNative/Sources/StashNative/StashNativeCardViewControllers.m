@@ -15,6 +15,11 @@
 static const void *kRotationResizeCardViewKey = &kRotationResizeCardViewKey;
 static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKey;
 
+static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
+    return fabs(a.size.width - b.size.width) > 0.5 || fabs(a.size.height - b.size.height) > 0.5
+        || fabs(a.origin.x - b.origin.x) > 0.5 || fabs(a.origin.y - b.origin.y) > 0.5;
+}
+
 #pragma mark - Extern declarations (defined in StashNativeCard.m)
 
 extern BOOL _usePopupPresentation;
@@ -59,6 +64,8 @@ extern WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
 extern CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 extern void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 extern void resetCardExpandedStateAfterRotation(void);
+extern CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
+extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
 
 #pragma mark - DragTrayView
 
@@ -111,6 +118,35 @@ extern void resetCardExpandedStateAfterRotation(void);
     self.view.layer.mask = maskLayer;
 }
 
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    if (self.skipLayoutDuringInitialSetup) {
+        return;
+    }
+    resetCardExpandedStateAfterRotation();
+    CGRect target = CGRectMake(0, 0, size.width, size.height);
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(target, 0.0);
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(target, 0.0);
+    }];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    if (self.skipLayoutDuringInitialSetup) {
+        return;
+    }
+    UIWindow *w = self.view.window;
+    if (!w) {
+        return;
+    }
+    CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
+    if (stashCGRectSizeDiffers(w.frame, expected)) {
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
+    }
+}
+
 @end
 
 #pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
@@ -155,24 +191,16 @@ extern void resetCardExpandedStateAfterRotation(void);
     UIWindow *window = self.view.window;
     if (!window) return;
     UIView *cardView = [window viewWithTag:kCardViewTag];
-    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    
     if (!cardView) return;
     
     resetCardExpandedStateAfterRotation();
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     BOOL isLandscape = size.width > size.height;
-    CGRect newCardFrame = computePhoneCardFrameForBoundsAndOrientation(targetBounds, isLandscape);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         switchWebViewToFrameLayoutInCardView(cardView);
-        if (overlayView) {
-            overlayView.frame = targetBounds;
-        }
-        cardView.frame = newCardFrame;
-        layoutCardContentToBounds(cardView);
-        [cardView layoutIfNeeded];
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, resizeLink, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -182,9 +210,9 @@ extern void resetCardExpandedStateAfterRotation(void);
         [resizeLink invalidate];
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        cardView.frame = newCardFrame;
-        self.cardFrame = newCardFrame;
-        self.customFrame = newCardFrame;
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
+        self.cardFrame = cardView.frame;
+        self.customFrame = cardView.frame;
         updateOriginalCardRatiosForOrientation(isLandscape);
         resetCardExpandedStateAfterRotation();
         layoutCardContentToBounds(cardView);
@@ -197,6 +225,21 @@ extern void resetCardExpandedStateAfterRotation(void);
         CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
     }];
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    if (self.skipLayoutDuringInitialSetup) {
+        return;
+    }
+    UIWindow *w = self.view.window;
+    if (!w) {
+        return;
+    }
+    CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
+    if (stashCGRectSizeDiffers(w.frame, expected)) {
+        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
+    }
 }
 
 @end

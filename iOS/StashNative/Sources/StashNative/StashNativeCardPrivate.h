@@ -28,6 +28,13 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void);
 /// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
 void resetCardExpandedStateAfterRotation(void);
 
+/// Preferred full-screen bounds for a window's scene (rotation-safe vs UIScreen.main).
+CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
+
+/// Relayouts the iPhone card window, overlay, and sheet. `forcedCardExpansionProgress` in [0,1] overrides
+/// measured progress (use 0 after rotation). Pass a value outside [0,1] (e.g. -1) to use automatic progress.
+void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
+
 /// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 /// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
