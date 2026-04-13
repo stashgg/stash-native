@@ -841,6 +841,8 @@ public class StashNativeCardPlugin {
       }
 
       // Pass modal config if in modal mode
+      intent.putExtra(CardConstants.INTENT_EXTRA_HOST_DISPLAY_ROTATION, rotation);
+
       if (useModalPresentation && currentModalConfig != null) {
         intent.putExtra(CardConstants.INTENT_EXTRA_MODAL_ALLOW_DISMISS,
             currentModalConfig.allowDismiss);

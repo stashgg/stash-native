@@ -237,10 +237,18 @@ public class StashWebViewUtils {
     }
     CookieManager.getInstance().setAcceptCookie(true);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-        && WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-      WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDarkTheme);
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+    boolean algorithmicDarkeningApplied = false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      try {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+          WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDarkTheme);
+          algorithmicDarkeningApplied = true;
+        }
+      } catch (NoClassDefFoundError unused) {
+        // androidx.webkit not packaged (e.g. AAR-only Unity); fall back to WebSettings#setForceDark.
+      }
+    }
+    if (!algorithmicDarkeningApplied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       settings.setForceDark(isDarkTheme ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_OFF);
     }
   }

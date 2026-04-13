@@ -1,6 +1,8 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 
 /**
  * StashNativeCard - Native Android SDK for Stash Native checkout integration.
@@ -466,5 +468,58 @@ public class StashNativeCard {
   public void setKeepAliveConfig(KeepAliveConfig config) {
     plugin.setKeepAliveConfig(config);
   }
-  
+
+  // ===========================================================================
+  // Backdrop (optional: masks paused host during force-portrait rotation)
+  // ===========================================================================
+
+  /**
+   * Holds an optional host-captured screenshot shown behind the dim overlay when
+   * force-portrait checkout rotates the display. Stored as a static field so same-process
+   * Activities can read it without serialising through Intent extras.
+   *
+   * <p>The bitmap is consumed (and recycled) by the checkout Activity; callers do not need
+   * to manage its lifecycle after passing it here.
+   */
+  private static volatile Bitmap pendingBackdropBitmap;
+
+  /**
+   * Sets a host-captured screenshot to display behind the checkout dim overlay.
+   * Call this <b>immediately before</b> {@link #openCard(String, CardConfig)} when
+   * {@link CardConfig#forcePortrait} is true and the host is in landscape.
+   *
+   * <p>The bitmap is consumed once by the next checkout presentation and automatically
+   * recycled; do not reuse the reference after calling this method.
+   *
+   * @param bitmap screenshot of the host screen, or {@code null} to clear
+   */
+  public static void setBackdropBitmap(Bitmap bitmap) {
+    Bitmap old = pendingBackdropBitmap;
+    pendingBackdropBitmap = bitmap;
+    if (old != null && old != bitmap && !old.isRecycled()) {
+      old.recycle();
+    }
+  }
+
+  /**
+   * Convenience: decodes a PNG/JPEG byte array into a {@link Bitmap} and stores it.
+   * Useful from Unity JNI where passing {@code byte[]} is simpler than constructing a Bitmap.
+   *
+   * @param pngOrJpeg encoded image bytes, or {@code null} to clear
+   */
+  public static void setBackdropBytes(byte[] pngOrJpeg) {
+    if (pngOrJpeg == null || pngOrJpeg.length == 0) {
+      setBackdropBitmap(null);
+      return;
+    }
+    Bitmap bmp = BitmapFactory.decodeByteArray(pngOrJpeg, 0, pngOrJpeg.length);
+    setBackdropBitmap(bmp);
+  }
+
+  /** Package-private: consumed by {@link StashNativeCardPortraitActivity}. */
+  static Bitmap consumeBackdropBitmap() {
+    Bitmap bmp = pendingBackdropBitmap;
+    pendingBackdropBitmap = null;
+    return bmp;
+  }
 }

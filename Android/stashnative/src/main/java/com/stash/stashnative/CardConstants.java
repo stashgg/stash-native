@@ -49,6 +49,12 @@ public final class CardConstants {
 
   /** Delay after opening Chrome Custom Tabs before reporting dialog dismissed. */
   public static final int DIALOG_DISMISS_DELAY_MS = 300;
+
+  /**
+   * When a host backdrop is used with force-portrait phone checkout, {@code finish()} is delayed
+   * until landscape configuration is applied; this caps wait if the device never reports it.
+   */
+  public static final int LANDSCAPE_FINISH_FALLBACK_MS = 900;
   
   // ============================================================================
   // Gesture Thresholds (Velocity-based, aligned across platforms)
@@ -292,6 +298,12 @@ public final class CardConstants {
 
   /** Optional custom sheet background (#hex); absent extra means use system theme. */
   public static final String INTENT_EXTRA_BACKGROUND_COLOR = "stashNative.backgroundColor";
+  /**
+   * {@link android.view.Display#getRotation()} from the host activity when checkout was opened
+   * (0/90/180/270). Used with host backdrop so portrait mapping matches landscape-left vs
+   * landscape-right.
+   */
+  public static final String INTENT_EXTRA_HOST_DISPLAY_ROTATION = "stashNative.hostDisplayRotation";
 
   // Modal-specific intent extras
   public static final String INTENT_EXTRA_USE_MODAL = "useModal";

@@ -191,6 +191,46 @@ StashNativeCard.sharedInstance().disableAutoOrientationUnlock = YES;
 
 > **Known edge case (iOS 16+):** If your project explicitly sets `UISceneSupportedInterfaceOrientations` to landscape-only inside the scene configuration in `Info.plist`, iOS enforces that at the scene level and the automatic hook cannot override it. Remove that key or add `UIInterfaceOrientationPortrait` to it.
 
+### Landscape Backdrop (Android, Optional)
+
+When `forcePortrait` is `true` and the host app is in landscape, Android rotates the activity to portrait. During this transition the underlying app surface may appear black or distorted. To mask this, you can optionally pass a screenshot of the current screen to the SDK **before** calling `openCard`. The SDK will display it as a full-screen backdrop behind the dim overlay, creating a seamless visual transition.
+
+This is **completely optional** — if no backdrop is set, the card opens normally with the standard dim overlay.
+
+**Android (native)**
+
+```java
+// Capture however you prefer — e.g. PixelCopy, View.drawingCache, or your own render target
+Bitmap screenshot = captureCurrentScreen();
+
+StashNativeCard.setBackdropBitmap(screenshot);  // static, call before openCard
+StashNativeCard.getInstance().openCard(url, config);
+```
+
+**Unity (C#)**
+
+```csharp
+// Capture at end of frame
+yield return new WaitForEndOfFrame();
+Texture2D tex = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+tex.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+tex.Apply();
+byte[] png = tex.EncodeToPNG();
+Destroy(tex);
+
+// Pass to the SDK via JNI
+using (var cls = new AndroidJavaClass("com.stash.stashnative.StashNativeCard")) {
+    cls.CallStatic("setBackdropBytes", (object)png);
+}
+
+// Then open the card as usual
+stashNative.Call("openCard", url, config);
+```
+
+- The bitmap is consumed and recycled automatically by the SDK after use — no cleanup needed.
+- `setBackdropBitmap(Bitmap)` accepts a pre-built Bitmap; `setBackdropBytes(byte[])` accepts PNG/JPEG bytes (convenient from JNI/Unity).
+- The backdrop is rotated 90° and center-cropped to fill the portrait screen, matching the original scene as closely as possible.
+- When dismissed, the dim overlay fades out; the backdrop stays visible while the checkout activity returns to landscape, then the activity finishes (with a timeout fallback if landscape is not reported).
 
 ### Callbacks
 

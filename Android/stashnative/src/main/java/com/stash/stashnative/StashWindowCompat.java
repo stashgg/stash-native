@@ -1,11 +1,12 @@
 package com.stash.stashnative;
 
+import android.content.Context;
+import android.content.res.Resources;
 import android.os.Build;
 import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import androidx.annotation.Nullable;
-import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import java.lang.reflect.Method;
@@ -20,6 +21,26 @@ final class StashWindowCompat {
   private static final String TAG = "StashWindowCompat";
 
   private StashWindowCompat() {}
+
+  /**
+   * Reads a framework {@code dimen} such as {@code status_bar_height} / {@code navigation_bar_height}.
+   * Used when {@link View#getRootWindowInsets()} is unavailable (API {@literal <} 23) or returns null.
+   */
+  private static int systemBarDimensionPx(@Nullable Context context, String dimenName) {
+    if (context == null) {
+      return 0;
+    }
+    try {
+      Resources res = context.getResources();
+      int id = res.getIdentifier(dimenName, "dimen", "android");
+      if (id <= 0) {
+        return 0;
+      }
+      return res.getDimensionPixelSize(id);
+    } catch (Exception ignored) {
+      return 0;
+    }
+  }
 
   /**
    * Mirrors {@code WindowCompat.setDecorFitsSystemWindows}. On API 30+ uses {@link
@@ -69,52 +90,76 @@ final class StashWindowCompat {
   /**
    * Returns the status-bar (top) system inset in pixels for the given window; 0 if unavailable.
    * Used to cap card heights so they never extend behind the notch / status bar.
+   *
+   * <p>Uses only platform {@link android.view.WindowInsets} — never {@link
+   * WindowInsetsCompat#toWindowInsetsCompat(android.view.WindowInsets, View)}, so hosts (e.g.
+   * Unity) that ship an old {@code androidx.core} on the classpath do not crash with {@link
+   * NoSuchMethodError}.
    */
   static int getSystemTopInsetPx(Window window) {
-    if (window == null) return 0;
+    if (window == null) {
+      return 0;
+    }
     try {
       View decorView = window.getDecorView();
-      android.view.WindowInsets rawInsets = decorView.getRootWindowInsets();
-      if (rawInsets == null) return 0;
-      WindowInsetsCompat insets = WindowInsetsCompat.toWindowInsetsCompat(rawInsets, decorView);
-      int top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-      if (top > 0) return top;
-      // Older AndroidX fallback
-      return rawInsets.getSystemWindowInsetTop();
-    } catch (Exception ignored) {}
-    return 0;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        android.view.WindowInsets wi = decorView.getRootWindowInsets();
+        if (wi != null) {
+          int top = wi.getSystemWindowInsetTop();
+          if (top > 0) {
+            return top;
+          }
+        }
+      }
+      return systemBarDimensionPx(window.getContext(), "status_bar_height");
+    } catch (Throwable ignored) {
+      return 0;
+    }
+  }
+
+  /**
+   * Returns the navigation-bar (bottom) system inset in pixels; 0 if unavailable.
+   * Used with {@link #getSystemTopInsetPx} to cap sheet height so the card does not draw into
+   * gesture or 3-button navigation areas.
+   *
+   * <p>Same host-compat constraints as {@link #getSystemTopInsetPx}.
+   */
+  static int getSystemBottomInsetPx(Window window) {
+    if (window == null) {
+      return 0;
+    }
+    try {
+      View decorView = window.getDecorView();
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        android.view.WindowInsets wi = decorView.getRootWindowInsets();
+        if (wi != null) {
+          int bottom = wi.getSystemWindowInsetBottom();
+          if (bottom > 0) {
+            return bottom;
+          }
+        }
+      }
+      return systemBarDimensionPx(window.getContext(), "navigation_bar_height");
+    } catch (Throwable ignored) {
+      return 0;
+    }
   }
 
   /**
    * Applies system bar insets as padding and returns insets with system bars cleared for children.
-   * Works with older {@code androidx.core} where {@link WindowInsetsCompat.Type#systemBars()} is
-   * absent (falls back to {@link WindowInsetsCompat#getSystemWindowInsetLeft()} etc.).
+   *
+   * <p>Uses only legacy {@link WindowInsetsCompat#getSystemWindowInsetLeft()} (etc.) and {@link
+   * WindowInsetsCompat#replaceSystemWindowInsets(int, int, int, int)} — no {@link
+   * WindowInsetsCompat.Type} or {@link WindowInsetsCompat.Builder}, so Unity and other hosts that
+   * ship an older {@code androidx.core} do not hit {@link NoSuchMethodError} / missing {@code Type}.
    */
   static WindowInsetsCompat onApplySystemBarInsetsPadding(
       View target, WindowInsetsCompat windowInsets) {
-    int left;
-    int top;
-    int right;
-    int bottom;
-    try {
-      Insets bars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
-      left = bars.left;
-      top = bars.top;
-      right = bars.right;
-      bottom = bars.bottom;
-    } catch (Throwable ignored) {
-      left = windowInsets.getSystemWindowInsetLeft();
-      top = windowInsets.getSystemWindowInsetTop();
-      right = windowInsets.getSystemWindowInsetRight();
-      bottom = windowInsets.getSystemWindowInsetBottom();
-    }
+    int left = windowInsets.getSystemWindowInsetLeft();
+    int top = windowInsets.getSystemWindowInsetTop();
+    int right = windowInsets.getSystemWindowInsetRight();
+    int bottom = windowInsets.getSystemWindowInsetBottom();
     target.setPadding(left, top, right, bottom);
-    try {
-      return new WindowInsetsCompat.Builder(windowInsets)
-          .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.NONE)
-          .build();
-    } catch (Throwable ignored) {
-      return windowInsets.replaceSystemWindowInsets(0, 0, 0, 0);
-    }
+    return windowInsets.replaceSystemWindowInsets(0, 0, 0, 0);
   }
 }

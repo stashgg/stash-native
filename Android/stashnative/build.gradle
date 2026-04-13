@@ -40,5 +40,6 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     // Optional at runtime: CCT via reflection in StashUrlLauncher; hosts need not bundle browser.
     compileOnly 'androidx.browser:browser:1.7.0'
-    implementation 'androidx.webkit:webkit:1.11.0'
+    // api: hosts that embed the AAR without Gradle POM merging still need this JAR; Gradle consumers inherit it.
+    api 'androidx.webkit:webkit:1.11.0'
 }

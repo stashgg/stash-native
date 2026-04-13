@@ -23,6 +23,7 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
@@ -34,8 +35,11 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import androidx.annotation.RequiresApi;
 import androidx.core.view.ViewCompat;
@@ -141,6 +145,18 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean effectiveIsDarkForContent;
   private OnBackInvokedCallback onBackInvokedCallback;
 
+  /** Optional host-supplied screenshot used as background behind the dim overlay. */
+  private Bitmap hostBackdropBitmap;
+  private ImageView hostBackdropImageView;
+  /** {@link android.view.Display#getRotation()} when checkout opened; drives backdrop ±90° mapping. */
+  private int hostBackdropSourceDisplayRotation = Surface.ROTATION_90;
+  /**
+   * After card dismiss, wait for landscape {@link Configuration} before {@link #finish()} so the
+   * host backdrop can cover the system rotation (force-portrait phone checkout only).
+   */
+  private boolean pendingFinishAfterLandscape;
+  private final Runnable pendingLandscapeFinishFallback = this::completeDeferredFinishFromLandscape;
+
   @Override
   protected void attachBaseContext(Context newBase) {
     super.attachBaseContext(newBase);
@@ -197,6 +213,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       tabletHeightRatioLandscape = intent.getFloatExtra(
           CardConstants.INTENT_EXTRA_TABLET_HEIGHT_RATIO_LANDSCAPE,
           CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE);
+      hostBackdropSourceDisplayRotation = intent.getIntExtra(
+          CardConstants.INTENT_EXTRA_HOST_DISPLAY_ROTATION, Surface.ROTATION_90);
 
       // Read modal configuration
       if (useModal) {
@@ -232,6 +250,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         finish();
         return;
       }
+
+      hostBackdropBitmap = StashNativeCard.consumeBackdropBitmap();
       
       cachedIsDarkTheme = StashWebViewUtils.isDarkTheme(this);
       try {
@@ -288,8 +308,11 @@ public class StashNativeCardPortraitActivity extends Activity {
       Window window = getWindow();
       if (window != null) {
         try {
-          // Always use transparent window - we use our own backdrop view
-          window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+          // When a host backdrop is present, start with an opaque window so the
+          // compositor never shows the paused host surface during rotation.
+          // Without backdrop, stay transparent so the host app shows through.
+          window.setBackgroundDrawable(new ColorDrawable(
+              hostBackdropBitmap != null ? Color.BLACK : Color.TRANSPARENT));
           
           requestWindowFeature(Window.FEATURE_NO_TITLE);
           window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
@@ -336,13 +359,35 @@ public class StashNativeCardPortraitActivity extends Activity {
       rootLayout = new FrameLayout(this);
       rootLayout.setBackgroundColor(Color.TRANSPARENT);
       
-      // Create separate backdrop view for independent fade animation
+      // Optional host screenshot backdrop (behind the dim layer)
+      if (hostBackdropBitmap != null && !hostBackdropBitmap.isRecycled()) {
+        hostBackdropImageView = new ImageView(this);
+        hostBackdropImageView.setLayoutParams(new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+        hostBackdropImageView.setScaleType(ImageView.ScaleType.MATRIX);
+        hostBackdropImageView.setImageBitmap(hostBackdropBitmap);
+        // Bitmap buffer is in physical order; avoid RTL mirroring the matrix result.
+        hostBackdropImageView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+
+        hostBackdropImageView.post(this::applyHostBackdropMatrixForPortraitCheckout);
+
+        rootLayout.addView(hostBackdropImageView);
+
+        // Now that the backdrop image covers the screen, switch window to transparent
+        // so dismissal fades cleanly.
+        Window w = getWindow();
+        if (w != null) {
+          w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
+      }
+
+      // Create separate backdrop view for independent fade animation (dim layer)
       backdropView = new View(this);
       backdropView.setLayoutParams(new FrameLayout.LayoutParams(
           FrameLayout.LayoutParams.MATCH_PARENT,
           FrameLayout.LayoutParams.MATCH_PARENT));
       try {
-        // Same 40% dim as portrait and iOS (no solid black when host was landscape).
         backdropView.setBackgroundColor(Color.parseColor(StashWebViewUtils.COLOR_BACKGROUND_DIM));
       } catch (Exception e) {
         Log.w(TAG, "Error setting background color: " + e.getMessage(), e);
@@ -388,6 +433,16 @@ public class StashNativeCardPortraitActivity extends Activity {
           (v, windowInsets) ->
               StashWindowCompat.onApplySystemBarInsetsPadding(v, windowInsets));
       ViewCompat.requestApplyInsets(rootLayout);
+      // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
+      // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
+      if (!usePopup && !useModal && !cachedIsTablet) {
+        rootLayout.post(
+            () -> {
+              if (cardContainer != null) {
+                animatePhoneCheckoutRotation();
+              }
+            });
+      }
     } catch (Exception e) {
       Log.w(TAG, "Error in createUI: " + e.getMessage(), e);
       finish();
@@ -473,6 +528,28 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     return new int[]{cardWidth, cardHeight};
   }
+
+  /**
+   * Phone checkout in portrait (including force-portrait while configuration is still landscape):
+   * height is {@code cardHeightRatioPortrait} of the physical portrait screen height, capped so
+   * the sheet stays below the status bar and above the navigation bar (aligned with iOS clamping).
+   */
+  private int computePhonePortraitSheetHeightPx(DisplayMetrics metrics) {
+    boolean isLandscape = getResources().getConfiguration().orientation
+        == Configuration.ORIENTATION_LANDSCAPE;
+    int portraitHeight = (forcePortraitOnCheckout && isLandscape)
+        ? metrics.widthPixels : metrics.heightPixels;
+    int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
+    int bottom = StashWindowCompat.getSystemBottomInsetPx(getWindow());
+    int maxH = portraitHeight - top - bottom;
+    if (maxH <= 0) {
+      maxH = portraitHeight - top;
+    }
+    if (maxH <= 0) {
+      maxH = portraitHeight;
+    }
+    return Math.min((int) (portraitHeight * cardHeightRatioPortrait), maxH);
+  }
   
   private void createCard() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -511,15 +588,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         // Landscape phone card is fixed to configured size (dismiss-only gesture behavior).
         isExpanded = false;
       } else {
-        // When forcePortrait is active, createCard() runs before the rotation completes.
-        // The metrics still reflect landscape dimensions, so widthPixels is the true
-        // portrait height (the long dimension of the device).
-        int portraitHeight = (forcePortraitOnCheckout && isLandscape)
-            ? metrics.widthPixels : metrics.heightPixels;
-        int portraitMaxH = portraitHeight - StashWindowCompat.getSystemTopInsetPx(getWindow());
-        if (portraitMaxH <= 0) portraitMaxH = portraitHeight;
         isExpanded = false;
-        cardHeight = Math.min((int) (portraitHeight * cardHeightRatioPortrait), portraitMaxH);
+        cardHeight = computePhonePortraitSheetHeightPx(metrics);
         cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
       }
     }
@@ -930,13 +1000,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       return Math.min(h, maxH);
     }
-    // When forcePortrait is active during landscape (rotation not yet complete), widthPixels
-    // is the true portrait height — the long dimension of the device.
-    int portraitHeight = (forcePortraitOnCheckout && isLandscape)
-        ? metrics.widthPixels : metrics.heightPixels;
-    int maxH = portraitHeight - StashWindowCompat.getSystemTopInsetPx(getWindow());
-    if (maxH <= 0) maxH = portraitHeight;
-    return Math.min((int) (portraitHeight * cardHeightRatioPortrait), maxH);
+    return computePhonePortraitSheetHeightPx(metrics);
   }
 
   private void animateCardHeight(int targetHeight, int duration) {
@@ -1488,11 +1552,118 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (loadTimersHandler == null) {
       return;
     }
+    loadTimersHandler.removeCallbacks(pendingLandscapeFinishFallback);
     if (retryAfterStallRunnable != null) {
       loadTimersHandler.removeCallbacks(retryAfterStallRunnable);
     }
     if (networkDeadlineRunnable != null) {
       loadTimersHandler.removeCallbacks(networkDeadlineRunnable);
+    }
+  }
+
+  private void removePendingLandscapeFinishCallback() {
+    if (loadTimersHandler != null) {
+      loadTimersHandler.removeCallbacks(pendingLandscapeFinishFallback);
+    }
+  }
+
+  /** Phone force-portrait checkout with host backdrop: hold static plate through return rotation. */
+  private boolean shouldDeferFinishForHostBackdrop() {
+    return hostBackdropImageView != null
+        && forcePortraitOnCheckout
+        && !cachedIsTablet
+        && !usePopup
+        && !useModal;
+  }
+
+  private void applyHostBackdropMatrixForPortraitCheckout() {
+    if (hostBackdropImageView == null
+        || hostBackdropBitmap == null
+        || hostBackdropBitmap.isRecycled()) {
+      return;
+    }
+    int viewW = hostBackdropImageView.getWidth();
+    int viewH = hostBackdropImageView.getHeight();
+    int bmpW = hostBackdropBitmap.getWidth();
+    int bmpH = hostBackdropBitmap.getHeight();
+    if (viewW == 0 || viewH == 0 || bmpW == 0 || bmpH == 0) {
+      return;
+    }
+    hostBackdropImageView.setScaleType(ImageView.ScaleType.MATRIX);
+    // Landscape-left vs landscape-right: opposite ±90° (swap vs earlier build fixes horizontal
+    // mirror from game buffer vs Display rotation convention).
+    float rotateDeg;
+    switch (hostBackdropSourceDisplayRotation) {
+      case Surface.ROTATION_270:
+        rotateDeg = -90f;
+        break;
+      case Surface.ROTATION_90:
+        rotateDeg = 90f;
+        break;
+      default:
+        rotateDeg = -90f;
+        break;
+    }
+    float cx = bmpW / 2f;
+    float cy = bmpH / 2f;
+    // Cover scale for ±90°: rotated bounds are bmpH × bmpW
+    float scale = Math.max((float) viewW / bmpH, (float) viewH / bmpW);
+    Matrix m = new Matrix();
+    m.postTranslate(-cx, -cy);
+    m.postRotate(rotateDeg);
+    m.postScale(scale, scale);
+    m.postTranslate(viewW / 2f, viewH / 2f);
+    hostBackdropImageView.setImageMatrix(m);
+  }
+
+  private void prepareHostBackdropForLandscapeDisplay() {
+    if (hostBackdropImageView == null) {
+      return;
+    }
+    hostBackdropImageView.setScaleX(1f);
+    hostBackdropImageView.setScaleY(1f);
+    hostBackdropImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    hostBackdropImageView.setImageMatrix(new Matrix());
+  }
+
+  /** Called when landscape is ready or fallback timer fires; idempotent if already completed. */
+  private void completeDeferredFinishFromLandscape() {
+    if (!pendingFinishAfterLandscape) {
+      return;
+    }
+    prepareHostBackdropForLandscapeDisplay();
+    pendingFinishAfterLandscape = false;
+    removePendingLandscapeFinishCallback();
+    finishActivityWithNoAnimation();
+  }
+
+  private void beginFinishAfterLandscapeTransition() {
+    pendingFinishAfterLandscape = true;
+    if (loadTimersHandler == null) {
+      loadTimersHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    }
+    removePendingLandscapeFinishCallback();
+    loadTimersHandler.postDelayed(
+        pendingLandscapeFinishFallback, CardConstants.LANDSCAPE_FINISH_FALLBACK_MS);
+    try {
+      setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+    } catch (Exception e) {
+      Log.w(TAG, "Error requesting landscape for dismiss: " + e.getMessage(), e);
+    }
+    if (getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE) {
+      if (hostBackdropImageView != null) {
+        hostBackdropImageView.post(this::completeDeferredFinishFromLandscape);
+      } else {
+        completeDeferredFinishFromLandscape();
+      }
+    }
+  }
+
+  private void finishAfterDismissAnimations() {
+    if (shouldDeferFinishForHostBackdrop()) {
+      beginFinishAfterLandscapeTransition();
+    } else {
+      finishActivityWithNoAnimation();
     }
   }
   
@@ -1761,13 +1932,20 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       if (cardContainer == null) {
-        finishActivityWithNoAnimation();
+        finishAfterDismissAnimations();
         return;
       }
       
-      // Fade out the backdrop independently
+      // Fade dim only; host backdrop stays opaque until landscape (see shouldDeferFinishForHostBackdrop).
       if (backdropView != null) {
         backdropView.animate()
+            .alpha(0f)
+            .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .start();
+      }
+      if (hostBackdropImageView != null && !shouldDeferFinishForHostBackdrop()) {
+        hostBackdropImageView.animate()
             .alpha(0f)
             .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
             .setInterpolator(new android.view.animation.AccelerateInterpolator())
@@ -1787,7 +1965,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               .setInterpolator(new android.view.animation.AccelerateInterpolator())
               .withEndAction(() -> {
                 try {
-                  finishActivityWithNoAnimation();
+                  finishAfterDismissAnimations();
                 } catch (Exception e) {
                   Log.w(TAG, "Error in animation end action: " + e.getMessage(), e);
                   finish();
@@ -1796,7 +1974,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               .start();
         } catch (Exception e) {
           Log.w(TAG, "Error animating popup dismissal: " + e.getMessage(), e);
-          finishActivityWithNoAnimation();
+          finishAfterDismissAnimations();
         }
       } else {
         // Use slide animation for phones
@@ -1807,7 +1985,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               .setInterpolator(new android.view.animation.AccelerateInterpolator())
               .withEndAction(() -> {
                 try {
-                  finishActivityWithNoAnimation();
+                  finishAfterDismissAnimations();
                 } catch (Exception e) {
                   Log.w(TAG, "Error in animation end action: " + e.getMessage(), e);
                   finish();
@@ -1816,7 +1994,7 @@ public class StashNativeCardPortraitActivity extends Activity {
               .start();
         } catch (Exception e) {
           Log.w(TAG, "Error animating card dismissal: " + e.getMessage(), e);
-          finishActivityWithNoAnimation();
+          finishAfterDismissAnimations();
         }
       }
     } catch (Exception e) {
@@ -2068,6 +2246,13 @@ public class StashNativeCardPortraitActivity extends Activity {
       backdropView = null;
       loadingView = null;
       homeButton = null;
+      hostBackdropImageView = null;
+      if (hostBackdropBitmap != null) {
+        if (!hostBackdropBitmap.isRecycled()) {
+          hostBackdropBitmap.recycle();
+        }
+        hostBackdropBitmap = null;
+      }
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && onBackInvokedCallback != null) {
         getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(onBackInvokedCallback);
         onBackInvokedCallback = null;
@@ -2099,6 +2284,17 @@ public class StashNativeCardPortraitActivity extends Activity {
   public void onConfigurationChanged(Configuration newConfig) {
     super.onConfigurationChanged(newConfig);
 
+    if (pendingFinishAfterLandscape) {
+      if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+        if (hostBackdropImageView != null) {
+          hostBackdropImageView.post(this::completeDeferredFinishFromLandscape);
+        } else {
+          completeDeferredFinishFromLandscape();
+        }
+      }
+      return;
+    }
+
     // forcePortrait from landscape: card creation was deferred until rotation completes so that
     // animateSlideUp uses the correct portrait screen dimensions from the very first frame.
     if (pendingCreateUIAfterRotation
@@ -2122,8 +2318,9 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (isTablet) {
         // Seamless animation for tablet rotation
         animateTabletRotation();
-      } else if (!forcePortraitOnCheckout) {
-        // Phone checkout without force portrait: resize card to orientation-specific dimensions
+      } else {
+        // Phone: keep card sized to config (portrait ratios + insets) after rotation, insets,
+        // multi-window, etc. — same path for force-portrait and current-orientation checkout.
         animatePhoneCheckoutRotation();
       }
     }
@@ -2246,7 +2443,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       cardHeight = h;
     } else {
       cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
-      cardHeight = (int) (screenHeight * cardHeightRatioPortrait);
+      cardHeight = computePhonePortraitSheetHeightPx(metrics);
     }
     return new int[]{cardWidth, cardHeight};
   }
@@ -2267,7 +2464,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     
     if (newWidth == FrameLayout.LayoutParams.MATCH_PARENT && rootLayout != null) {
-      newWidth = metrics.widthPixels;
+      int rw = rootLayout.getWidth();
+      newWidth = rw > 0 ? rw : metrics.widthPixels;
     }
     
     int currentHeight = params.height;
