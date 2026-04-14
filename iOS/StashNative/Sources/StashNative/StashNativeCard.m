@@ -1973,14 +1973,8 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
             return;
         }
         CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(strongSelf.portraitWindow);
-        // iOS 15 guard: the scene coordinate space can report bounds matching the
-        // device orientation even when the card window is locked to a different one.
-        // Swap width/height when bounds violate the card's orientation constraint.
-        if (@available(iOS 16.0, *)) {
-            // Scene geometry preferences prevent this on iOS 16+.
-        } else {
-            b = stashCoerceBoundsToCardOrientationLock(b, strongSelf.currentPresentedVC);
-        }
+        // Keyboard dismiss detection uses RAW scene bounds to detect real orientation
+        // changes before we coerce them for layout. The saved reference size is also raw.
         if (_forcePortraitOnCheckout && strongSelf.isIPhoneCardKeyboardVisible) {
             CGSize sz = b.size;
             if (sz.width > 1.0 && sz.height > 1.0 && strongSelf.stashLastSceneSizeForKeyboardDismiss.width > 1.0) {
@@ -1994,6 +1988,14 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
             if (sz.width > 1.0 && sz.height > 1.0) {
                 strongSelf.stashLastSceneSizeForKeyboardDismiss = sz;
             }
+        }
+        // iOS 15 guard: the scene coordinate space can report bounds matching the
+        // device orientation even when the card window is locked to a different one.
+        // Swap width/height when bounds violate the card's orientation constraint.
+        if (@available(iOS 16.0, *)) {
+            // Scene geometry preferences prevent this on iOS 16+.
+        } else {
+            b = stashCoerceBoundsToCardOrientationLock(b, strongSelf.currentPresentedVC);
         }
         [strongSelf relayoutIPhoneCardWindowWithTargetBounds:b forcedCardExpansionProgress:-1.0];
         strongSelf.pendingIPhoneCardGeometryRelayoutBlock = nil;
@@ -3019,7 +3021,18 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                     }
                     return UIInterfaceOrientationMaskAll;
                 }
-                // Non-SDK windows: forward to original.
+                // While an orientation-locked card is presented, system windows
+                // (keyboard, alerts) must match the card's orientation. On iOS 16+
+                // scene geometry handles this; on iOS 15 the delegate callback is
+                // the only mechanism. Return the card's mask for any window that is
+                // not the host app's own window.
+                if (internal.portraitWindow && window != internal.previousKeyWindow) {
+                    UIViewController *cardRootVC = internal.portraitWindow.rootViewController;
+                    if (cardRootVC) {
+                        return [cardRootVC supportedInterfaceOrientations];
+                    }
+                }
+                // Host app's window (or no card presented): forward to original.
                 if (originalIMP) {
                     return originalIMP(blockSelf, sel, app, window);
                 }
@@ -3060,6 +3073,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             return [rootVC supportedInterfaceOrientations];
         }
         return UIInterfaceOrientationMaskAll;
+    }
+    // System windows (keyboard, alerts) while card is presented: match the card.
+    if (internal.portraitWindow && window != internal.previousKeyWindow) {
+        UIViewController *cardRootVC = internal.portraitWindow.rootViewController;
+        if (cardRootVC) {
+            return [cardRootVC supportedInterfaceOrientations];
+        }
     }
     return 0;
 }
