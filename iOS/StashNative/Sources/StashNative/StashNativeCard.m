@@ -1892,7 +1892,14 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     vc.view.frame = w.bounds;
     if (@available(iOS 11.0, *)) {
-        _cardSafeAreaTop = w.safeAreaInsets.top;
+        CGFloat fresh = w.safeAreaInsets.top;
+        // On iOS 15, safeAreaInsets can transiently report 0 during
+        // attemptRotationToDeviceOrientation (keyboard dismiss + rotation).
+        // A device with a notch/Dynamic Island cannot genuinely have 0 safe
+        // area while the card is presented portrait, so keep the last known value.
+        if (fresh > 0 || _cardSafeAreaTop == 0) {
+            _cardSafeAreaTop = fresh;
+        }
     }
     UIView *overlay = objc_getAssociatedObject(vc, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
     if (overlay) {
@@ -2528,14 +2535,17 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void) {
 }
 
 CGFloat getSafeAreaTopForView(UIView *view) {
-    if (!view) return 0;
+    if (!view) return _cardSafeAreaTop;
     if (@available(iOS 11.0, *)) {
         UIView *parentView = view.superview;
         if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-            return parentView.safeAreaInsets.top;
+            CGFloat live = parentView.safeAreaInsets.top;
+            // On iOS 15, safeAreaInsets can transiently read 0 during rotation
+            // transitions. Fall back to the last known card safe area value.
+            if (live > 0) return live;
         }
     }
-    return 0;
+    return _cardSafeAreaTop;
 }
 
 CGFloat getSafeAreaBottomForView(UIView *view) {
@@ -3593,13 +3603,25 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         }
         // Prefer scene coordinate space — UIScreen.main.bounds can lag during rotation.
         CGRect actualBounds = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
-        
-        // If still landscape (rotation didn't work), we still use portrait dimensions
-        // but the keyboard will be in landscape - this is the fallback behavior
+
         CGFloat actualPortraitWidth = fmin(actualBounds.size.width, actualBounds.size.height);
         CGFloat actualPortraitHeight = fmax(actualBounds.size.width, actualBounds.size.height);
         BOOL rotationSucceeded = (actualBounds.size.width < actualBounds.size.height);
-        
+
+        // On iOS 15, the scene's coordinateSpace.bounds can still report landscape
+        // even after the interfaceOrientation has settled to portrait (race between
+        // the orientation property and the coordinate space). Since this is a
+        // force-portrait card, always use portrait dimensions for the window frame
+        // and card layout. On iOS 16+ scene geometry preferences keep them in sync.
+        if (!rotationSucceeded) {
+            if (@available(iOS 16.0, *)) {
+                // iOS 16+: scene geometry preferences handle this.
+            } else {
+                actualBounds = CGRectMake(0, 0, actualPortraitWidth, actualPortraitHeight);
+                rotationSucceeded = YES;
+            }
+        }
+
         // Update window frame to actual screen bounds
         cardWindow.frame = actualBounds;
         containerVC.view.frame = actualBounds;
@@ -3607,19 +3629,19 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         if (@available(iOS 16.0, *)) {
             [containerVC setNeedsUpdateOfSupportedInterfaceOrientations];
         }
-        
+
         // Calculate card dimensions using portrait dimensions
         CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
-        
+
         if (rotationSucceeded) {
-            // Rotation worked - use actual bounds (phone card is always full width)
+            // Portrait bounds - use directly (phone card is always full width)
             cardWidth = actualBounds.size.width;
             cardHeight = actualBounds.size.height * _cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
             cardFinalY = actualBounds.size.height - cardHeight;
             startY = actualBounds.size.height + cardHeight;
         } else {
-            // Rotation failed - present in portrait orientation within landscape screen
+            // Rotation failed (iOS 16+ only path now) - present in portrait within landscape
             cardWidth = actualPortraitWidth;
             cardHeight = actualPortraitHeight * _cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;

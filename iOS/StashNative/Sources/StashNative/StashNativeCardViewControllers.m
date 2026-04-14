@@ -123,6 +123,11 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
     if (self.skipLayoutDuringInitialSetup) {
         return;
     }
+    // iOS 15: system may deliver a landscape transition even though this VC
+    // returns portrait-only. Coerce to portrait to prevent broken layout.
+    if (size.width > size.height) {
+        size = CGSizeMake(size.height, size.width);
+    }
     resetCardExpandedStateAfterRotation();
     CGRect target = CGRectMake(0, 0, size.width, size.height);
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
