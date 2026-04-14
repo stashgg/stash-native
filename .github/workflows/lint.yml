@@ -81,7 +81,13 @@ jobs:
 
       - name: Run unit tests
         run: |
-          cd iOS/StashNative
+          # Copy SPM package to a temp dir without .xcodeproj so xcodebuild
+          # picks up the Package.swift test target instead of the project scheme.
+          TMPDIR=$(mktemp -d)
+          cp iOS/StashNative/Package.swift "$TMPDIR/"
+          cp -r iOS/StashNative/Sources "$TMPDIR/"
+          cp -r iOS/StashNative/Tests "$TMPDIR/"
+          cd "$TMPDIR"
           SIM_ID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys
           devs = json.load(sys.stdin)['devices']
