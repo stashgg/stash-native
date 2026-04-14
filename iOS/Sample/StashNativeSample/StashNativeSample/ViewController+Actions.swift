@@ -186,6 +186,7 @@ extension ViewController {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
+        // Test fixtures -- replace with real user/product data in production.
         let body: [String: Any] = [
             "user": [
                 "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
@@ -256,6 +257,7 @@ extension ViewController {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
+        // Test fixtures -- replace with real user data in production.
         let body: [String: Any] = [
             "user": [
                 "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",

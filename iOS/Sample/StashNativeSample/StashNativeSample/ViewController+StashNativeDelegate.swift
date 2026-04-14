@@ -50,7 +50,6 @@ extension ViewController: StashNativeCardDelegate {
     }
 
     func stashNativeCardDidRequestExternalPayment(with url: String) {
-        // window.stash_sdk.openExternalBrowser(url) — card already closed; Safari / Custom Tabs opened by SDK
-        print("External payment URL: \(url)")
+        // Card closed by SDK; Safari opened for external payment.
     }
 }

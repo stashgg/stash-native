@@ -195,40 +195,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     return items.size();
   }
 
-  private int findActionPosition(int position) {
-    for (int i = 0; i < position; i++) {
-      SettingsItem it = items.get(i);
-      if (it.type == SettingsItem.TYPE_ACTION_PREFERENCE) {
-        int titleRes = it.titleRes;
-        if (titleRes == R.string.open_card) {
-          return 0;
-        }
-        if (titleRes == R.string.open_browser) {
-          return 1;
-        }
-        if (titleRes == R.string.open_modal) {
-          return 2;
-        }
-        if (titleRes == R.string.generate_checkout) {
-          return 3;
-        }
-      }
-    }
-    return -1;
-  }
-
-  private int findSwitchOrSliderPosition(int position) {
-    int switchIndex = 0;
-    for (int i = 0; i < position; i++) {
-      SettingsItem it = items.get(i);
-      if (it.type == SettingsItem.TYPE_SWITCH_PREFERENCE
-          || it.type == SettingsItem.TYPE_SLIDER_PREFERENCE) {
-        switchIndex++;
-      }
-    }
-    return switchIndex;
-  }
-
   static class HeaderVH extends RecyclerView.ViewHolder {
     private final ItemHeaderBinding binding;
 

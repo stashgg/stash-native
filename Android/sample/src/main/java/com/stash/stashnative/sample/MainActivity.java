@@ -134,6 +134,7 @@ public class MainActivity extends AppCompatActivity {
     viewModel.refreshList();
   }
 
+  // Slider range is 0-90; +10 maps to 10-100%, /100 converts to 0.1-1.0 ratio.
   private StashNativeCard.CardConfig buildCardConfig() {
     StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
     config.forcePortrait = viewModel.isForcePortraitOnCheckout();
@@ -166,10 +167,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     url = url.trim();
-    // The browser section still defaults to htmlpreview.github.io (iframe wrapper); card defaults to
-    // test.stashpreview.com. Main-frame onPageFinished can fire early for iframe wrappers, so
-    // WebView/GPU timing can differ from a direct checkout URL (see generateCheckout()).
-    Log.i(TAG, "Opening card (manual URL): " + url);
+    Log.i(TAG, "Opening card: " + url);
     StashNativeCard.CardConfig config = buildCardConfig();
     StashNativeCard.getInstance().openCard(url, config);
   }
@@ -193,13 +191,7 @@ public class MainActivity extends AppCompatActivity {
     StashNativeCard.getInstance().openModal(url.trim(), config);
   }
 
-  /**
-   * Fetches a real checkout URL from the Stash API and opens it in the card. This is the most
-   * representative end-to-end path and the best way to reproduce WebView/Chromium issues on an
-   * emulator (e.g. GLES init failure in gl_version_info.cc) because the checkout SPA loads in the
-   * main frame—unlike the default htmlpreview.github.io test URL, which may finish the main
-   * document early while the real page loads in a subframe.
-   */
+  /** Generates a checkout URL from the Stash API and opens it in the card. */
   private void generateCheckout() {
     generateQuickPayCheckout(false);
   }
@@ -233,6 +225,7 @@ public class MainActivity extends AppCompatActivity {
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
 
+        // Test fixtures -- replace with real user/product data in production.
         JSONObject user = new JSONObject();
         user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
         user.put("validatedEmail", "test@stash.gg");
@@ -324,6 +317,7 @@ public class MainActivity extends AppCompatActivity {
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
 
+        // Test fixtures -- replace with real user data in production.
         JSONObject user = new JSONObject();
         user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
         user.put("validatedEmail", "test@stash.gg");

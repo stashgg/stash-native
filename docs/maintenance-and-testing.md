@@ -13,7 +13,7 @@ Current validation is centered on:
 - Sample app artifact generation.
 - Cloud-device distribution for manual validation (BrowserStack/Appetize).
 
-There is no repository-level unit/instrumentation test suite wired in CI today; quality gates are primarily lint + build + manual/device-cloud validation.
+Unit tests run in CI (lint.yml) alongside static analysis. Coverage is focused on pure-logic utilities (URL normalization, theme parameters, config defaults, color parsing). WebView-dependent code is validated through manual testing on device/cloud.
 
 ## CI Workflows
 
@@ -43,7 +43,9 @@ Reference: [`.github/workflows/lint.yml`](../.github/workflows/lint.yml)
 Includes:
 
 - Android Checkstyle using [`Android/checkstyle.xml`](../Android/checkstyle.xml).
+- Android unit tests (`./gradlew :stashnative:testDebugUnitTest`).
 - iOS static analysis via `xcodebuild analyze`.
+- iOS unit tests (`xcodebuild test` on iOS Simulator).
 - SwiftLint checks using [`.swiftlint.yml`](../.swiftlint.yml).
 
 ### Release Workflow
@@ -66,6 +68,8 @@ Produces release artifacts:
   - `cd Android && ./gradlew :sample:assembleRelease`
 - Install sample to connected device/emulator:
   - `cd Android && ./gradlew :sample:installDebug`
+- Run unit tests:
+  - `cd Android && ./gradlew :stashnative:testDebugUnitTest`
 
 ### iOS
 
@@ -77,6 +81,8 @@ Produces release artifacts:
   - `swiftlint lint iOS/Sample/StashNativeSample --strict --config .swiftlint.yml`
 - Build sample in simulator:
   - `cd iOS/Sample/StashNativeSample && xcodebuild -project StashNativeSample.xcodeproj -scheme StashNativeSample -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build`
+- Run unit tests:
+  - `cd iOS/StashNative && xcodebuild test -scheme StashNative -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`
 
 ## Manual QA Surfaces
 

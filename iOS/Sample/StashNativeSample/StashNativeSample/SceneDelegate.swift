@@ -5,9 +5,7 @@
 
 import UIKit
 
-/// Navigation controller that forwards supportedInterfaceOrientations to its top view controller.
-/// This mirrors how Unity's UnityAppController and Unreal's IOSAppDelegate work — the root VC
-/// controls the allowed orientations, letting ViewController simulate a landscape-locked game.
+/// Forwards orientation to top VC, mirroring game engine (Unity/Unreal) behavior.
 final class ForwardingNavigationController: UINavigationController {
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         topViewController?.supportedInterfaceOrientations ?? .all

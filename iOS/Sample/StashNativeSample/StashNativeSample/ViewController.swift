@@ -2,8 +2,7 @@
 //  ViewController.swift
 //  StashNativeSample
 //
-//  Sample view controller demonstrating StashNativeCard SDK integration.
-//  Designed to match Apple's Human Interface Guidelines and Settings-style layout.
+//  StashNativeCard SDK sample with Settings-style layout.
 //
 
 import UIKit

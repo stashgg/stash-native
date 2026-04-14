@@ -302,7 +302,7 @@ extension YourViewController: StashNativeCardDelegate {
 
 ## openModal
 
-Centered modal on all devices. Same layout on phone and tablet; allows dynamic resoze and screen rotation. Suited for channel selection or an alternative checkout style.
+Centered modal on all devices. Same layout on phone and tablet; allows dynamic resize and screen rotation. Suited for channel selection or an alternative checkout style.
 
 **Android**
 
@@ -423,6 +423,23 @@ This package follows [Semantic Versioning](https://semver.org/) (major.minor.pat
 - **Major**: Breaking changes
 - **Minor**: New features (backward compatible)
 - **Patch**: Bug fixes
+
+Query the SDK version at runtime:
+
+```java
+// Android
+String version = StashNativeCard.getVersion();
+```
+
+```swift
+// iOS (Swift)
+let version = StashNativeCard.sdkVersion()
+```
+
+```objc
+// iOS (Objective-C)
+NSString *version = [StashNativeCard sdkVersion];
+```
 
 ## Support
 
