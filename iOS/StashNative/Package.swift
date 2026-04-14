@@ -21,5 +21,10 @@ let package = Package(
             path: "Sources/StashNative",
             publicHeadersPath: "include"
         ),
+        .testTarget(
+            name: "StashNativeTests",
+            dependencies: ["StashNative"],
+            path: "Tests/StashNativeTests"
+        ),
     ]
 )

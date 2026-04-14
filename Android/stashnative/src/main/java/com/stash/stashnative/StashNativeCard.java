@@ -274,6 +274,15 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
+  private static final String SDK_VERSION = "2.1.3";
+
+  /**
+   * Returns the SDK version string (e.g. "2.1.3").
+   */
+  public static String getVersion() {
+    return SDK_VERSION;
+  }
+
   /**
    * Gets the singleton instance of StashNativeCard.
    *

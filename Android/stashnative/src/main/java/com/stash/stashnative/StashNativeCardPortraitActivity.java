@@ -471,21 +471,19 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     cardContainer.setBackground(bg);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      cardContainer.setElevation(StashWebViewUtils.dpToPx(this, (int) CardConstants.ELEVATION_DP));
-      if (isTablet) {
-        cardContainer.setOutlineProvider(new ViewOutlineProvider() {
-          @Override
-          public void getOutline(View view, Outline outline) {
-            outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-          }
-        });
-        cardContainer.setClipToOutline(true);
-      } else {
-        // Shadow shape only; child clipping is handled in TopRoundedFrameLayout.dispatchDraw.
-        cardContainer.setOutlineProvider(TopRoundedFrameLayout.outlineProviderForElevation(radius));
-        cardContainer.setClipToOutline(false);
-      }
+    cardContainer.setElevation(StashWebViewUtils.dpToPx(this, (int) CardConstants.ELEVATION_DP));
+    if (isTablet) {
+      cardContainer.setOutlineProvider(new ViewOutlineProvider() {
+        @Override
+        public void getOutline(View view, Outline outline) {
+          outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+        }
+      });
+      cardContainer.setClipToOutline(true);
+    } else {
+      // Shadow shape only; child clipping is handled in TopRoundedFrameLayout.dispatchDraw.
+      cardContainer.setOutlineProvider(TopRoundedFrameLayout.outlineProviderForElevation(radius));
+      cardContainer.setClipToOutline(false);
     }
   }
 
@@ -716,9 +714,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
     dragArea.setLayoutParams(params);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      dragArea.setElevation(StashWebViewUtils.dpToPx(this, 8));
-    }
+    dragArea.setElevation(StashWebViewUtils.dpToPx(this, 8));
     
     addDragTouchHandling(dragArea);
     dragHandleArea = dragArea;
@@ -1701,9 +1697,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     bg.setStroke(StashWebViewUtils.dpToPx(this, 1), strokeColor);
     homeButton.setBackground(bg);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      homeButton.setElevation(StashWebViewUtils.dpToPx(this, 6));
-    }
+    homeButton.setElevation(StashWebViewUtils.dpToPx(this, 6));
     
     int btnSize = StashWebViewUtils.dpToPx(this, 36);
     int margin = StashWebViewUtils.dpToPx(this, 12);

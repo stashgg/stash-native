@@ -2,8 +2,10 @@
 //  StashNativeCard.m
 //  StashNative
 //
-//  Native iOS SDK for Stash Native checkout integration.
-//  Ported from Unity plugin - removes Unity dependencies and uses native delegate pattern.
+//  Core implementation. File-scope statics and functions here are extern'd by:
+//  - StashNativeCardViewControllers.m (presentation state, layout constants, helper functions)
+//  - StashNativeCardWebViewDelegates.m (presentation mode flags, theme helpers, scroll config)
+//  Declarations for extern'd symbols live in StashNativeCardPrivate.h.
 //
 
 #import "StashNativeCard.h"
@@ -2957,6 +2959,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     return sharedInstance;
 }
 
++ (NSString *)sdkVersion {
+    return @"2.1.3";
+}
+
 - (instancetype)init {
     self = [super init];
     if (self) {
@@ -3067,11 +3073,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
     } else {
+        // Match StashNativeModalConfig -init defaults exactly.
         _modalAllowDismiss = YES;
-        _modalPhoneWidthRatioPortrait = 0.9f;
-        _modalPhoneHeightRatioPortrait = 0.7f;
-        _modalPhoneWidthRatioLandscape = 0.7f;
-        _modalPhoneHeightRatioLandscape = 0.85f;
+        _modalPhoneWidthRatioPortrait = 0.80f;
+        _modalPhoneHeightRatioPortrait = 0.50f;
+        _modalPhoneWidthRatioLandscape = 0.50f;
+        _modalPhoneHeightRatioLandscape = 0.80f;
         _modalTabletWidthRatioPortrait = 0.40f;
         _modalTabletHeightRatioPortrait = 0.30f;
         _modalTabletWidthRatioLandscape = 0.30f;
@@ -4205,6 +4212,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
                                                           forMainFrameOnly:YES];
     [userContentController addUserScript:viewportInjection];
     
+    // Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on Android (StashWebViewUtils.JS_SDK_SCRIPT).
     NSString *stashSDKScript = [NSString stringWithFormat:@"(function() {"
         "window.stash_sdk = window.stash_sdk || {};"
         "window.stash_sdk.onPaymentSuccess = function(order) {"

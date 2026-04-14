@@ -35,10 +35,11 @@ public class StashWebViewUtils {
   public static final String THEME_DARK = "dark";
   public static final String THEME_LIGHT = "light";
   
-  /** Overlay dim (40% alpha). Must match CardConstants.COLOR_OVERLAY_DIM. */
+  /** Overlay dim (40% alpha). */
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
-  public static final String COLOR_DARK_BG = "#1C1C1E";
+  public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
+  // Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on iOS (StashNativeCard.m).
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
@@ -194,13 +195,10 @@ public class StashWebViewUtils {
     
     boolean isTabletBySize = smallerDp >= CardConstants.TABLET_SIZE_THRESHOLD_DP;
     
-    boolean isTabletByConfig = false;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR2) {
-      int screenSize = activity.getResources().getConfiguration().screenLayout
-          & Configuration.SCREENLAYOUT_SIZE_MASK;
-      isTabletByConfig = (screenSize == Configuration.SCREENLAYOUT_SIZE_LARGE
-          || screenSize == Configuration.SCREENLAYOUT_SIZE_XLARGE);
-    }
+    int screenSize = activity.getResources().getConfiguration().screenLayout
+        & Configuration.SCREENLAYOUT_SIZE_MASK;
+    boolean isTabletByConfig = (screenSize == Configuration.SCREENLAYOUT_SIZE_LARGE
+        || screenSize == Configuration.SCREENLAYOUT_SIZE_XLARGE);
     
     float aspectRatio = (float) Math.max(metrics.widthPixels, metrics.heightPixels)
         / Math.min(metrics.widthPixels, metrics.heightPixels);
@@ -232,9 +230,7 @@ public class StashWebViewUtils {
     settings.setDisplayZoomControls(false);
     settings.setSupportZoom(false);
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
-    }
+    CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
     CookieManager.getInstance().setAcceptCookie(true);
     
     boolean algorithmicDarkeningApplied = false;
@@ -362,17 +358,10 @@ public class StashWebViewUtils {
       loadingContainer.setLayoutParams(containerParams);
 
       ProgressBar loadingIndicator = new ProgressBar(context);
-      
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-        loadingIndicator.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-      }
-      
+      loadingIndicator.setLayerType(View.LAYER_TYPE_HARDWARE, null);
       loadingIndicator.setIndeterminate(true);
-      
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-        loadingIndicator.setIndeterminateTintList(
-            android.content.res.ColorStateList.valueOf(spinnerAccentArgb));
-      }
+      loadingIndicator.setIndeterminateTintList(
+          android.content.res.ColorStateList.valueOf(spinnerAccentArgb));
 
       FrameLayout.LayoutParams spinnerParams = new FrameLayout.LayoutParams(
           dpToPx(context, CardConstants.LOADING_INDICATOR_SIZE_DP),
@@ -401,21 +390,15 @@ public class StashWebViewUtils {
       return;
     }
     
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      loadingIndicator.animate()
-          .alpha(0.0f)
-          .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
-          .withEndAction(() -> {
-            if (loadingIndicator.getParent() != null) {
-              ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
-            }
-          })
-          .start();
-    } else {
-      if (loadingIndicator.getParent() != null) {
-        ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
-      }
-    }
+    loadingIndicator.animate()
+        .alpha(0.0f)
+        .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
+        .withEndAction(() -> {
+          if (loadingIndicator.getParent() != null) {
+            ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
+          }
+        })
+        .start();
   }
 
   /** Removes full-screen loading container from {@link #createAndShowLoadingView} (modal/popup path). */
@@ -423,21 +406,15 @@ public class StashWebViewUtils {
     if (loadingView == null) {
       return;
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-      loadingView.animate()
-          .alpha(0.0f)
-          .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
-          .withEndAction(() -> {
-            if (loadingView.getParent() != null) {
-              ((ViewGroup) loadingView.getParent()).removeView(loadingView);
-            }
-          })
-          .start();
-    } else {
-      if (loadingView.getParent() != null) {
-        ((ViewGroup) loadingView.getParent()).removeView(loadingView);
-      }
-    }
+    loadingView.animate()
+        .alpha(0.0f)
+        .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
+        .withEndAction(() -> {
+          if (loadingView.getParent() != null) {
+            ((ViewGroup) loadingView.getParent()).removeView(loadingView);
+          }
+        })
+        .start();
   }
 
   /**

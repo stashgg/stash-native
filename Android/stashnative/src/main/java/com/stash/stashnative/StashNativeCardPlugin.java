@@ -33,6 +33,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import androidx.annotation.RequiresApi;
+import androidx.core.content.ContextCompat;
 import java.lang.ref.WeakReference;
 
 /**
@@ -223,11 +224,8 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_EXTERNAL_PAYMENT);
     try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
-      } else {
-        app.registerReceiver(checkoutBridgeReceiver, filter);
-      }
+      ContextCompat.registerReceiver(
+          app, checkoutBridgeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
       checkoutBridgeReceiverRegistered = true;
       registeredAppContext = app;
     } catch (Exception e) {
@@ -653,7 +651,16 @@ public class StashNativeCardPlugin {
     try {
       usePopupPresentation = false;
       useModalPresentation = true;
-      currentModalConfig = config != null ? config : new StashNativeCard.ModalConfig();
+      StashNativeCard.ModalConfig mc = config != null ? config : new StashNativeCard.ModalConfig();
+      mc.phoneWidthRatioPortrait = clampRatio(mc.phoneWidthRatioPortrait);
+      mc.phoneHeightRatioPortrait = clampRatio(mc.phoneHeightRatioPortrait);
+      mc.phoneWidthRatioLandscape = clampRatio(mc.phoneWidthRatioLandscape);
+      mc.phoneHeightRatioLandscape = clampRatio(mc.phoneHeightRatioLandscape);
+      mc.tabletWidthRatioPortrait = clampRatio(mc.tabletWidthRatioPortrait);
+      mc.tabletHeightRatioPortrait = clampRatio(mc.tabletHeightRatioPortrait);
+      mc.tabletWidthRatioLandscape = clampRatio(mc.tabletWidthRatioLandscape);
+      mc.tabletHeightRatioLandscape = clampRatio(mc.tabletHeightRatioLandscape);
+      currentModalConfig = mc;
       openUrlInternal(url);
     } catch (Exception e) {
       Log.w(TAG, "Error in openModal: " + e.getMessage(), e);
@@ -906,31 +913,25 @@ public class StashNativeCardPlugin {
               FrameLayout.LayoutParams params =
                   (FrameLayout.LayoutParams) plugin.currentContainer.getLayoutParams();
 
-              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-                plugin.currentContainer.animate()
-                    .scaleX(0.95f)
-                    .scaleY(0.95f)
-                    .setDuration(100)
-                    .withEndAction(() -> {
-                      try {
-                        params.width = newDimensions[0];
-                        params.height = newDimensions[1];
-                        plugin.currentContainer.setLayoutParams(params);
-                        plugin.currentContainer.animate()
-                            .scaleX(1.0f)
-                            .scaleY(1.0f)
-                            .setDuration(200)
-                            .start();
-                      } catch (Exception e) {
-                        Log.d(TAG, "Error in animation end action: " + e.getMessage(), e);
-                      }
-                    })
-                    .start();
-              } else {
-                params.width = newDimensions[0];
-                params.height = newDimensions[1];
-                plugin.currentContainer.setLayoutParams(params);
-              }
+              plugin.currentContainer.animate()
+                  .scaleX(0.95f)
+                  .scaleY(0.95f)
+                  .setDuration(100)
+                  .withEndAction(() -> {
+                    try {
+                      params.width = newDimensions[0];
+                      params.height = newDimensions[1];
+                      plugin.currentContainer.setLayoutParams(params);
+                      plugin.currentContainer.animate()
+                          .scaleX(1.0f)
+                          .scaleY(1.0f)
+                          .setDuration(200)
+                          .start();
+                    } catch (Exception e) {
+                      Log.d(TAG, "Error in animation end action: " + e.getMessage(), e);
+                    }
+                  })
+                  .start();
             } catch (Exception e) {
               Log.d(TAG, "Error calculating or applying dimensions: " + e.getMessage(), e);
             }
@@ -1015,21 +1016,19 @@ public class StashNativeCardPlugin {
         popupBg.setCornerRadius(radius);
         currentContainer.setBackground(popupBg);
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-          currentContainer.setElevation(
-              StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
-          currentContainer.setOutlineProvider(new ViewOutlineProvider() {
-            @Override
-            public void getOutline(View view, Outline outline) {
-              try {
-                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
-              } catch (Exception e) {
-                Log.d(TAG, "Error setting outline: " + e.getMessage(), e);
-              }
+        currentContainer.setElevation(
+            StashWebViewUtils.dpToPx(activity, (int) CardConstants.ELEVATION_DP));
+        currentContainer.setOutlineProvider(new ViewOutlineProvider() {
+          @Override
+          public void getOutline(View view, Outline outline) {
+            try {
+              outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), radius);
+            } catch (Exception e) {
+              Log.d(TAG, "Error setting outline: " + e.getMessage(), e);
             }
-          });
-          currentContainer.setClipToOutline(true);
-        }
+          }
+        });
+        currentContainer.setClipToOutline(true);
       } catch (Exception e) {
         Log.d(TAG, "Error setting container background: " + e.getMessage(), e);
       }
@@ -1106,7 +1105,7 @@ public class StashNativeCardPlugin {
   
   private void animateFadeIn() {
     try {
-      if (currentContainer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+      if (currentContainer != null) {
         currentContainer.setAlpha(0.0f);
         currentContainer.setScaleX(0.9f);
         currentContainer.setScaleY(0.9f);
@@ -1126,26 +1125,22 @@ public class StashNativeCardPlugin {
   private void dismissPopupDialog() {
     try {
       if (currentDialog != null && currentContainer != null) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-          currentContainer.animate()
-              .alpha(0.0f)
-              .scaleX(0.9f)
-              .scaleY(0.9f)
-              .setDuration(CardConstants.ANIMATION_DURATION_FAST)
-              .setInterpolator(new SpringInterpolator())
-              .withEndAction(() -> {
-                try {
-                  if (currentDialog != null) {
-                    currentDialog.dismiss();
-                  }
-                } catch (Exception e) {
-                  Log.d(TAG, "Error dismissing dialog in animation: " + e.getMessage(), e);
+        currentContainer.animate()
+            .alpha(0.0f)
+            .scaleX(0.9f)
+            .scaleY(0.9f)
+            .setDuration(CardConstants.ANIMATION_DURATION_FAST)
+            .setInterpolator(new SpringInterpolator())
+            .withEndAction(() -> {
+              try {
+                if (currentDialog != null) {
+                  currentDialog.dismiss();
                 }
-              })
-              .start();
-        } else {
-          currentDialog.dismiss();
-        }
+              } catch (Exception e) {
+                Log.d(TAG, "Error dismissing dialog in animation: " + e.getMessage(), e);
+              }
+            })
+            .start();
       } else if (currentDialog != null) {
         currentDialog.dismiss();
       }

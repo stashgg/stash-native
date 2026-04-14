@@ -56,6 +56,46 @@ jobs:
             -f plain \
             Android/sample/src/main/java/
 
+  test-android:
+    name: Test Android Library
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Run unit tests
+        run: cd Android && ./gradlew :stashnative:testDebugUnitTest
+
+  test-ios:
+    name: Test iOS Library
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        run: |
+          cd iOS/StashNative
+          SIM_ID=$(xcrun simctl list devices available -j | python3 -c "
+          import json,sys
+          devs = json.load(sys.stdin)['devices']
+          for rt,dl in devs.items():
+            if 'iOS' in rt:
+              for d in dl:
+                if 'iPhone' in d['name'] and d['isAvailable']:
+                  print(d['udid']); sys.exit(0)
+          sys.exit(1)")
+          xcodebuild test \
+            -scheme StashNative \
+            -destination "platform=iOS Simulator,id=$SIM_ID" \
+            -quiet
+
   lint-ios-library:
     name: Lint iOS Library (Clang Static Analyzer)
     runs-on: macos-latest

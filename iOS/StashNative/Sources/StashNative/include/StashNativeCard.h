@@ -43,21 +43,21 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @interface StashNativeModalConfig : NSObject
 
-/** Phone width ratio for portrait (0.1-1.0). Default 0.9. */
+/** Phone width ratio for portrait (0.1-1.0). Default 0.80. */
 @property (nonatomic, assign) CGFloat phoneWidthRatioPortrait;
-/** Phone height ratio for portrait (0.1-1.0). Default 0.7. */
+/** Phone height ratio for portrait (0.1-1.0). Default 0.50. */
 @property (nonatomic, assign) CGFloat phoneHeightRatioPortrait;
-/** Phone width ratio for landscape (0.1-1.0). Default 0.7. */
+/** Phone width ratio for landscape (0.1-1.0). Default 0.50. */
 @property (nonatomic, assign) CGFloat phoneWidthRatioLandscape;
-/** Phone height ratio for landscape (0.1-1.0). Default 0.85. */
+/** Phone height ratio for landscape (0.1-1.0). Default 0.80. */
 @property (nonatomic, assign) CGFloat phoneHeightRatioLandscape;
-/** Tablet width ratio for portrait (0.1-1.0). Default 0.6. */
+/** Tablet width ratio for portrait (0.1-1.0). Default 0.40. */
 @property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
-/** Tablet height ratio for portrait (0.1-1.0). Default 0.7. */
+/** Tablet height ratio for portrait (0.1-1.0). Default 0.30. */
 @property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
-/** Tablet width ratio for landscape (0.1-1.0). Default 0.5. */
+/** Tablet width ratio for landscape (0.1-1.0). Default 0.30. */
 @property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
-/** Tablet height ratio for landscape (0.1-1.0). Default 0.8. */
+/** Tablet height ratio for landscape (0.1-1.0). Default 0.40. */
 @property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
 /** Whether tap outside and drag gestures can dismiss the modal. Default YES. */
 @property (nonatomic, assign) BOOL allowDismiss;
@@ -228,6 +228,11 @@ NS_ASSUME_NONNULL_BEGIN
  * Gets the shared singleton instance of StashNativeCard.
  */
 + (instancetype)sharedInstance;
+
+/**
+ * Returns the SDK version string (e.g. "2.1.3").
+ */
++ (NSString *)sdkVersion;
 
 /**
  * Opens a URL in a sliding card UI.
