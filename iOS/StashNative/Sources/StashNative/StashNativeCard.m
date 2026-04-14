@@ -2089,8 +2089,14 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
             STASH_DEBUG_LOG(@"StashNative keyboard orientation restore: %@", error);
         }];
     } else {
-        // iOS 15: trigger re-query so the swizzle returns the rootVC's base mask.
+        // iOS 15: reinforce the card's orientation so the next keyboard presented
+        // appears in portrait (or the locked orientation). Without this, the device
+        // is still physically rotated and the next keyboard would follow that.
         if (self.portraitWindow) {
+            if (_forcePortraitOnCheckout) {
+                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                            forKey:@"orientation"];
+            }
             [UIViewController attemptRotationToDeviceOrientation];
         }
     }
