@@ -33,7 +33,6 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import androidx.annotation.RequiresApi;
-import androidx.core.content.ContextCompat;
 import java.lang.ref.WeakReference;
 
 /**
@@ -224,8 +223,14 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_EXTERNAL_PAYMENT);
     try {
-      ContextCompat.registerReceiver(
-          app, checkoutBridgeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
+      // Use platform API directly to avoid requiring androidx.core >= 1.9 (4-arg
+      // ContextCompat.registerReceiver). Hosts with old androidx.core (e.g. Unity
+      // EDM-resolved 1.2.x) would crash with NoSuchMethodError otherwise.
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+      } else {
+        app.registerReceiver(checkoutBridgeReceiver, filter);
+      }
       checkoutBridgeReceiverRegistered = true;
       registeredAppContext = app;
     } catch (Exception e) {
