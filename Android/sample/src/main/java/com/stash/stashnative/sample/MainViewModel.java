@@ -46,6 +46,9 @@ public class MainViewModel extends AndroidViewModel {
   private String stashApiKey = DEFAULT_STASH_API_KEY;
   private boolean useTestApi = true;
 
+  // Browser options
+  private boolean keepAliveEnabled = true;
+
   // Checkout options
   private boolean forcePortraitOnCheckout = false;
   private int phoneCardHeight = 58;
@@ -176,6 +179,14 @@ public class MainViewModel extends AndroidViewModel {
 
   public boolean isUseTestApi() {
     return useTestApi;
+  }
+
+  public void setKeepAliveEnabled(boolean on) {
+    keepAliveEnabled = on;
+  }
+
+  public boolean isKeepAliveEnabled() {
+    return keepAliveEnabled;
   }
 
   public void setForcePortraitOnCheckout(boolean on) {
@@ -366,6 +377,9 @@ public class MainViewModel extends AndroidViewModel {
         R.string.open_browser, R.drawable.ic_ms_public_24, false, false));
     list.add(SettingsItem.actionPreference(
         R.string.generate_checkout_for_browser, R.drawable.ic_ms_shopping_cart_24, false, false));
+    list.add(SettingsItem.switchPreference(
+        R.string.option_keep_alive, R.string.option_keep_alive_supporting,
+        keepAliveEnabled, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_browser, false, true));
 
     // Presentation options (Checkout + Modal under one category)

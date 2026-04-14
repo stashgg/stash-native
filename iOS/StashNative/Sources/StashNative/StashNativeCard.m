@@ -810,6 +810,13 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     UIInterfaceOrientationMask mask = self.previousSceneOrientationMask;
     self.previousSceneOrientationMask = 0;
 
+    // MaskAll means "opened from portrait/neutral -- no forced rotation needed on restore."
+    // Requesting MaskAll would unlock all orientations and potentially cause an unwanted rotation
+    // from the accelerometer. Instead, just let the window teardown return control to the app.
+    if (mask == UIInterfaceOrientationMaskAll) {
+        return;
+    }
+
     if (@available(iOS 16.0, *)) {
         UIWindowScene *scene = nil;
         if (self.previousKeyWindow) {
@@ -828,13 +835,11 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             UIWindowSceneGeometryPreferencesIOS *prefs =
                 [[UIWindowSceneGeometryPreferencesIOS alloc] initWithInterfaceOrientations:mask];
             [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *e) {
-                STASH_DEBUG_LOG(@"StashNative landscape restore failed: %@", e);
+                STASH_DEBUG_LOG(@"StashNative orientation restore failed: %@", e);
             }];
         }
     } else {
-        // The UIDevice orientation hack is only needed for the forcePortrait path (restoring to a
-        // specific landscape orientation). For the current-orientation lock the card window is
-        // simply hidden and the host app resumes control, so no explicit rotation request is needed.
+        // UIDevice hack only needed for landscape restore; portrait/neutral returns naturally.
         if (mask == UIInterfaceOrientationMaskLandscapeLeft ||
             mask == UIInterfaceOrientationMaskLandscapeRight) {
             UIInterfaceOrientation target =
@@ -2198,6 +2203,17 @@ void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBound
 
 #pragma mark - Helper Functions
 
+// Maps a UIInterfaceOrientation to the corresponding single-orientation mask for restore.
+static UIInterfaceOrientationMask stashOrientationMaskForOrientation(UIInterfaceOrientation orientation) {
+    switch (orientation) {
+        case UIInterfaceOrientationPortrait:            return UIInterfaceOrientationMaskPortrait;
+        case UIInterfaceOrientationPortraitUpsideDown:  return UIInterfaceOrientationMaskPortraitUpsideDown;
+        case UIInterfaceOrientationLandscapeLeft:       return UIInterfaceOrientationMaskLandscapeLeft;
+        case UIInterfaceOrientationLandscapeRight:      return UIInterfaceOrientationMaskLandscapeRight;
+        default:                                        return UIInterfaceOrientationMaskAll;
+    }
+}
+
 BOOL isRunningOniPad(void) {
 #if !ENABLE_IPAD_SUPPORT
     return NO;
@@ -2518,9 +2534,15 @@ CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandsc
         cardX = 0;
         cardY = bounds.size.height - cardHeight;
     }
-    if (cardY < _cardSafeAreaTop) {
-        cardY = _cardSafeAreaTop;
-        cardHeight = bounds.size.height - _cardSafeAreaTop;
+    // In landscape, safeAreaInsets.top can be 0 (notch on the side). Enforce a minimum
+    // buffer so the card doesn't collide with the notification pull-down gesture.
+    CGFloat effectiveSafeTop = _cardSafeAreaTop;
+    if (isLandscape && effectiveSafeTop < 8.0f) {
+        effectiveSafeTop = 8.0f;
+    }
+    if (cardY < effectiveSafeTop) {
+        cardY = effectiveSafeTop;
+        cardHeight = bounds.size.height - effectiveSafeTop;
     }
     if (cardY < 0) cardY = 0;
     return CGRectMake(cardX, cardY, cardWidth, cardHeight);
@@ -2873,6 +2895,29 @@ NSString* appendThemeQueryParameter(NSString* url) {
 // it is first needed (not at app launch).
 // ============================================================================
 
+// Returns the orientation mask from the host app's Info.plist (UISupportedInterfaceOrientations).
+// Used as fallback when the app had no application:supportedInterfaceOrientationsForWindow:.
+static UIInterfaceOrientationMask stashInfoPlistSupportedOrientationMask(void) {
+    static UIInterfaceOrientationMask cached = 0;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSArray *orientations = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"UISupportedInterfaceOrientations"];
+        if (!orientations || orientations.count == 0) {
+            cached = UIInterfaceOrientationMaskAll;
+            return;
+        }
+        UIInterfaceOrientationMask mask = 0;
+        for (NSString *o in orientations) {
+            if ([o isEqualToString:@"UIInterfaceOrientationPortrait"])           mask |= UIInterfaceOrientationMaskPortrait;
+            if ([o isEqualToString:@"UIInterfaceOrientationPortraitUpsideDown"]) mask |= UIInterfaceOrientationMaskPortraitUpsideDown;
+            if ([o isEqualToString:@"UIInterfaceOrientationLandscapeLeft"])      mask |= UIInterfaceOrientationMaskLandscapeLeft;
+            if ([o isEqualToString:@"UIInterfaceOrientationLandscapeRight"])     mask |= UIInterfaceOrientationMaskLandscapeRight;
+        }
+        cached = mask ? mask : UIInterfaceOrientationMaskAll;
+    });
+    return cached;
+}
+
 static void stashInstallOrientationSwizzleIfNeeded(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -2915,7 +2960,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                 if (originalIMP) {
                     return originalIMP(blockSelf, sel, app, window);
                 }
-                return UIInterfaceOrientationMaskAll; // safe fallback when app had no original
+                // App had no original implementation -- return Info.plist orientations
+                // so the swizzle does not permanently unlock all orientations for the host.
+                return stashInfoPlistSupportedOrientationMask();
             });
 
         Method method = class_getInstanceMethod(delegateClass, sel);
@@ -3155,8 +3202,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         }
         // else: scene is already portrait — present Safari immediately with no animation.
 
-    } else if (_forcePortraitOnCheckout) {
-        // Standalone openBrowser after a forcePortrait card — keep Safari in portrait.
+    } else if (_forcePortraitOnCheckout && !_safariOpenedViaOpenBrowser) {
+        // External payment handoff from a forcePortrait card -- keep Safari in portrait.
+        // Standalone openBrowser calls skip this even if a previous card used forcePortrait.
         CGRect screen = [UIScreen mainScreen].bounds;
         BOOL wasLandscape = (screen.size.width > screen.size.height);
         rotationDelay = wasLandscape ? kRotationDelayAfterLandscape : 0.0;
@@ -3214,10 +3262,11 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         UIWindowScene *scene = safariWindow.windowScene;
         if (scene) {
             UIInterfaceOrientation cur = scene.interfaceOrientation;
-            internal.previousSceneOrientationMask =
-                (cur == UIInterfaceOrientationLandscapeLeft)  ? UIInterfaceOrientationMaskLandscapeLeft  :
-                (cur == UIInterfaceOrientationLandscapeRight) ? UIInterfaceOrientationMaskLandscapeRight :
-                                                                UIInterfaceOrientationMaskLandscape;
+            if (UIInterfaceOrientationIsLandscape(cur)) {
+                internal.previousSceneOrientationMask = stashOrientationMaskForOrientation(cur);
+            } else {
+                internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
+            }
             UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
                 initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
             [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
@@ -3230,9 +3279,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
 #pragma clang diagnostic pop
         if (UIInterfaceOrientationIsLandscape(cur)) {
-            internal.previousSceneOrientationMask =
-                (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
-                                                             : UIInterfaceOrientationMaskLandscapeRight;
+            internal.previousSceneOrientationMask = stashOrientationMaskForOrientation(cur);
         } else {
             internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
         }
@@ -3350,15 +3397,18 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     internal.currentPresentedVC = containerVC;
     
     // Capture current orientation for restoration on dismiss, then request portrait.
+    // If already portrait, store MaskAll so dismiss unlocks normally without forcing a rotation.
+    // If landscape, store the specific landscape mask so dismiss rotates back.
     if (@available(iOS 16.0, *)) {
-        // cardWindow.windowScene is already set by attachWindowToKeyWindowScene above.
         UIWindowScene *scene = cardWindow.windowScene;
         if (scene) {
             UIInterfaceOrientation cur = scene.interfaceOrientation;
-            internal.previousSceneOrientationMask =
-                (cur == UIInterfaceOrientationLandscapeLeft)  ? UIInterfaceOrientationMaskLandscapeLeft  :
-                (cur == UIInterfaceOrientationLandscapeRight) ? UIInterfaceOrientationMaskLandscapeRight :
-                                                                UIInterfaceOrientationMaskLandscape;
+            if (UIInterfaceOrientationIsLandscape(cur)) {
+                internal.previousSceneOrientationMask = stashOrientationMaskForOrientation(cur);
+            } else {
+                // Already portrait -- restore should unlock all, not lock to portrait.
+                internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
+            }
             UIWindowSceneGeometryPreferencesIOS *prefs = [[UIWindowSceneGeometryPreferencesIOS alloc]
                 initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
             [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
@@ -3371,9 +3421,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         UIInterfaceOrientation cur = [[UIApplication sharedApplication] statusBarOrientation];
 #pragma clang diagnostic pop
         if (UIInterfaceOrientationIsLandscape(cur)) {
-            internal.previousSceneOrientationMask =
-                (cur == UIInterfaceOrientationLandscapeLeft) ? UIInterfaceOrientationMaskLandscapeLeft
-                                                             : UIInterfaceOrientationMaskLandscapeRight;
+            internal.previousSceneOrientationMask = stashOrientationMaskForOrientation(cur);
         } else {
             internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
         }
@@ -3674,9 +3722,15 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     }
 
     // Cap so the card top never overlaps the notch / Dynamic Island.
-    if (cardFinalY < _cardSafeAreaTop) {
-        cardFinalY = _cardSafeAreaTop;
-        cardHeight = actualBounds.size.height - _cardSafeAreaTop;
+    // In landscape, safeAreaInsets.top can be 0 (notch is on the side). Enforce a minimum
+    // buffer so the card does not collide with the notification/control center pull-down gesture.
+    CGFloat effectiveSafeTop = _cardSafeAreaTop;
+    if (isLandscapeLayout && effectiveSafeTop < 8.0f) {
+        effectiveSafeTop = 8.0f;
+    }
+    if (cardFinalY < effectiveSafeTop) {
+        cardFinalY = effectiveSafeTop;
+        cardHeight = actualBounds.size.height - effectiveSafeTop;
         startY = actualBounds.size.height + cardHeight;
     }
     if (cardFinalY < 0) cardFinalY = 0;

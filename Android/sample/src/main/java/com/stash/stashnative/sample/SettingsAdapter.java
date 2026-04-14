@@ -363,6 +363,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setModalAllowDismiss(isChecked);
         } else if (item.titleRes == R.string.option_use_test_api) {
           viewModel.setUseTestApi(isChecked);
+        } else if (item.titleRes == R.string.option_keep_alive) {
+          viewModel.setKeepAliveEnabled(isChecked);
         }
       });
     }

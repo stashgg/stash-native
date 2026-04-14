@@ -80,11 +80,11 @@ public class MainActivity extends AppCompatActivity {
 
     StashNativeCard stashPayCard = StashNativeCard.getInstance();
     stashPayCard.setActivity(this);
-    stashPayCard.setKeepAliveEnabled(true);
     StashNativeCard.KeepAliveConfig keepAliveConfig = new StashNativeCard.KeepAliveConfig();
     keepAliveConfig.notificationTitle = "Stash sample";
     keepAliveConfig.notificationText = "Tap to return after paying in the browser";
     stashPayCard.setKeepAliveConfig(keepAliveConfig);
+    stashPayCard.setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
     stashPayCard.setListener(new StashNativeCard.StashNativeCardListener() {
       @Override
       public void onPaymentSuccess(String order) {
@@ -152,6 +152,10 @@ public class MainActivity extends AppCompatActivity {
     return config;
   }
 
+  private void syncKeepAlive() {
+    StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+  }
+
   private void showOutcomeDialog(String title, String message) {
     new AlertDialog.Builder(this)
         .setTitle(title)
@@ -178,6 +182,7 @@ public class MainActivity extends AppCompatActivity {
       showOutcomeDialog("Error", getString(R.string.error_checkout_url));
       return;
     }
+    syncKeepAlive();
     StashNativeCard.getInstance().openBrowser(url.trim());
   }
 
@@ -273,6 +278,7 @@ public class MainActivity extends AppCompatActivity {
             final String finalUrl = checkoutUrl;
             runOnUiThread(() -> {
               if (openInBrowser) {
+                syncKeepAlive();
                 Log.i(TAG, "Opening browser (generate checkout URL): " + finalUrl);
                 StashNativeCard.getInstance().openBrowser(finalUrl.trim());
               } else {
@@ -386,6 +392,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onResume() {
     super.onResume();
     StashNativeCard.getInstance().setActivity(this);
+    StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
   }
 
   @Override

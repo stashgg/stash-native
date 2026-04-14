@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
 
     <application>
+        <!--
+            This activity MUST run in the host app's process (no android:process isolate).
+            Separate processes cause WebView data directory lock conflicts and crash host
+            Application classes that are not multi-process safe (e.g. Facebook SDK).
+            tools:remove prevents wrapper manifests from adding a process attribute.
+        -->
         <activity
             android:name=".StashNativeCardPortraitActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|smallestScreenSize"
             android:exported="false"
+            tools:remove="android:process"
             android:screenOrientation="unspecified"
             android:theme="@style/StashNativeCardTheme" />
 

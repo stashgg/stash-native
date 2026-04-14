@@ -275,8 +275,11 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       try {
-        if (usePopup || useModal) {
-          // Modal and popup: render in current orientation only; do not cause rotation
+        if (useModal) {
+          // Modal follows the underlying app rotation rules; no orientation lock.
+          setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        } else if (usePopup) {
+          // Popup locks to current orientation.
           int currentOrientation = getResources().getConfiguration().orientation;
           if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -1293,7 +1296,16 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     
     try {
-      webView = new WebView(this);
+      try {
+        webView = new WebView(this);
+      } catch (Throwable t) {
+        // WebView creation can fail if running in a separate process (data directory lock),
+        // on devices with broken WebView installs, or when Chromium init fails. Report as
+        // network error and bail -- do not crash the host app.
+        Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
+        handleNetworkError();
+        return;
+      }
       try {
         StashWebViewUtils.configureWebViewSettings(webView, effectiveIsDarkForContent);
       } catch (Exception e) {
@@ -2423,8 +2435,22 @@ public class StashNativeCardPortraitActivity extends Activity {
     int cardWidth;
     int cardHeight;
     if (isLandscape) {
+      // Use rootLayout content height (after inset padding) when available; this is the
+      // actual drawable area. Fall back to screen height minus insets before first layout.
+      int contentHeight = screenHeight;
+      if (rootLayout != null && rootLayout.getHeight() > 0) {
+        contentHeight = rootLayout.getHeight() - rootLayout.getPaddingTop() - rootLayout.getPaddingBottom();
+      } else {
+        int topInset = StashWindowCompat.getSystemTopInsetPx(getWindow());
+        int bottomInset = StashWindowCompat.getSystemBottomInsetPx(getWindow());
+        if (topInset + bottomInset > 0) {
+          contentHeight = screenHeight - topInset - bottomInset;
+        }
+      }
+      if (contentHeight <= 0) contentHeight = screenHeight;
+
       int w = (int) (screenWidth * cardWidthRatioLandscape);
-      int h = (int) (screenHeight * cardHeightRatioLandscape);
+      int h = (int) (contentHeight * cardHeightRatioLandscape);
       int minPx = (int) StashWebViewUtils.dpToPx(
           this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
       if (w < minPx) {

@@ -1034,7 +1034,16 @@ public class StashNativeCardPlugin {
       }
       
       try {
-        webView = new WebView(activity);
+        try {
+          webView = new WebView(activity);
+        } catch (Throwable t) {
+          // WebView init can fail in separate processes or broken Chromium installs.
+          Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
+          StashNativeCard.StashNativeCardListener l = listener;
+          if (l != null) l.onNetworkError();
+          cleanupAllViews();
+          return;
+        }
         FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
         webView.setLayoutParams(webViewParams);

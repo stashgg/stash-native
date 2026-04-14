@@ -54,6 +54,8 @@
     <string name="tablet_portrait_height_modal">Tablet portrait height</string>
     <string name="tablet_landscape_width_modal">Tablet landscape width</string>
     <string name="tablet_landscape_height_modal">Tablet landscape height</string>
+    <string name="option_keep_alive">Keep-alive service</string>
+    <string name="option_keep_alive_supporting">Foreground service to survive browser flows</string>
     <string name="error_checkout_url">Please enter a checkout URL</string>
     <string name="error_modal_url">Please enter a modal URL</string>
 </resources>
