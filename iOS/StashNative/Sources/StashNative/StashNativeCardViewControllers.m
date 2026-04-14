@@ -123,6 +123,11 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
     if (self.skipLayoutDuringInitialSetup) {
         return;
     }
+    // iOS 15: system may deliver a landscape transition even though this VC
+    // returns portrait-only. Coerce to portrait to prevent broken layout.
+    if (size.width > size.height) {
+        size = CGSizeMake(size.height, size.width);
+    }
     resetCardExpandedStateAfterRotation();
     CGRect target = CGRectMake(0, 0, size.width, size.height);
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
@@ -142,6 +147,10 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
         return;
     }
     CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
+    // iOS 15: scene may report landscape bounds when this portrait-only card is presented.
+    if (expected.size.width > expected.size.height) {
+        expected = CGRectMake(0, 0, expected.size.height, expected.size.width);
+    }
     if (stashCGRectSizeDiffers(w.frame, expected)) {
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
     }
@@ -237,6 +246,16 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
         return;
     }
     CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
+    // iOS 15: scene may report bounds that violate the locked orientation.
+    if (self.lockedOrientationMask != 0) {
+        BOOL boundsLandscape = expected.size.width > expected.size.height;
+        BOOL lockPortrait = (self.lockedOrientationMask == UIInterfaceOrientationMaskPortrait);
+        BOOL lockLandscape = (self.lockedOrientationMask & UIInterfaceOrientationMaskLandscape) &&
+                             !(self.lockedOrientationMask & UIInterfaceOrientationMaskPortrait);
+        if ((lockPortrait && boundsLandscape) || (lockLandscape && !boundsLandscape)) {
+            expected = CGRectMake(0, 0, expected.size.height, expected.size.width);
+        }
+    }
     if (stashCGRectSizeDiffers(w.frame, expected)) {
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
     }
