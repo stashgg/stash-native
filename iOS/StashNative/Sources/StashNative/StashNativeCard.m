@@ -1939,6 +1939,8 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
 }
 
+static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController *presentedVC);
+
 - (void)stashIPhoneCardGeometryMayHaveChanged:(NSNotification *)note {
     (void)note;
     if (!self.portraitWindow || !self.currentPresentedVC) {
@@ -1971,6 +1973,14 @@ initialSpringVelocity:kSpringVelocityCollapse
             return;
         }
         CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(strongSelf.portraitWindow);
+        // iOS 15 guard: the scene coordinate space can report bounds matching the
+        // device orientation even when the card window is locked to a different one.
+        // Swap width/height when bounds violate the card's orientation constraint.
+        if (@available(iOS 16.0, *)) {
+            // Scene geometry preferences prevent this on iOS 16+.
+        } else {
+            b = stashCoerceBoundsToCardOrientationLock(b, strongSelf.currentPresentedVC);
+        }
         if (_forcePortraitOnCheckout && strongSelf.isIPhoneCardKeyboardVisible) {
             CGSize sz = b.size;
             if (sz.width > 1.0 && sz.height > 1.0 && strongSelf.stashLastSceneSizeForKeyboardDismiss.width > 1.0) {
@@ -2044,6 +2054,10 @@ initialSpringVelocity:kSpringVelocityCollapse
                 }
             }
         }
+    } else {
+        // iOS 15: trigger re-query of supportedInterfaceOrientationsForWindow so the
+        // swizzle sees isIPhoneCardKeyboardVisible == YES and returns the lock mask.
+        [UIViewController attemptRotationToDeviceOrientation];
     }
 }
 
@@ -2065,6 +2079,11 @@ initialSpringVelocity:kSpringVelocityCollapse
         [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
             STASH_DEBUG_LOG(@"StashNative keyboard orientation restore: %@", error);
         }];
+    } else {
+        // iOS 15: trigger re-query so the swizzle returns the rootVC's base mask.
+        if (self.portraitWindow) {
+            [UIViewController attemptRotationToDeviceOrientation];
+        }
     }
 }
 
@@ -2081,6 +2100,31 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window) {
         }
     }
     return window.screen.bounds;
+}
+
+/// iOS 15 helper: if the scene reports bounds that violate the card's orientation lock,
+/// swap width/height to get correct portrait/landscape dimensions.
+static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController *presentedVC) {
+    if (_forcePortraitOnCheckout) {
+        if (b.size.width > b.size.height) {
+            return CGRectMake(0, 0, b.size.height, b.size.width);
+        }
+        return b;
+    }
+    if ([presentedVC isKindOfClass:[IPhoneCardCurrentOrientationViewController class]]) {
+        IPhoneCardCurrentOrientationViewController *cvc =
+            (IPhoneCardCurrentOrientationViewController *)presentedVC;
+        UIInterfaceOrientationMask mask = cvc.lockedOrientationMask;
+        if (mask == 0) return b;
+        BOOL boundsLandscape = b.size.width > b.size.height;
+        BOOL maskPortrait = (mask == UIInterfaceOrientationMaskPortrait);
+        BOOL maskLandscape = (mask & UIInterfaceOrientationMaskLandscape) &&
+                             !(mask & UIInterfaceOrientationMaskPortrait);
+        if ((maskPortrait && boundsLandscape) || (maskLandscape && !boundsLandscape)) {
+            return CGRectMake(0, 0, b.size.height, b.size.width);
+        }
+    }
+    return b;
 }
 
 /// YES when the window scene looks portrait (short side = width) or reports a portrait interface orientation.
@@ -2174,6 +2218,19 @@ static void stashScheduleForcePortraitCardLayoutAfterPortraitSettle(UIWindow *ca
             } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
                 geometryRetryPhase = 2;
                 stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
+            }
+        } else {
+            // iOS 15: retry the UIDevice orientation hack at the same intervals.
+            if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
+                geometryRetryPhase = 1;
+                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                            forKey:@"orientation"];
+                [UIViewController attemptRotationToDeviceOrientation];
+            } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
+                geometryRetryPhase = 2;
+                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                            forKey:@"orientation"];
+                [UIViewController attemptRotationToDeviceOrientation];
             }
         }
 
@@ -2943,8 +3000,6 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                     }
                     // While Safari is actively presented in forced-portrait mode, lock the window
                     // to portrait so the device physically rotating to landscape doesn't flip it.
-                    // During the initial setup / rotation-to-portrait phase, allow all so iOS can
-                    // reach portrait even in landscape-locked games (Unity, Unreal, etc.).
                     if (internal.isSafariPortraitLocked) {
                         return UIInterfaceOrientationMaskPortrait;
                     }
@@ -2953,6 +3008,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                     // roots and raises UIApplicationInvalidInterfaceOrientation).
                     if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
                         return [internal stashKeyboardOrientationLockMaskForCardWindow];
+                    }
+                    // Card window (no keyboard): return the root VC's orientation mask so iOS 15
+                    // constrains rotation to the card's intended orientation. On iOS 16+ scene
+                    // geometry preferences take precedence. If rootVC is not yet set (brief window
+                    // during initial creation), fall back to MaskAll.
+                    UIViewController *rootVC = window.rootViewController;
+                    if (rootVC) {
+                        return [rootVC supportedInterfaceOrientations];
                     }
                     return UIInterfaceOrientationMaskAll;
                 }
@@ -2991,6 +3054,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         }
         if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
             return [internal stashKeyboardOrientationLockMaskForCardWindow];
+        }
+        UIViewController *rootVC = window.rootViewController;
+        if (rootVC) {
+            return [rootVC supportedInterfaceOrientations];
         }
         return UIInterfaceOrientationMaskAll;
     }
@@ -3676,6 +3743,8 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     internal.currentPresentedVC = containerVC;
 
     // iOS 16+: lock the scene geometry before making the window visible.
+    // iOS 15: trigger rotation re-evaluation so the swizzle (which returns lockMask
+    // via rootVC) locks this window to the opening orientation.
     if (@available(iOS 16.0, *)) {
         UIWindowScene *scene = cardWindow.windowScene;
         if (scene) {
@@ -3685,6 +3754,8 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
                 STASH_DEBUG_LOG(@"StashNative orientation lock failed: %@", error);
             }];
         }
+    } else {
+        [UIViewController attemptRotationToDeviceOrientation];
     }
 
     cardWindow.hidden = NO;
