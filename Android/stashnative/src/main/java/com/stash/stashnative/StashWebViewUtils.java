@@ -419,12 +419,14 @@ public class StashWebViewUtils {
 
   /**
    * Opens the URL using Custom Tabs when possible, else system browser.
-   * Delegates to {@link StashUrlLauncher#openExternalUrl(Context, String)}.
+   * Uses request code 0 (no {@code startActivityForResult}); use {@link StashUrlLauncher#openExternalUrl}
+   * with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB} when integrating {@link
+   * StashNativeCard#onActivityResult}.
    */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
       return;
     }
-    StashUrlLauncher.openExternalUrl(activity, url);
+    StashUrlLauncher.openExternalUrl(activity, url, 0);
   }
 }

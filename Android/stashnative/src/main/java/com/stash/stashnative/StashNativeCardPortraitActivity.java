@@ -65,6 +65,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean useModal;
   private boolean isExpanded;
   private boolean isDismissing;
+  /** True after the sheet was hidden for external browser; dim overlay stays until browser closes. */
+  private boolean awaitingExternalBrowserDimOverlay;
   private boolean pendingCreateUIAfterRotation;
   private boolean callbackSent;
   private boolean googlePayRedirectHandled;
@@ -350,7 +352,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     onBackInvokedCallback = () -> {
       if (!isPurchaseProcessing) {
-        dismissWithAnimation();
+        if (awaitingExternalBrowserDimOverlay) {
+          finishAfterExternalBrowserClose();
+        } else {
+          dismissWithAnimation();
+        }
       }
     };
     getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
@@ -1767,14 +1773,17 @@ public class StashNativeCardPortraitActivity extends Activity {
         }
       }
       
-      StashNativeCardPlugin.getInstance().startKeepAliveBeforeBrowser(this);
-      if (BuildConfig.DEBUG && StashUrlLauncher.isCustomTabsClassAvailable()) {
-        Log.d(TAG, "Opening Google Pay URL (Custom Tabs if available, else system browser)");
-      }
-      StashUrlLauncher.openExternalUrl(this, urlWithParam);
-      dismissWithAnimation();
+      StashNativeCardPlugin.getInstance()
+          .openExternalBrowserFromCheckout(
+              this,
+              urlWithParam,
+              false,
+              this::hideCardSheetLeavingDimOverlay,
+              this::finishAfterExternalBrowserClose);
     } catch (Exception e) {
       Log.e(TAG, "Failed to open Google Pay URL: " + e.getMessage());
+      StashNativeCardPlugin.getInstance().cancelBrowserCloseTrackingLaunch();
+      dismissWithAnimation();
     }
   }
   
@@ -1923,7 +1932,131 @@ public class StashNativeCardPortraitActivity extends Activity {
         .setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator())
         .start();
   }
-  
+
+  /**
+   * Hides the checkout sheet while keeping the dim (and host snapshot) overlay until {@link
+   * #finishAfterExternalBrowserClose()} runs after the browser closes.
+   */
+  void hideCardSheetLeavingDimOverlay() {
+    try {
+      if (isDismissing || awaitingExternalBrowserDimOverlay || cardContainer == null) {
+        return;
+      }
+      awaitingExternalBrowserDimOverlay = true;
+      if (backdropView != null) {
+        backdropView.setOnClickListener(null);
+      }
+      if (webView != null) {
+        try {
+          webView.onPause();
+        } catch (Exception e) {
+          Log.d(TAG, "webView.onPause: " + e.getMessage(), e);
+        }
+      }
+
+      boolean isTablet = cachedIsTablet;
+      if (usePopup || useModal || isTablet) {
+        cardContainer
+            .animate()
+            .alpha(0f)
+            .scaleX(0.9f)
+            .scaleY(0.9f)
+            .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .withEndAction(
+                () -> {
+                  if (cardContainer != null) {
+                    cardContainer.setVisibility(View.GONE);
+                  }
+                })
+            .start();
+      } else {
+        int height = cardContainer.getHeight();
+        if (height == 0) {
+          height =
+              (int)
+                  (getResources().getDisplayMetrics().heightPixels * cardHeightRatioPortrait);
+        }
+        cardContainer
+            .animate()
+            .translationY(height)
+            .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .withEndAction(
+                () -> {
+                  if (cardContainer != null) {
+                    cardContainer.setVisibility(View.GONE);
+                  }
+                })
+            .start();
+      }
+    } catch (Exception e) {
+      Log.w(TAG, "Error hiding sheet for external browser: " + e.getMessage(), e);
+      awaitingExternalBrowserDimOverlay = false;
+    }
+  }
+
+  /**
+   * Fades the dim overlay and finishes after external browser flow, or runs a normal dismiss if the
+   * sheet was not hidden first.
+   */
+  void finishAfterExternalBrowserClose() {
+    try {
+      if (isDismissing) {
+        return;
+      }
+      if (!awaitingExternalBrowserDimOverlay) {
+        dismissWithAnimation();
+        return;
+      }
+      StashNativeCardPlugin.getInstance().abandonPendingExternalBrowserCheckoutDismiss();
+      awaitingExternalBrowserDimOverlay = false;
+      isDismissing = true;
+      try {
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LOCKED);
+      } catch (Exception e) {
+        Log.w(TAG, "Error locking orientation: " + e.getMessage(), e);
+      }
+
+      Runnable end =
+          () -> {
+            try {
+              finishAfterDismissAnimations();
+            } catch (Exception e) {
+              Log.w(TAG, "Error finishing after external browser overlay: " + e.getMessage(), e);
+              finish();
+            }
+          };
+
+      if (backdropView != null) {
+        backdropView
+            .animate()
+            .alpha(0f)
+            .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .withEndAction(end)
+            .start();
+      } else {
+        end.run();
+      }
+      if (hostBackdropImageView != null && !shouldDeferFinishForHostBackdrop()) {
+        hostBackdropImageView
+            .animate()
+            .alpha(0f)
+            .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
+            .setInterpolator(new android.view.animation.AccelerateInterpolator())
+            .start();
+      }
+    } catch (Exception e) {
+      Log.w(TAG, "Error in finishAfterExternalBrowserClose: " + e.getMessage(), e);
+      try {
+        finish();
+      } catch (Exception e2) {
+        Log.w(TAG, "Error finishing activity: " + e2.getMessage(), e2);
+      }
+    }
+  }
+
   private void dismissWithAnimation() {
     if (isDismissing) {
       return;
@@ -2196,9 +2329,13 @@ public class StashNativeCardPortraitActivity extends Activity {
                     normalized, effectiveIsDarkForContent);
             callbackSent = true;
             isPurchaseProcessing = false;
-            StashCheckoutBridge.emitExternalPayment(
-                StashNativeCardPortraitActivity.this, themed);
-            dismissWithAnimation();
+            StashNativeCardPlugin.getInstance()
+                .openExternalBrowserFromCheckout(
+                    StashNativeCardPortraitActivity.this,
+                    themed,
+                    true,
+                    StashNativeCardPortraitActivity.this::hideCardSheetLeavingDimOverlay,
+                    StashNativeCardPortraitActivity.this::finishAfterExternalBrowserClose);
           } catch (Exception e) {
             Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
           }
@@ -2211,6 +2348,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   @Override
   protected void onPause() {
+    StashNativeCardPlugin.getInstance().onPortraitCheckoutPaused();
     super.onPause();
     if (webView != null) {
       webView.onPause();
@@ -2220,12 +2358,21 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    StashNativeCardPlugin.getInstance().onPortraitCheckoutResumed();
     StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();
     }
   }
   
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
+      return;
+    }
+    super.onActivityResult(requestCode, resultCode, data);
+  }
+
   @Override
   protected void onDestroy() {
     try {
@@ -2283,7 +2430,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (isPurchaseProcessing) {
       return;
     }
-    dismissWithAnimation();
+    if (awaitingExternalBrowserDimOverlay) {
+      finishAfterExternalBrowserClose();
+    } else {
+      dismissWithAnimation();
+    }
   }
   
   @Override

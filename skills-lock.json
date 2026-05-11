@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "Objective-C ARC Patterns": {
+      "source": "thebushidocollective/han",
+      "sourceType": "github",
+      "computedHash": "690121e0d281173992137276e5c67c066c3a2bafaef6eaf125f382683721c1c5"
+    },
+    "mobile-ios-design": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "3902f919488d8ddc983e157bbcd5f16b739b84eeaab57002bf52b7f9601ed6ad"
+    },
+    "uikit": {
+      "source": "ar4mirez/samuel",
+      "sourceType": "github",
+      "computedHash": "d12821a7ec03e49470da0698d190d3cb8b5fa5da9fc50a0e819f30fb56e77c86"
+    }
+  }
+}

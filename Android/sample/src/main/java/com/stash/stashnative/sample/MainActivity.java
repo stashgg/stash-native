@@ -1,8 +1,10 @@
 package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
@@ -125,9 +127,16 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onExternalPayment(String url) {
         Log.i(TAG, "External payment URL: " + url);
-        runOnUiThread(() -> showOutcomeDialog(
-            "External payment",
-            "Opening in browser:\n" + (url != null ? url : "")));
+      }
+
+      @Override
+      public void onBrowserClosed() {
+        Log.i(TAG, "Browser closed");
+        runOnUiThread(
+            () ->
+                Toast.makeText(
+                        MainActivity.this, "Browser session ended", Toast.LENGTH_SHORT)
+                    .show());
       }
     });
 
@@ -393,6 +402,14 @@ public class MainActivity extends AppCompatActivity {
     super.onResume();
     StashNativeCard.getInstance().setActivity(this);
     StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+  }
+
+  @Override
+  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
+      return;
+    }
+    super.onActivityResult(requestCode, resultCode, data);
   }
 
   @Override

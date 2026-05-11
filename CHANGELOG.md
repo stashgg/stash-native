@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.4] - 2026-05-11
+
+### Added
+- Android: `StashNativeCardListener.onBrowserClosed()` after external browser handoff (`openBrowser`, external payment). `StashNativeCardListenerAdapter` provides an empty default.
+- Android: Chrome Custom Tabs use `startActivityForResult` with `StashNativeCard.REQUEST_CODE_CUSTOM_TAB`; hosts must forward `StashNativeCard.onActivityResult` from the launching activity. `ACTION_VIEW` fallback still uses lifecycle-based `onBrowserClosed`.
+- iOS: optional `stashNativeCardDidCloseBrowser` on `StashNativeCardDelegate` when `SFSafariViewController` is dismissed (user Done or `closeBrowser`), including `openBrowserWithURL:` and external payment paths.
+
 ## [2.1.3] - 2026-04-14
 
 ### Added

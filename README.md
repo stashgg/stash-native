@@ -239,7 +239,8 @@ stashNative.Call("openCard", url, config);
 | Payment Success  | Called when the payment completes successfully. Includes detail about order in the callback payload.                                          |
 | Payment Failure  | Called when the payment fails.                                                                                                                |
 | Dialog Dismissed | Called when the user dismisses the dialog.                                                                                                    |
-| External payment | Some payment methods requires transacting outside the app (Klarna, Bitcoin etc.). This callback fires when external payment flow has started. |
+| External payment | Called when external payment browser has started (CCT / Safari view controller). |
+| Browser Closed   | Called when external payment browser was closed (CCT / Safari view controller). |
 | Opt-In Response  | Called when a channel selection response is received.                                                                                         |
 | Page Loaded      | Called when the page finishes loading (with load time in ms).                                                                                 |
 | Network Error    | Called when the page load fails (no connection, HTTP error, timeout).                                                                         |
@@ -264,6 +265,18 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
 
     ....
 });
+```
+
+Forward `onActivityResult` from the same activity you pass to `setActivity` so `onBrowserClosed` is reliable when Chrome Custom Tabs use `startActivityForResult` (`StashNativeCard.REQUEST_CODE_CUSTOM_TAB`). Portrait checkout forwards from `StashNativeCardPortraitActivity` automatically. External browser (`ACTION_VIEW`) still uses lifecycle-based detection.
+
+```java
+@Override
+protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
+        return;
+    }
+    super.onActivityResult(requestCode, resultCode, data);
+}
 ```
 
 **iOS (Swift)** — set the delegate and implement `StashNativeCardDelegate` (all methods are optional):
@@ -363,12 +376,20 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 
 ## openBrowser
 
-Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI, no callbacks. Use when you only need a simple browser view. openBrowser can also be used as a fallback method for openCard and openModal.
+Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI. On Android, forward `onActivityResult` from the same activity as `setActivity` so `onBrowserClosed` runs when Custom Tabs finish; external browser uses lifecycle detection. On iOS, `stashNativeCardDidCloseBrowser` fires when Safari is dismissed. Use when you only need a simple browser view. openBrowser can also be used as a fallback method for openCard and openModal.
 
 **Android**
 
 ```java
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
+// In your Activity:
+@Override
+protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
+        return;
+    }
+    super.onActivityResult(requestCode, resultCode, data);
+}
 ```
 
 **iOS (Swift)**

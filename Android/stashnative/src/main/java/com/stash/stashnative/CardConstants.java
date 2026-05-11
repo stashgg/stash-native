@@ -281,6 +281,9 @@ public final class CardConstants {
   // Intent Extras (StashNativeCardPlugin -> StashNativeCardPortraitActivity)
   // ============================================================================
   
+  /** Request code for {@link android.app.Activity#startActivityForResult} Chrome Custom Tabs launches. */
+  public static final int REQUEST_CODE_STASH_CUSTOM_TAB = 0x7374;
+
   public static final String INTENT_EXTRA_URL = "url";
   public static final String INTENT_EXTRA_INITIAL_URL = "initialURL";
   public static final String INTENT_EXTRA_USE_POPUP = "usePopup";
