@@ -59,6 +59,9 @@ All reflection calls MUST catch `Throwable` and degrade gracefully. No missing d
 ### Broadcast Bridge (Android)
 `StashNativeCardPortraitActivity` communicates with `StashNativeCardPlugin` via package-local broadcasts in the same process. Receiver registered with `ContextCompat.registerReceiver()` and `RECEIVER_NOT_EXPORTED`.
 
+### Custom Tabs result (Android)
+Chrome Custom Tabs use `startActivityForResult` from the host `Activity` (`setActivity`). Integrators must override `onActivityResult` and call `StashNativeCard.getInstance().onActivityResult(...)`. `StashNativeCardPortraitActivity` forwards automatically for in-SDK launches from portrait.
+
 ### iOS File-Scope Statics
 `StashNativeCard.m` has ~40 file-scope statics extern'd by `StashNativeCardViewControllers.m` and `StashNativeCardWebViewDelegates.m`. Do not refactor these without understanding the coupling. Declarations in `StashNativeCardPrivate.h`.
 

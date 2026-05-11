@@ -179,8 +179,16 @@ CGFloat _customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape
 CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
 
 // --- Presentation mode flags (reset on cleanup) ---
-/** When YES, the current SFSafariViewController was opened via openBrowser (no callbacks on dismiss). */
+/** When YES, the current SFSafariViewController was opened via openBrowser (card-dismiss callbacks differ). */
 static BOOL _safariOpenedViaOpenBrowser = NO;
+/** Pending deliver-once for stashNativeCardDidCloseBrowser (delegate vs dismiss completion order). */
+static BOOL _safariBrowserCloseDelegatePending = NO;
+
+static void resetSafariOpenBrowserTrackingFlags(void) {
+    _safariOpenedViaOpenBrowser = NO;
+    _safariBrowserCloseDelegatePending = NO;
+}
+
 BOOL _usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
 
@@ -936,6 +944,14 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
                 self.previousKeyWindow = nil;
             }
             self.portraitWindow = nil;
+        }
+        if (_safariBrowserCloseDelegatePending) {
+            _safariBrowserCloseDelegatePending = NO;
+            id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
+            if (delegate != nil
+                && [delegate respondsToSelector:@selector(stashNativeCardDidCloseBrowser)]) {
+                [delegate stashNativeCardDidCloseBrowser];
+            }
         }
     } else {
         [self cleanupCardInstance];
@@ -3110,7 +3126,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.1.3";
+    return @"2.1.4";
 }
 
 - (instancetype)init {
@@ -3163,6 +3179,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         return;
     }
     _safariOpenedViaOpenBrowser = YES;
+    _safariBrowserCloseDelegatePending = YES;
     NSString *urlWithTheme = appendThemeQueryParameter(url);
     [self openInSafariViewController:urlWithTheme];
 }
@@ -3256,7 +3273,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
 - (void)openInSafariViewController:(NSString *)url {
     NSURL *nsurl = [NSURL URLWithString:url];
-    if (!nsurl) return;
+    if (!nsurl) {
+        resetSafariOpenBrowserTrackingFlags();
+        return;
+    }
 
     SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:nsurl];
     safariVC.delegate = [StashNativeCardInternal sharedInstance];
@@ -3323,7 +3343,16 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         // Guard: if the window was torn down during the delay, abort.
-        if (rotationDelay > 0 && internal.currentSafariViewController != safariVC) return;
+        if (rotationDelay > 0 && internal.currentSafariViewController != safariVC) {
+            resetSafariOpenBrowserTrackingFlags();
+            internal.currentSafariViewController = nil;
+            return;
+        }
+        if (presenter == nil) {
+            resetSafariOpenBrowserTrackingFlags();
+            internal.currentSafariViewController = nil;
+            return;
+        }
         // Lock the SDK window to portrait so the scene can't rotate to landscape while
         // Safari is shown. Cleared on dismissal in safariViewControllerDidFinish:.
         if (lockPortrait) {
@@ -4587,6 +4616,12 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     internal.currentSafariViewController = nil;
     if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidDismiss)]) {
         [self.delegate stashNativeCardDidDismiss];
+    }
+    if (_safariBrowserCloseDelegatePending) {
+        _safariBrowserCloseDelegatePending = NO;
+        if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidCloseBrowser)]) {
+            [self.delegate stashNativeCardDidCloseBrowser];
+        }
     }
 }
 

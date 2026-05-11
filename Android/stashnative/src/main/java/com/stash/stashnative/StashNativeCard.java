@@ -1,6 +1,7 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
@@ -48,9 +49,21 @@ import android.graphics.BitmapFactory;
  *     public void onExternalPayment(String url) {
  *         // {@code window.stash_sdk.openExternalBrowser(url)} — URL includes theme query when applicable
  *     }
+ *
+ *     {@literal @}Override
+ *     public void onBrowserClosed() {
+ *         // Chrome Custom Tabs / browser dismissed; host activity resumed
+ *     }
  * });
  *
  * StashNativeCard.getInstance().openCard("https://your-checkout-url.com", null);
+ *
+ * // In the same Activity as setActivity(this):
+ * // {@literal @}Override
+ * // protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+ * //   if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) return;
+ * //   super.onActivityResult(requestCode, resultCode, data);
+ * // }
  * </pre>
  */
 public class StashNativeCard {
@@ -115,6 +128,19 @@ public class StashNativeCard {
      * @param url Validated {@code http} or {@code https} URL
      */
     void onExternalPayment(String url);
+
+    /**
+     * Called when the browser opened via {@link #openBrowser(String)} or
+     * {@code window.stash_sdk.openExternalBrowser} is dismissed by the user.
+     * For Chrome Custom Tabs, the SDK uses {@link Activity#startActivityForResult} and, when Chrome
+     * supports it, engagement session callbacks so this also runs when the tab is closed from
+     * floating or minimized UI. Forward {@link #onActivityResult} from the launching activity.
+     * External browser ({@code ACTION_VIEW}) uses host lifecycle with a short debounce.
+     * <p>
+     * Very old Chrome or devices without engagement support may still delay {@code onActivityResult}
+     * in some floating-dismiss cases until the next host activity transition.
+     */
+    void onBrowserClosed();
   }
 
   /**
@@ -136,6 +162,8 @@ public class StashNativeCard {
     @Override public void onNetworkError() {}
 
     @Override public void onExternalPayment(String url) {}
+
+    @Override public void onBrowserClosed() {}
   }
 
   /**
@@ -274,10 +302,10 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.1.3";
+  private static final String SDK_VERSION = "2.1.4";
 
   /**
-   * Returns the SDK version string (e.g. "2.1.3").
+   * Returns the SDK version string (e.g. "2.1.4").
    */
   public static String getVersion() {
     return SDK_VERSION;
@@ -296,6 +324,12 @@ public class StashNativeCard {
   }
   
   /**
+   * Request code Chrome Custom Tabs uses with {@link Activity#startActivityForResult}. Forward the
+   * same code from your host {@link Activity#onActivityResult} to {@link #onActivityResult}.
+   */
+  public static final int REQUEST_CODE_CUSTOM_TAB = CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB;
+
+  /**
    * Sets the activity to use for displaying checkout UI.
    * This must be called before opening any checkout.
    *
@@ -303,6 +337,17 @@ public class StashNativeCard {
    */
   public void setActivity(Activity activity) {
     plugin.setActivity(activity);
+  }
+
+  /**
+   * Call from the {@link Activity} that opened Custom Tabs (the one passed to {@link #setActivity}
+   * or {@link StashNativeCardPortraitActivity} when it launched the tab). Required for reliable
+   * {@link StashNativeCardListener#onBrowserClosed()} when Chrome uses {@code startActivityForResult}.
+   *
+   * @return true if the request was consumed (Stash Custom Tabs)
+   */
+  public boolean onActivityResult(int requestCode, int resultCode, Intent data) {
+    return plugin.handleActivityResult(requestCode, resultCode, data);
   }
   
   /**
@@ -421,7 +466,9 @@ public class StashNativeCard {
   
   /**
    * Opens a URL in Chrome Custom Tabs when {@code androidx.browser} is present, otherwise in the
-   * system browser ({@code ACTION_VIEW}). No callbacks or configuration.
+   * system browser ({@code ACTION_VIEW}). For Custom Tabs, forward {@link #onActivityResult} from
+   * this activity so {@link StashNativeCardListener#onBrowserClosed()} runs when the tab closes;
+   * {@code ACTION_VIEW} uses lifecycle-based detection (see {@link StashNativeCardListener#onBrowserClosed}).
    *
    * @param url The URL to open in the browser
    */

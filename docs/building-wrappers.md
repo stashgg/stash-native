@@ -70,7 +70,7 @@ flowchart LR
 ### Android
 
 - Package the AAR and add Gradle dependencies required by the host app (for example `androidx.appcompat` as in the [README](../README.md)). `androidx.browser` is optional: add it if you want Chrome Custom Tabs for external URLs; otherwise the SDK opens the system browser.
-- Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, and open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`).
+- Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, forward `onActivityResult` from the same activity for Custom Tabs, and open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`).
 - If the engine launches checkout from native plugin code, ensure the JNI or C# layer obtains the current `Activity` from the engine’s Android entry point.
 
 ### iOS

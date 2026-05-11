@@ -52,4 +52,10 @@ extension ViewController: StashNativeCardDelegate {
     func stashNativeCardDidRequestExternalPayment(with url: String) {
         // Card closed by SDK; Safari opened for external payment.
     }
+
+    func stashNativeCardDidCloseBrowser() {
+        DispatchQueue.main.async {
+            self.showAlert(title: "Browser Closed", message: "Browser session ended")
+        }
+    }
 }

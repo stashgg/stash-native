@@ -10,6 +10,5 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Manifest-declared components
--keep public class com.stash.stashnative.StashNativeCardPortraitActivity
--keep public class com.stash.stashnative.StashKeepAliveService
+# Engagement + Custom Tabs bind helper (loaded via reflection from StashUrlLauncher)
+-keep class com.stash.stashnative.StashCustomTabsEngagement { *; }
