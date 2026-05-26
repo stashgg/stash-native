@@ -3126,7 +3126,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.1.4";
+    return @"2.2.0";
 }
 
 - (instancetype)init {

@@ -1,7 +1,6 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
@@ -57,13 +56,6 @@ import android.graphics.BitmapFactory;
  * });
  *
  * StashNativeCard.getInstance().openCard("https://your-checkout-url.com", null);
- *
- * // In the same Activity as setActivity(this):
- * // {@literal @}Override
- * // protected void onActivityResult(int requestCode, int resultCode, Intent data) {
- * //   if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) return;
- * //   super.onActivityResult(requestCode, resultCode, data);
- * // }
  * </pre>
  */
 public class StashNativeCard {
@@ -302,10 +294,10 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.1.4";
+  private static final String SDK_VERSION = "2.2.0";
 
   /**
-   * Returns the SDK version string (e.g. "2.1.4").
+   * Returns the SDK version string (e.g. "2.2.0").
    */
   public static String getVersion() {
     return SDK_VERSION;
@@ -324,12 +316,6 @@ public class StashNativeCard {
   }
   
   /**
-   * Request code Chrome Custom Tabs uses with {@link Activity#startActivityForResult}. Forward the
-   * same code from your host {@link Activity#onActivityResult} to {@link #onActivityResult}.
-   */
-  public static final int REQUEST_CODE_CUSTOM_TAB = CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB;
-
-  /**
    * Sets the activity to use for displaying checkout UI.
    * This must be called before opening any checkout.
    *
@@ -339,15 +325,14 @@ public class StashNativeCard {
     plugin.setActivity(activity);
   }
 
-  /**
-   * Call from the {@link Activity} that opened Custom Tabs (the one passed to {@link #setActivity}
-   * or {@link StashNativeCardPortraitActivity} when it launched the tab). Required for reliable
-   * {@link StashNativeCardListener#onBrowserClosed()} when Chrome uses {@code startActivityForResult}.
-   *
-   * @return true if the request was consumed (Stash Custom Tabs)
-   */
-  public boolean onActivityResult(int requestCode, int resultCode, Intent data) {
-    return plugin.handleActivityResult(requestCode, resultCode, data);
+  /** Bridge from {@link StashNativeBrowserProxyActivity}; not part of the public API. */
+  static void notifyBrowserClosedFromProxyInternal() {
+    getInstance().plugin.notifyBrowserClosedFromProxyInternal();
+  }
+
+  /** Bridge from {@link StashNativeBrowserProxyActivity}; not part of the public API. */
+  static void notifyBrowserEngagementSessionEndedFromProxyInternal() {
+    getInstance().plugin.notifyBrowserEngagementSessionEndedFromProxyInternal();
   }
   
   /**

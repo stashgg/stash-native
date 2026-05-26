@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-05-26
+
+### Changed
+- Android: Chrome Custom Tabs now launch via an internal invisible proxy activity (`StashNativeBrowserProxyActivity`) that owns the `startActivityForResult` lifecycle. `onBrowserClosed()` fires reliably with no host-activity changes — Unity (`UnityPlayerActivity`) and partner apps that cannot ship `onActivityResult` forwarders now get the callback out of the box. Engagement-signal detection of floating/minimized-window dismiss is preserved.
+
+### Removed
+- Android (breaking): `StashNativeCard.onActivityResult(int, int, Intent)` and the `StashNativeCard.REQUEST_CODE_CUSTOM_TAB` constant. Hosts that previously forwarded `onActivityResult` should delete that forwarder; it is no longer needed and the symbols no longer exist.
+
 ## [2.1.4] - 2026-05-11
 
 ### Added

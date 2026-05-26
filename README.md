@@ -267,17 +267,7 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
 });
 ```
 
-Forward `onActivityResult` from the same activity you pass to `setActivity` so `onBrowserClosed` is reliable when Chrome Custom Tabs use `startActivityForResult` (`StashNativeCard.REQUEST_CODE_CUSTOM_TAB`). Portrait checkout forwards from `StashNativeCardPortraitActivity` automatically. External browser (`ACTION_VIEW`) still uses lifecycle-based detection.
-
-```java
-@Override
-protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
-        return;
-    }
-    super.onActivityResult(requestCode, resultCode, data);
-}
-```
+On Android, `onBrowserClosed` works out of the box with no host-activity changes — the SDK owns the Chrome Custom Tabs result lifecycle via an internal proxy activity. The system-browser (`ACTION_VIEW`) fallback continues to use lifecycle-based detection.
 
 **iOS (Swift)** — set the delegate and implement `StashNativeCardDelegate` (all methods are optional):
 
@@ -376,20 +366,12 @@ Same as **openCard**: same events and the same listener/delegate. Set it once as
 
 ## openBrowser
 
-Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI. On Android, forward `onActivityResult` from the same activity as `setActivity` so `onBrowserClosed` runs when Custom Tabs finish; external browser uses lifecycle detection. On iOS, `stashNativeCardDidCloseBrowser` fires when Safari is dismissed. Use when you only need a simple browser view. openBrowser can also be used as a fallback method for openCard and openModal.
+Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `androidx.browser` is on the classpath, otherwise the system browser (`ACTION_VIEW`); on iOS, `SFSafariViewController`. No in-app UI. `onBrowserClosed` fires when the browser is dismissed (Android: via an internal proxy activity, no host-activity changes needed; system-browser fallback uses lifecycle detection). On iOS, `stashNativeCardDidCloseBrowser` fires when Safari is dismissed. Use when you only need a simple browser view. openBrowser can also be used as a fallback method for openCard and openModal.
 
 **Android**
 
 ```java
 StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
-// In your Activity:
-@Override
-protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
-        return;
-    }
-    super.onActivityResult(requestCode, resultCode, data);
-}
 ```
 
 **iOS (Swift)**

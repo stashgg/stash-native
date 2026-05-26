@@ -135,17 +135,9 @@ public class StashNativeCardPlugin {
   private Runnable browserClosedDebounceRunnable;
   private static final long BROWSER_CLOSED_RESUME_DEBOUNCE_MS = 500L;
   /**
-   * Chrome sometimes omits {@code onActivityResult} and engagement / navigation callbacks when the
-   * user closes Custom Tabs from floating UI. After portrait checkout has paused (tab covered it),
-   * a stable {@link StashNativeCardPortraitActivity#onResume} infers the tab is gone.
-   */
-  private Runnable cctResumeFallbackRunnable;
-  private static final long CCT_RESUME_FALLBACK_MS = 750L;
-  private boolean portraitCheckoutPausedWhileAwaitingCct;
-  /**
-   * When true, {@link StashNativeCardListener#onBrowserClosed()} is delivered from {@link
-   * #handleActivityResult} after Chrome Custom Tabs {@code startActivityForResult} completes, not
-   * from host lifecycle.
+   * True while {@link StashNativeBrowserProxyActivity} is awaiting a Custom Tabs result.
+   * Acts as the dedup gate between proxy {@code onActivityResult} and the
+   * engagement-session-ended path.
    */
   private boolean browserCloseAwaitingCctResult;
 
@@ -465,12 +457,7 @@ public class StashNativeCardPlugin {
             return;
           }
           startKeepAliveBeforeBrowser(act);
-          StashUrlLauncher.openExternalUrl(
-              act,
-              themed,
-              CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB,
-              StashNativeCardPlugin.this::applyBrowserCloseTrackingForLaunchMode,
-              StashNativeCardPlugin.this::onCustomTabsEngagementSessionEnded);
+          launchExternalBrowser(act, themed);
         } catch (Exception e) {
           cancelBrowserCloseTrackingLaunch();
           Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
@@ -564,9 +551,7 @@ public class StashNativeCardPlugin {
     }
     browserCloseTrackingPendingArm = false;
     browserCloseAwaitingCctResult = false;
-    portraitCheckoutPausedWhileAwaitingCct = false;
     cancelBrowserClosedDebounce();
-    cancelCctResumeFallbackDebounce();
   }
 
   private void executePendingCheckoutDismiss() {
@@ -629,12 +614,7 @@ public class StashNativeCardPlugin {
     pendingCheckoutDismissAfterExternalBrowser = dismissAfterBrowserClosed;
     try {
       startKeepAliveBeforeBrowser(checkoutActivity);
-      StashUrlLauncher.openExternalUrl(
-          checkoutActivity,
-          url,
-          CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB,
-          this::applyBrowserCloseTrackingForLaunchMode,
-          this::onCustomTabsEngagementSessionEnded);
+      launchExternalBrowser(checkoutActivity, url);
       if (hideCheckoutChromeWhileBrowserOpen != null) {
         mainHandler.post(hideCheckoutChromeWhileBrowserOpen);
       }
@@ -650,53 +630,6 @@ public class StashNativeCardPlugin {
       mainHandler.removeCallbacks(browserClosedDebounceRunnable);
       browserClosedDebounceRunnable = null;
     }
-  }
-
-  private void cancelCctResumeFallbackDebounce() {
-    if (cctResumeFallbackRunnable != null) {
-      mainHandler.removeCallbacks(cctResumeFallbackRunnable);
-      cctResumeFallbackRunnable = null;
-    }
-  }
-
-  /**
-   * {@link StashNativeCardPortraitActivity} must call this from {@code onResume}: {@link
-   * #getActivity()} is often the host behind portrait, so application-wide lifecycle would miss
-   * resume after Custom Tabs.
-   */
-  void onPortraitCheckoutResumed() {
-    if (browserCloseAwaitingCctResult
-        && pendingCheckoutDismissAfterExternalBrowser != null
-        && portraitCheckoutPausedWhileAwaitingCct) {
-      scheduleCctResumeFallbackDebounce();
-    }
-  }
-
-  /** Call from {@link StashNativeCardPortraitActivity#onPause}. */
-  void onPortraitCheckoutPaused() {
-    cancelCctResumeFallbackDebounce();
-    if (browserCloseAwaitingCctResult && pendingCheckoutDismissAfterExternalBrowser != null) {
-      portraitCheckoutPausedWhileAwaitingCct = true;
-    }
-  }
-
-  private void scheduleCctResumeFallbackDebounce() {
-    cancelCctResumeFallbackDebounce();
-    cctResumeFallbackRunnable =
-        () -> {
-          cctResumeFallbackRunnable = null;
-          if (!browserCloseAwaitingCctResult || pendingCheckoutDismissAfterExternalBrowser == null) {
-            return;
-          }
-          Activity hostOrNull = getActivity();
-          Context unbindCtx = hostOrNull != null ? hostOrNull : registeredAppContext;
-          if (unbindCtx != null) {
-            StashUrlLauncher.unbindCustomTabsEngagement(unbindCtx);
-          }
-          cancelBrowserCloseTrackingLaunch();
-          invokeBrowserClosedListenerAndDismissCheckout();
-        };
-    mainHandler.postDelayed(cctResumeFallbackRunnable, CCT_RESUME_FALLBACK_MS);
   }
 
   private void scheduleBrowserClosedDebounce() {
@@ -732,8 +665,9 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * After Custom Tabs {@code startActivityForResult}; host or portrait activity must forward
-   * {@link StashNativeCard#onActivityResult}.
+   * Marks the plugin as awaiting a Custom Tabs close. Set before starting {@link
+   * StashNativeBrowserProxyActivity} so dispatches from the proxy's {@code
+   * onActivityResult} and the engagement-session-ended path dedupe via the same gate.
    */
   void beginBrowserCloseTrackingActivityResult() {
     cancelBrowserCloseTrackingLaunch();
@@ -761,26 +695,48 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Forward from the {@link Activity} that invoked {@code startActivityForResult} for Custom Tabs
-   * (host from {@link #setActivity(Activity)} or {@link StashNativeCardPortraitActivity}).
-   *
-   * @return true if consumed (Stash Custom Tabs request code)
+   * Called by {@link StashNativeBrowserProxyActivity} when Custom Tabs delivered its
+   * activity result (or the orphan-resume fallback fired). Unbinds the engagement
+   * service and dispatches {@link StashNativeCard.StashNativeCardListener#onBrowserClosed()}
+   * via the shared close-tracking gate.
    */
-  boolean handleActivityResult(int requestCode, int resultCode, Intent data) {
-    if (requestCode != CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB) {
-      return false;
-    }
+  void notifyBrowserClosedFromProxyInternal() {
     Activity hostOrNull = getActivity();
     Context unbindCtx = hostOrNull != null ? hostOrNull : registeredAppContext;
     if (unbindCtx != null) {
       StashUrlLauncher.unbindCustomTabsEngagement(unbindCtx);
     }
     if (!browserCloseAwaitingCctResult) {
-      return false;
+      return;
     }
     cancelBrowserCloseTrackingLaunch();
     invokeBrowserClosedListenerAndDismissCheckout();
-    return true;
+  }
+
+  /** Bridge from {@link StashNativeBrowserProxyActivity}'s engagement-session-ended callback. */
+  void notifyBrowserEngagementSessionEndedFromProxyInternal() {
+    onCustomTabsEngagementSessionEnded();
+  }
+
+  /**
+   * Launches the URL in Chrome Custom Tabs via {@link StashNativeBrowserProxyActivity}
+   * when {@code androidx.browser} is on the classpath, otherwise falls back to the
+   * lifecycle-tracked ACTION_VIEW path on the host activity directly.
+   */
+  private void launchExternalBrowser(Activity activity, String url) {
+    if (activity == null || url == null || url.isEmpty()) {
+      return;
+    }
+    if (StashUrlLauncher.isCustomTabsClassAvailable()) {
+      beginBrowserCloseTrackingActivityResult();
+      Intent intent = new Intent(activity, StashNativeBrowserProxyActivity.class);
+      intent.putExtra(StashNativeBrowserProxyActivity.EXTRA_URL, url);
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+      activity.startActivity(intent);
+      return;
+    }
+    int mode = StashUrlLauncher.openExternalUrl(activity, url);
+    applyBrowserCloseTrackingForLaunchMode(mode);
   }
 
   private String resolveKeepAliveTitle(Context ctx) {
@@ -866,12 +822,7 @@ public class StashNativeCardPlugin {
       activity.runOnUiThread(() -> {
         try {
           startKeepAliveBeforeBrowser(finalActivity);
-          StashUrlLauncher.openExternalUrl(
-              finalActivity,
-              finalUrl,
-              CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB,
-              this::applyBrowserCloseTrackingForLaunchMode,
-              this::onCustomTabsEngagementSessionEnded);
+          launchExternalBrowser(finalActivity, finalUrl);
         } catch (Exception e) {
           cancelBrowserCloseTrackingLaunch();
           Log.w(TAG, "Error in openBrowser: " + e.getMessage(), e);
