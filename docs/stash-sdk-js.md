@@ -53,6 +53,8 @@ Signals payment failure.
 - **Argument:** Passed on iOS as `data || {}` to the failure handler. Android bridge calls `onPaymentFailure()` with no serialized payload from JS (see `JS_SDK_SCRIPT`).
 - **Native result:** Failure callback on the host.
 
+> **Auto-close behavior:** By default the card / modal dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card / modal config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Web pages should not assume the dialog has been torn down by the time these callbacks return.
+
 ### `window.stash_sdk.onPurchaseProcessing(data?)`
 
 Signals that a purchase is still processing.

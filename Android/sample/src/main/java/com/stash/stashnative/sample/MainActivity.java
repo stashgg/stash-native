@@ -153,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
     config.tabletHeightRatioPortrait = (viewModel.getCheckoutTabletPortraitH() + 10) / 100f;
     config.tabletWidthRatioLandscape = (viewModel.getCheckoutTabletLandscapeW() + 10) / 100f;
     config.tabletHeightRatioLandscape = (viewModel.getCheckoutTabletLandscapeH() + 10) / 100f;
+    config.autoClose = viewModel.isCardAutoClose();
     String bg = viewModel.getCardBackgroundColorHex();
     if (bg != null && !bg.trim().isEmpty()) {
       config.backgroundColor = bg.trim();
@@ -389,6 +390,7 @@ public class MainActivity extends AppCompatActivity {
     config.tabletHeightRatioPortrait = (viewModel.getModalTabletPortraitH() + 10) / 100f;
     config.tabletWidthRatioLandscape = (viewModel.getModalTabletLandscapeW() + 10) / 100f;
     config.tabletHeightRatioLandscape = (viewModel.getModalTabletLandscapeH() + 10) / 100f;
+    config.autoClose = viewModel.isModalAutoClose();
     String bg = viewModel.getModalBackgroundColorHex();
     if (bg != null && !bg.trim().isEmpty()) {
       config.backgroundColor = bg.trim();

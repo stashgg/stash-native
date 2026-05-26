@@ -69,6 +69,12 @@ extension ViewController {
                 subtitle: "Rotate to portrait when opening card",
                 switchView: forcePortraitOnCheckoutSwitch
             )
+        case .cardAutoClose:
+            return switchCell(
+                title: "Auto-close on payment event",
+                subtitle: "Close card after success/failure",
+                switchView: cardAutoCloseSwitch
+            )
         case .phoneCardHeight:
             return sliderCell(
                 title: "Phone Card Height",
@@ -131,6 +137,12 @@ extension ViewController {
                 title: "Allow Dismiss",
                 subtitle: "Tap outside to close",
                 switchView: modalAllowDismissSwitch
+            )
+        case .modalAutoClose:
+            return switchCell(
+                title: "Auto-close on payment event",
+                subtitle: "Close modal after success/failure",
+                switchView: modalAutoCloseSwitch
             )
         case .modalPhonePortraitWidth:
             return sliderCell(

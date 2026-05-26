@@ -361,6 +361,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setForcePortraitOnCheckout(isChecked);
         } else if (item.titleRes == R.string.option_allow_dismiss) {
           viewModel.setModalAllowDismiss(isChecked);
+        } else if (item.titleRes == R.string.option_card_auto_close) {
+          viewModel.setCardAutoClose(isChecked);
+        } else if (item.titleRes == R.string.option_modal_auto_close) {
+          viewModel.setModalAutoClose(isChecked);
         } else if (item.titleRes == R.string.option_use_test_api) {
           viewModel.setUseTestApi(isChecked);
         } else if (item.titleRes == R.string.option_keep_alive) {

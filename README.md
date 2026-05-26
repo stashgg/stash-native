@@ -140,6 +140,7 @@ Pass a `CardConfig` (or `nil`/`null` for defaults) to configure presentation.
 | **forcePortrait**   | Forces the card to display in portrait mode, even if the host app or game is locked to landscape orientation. Read section below first ! |
 | **Phone Dimensions** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, and `cardHeightRatioLandscape` (values from 0.1 to 1.0). All dimensions are within the device's safe area.
 | **Tablet Dimensions**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). All dimensions are within the device's safe area.                                  |
+| **autoClose**       | Default `true`. When `false`, the card stays open after the page reports payment success or failure -- callbacks still fire immediately. Call `dismiss()` (or have the page call `window.close()`) when you're ready to close. Useful if your checkout page shows its own confirmation UI. |
 | **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Only for custom UIs, leave unchanged by default.            |
 
 
@@ -337,6 +338,7 @@ Pass a `ModalConfig` (or `nil`/`null`) to control dismiss behavior and sizing. P
 | **Behavior**        | `allowDismiss` (default `true`).                                                                                              |
 | **Phone**           | `phoneWidthRatioPortrait`, `phoneHeightRatioPortrait`, `phoneWidthRatioLandscape`, `phoneHeightRatioLandscape` (0.1–1.0).     |
 | **Tablet**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). |
+| **autoClose**       | Default `true`. When `false`, the modal stays open after the page reports payment success or failure -- callbacks still fire immediately. Call `dismiss()` (or have the page call `window.close()`) when you're ready to close. |
 | **backgroundColor** | Same optional HTML hex as on `CardConfig` / `StashNativeCardConfig`. Omit for SDK defaults.                                   |
 
 

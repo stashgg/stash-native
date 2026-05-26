@@ -328,6 +328,9 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE =
       "modalTabletHeightRatioLandscape";
 
+  // Shared (card + modal): when false, dialog stays open after payment success/failure.
+  public static final String INTENT_EXTRA_AUTO_CLOSE = "stashNative.autoClose";
+
   // ============================================================================
   // Checkout bridge: PortraitActivity sends package-local broadcasts consumed by StashNativeCardPlugin
   // (same app process by default; still used when activity and listener share one process).

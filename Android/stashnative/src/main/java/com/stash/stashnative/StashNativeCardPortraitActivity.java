@@ -112,6 +112,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   // Modal configuration
   private boolean modalAllowDismiss = true;
+  /** When false, dialog stays open after payment success/failure (callback still fires). */
+  private boolean autoCloseOnPaymentEvent = true;
   private float modalPhoneWidthRatioPortrait =
       CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT;
   private float modalPhoneHeightRatioPortrait =
@@ -217,6 +219,9 @@ public class StashNativeCardPortraitActivity extends Activity {
           CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE);
       hostBackdropSourceDisplayRotation = intent.getIntExtra(
           CardConstants.INTENT_EXTRA_HOST_DISPLAY_ROTATION, Surface.ROTATION_90);
+
+      autoCloseOnPaymentEvent = intent.getBooleanExtra(
+          CardConstants.INTENT_EXTRA_AUTO_CLOSE, true);
 
       // Read modal configuration
       if (useModal) {
@@ -2167,6 +2172,10 @@ public class StashNativeCardPortraitActivity extends Activity {
             isPurchaseProcessing = false;
           }
           
+          boolean isPaymentEvent =
+              CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
+                  || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
+
           switch (messageType) {
             case CardConstants.MESSAGE_TYPE_SUCCESS:
               StashCheckoutBridge.emitPaymentSuccess(
@@ -2182,8 +2191,10 @@ public class StashNativeCardPortraitActivity extends Activity {
             default:
               break;
           }
-          
-          dismissWithAnimation();
+
+          if (!isPaymentEvent || autoCloseOnPaymentEvent) {
+            dismissWithAnimation();
+          }
         } catch (Exception e) {
           Log.w(TAG, "Error in notifyListenerAndDismiss UI thread: " + e.getMessage(), e);
           try {

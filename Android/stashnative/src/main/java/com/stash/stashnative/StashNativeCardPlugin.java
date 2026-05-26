@@ -64,6 +64,8 @@ public class StashNativeCardPlugin {
   // landscape ratios when not forcing portrait
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
   private boolean forcePortraitOnCheckout = false;
+  /** Card-presentation autoClose; modal uses {@link #currentModalConfig}.autoClose. */
+  private boolean cardAutoCloseOnPaymentEvent = true;
   private float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
   private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
   
@@ -781,9 +783,11 @@ public class StashNativeCardPlugin {
         this.tabletHeightRatioPortrait = clampRatio(config.tabletHeightRatioPortrait);
         this.tabletWidthRatioLandscape = clampRatio(config.tabletWidthRatioLandscape);
         this.tabletHeightRatioLandscape = clampRatio(config.tabletHeightRatioLandscape);
+        this.cardAutoCloseOnPaymentEvent = config.autoClose;
         this.presentationBackgroundColorHex =
             StashBackgroundColorUtils.normalizeHexOrNull(config.backgroundColor);
       } else {
+        this.cardAutoCloseOnPaymentEvent = true;
         this.presentationBackgroundColorHex = null;
       }
       usePopupPresentation = false;
@@ -1085,6 +1089,11 @@ public class StashNativeCardPlugin {
       if (bgForIntent != null) {
         intent.putExtra(CardConstants.INTENT_EXTRA_BACKGROUND_COLOR, bgForIntent);
       }
+
+      boolean autoCloseForIntent = useModalPresentation && currentModalConfig != null
+          ? currentModalConfig.autoClose
+          : cardAutoCloseOnPaymentEvent;
+      intent.putExtra(CardConstants.INTENT_EXTRA_AUTO_CLOSE, autoCloseForIntent);
 
       // Pass modal config if in modal mode
       intent.putExtra(CardConstants.INTENT_EXTRA_HOST_DISPLAY_ROTATION, rotation);

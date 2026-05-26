@@ -218,6 +218,12 @@ public class StashNativeCard {
     /** Whether tap outside and drag gestures can dismiss the modal. */
     public boolean allowDismiss = true;
     /**
+     * When false, the dialog stays open after onPaymentSuccess/onPaymentFailure. Callbacks still
+     * fire immediately. Call {@link StashNativeCard#dismiss()} (or have the page call
+     * {@code window.close()}) when ready to close. Default true.
+     */
+    public boolean autoClose = true;
+    /**
      * Optional HTML hex for sheet background (#RGB, #RRGGBB, #AARRGGBB). When null or invalid,
      * system light/dark applies. Omit for default Stash theme.
      */
@@ -269,6 +275,12 @@ public class StashNativeCard {
     /** Tablet height ratio in landscape (0.1-1.0). Default 0.6. */
     public float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
     /**
+     * When false, the dialog stays open after onPaymentSuccess/onPaymentFailure. Callbacks still
+     * fire immediately. Call {@link StashNativeCard#dismiss()} (or have the page call
+     * {@code window.close()}) when ready to close. Default true.
+     */
+    public boolean autoClose = true;
+    /**
      * Optional HTML hex for sheet background (#RGB, #RRGGBB, #AARRGGBB). When null or invalid,
      * system light/dark applies. Omit for default Stash theme.
      */
@@ -294,10 +306,10 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.2.0";
+  private static final String SDK_VERSION = "2.2.1";
 
   /**
-   * Returns the SDK version string (e.g. "2.2.0").
+   * Returns the SDK version string (e.g. "2.2.1").
    */
   public static String getVersion() {
     return SDK_VERSION;

@@ -51,6 +51,7 @@ public class MainViewModel extends AndroidViewModel {
 
   // Checkout options
   private boolean forcePortraitOnCheckout = false;
+  private boolean cardAutoClose = true;
   private int phoneCardHeight = 58;
   private int checkoutPhoneLandscapeW = 60;
   private int checkoutPhoneLandscapeH = 80;
@@ -65,6 +66,7 @@ public class MainViewModel extends AndroidViewModel {
 
   // Modal options
   private boolean modalAllowDismiss = true;
+  private boolean modalAutoClose = true;
   private int modalPhonePortraitW = 70;
   private int modalPhonePortraitH = 40;
   private int modalPhoneLandscapeW = 40;
@@ -199,6 +201,16 @@ public class MainViewModel extends AndroidViewModel {
     refreshList();
   }
 
+  public void setCardAutoClose(boolean on) {
+    cardAutoClose = on;
+    refreshList();
+  }
+
+  public void setModalAutoClose(boolean on) {
+    modalAutoClose = on;
+    refreshList();
+  }
+
   public void setPhoneCardHeight(int progress) {
     phoneCardHeight = progress;
     refreshList();
@@ -280,6 +292,14 @@ public class MainViewModel extends AndroidViewModel {
 
   public boolean isModalAllowDismiss() {
     return modalAllowDismiss;
+  }
+
+  public boolean isCardAutoClose() {
+    return cardAutoClose;
+  }
+
+  public boolean isModalAutoClose() {
+    return modalAutoClose;
   }
 
   public int getPhoneCardHeight() {
@@ -395,6 +415,10 @@ public class MainViewModel extends AndroidViewModel {
           R.string.option_force_portrait_on_checkout,
           R.string.option_force_portrait_on_checkout_supporting,
           forcePortraitOnCheckout, false, false));
+      list.add(SettingsItem.switchPreference(
+          R.string.option_card_auto_close,
+          R.string.option_card_auto_close_supporting,
+          cardAutoClose, false, false));
       list.add(SettingsItem.sliderPreference(
           R.string.phone_card_height, phoneCardHeight, false, false));
       list.add(SettingsItem.sliderPreference(
@@ -421,6 +445,10 @@ public class MainViewModel extends AndroidViewModel {
       list.add(SettingsItem.switchPreference(
           R.string.option_allow_dismiss, R.string.option_allow_dismiss_supporting,
           modalAllowDismiss, false, false));
+      list.add(SettingsItem.switchPreference(
+          R.string.option_modal_auto_close,
+          R.string.option_modal_auto_close_supporting,
+          modalAutoClose, false, false));
       list.add(SettingsItem.sliderPreference(
           R.string.phone_portrait_width, modalPhonePortraitW, false, false));
       list.add(SettingsItem.sliderPreference(

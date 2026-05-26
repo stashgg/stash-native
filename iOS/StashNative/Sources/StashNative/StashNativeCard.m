@@ -87,6 +87,7 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletWidthRatioLandscape = 0.30f;
         _tabletHeightRatioLandscape = 0.40f;
         _allowDismiss = YES;
+        _autoClose = YES;
         _backgroundColor = nil;
     }
     return self;
@@ -112,6 +113,7 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletWidthRatioLandscape = tabletWidthLandscape;
         _tabletHeightRatioLandscape = tabletHeightLandscape;
         _allowDismiss = allowDismiss;
+        _autoClose = YES;
         _backgroundColor = nil;
     }
     return self;
@@ -134,6 +136,7 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
         _tabletHeightRatioPortrait = 0.5f;
         _tabletWidthRatioLandscape = 0.3f;
         _tabletHeightRatioLandscape = 0.6f;
+        _autoClose = YES;
         _backgroundColor = nil;
     }
     return self;
@@ -204,6 +207,8 @@ static CGFloat _cardSafeAreaTop = 0.0f;
 // Non-static: referenced by StashNativeCardViewControllers.m
 BOOL _useModalPresentation = NO;
 BOOL _modalAllowDismiss = YES;
+/** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
+static BOOL _autoCloseOnPaymentEvent = YES;
 CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
 CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
 CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
@@ -808,6 +813,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
+    _autoCloseOnPaymentEvent = YES;
     _presentationBackgroundColorHex = nil;
     _cardIsInLandscape = NO;
     _cardSafeAreaTop = 0.0f;
@@ -1744,24 +1750,28 @@ initialSpringVelocity:kSpringVelocityCollapse
                 });
             }
         }
-        
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-        }];
+
+        if (_autoCloseOnPaymentEvent) {
+            [self dismissWithAnimation:^{
+                [self cleanupCardInstance];
+            }];
+        }
     } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
         if (_paymentSuccessHandled) return;
         _paymentSuccessHandled = YES;
         self.isPurchaseProcessing = NO;
-        
+
         if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [delegate stashNativeCardDidFailPayment];
             });
         }
-        
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-        }];
+
+        if (_autoCloseOnPaymentEvent) {
+            [self dismissWithAnimation:^{
+                [self cleanupCardInstance];
+            }];
+        }
     } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
         self.isPurchaseProcessing = YES;
         [self updateDragTrayVisibilityForPurchaseProcessing:YES];
@@ -3126,7 +3136,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.2.0";
+    return @"2.2.1";
 }
 
 - (instancetype)init {
@@ -3152,7 +3162,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     if (url == nil || url.length == 0) {
         return;
     }
-    
+
+    _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
+
     if (config) {
         _forcePortraitOnCheckout = config.forcePortrait;
         _cardHeightRatioPortrait = config.cardHeightRatioPortrait;
@@ -3222,10 +3234,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     if (url == nil || url.length == 0) {
         return;
     }
-    
+
+    _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
+
     _usePopupPresentation = NO;
     _useModalPresentation = YES;
-    
+
     if (config) {
         _modalAllowDismiss = config.allowDismiss;
         _modalPhoneWidthRatioPortrait = config.phoneWidthRatioPortrait;

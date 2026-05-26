@@ -27,6 +27,7 @@ extension ViewController {
             action: #selector(forcePortraitOnCheckoutToggled(_:)),
             for: .valueChanged
         )
+        cardAutoCloseSwitch.isOn = true
         configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)
         phoneCardHeightSlider.addTarget(
             self,
@@ -73,6 +74,7 @@ extension ViewController {
 
     func setupModalSlidersAndSwitches() {
         modalAllowDismissSwitch.isOn = true
+        modalAutoCloseSwitch.isOn = true
         configureSlider(modalPhonePortraitWidthSlider, label: modalPhonePortraitWidthLabel, value: 80)
         modalPhonePortraitWidthSlider.addTarget(
             self,

@@ -32,6 +32,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var isCheckoutAdvancedExpanded = false
     var isModalAdvancedExpanded = false
     let forcePortraitOnCheckoutSwitch = UISwitch()
+    let cardAutoCloseSwitch = UISwitch()
     let phoneCardHeightSlider = UISlider()
     let phoneCardHeightLabel = UILabel()
     let checkoutTabletPortraitWidthSlider = UISlider()
@@ -52,6 +53,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let simulateLandscapeSwitch = UISwitch()
 
     let modalAllowDismissSwitch = UISwitch()
+    let modalAutoCloseSwitch = UISwitch()
     let modalPhonePortraitWidthSlider = UISlider()
     let modalPhonePortraitWidthLabel = UILabel()
     let modalPhonePortraitHeightSlider = UISlider()
@@ -82,6 +84,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     enum CheckoutOptionRow: Int, CaseIterable {
         case cardBackgroundHex
         case forcePortraitOnCheckout
+        case cardAutoClose
         case phoneCardHeight
         case phoneLandscapeWidth
         case phoneLandscapeHeight
@@ -94,6 +97,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     enum ModalOptionRow: Int, CaseIterable {
         case modalBackgroundHex
         case allowDismiss
+        case modalAutoClose
         case modalPhonePortraitWidth
         case modalPhonePortraitHeight
         case modalPhoneLandscapeWidth

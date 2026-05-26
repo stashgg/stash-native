@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] - 2026-05-27
+
+### Added
+- iOS/Android: optional `autoClose` flag on `CardConfig` / `StashNativeCardConfig` and `ModalConfig` / `StashNativeModalConfig`. Defaults to `true` (current behaviour: dialog dismisses automatically after `onPaymentSuccess` / `onPaymentFailure`). When `false`, the callback still fires immediately but the dialog stays open until the page calls `window.close()`, the user dismisses it, or the host calls `dismiss()` — useful for checkouts that show their own confirmation screen. Sample apps gained a toggle for both card and modal.
+
 ## [2.2.0] - 2026-05-26
 
 ### Changed

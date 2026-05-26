@@ -39,6 +39,10 @@
     <string name="option_force_portrait_on_checkout_supporting">Rotate to portrait when opening checkout</string>
     <string name="option_allow_dismiss">Allow dismiss</string>
     <string name="option_allow_dismiss_supporting">Tap outside to close</string>
+    <string name="option_card_auto_close">Auto-close on payment event</string>
+    <string name="option_card_auto_close_supporting">Close card after success/failure</string>
+    <string name="option_modal_auto_close">Auto-close on payment event</string>
+    <string name="option_modal_auto_close_supporting">Close modal after success/failure</string>
     <string name="phone_card_height">Phone card height</string>
     <string name="checkout_phone_landscape_width">Phone landscape width</string>
     <string name="checkout_phone_landscape_height">Phone landscape height</string>
