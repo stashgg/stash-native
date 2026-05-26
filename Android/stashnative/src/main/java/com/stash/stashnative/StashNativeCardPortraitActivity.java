@@ -2348,29 +2348,19 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   @Override
   protected void onPause() {
-    StashNativeCardPlugin.getInstance().onPortraitCheckoutPaused();
     super.onPause();
     if (webView != null) {
       webView.onPause();
     }
   }
-  
+
   @Override
   protected void onResume() {
     super.onResume();
-    StashNativeCardPlugin.getInstance().onPortraitCheckoutResumed();
     StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();
     }
-  }
-  
-  @Override
-  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
-      return;
-    }
-    super.onActivityResult(requestCode, resultCode, data);
   }
 
   @Override

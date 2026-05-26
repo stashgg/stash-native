@@ -1,7 +1,6 @@
 package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -402,14 +401,6 @@ public class MainActivity extends AppCompatActivity {
     super.onResume();
     StashNativeCard.getInstance().setActivity(this);
     StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
-  }
-
-  @Override
-  protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-    if (StashNativeCard.getInstance().onActivityResult(requestCode, resultCode, data)) {
-      return;
-    }
-    super.onActivityResult(requestCode, resultCode, data);
   }
 
   @Override

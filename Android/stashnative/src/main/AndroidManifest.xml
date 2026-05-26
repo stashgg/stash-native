@@ -21,6 +21,20 @@
             android:screenOrientation="unspecified"
             android:theme="@style/StashNativeCardTheme" />
 
+        <!--
+            Invisible proxy that owns the Chrome Custom Tabs startActivityForResult
+            lifecycle so onBrowserClosed fires without host-activity changes (Unity
+            UnityPlayerActivity, partner apps that cannot ship onActivityResult
+            forwarders). Must run in the host app's process for the same reason as
+            StashNativeCardPortraitActivity (WebView data dir lock conflicts).
+        -->
+        <activity
+            android:name=".StashNativeBrowserProxyActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode|smallestScreenSize"
+            android:exported="false"
+            tools:remove="android:process"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+
         <service
             android:name=".StashKeepAliveService"
             android:exported="false"
