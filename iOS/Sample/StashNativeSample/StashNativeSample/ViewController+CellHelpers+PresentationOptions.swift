@@ -51,7 +51,7 @@ extension ViewController {
         return cell
     }
 
-    // swiftlint:disable:next function_body_length
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     private func checkoutOptionRow(at row: Int) -> UITableViewCell {
         guard let checkoutRow = CheckoutOptionRow(rawValue: row - 1) else {
             return UITableViewCell()
