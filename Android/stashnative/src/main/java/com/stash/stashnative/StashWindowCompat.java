@@ -162,4 +162,57 @@ final class StashWindowCompat {
     target.setPadding(left, top, right, bottom);
     return windowInsets.replaceSystemWindowInsets(0, 0, 0, 0);
   }
+
+  /**
+   * Applies system-bar padding using only the status + navigation bars, EXCLUDING the IME, so a
+   * visible soft keyboard does not push a bottom-pinned card off the top of the screen. The legacy
+   * {@link WindowInsetsCompat#getSystemWindowInsetBottom()} includes the keyboard height; on this
+   * edge-to-edge window that would inflate the bottom padding and slide the sheet up off-screen.
+   *
+   * <p>Platform API 30+ only ({@code WindowInsets.Type.systemBars()}); returns {@code false} when
+   * unavailable so callers fall back to {@link #onApplySystemBarInsetsPadding}. Uses framework
+   * types only (no {@code WindowInsetsCompat.Type}), so old host cores never hit {@link
+   * NoSuchMethodError}.
+   */
+  static boolean applySystemBarsPaddingExcludingIme(View target, WindowInsetsCompat windowInsets) {
+    if (target == null || windowInsets == null) {
+      return false;
+    }
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        android.view.WindowInsets platform = windowInsets.toWindowInsets();
+        if (platform != null) {
+          android.graphics.Insets bars =
+              platform.getInsets(android.view.WindowInsets.Type.systemBars());
+          target.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+          return true;
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    return false;
+  }
+
+  /**
+   * Height in px by which a visible soft keyboard overlaps the content sitting above the navigation
+   * bar (IME bottom minus system-bars bottom); 0 if hidden/unavailable. Platform API 30+ only; 0
+   * otherwise so older devices keep current behaviour.
+   */
+  static int getImeOverlapPx(WindowInsetsCompat windowInsets) {
+    if (windowInsets == null) {
+      return 0;
+    }
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        android.view.WindowInsets platform = windowInsets.toWindowInsets();
+        if (platform != null) {
+          int ime = platform.getInsets(android.view.WindowInsets.Type.ime()).bottom;
+          int bars = platform.getInsets(android.view.WindowInsets.Type.systemBars()).bottom;
+          return Math.max(0, ime - bars);
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    return 0;
+  }
 }

@@ -43,6 +43,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import androidx.annotation.RequiresApi;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 /**
  * Activity that displays the Stash Pay checkout as a card or popup overlay.
@@ -103,6 +104,10 @@ public class StashNativeCardPortraitActivity extends Activity {
   private int tabletSdkBaseHeightPx = -1;
   /** Running {@link #animateCardHeight} animator; cancelled before starting a new height change. */
   private ValueAnimator cardHeightAnimator;
+  /** Soft-keyboard overlap currently applied to the card, px; 0 when the keyboard is hidden. */
+  private int currentImeOverlapPx = 0;
+  /** Card height snapshotted when the keyboard first appears, restored on hide; -1 = none. */
+  private int imeSnapshotCardHeightPx = -1;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -442,10 +447,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       setContentView(rootLayout);
-      ViewCompat.setOnApplyWindowInsetsListener(
-          rootLayout,
-          (v, windowInsets) ->
-              StashWindowCompat.onApplySystemBarInsetsPadding(v, windowInsets));
+      ViewCompat.setOnApplyWindowInsetsListener(rootLayout, this::onWindowInsets);
       ViewCompat.requestApplyInsets(rootLayout);
       // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
       // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
@@ -562,7 +564,119 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
     return Math.min((int) (portraitHeight * cardHeightRatioPortrait), maxH);
   }
-  
+
+  /**
+   * Applies system-bar padding (excluding the IME) and tracks the soft-keyboard overlap. The window
+   * is edge-to-edge, so the IME arrives as an inset rather than a window pan; the legacy
+   * system-window inset includes the keyboard height, which without this would inflate the bottom
+   * padding and push the bottom-pinned card off the top of the screen.
+   */
+  private WindowInsetsCompat onWindowInsets(View v, WindowInsetsCompat insets) {
+    try {
+      if (StashWindowCompat.applySystemBarsPaddingExcludingIme(v, insets)) {
+        applyImeOverlap(StashWindowCompat.getImeOverlapPx(insets));
+        return insets.replaceSystemWindowInsets(0, 0, 0, 0);
+      }
+    } catch (Throwable t) {
+      Log.w(TAG, "IME-aware inset handling unavailable: " + t.getMessage());
+    }
+    // Older devices / cores: original behaviour (no IME shrink). adjustResize still keeps the card
+    // on screen; the keyboard may overlap the field as before.
+    return StashWindowCompat.onApplySystemBarInsetsPadding(v, insets);
+  }
+
+  /** Content height available to gravity-positioned children (root height minus inset padding). */
+  private int rootContentHeightPx() {
+    if (rootLayout == null) {
+      return 0;
+    }
+    return Math.max(0,
+        rootLayout.getHeight() - rootLayout.getPaddingTop() - rootLayout.getPaddingBottom());
+  }
+
+  /**
+   * Resizes / shifts the card so the focused input clears the soft keyboard while the card stays on
+   * screen. Phone bottom-sheet: keep the top fixed and shrink from the bottom (the WebView shrinks
+   * with it, so the page scrolls the focused field into the smaller viewport). Centered card / modal:
+   * slide up only as far as the keyboard intrudes, clamped so the top never leaves the screen.
+   * {@code overlapPx} 0 restores the card.
+   */
+  private void applyImeOverlap(int overlapPx) {
+    if (cardContainer == null || usePopup) {
+      return;
+    }
+    if (isPurchaseProcessing && overlapPx > 0) {
+      return;
+    }
+    if (overlapPx == currentImeOverlapPx) {
+      return;
+    }
+    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+    if (params == null) {
+      return;
+    }
+
+    if (cachedIsTablet || useModal) {
+      // Centered card: slide up by the amount the keyboard intrudes past the gap below the card;
+      // clamp the shift to that same gap so the top never crosses the status bar.
+      int cardHeight = params.height > 0 ? params.height : cardContainer.getHeight();
+      int gapBelow = Math.max(0, (rootContentHeightPx() - cardHeight) / 2);
+      int shift = Math.min(gapBelow, Math.max(0, overlapPx - gapBelow));
+      cardContainer.setTranslationY(-shift);
+      currentImeOverlapPx = overlapPx;
+      return;
+    }
+
+    // Phone bottom-sheet (gravity BOTTOM): bottom margin slides the card up, reduced height keeps
+    // the top fixed, so the WebView shrinks by exactly the keyboard overlap.
+    if (overlapPx > 0) {
+      if (imeSnapshotCardHeightPx < 0) {
+        int base = params.height > 0 ? params.height : cardContainer.getHeight();
+        if (base <= 0) {
+          return;
+        }
+        imeSnapshotCardHeightPx = base;
+      }
+      int minHeight = (int) StashWebViewUtils.dpToPx(this, 160);
+      int newHeight = imeSnapshotCardHeightPx - overlapPx;
+      int margin = overlapPx;
+      if (newHeight < minHeight) {
+        // Keyboard taller than the sheet: cap height, keep the top within the content box.
+        newHeight = minHeight;
+        margin = Math.max(0, Math.min(overlapPx, rootContentHeightPx() - newHeight));
+      }
+      params.height = newHeight;
+      params.bottomMargin = margin;
+      cardContainer.setLayoutParams(params);
+    } else {
+      if (imeSnapshotCardHeightPx >= 0) {
+        params.height = imeSnapshotCardHeightPx;
+      }
+      params.bottomMargin = 0;
+      cardContainer.setLayoutParams(params);
+      imeSnapshotCardHeightPx = -1;
+    }
+    currentImeOverlapPx = overlapPx;
+  }
+
+  /** Clears IME overlap state before a rotation re-layout; the next inset pass re-applies it. */
+  private void resetImeOverlap() {
+    if (cardContainer != null) {
+      try {
+        FrameLayout.LayoutParams params =
+            (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        if (params != null && params.bottomMargin != 0) {
+          params.bottomMargin = 0;
+          cardContainer.setLayoutParams(params);
+        }
+        cardContainer.setTranslationY(0f);
+      } catch (Throwable ignored) {
+      }
+    }
+    currentImeOverlapPx = 0;
+    imeSnapshotCardHeightPx = -1;
+  }
+
   private void createCard() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     boolean isTablet = cachedIsTablet;
@@ -2470,9 +2584,12 @@ public class StashNativeCardPortraitActivity extends Activity {
 
     if (useModal && cardContainer != null && rootLayout != null) {
       // Modal mode: always animate resize on rotation
+      resetImeOverlap();
       animateModalRotation();
+      reapplyImeOverlapAfterRotation();
     } else if (!usePopup && cardContainer != null && rootLayout != null) {
       boolean isTablet = cachedIsTablet;
+      resetImeOverlap();
       if (isTablet) {
         // Seamless animation for tablet rotation
         animateTabletRotation();
@@ -2481,7 +2598,24 @@ public class StashNativeCardPortraitActivity extends Activity {
         // multi-window, etc. — same path for force-portrait and current-orientation checkout.
         animatePhoneCheckoutRotation();
       }
+      reapplyImeOverlapAfterRotation();
     }
+  }
+
+  /** Recomputes the keyboard overlap against the new orientation once the rotation layout settles. */
+  private void reapplyImeOverlapAfterRotation() {
+    if (rootLayout == null) {
+      return;
+    }
+    rootLayout.post(() -> {
+      try {
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(rootLayout);
+        if (insets != null) {
+          applyImeOverlap(StashWindowCompat.getImeOverlapPx(insets));
+        }
+      } catch (Throwable ignored) {
+      }
+    });
   }
   
   private void animateTabletRotation() {

@@ -1314,6 +1314,9 @@ public class StashNativeCardPlugin {
               ViewGroup.LayoutParams.MATCH_PARENT);
           window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
               WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+          // Resize the centered popup when the soft keyboard appears so the focused field stays
+          // visible. This Dialog is a normal (non edge-to-edge) window, so adjustResize works.
+          window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
           window.setBackgroundDrawableResource(android.R.color.transparent);
           window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
           WindowManager.LayoutParams windowParams = window.getAttributes();

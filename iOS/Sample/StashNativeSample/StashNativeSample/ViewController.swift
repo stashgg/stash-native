@@ -115,6 +115,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     static let userDefaultsModalBackgroundHexKey = "ModalBackgroundColorHex"
     var stashApiKey = ViewController.defaultStashApiKey
     var useTestApi = true
+    var pendingAlerts: [(String, String)] = []
+    var isPresentingQueuedAlert = false
     let apiKeyTextField = UITextField()
     let cardBackgroundColorTextField = UITextField()
     let modalBackgroundColorTextField = UITextField()
@@ -153,6 +155,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         if navigationController == nil {
             navigationController?.navigationBar.prefersLargeTitles = true
         }
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        flushPendingAlertsIfPossible()
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
@@ -261,8 +268,27 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     func showAlert(title: String, message: String) {
+        print("[StashSample] alert queued: \(title) -- \(message)")
+        pendingAlerts.append((title, message))
+        flushPendingAlertsIfPossible()
+    }
+
+    func flushPendingAlertsIfPossible() {
+        guard !isPresentingQueuedAlert,
+              presentedViewController == nil,
+              !pendingAlerts.isEmpty else {
+            return
+        }
+        let (title, message) = pendingAlerts.removeFirst()
+        isPresentingQueuedAlert = true
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            self.isPresentingQueuedAlert = false
+            DispatchQueue.main.async {
+                self.flushPendingAlertsIfPossible()
+            }
+        })
         present(alert, animated: true)
     }
 }

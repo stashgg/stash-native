@@ -1726,8 +1726,11 @@ initialSpringVelocity:kSpringVelocityCollapse
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
     
     if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
-        if (_paymentSuccessHandled) return;
-        _paymentSuccessHandled = YES;
+        // When autoClose is on, the dialog tears down after the first event, so guard against
+        // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
+        // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
+        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
         self.isPurchaseProcessing = NO;
         
         NSString *orderString = nil;
@@ -1757,8 +1760,8 @@ initialSpringVelocity:kSpringVelocityCollapse
             }];
         }
     } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
-        if (_paymentSuccessHandled) return;
-        _paymentSuccessHandled = YES;
+        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
         self.isPurchaseProcessing = NO;
 
         if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {

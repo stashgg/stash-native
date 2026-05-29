@@ -30,7 +30,11 @@ extension ViewController: StashNativeCardDelegate {
         }
     }
 
-    func stashNativeCardDidDismiss() {}
+    func stashNativeCardDidDismiss() {
+        DispatchQueue.main.async {
+            self.flushPendingAlertsIfPossible()
+        }
+    }
 
     func stashNativeCardDidReceiveOpt(in optinType: String) {
         DispatchQueue.main.async {
