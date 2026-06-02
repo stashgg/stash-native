@@ -4562,9 +4562,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
                                                             injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                          forMainFrameOnly:YES];
             [userContentController addUserScript:darkStart];
-            NSString *darkBgAtEnd = [NSString stringWithFormat:
-                @"(function(){try{var BG='%@';var h=document.head;if(h&&!h.querySelector('meta[name=color-scheme]')){var m=document.createElement('meta');m.setAttribute('name','color-scheme');m.setAttribute('content','dark');h.insertBefore(m,h.firstChild);}var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}var b=document.body;if(b){b.style.setProperty('background-color',BG,'important');b.style.setProperty('color-scheme','dark','important');}}catch(x){}})();",
-                bgHex];
+            NSString *darkBgAtEnd = StashNativeDarkSheetBackgroundJavaScript();
             WKUserScript *darkEnd = [[WKUserScript alloc] initWithSource:darkBgAtEnd
                                                           injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
                                                        forMainFrameOnly:YES];
