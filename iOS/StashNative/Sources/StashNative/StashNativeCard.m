@@ -168,7 +168,7 @@ static CGFloat _tabletWidthRatioLandscape = 0.3;
 static CGFloat _tabletHeightRatioLandscape = 0.6;
 
 // --- Popup size configuration (reset on cleanup) ---
-// File-local: read only inside computePopupFrameForScreenBounds (defined in this TU).
+// File-local: read only inside stash_computePopupFrameForScreenBounds (defined in this TU).
 static BOOL _useCustomPopupSize = NO;
 static CGFloat _customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
 static CGFloat _customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
@@ -186,7 +186,7 @@ static void resetSafariOpenBrowserTrackingFlags(void) {
     _safariBrowserCloseDelegatePending = NO;
 }
 
-BOOL _usePopupPresentation = NO;
+BOOL stash_usePopupPresentation = NO;
 static BOOL _isCardExpanded = NO;
 
 // --- Landscape / force-portrait orientation flags (phones only; reset on cleanup) ---
@@ -198,9 +198,9 @@ static BOOL _cardIsInLandscape = NO;
 static CGFloat _cardSafeAreaTop = 0.0f;
 
 // --- Modal configuration (reset on cleanup) ---
-// _useModalPresentation is non-static (read by StashNativeCardWebViewDelegates.m); the ratios and
-// allowDismiss are file-local (read only by this TU's modal builder + computeModalFrameForScreenBounds).
-BOOL _useModalPresentation = NO;
+// stash_useModalPresentation is non-static (read by StashNativeCardWebViewDelegates.m); the ratios and
+// allowDismiss are file-local (read only by this TU's modal builder + stash_computeModalFrameForScreenBounds).
+BOOL stash_useModalPresentation = NO;
 static BOOL _modalAllowDismiss = YES;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
 static BOOL _autoCloseOnPaymentEvent = YES;
@@ -446,31 +446,31 @@ static BOOL stash_effectiveThemeIsDark(void);
 static NSString *stash_cssHexFromUIColor(UIColor *color);
 static UIColor *stash_parseHTMLHexColor(NSString *hex);
 
-BOOL isRunningOniPad(void);
-CGSize calculateiPadCardSize(CGRect screenBounds);
+BOOL stash_isRunningOniPad(void);
+CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView);
 CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
-CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
-UIColor* getSystemBackgroundColor(void);
+CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
+CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
+UIColor* stash_getSystemBackgroundColor(void);
 UIColor* stash_sheetBackgroundUIColor(void);
-CGFloat getSafeAreaTopForView(UIView *view);
-WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView);
-void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
-void configureScrollViewForWebView(UIScrollView* scrollView);
+CGFloat stash_getSafeAreaTopForView(UIView *view);
+WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView);
+void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
+void stash_configureScrollViewForWebView(UIScrollView* scrollView);
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
-void setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
-CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
+void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
+CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 static NSString* appendThemeQueryParameter(NSString* url);
-UIWindow* getKeyWindow(void);
-UIInterfaceOrientation getInterfaceOrientation(void);
+UIWindow* stash_getKeyWindow(void);
+UIInterfaceOrientation stash_getInterfaceOrientation(void);
 static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 static void setOverlayToDismissAppearance(UIView *overlayView);
 static NSString *NormalizeExternalPaymentURL(NSString *raw);
-CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
+CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
 #pragma mark - StashNativeCardInternal
@@ -602,7 +602,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
     // iPad: only allow drag-down (dismiss). Block upward drags.
-    if (isRunningOniPad() && [gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
+    if (stash_isRunningOniPad() && [gestureRecognizer isKindOfClass:[UIPanGestureRecognizer class]]) {
         UIPanGestureRecognizer *panGesture = (UIPanGestureRecognizer *)gestureRecognizer;
         if ([panGesture.view isEqual:self.dragTrayView]) {
             UIView *referenceView = self.portraitWindow ? self.portraitWindow : panGesture.view.superview;
@@ -632,7 +632,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
 - (UIView *)cardViewForCurrentPresentation {
     if (!self.currentPresentedVC) return nil;
-    if (isRunningOniPad()) {
+    if (stash_isRunningOniPad()) {
         return [self.currentPresentedVC.view viewWithTag:kCardViewTag];
     }
     UIView *cardView = self.portraitWindow ? [self.portraitWindow viewWithTag:kCardViewTag] : [self.currentPresentedVC.view viewWithTag:kCardViewTag];
@@ -798,8 +798,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     self.isPurchaseProcessing = NO;
     _isCardExpanded = NO;
     _isCardCurrentlyPresented = NO;
-    _usePopupPresentation = NO;
-    _useModalPresentation = NO;
+    stash_usePopupPresentation = NO;
+    stash_useModalPresentation = NO;
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     _paymentSuccessHandled = NO;
@@ -884,16 +884,16 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:containerVC];
     
-    CGFloat animationDuration = (_usePopupPresentation || _useModalPresentation) ? kDismissAnimationDurationPopup : kDismissAnimationDurationNormal;
+    CGFloat animationDuration = (stash_usePopupPresentation || stash_useModalPresentation) ? kDismissAnimationDurationPopup : kDismissAnimationDurationNormal;
     
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
-        if (_useModalPresentation) {
+        if (stash_useModalPresentation) {
             // Modal: fade out only (no scale to avoid webview shift)
             UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
             UIView *targetView = cardView ? cardView : containerVC.view;
             targetView.alpha = 0.0;
-        } else if (_usePopupPresentation || isRunningOniPad()) {
+        } else if (stash_usePopupPresentation || stash_isRunningOniPad()) {
             // iPad/Popup: fade out and scale the cardView
             UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
@@ -995,11 +995,11 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _isCardExpanded = YES;
 
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
+    CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
     CGRect fullScreenFrame;
     if ([self isIPhoneLandscapeCurrentOrientation]) {
         // Height-only expand in landscape: use same canonical collapsed frame (includes min clamp)
-        CGRect collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, YES);
+        CGRect collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, YES);
         CGFloat expW = collapsedFrame.size.width;
         CGFloat expH = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
         CGFloat expX = (screenBounds.size.width - expW) / 2.0f;
@@ -1010,7 +1010,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         fullScreenFrame = CGRectMake(0, safeTop, screenBounds.size.width, screenBounds.size.height - safeTop);
     }
 
-    WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
+    WKWebView *webView = stash_switchWebViewToFrameLayoutInCardView(cardView);
 
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
@@ -1027,7 +1027,7 @@ initialSpringVelocity:kSpringVelocityExpand
             webView.frame = CGRectMake(0, 0, fullScreenFrame.size.width, fullScreenFrame.size.height);
         }
 
-        updateDragTrayAndHandleInCardView(cardView, fullScreenFrame.size.width);
+        stash_updateDragTrayAndHandleInCardView(cardView, fullScreenFrame.size.width);
         
         [self updateCustomFrameIfSupported:fullScreenFrame forViewController:nil];
         
@@ -1035,8 +1035,8 @@ initialSpringVelocity:kSpringVelocityExpand
         
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
-        CGFloat radius = isRunningOniPad() ? kCornerRadiusExpanded : kCornerRadiusDefault;
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, radius);
+        CGFloat radius = stash_isRunningOniPad() ? kCornerRadiusExpanded : kCornerRadiusDefault;
+        CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, radius);
         cardView.layer.mask = maskLayer;
         
         [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
@@ -1053,20 +1053,20 @@ initialSpringVelocity:kSpringVelocityExpand
     CGFloat width, height;
 
     CGRect collapsedFrame;
-    if (isRunningOniPad()) {
-        CGSize cardSize = calculateiPadCardSize(screenBounds);
+    if (stash_isRunningOniPad()) {
+        CGSize cardSize = stash_calculateiPadCardSize(screenBounds);
         width = cardSize.width;
         height = cardSize.height;
         CGFloat x = (screenBounds.size.width - width) / 2;
         CGFloat finalY = (screenBounds.size.height - height) / 2;
         collapsedFrame = CGRectMake(x, finalY, width, height);
     } else {
-        collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+        collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
         width = collapsedFrame.size.width;
         height = collapsedFrame.size.height;
     }
 
-    WKWebView *webView = switchWebViewToFrameLayoutInCardView(cardView);
+    WKWebView *webView = stash_switchWebViewToFrameLayoutInCardView(cardView);
 
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
 
@@ -1082,14 +1082,14 @@ initialSpringVelocity:kSpringVelocityCollapse
             webView.frame = CGRectMake(0, 0, width, height);
         }
 
-        updateDragTrayAndHandleInCardView(cardView, width);
+        stash_updateDragTrayAndHandleInCardView(cardView, width);
 
         [self updateCustomFrameIfSupported:collapsedFrame forViewController:nil];
         
         [cardView layoutIfNeeded];
     } completion:^(BOOL finished) {
-        UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, isRunningOniPad());
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
+        UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, stash_isRunningOniPad());
+        CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
 
         [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
@@ -1116,8 +1116,8 @@ initialSpringVelocity:kSpringVelocityCollapse
         self.collapseDisplayLink = nil;
         _isCardExpanded = NO;
         if (cardView) {
-            UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, isRunningOniPad());
-            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
+            UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, stash_isRunningOniPad());
+            CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         }
         [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
@@ -1168,11 +1168,11 @@ initialSpringVelocity:kSpringVelocityCollapse
         self.expandDisplayLink = nil;
         _isCardExpanded = YES;
         if (cardView) {
-            if (isRunningOniPad()) {
-                CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+            if (stash_isRunningOniPad()) {
+                CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
                 cardView.layer.mask = maskLayer;
             } else {
-                CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+                CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
                 cardView.layer.mask = maskLayer;
             }
         }
@@ -1208,13 +1208,13 @@ initialSpringVelocity:kSpringVelocityCollapse
 // interpolation, current-progress read, and per-frame relayout all derive from these two rects.
 - (void)collapsedRect:(CGRect *)outCollapsed expandedRect:(CGRect *)outExpanded forCardView:(UIView *)cardView {
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
+    CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
 
     CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
     CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
 
-    if (isRunningOniPad()) {
-        CGSize cardSize = calculateiPadCardSize(screenBounds);
+    if (stash_isRunningOniPad()) {
+        CGSize cardSize = stash_calculateiPadCardSize(screenBounds);
         CGFloat baseW = cardSize.width;
         CGFloat baseH = cardSize.height;
         CGFloat expandedH = stashTabletSdkExpandedHeightFromBase(baseH, screenBounds, cardView);
@@ -1230,7 +1230,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (self.portraitWindow && _forcePortraitOnCheckout) {
             collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
         } else {
-            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
+            collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
         }
         collapsedWidth = collapsedFrame.size.width;
         collapsedHeight = collapsedFrame.size.height;
@@ -1282,23 +1282,23 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     [self updateCustomFrameIfSupported:cardView.frame forViewController:nil];
 
-    updateDragTrayAndHandleInCardView(cardView, currentWidth);
+    stash_updateDragTrayAndHandleInCardView(cardView, currentWidth);
 
-    if (isRunningOniPad()) {
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+    if (stash_isRunningOniPad()) {
+        CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
     } else {
         if (progress > kProgressCornerRadiusExpandThreshold) {
-            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+            CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         } else if (progress > kProgressCornerRadiusMidThreshold) {
             UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, NO);
             corners |= UIRectCornerTopLeft | UIRectCornerTopRight;
-            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
+            CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         } else {
             UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, NO);
-            CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
+            CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
             cardView.layer.mask = maskLayer;
         }
     }
@@ -1326,7 +1326,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     CGFloat h = collapsed.size.height + (expanded.size.height - collapsed.size.height) * progress;
     CGFloat x = collapsed.origin.x + (expanded.origin.x - collapsed.origin.x) * progress;
     CGFloat y;
-    if (isRunningOniPad()) {
+    if (stash_isRunningOniPad()) {
         y = collapsed.origin.y + (expanded.origin.y - collapsed.origin.y) * progress;
     } else {
         // iPhone: keep bottom of card anchored to bottom of screen every frame (no gap)
@@ -1365,7 +1365,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     (void)notification;
     [self stashApplyKeyboardOrientationLockIfNeeded];
 
-    if (_usePopupPresentation || _useModalPresentation || isRunningOniPad()) return;
+    if (stash_usePopupPresentation || stash_useModalPresentation || stash_isRunningOniPad()) return;
     if (_isCardExpanded) return;
     
     if (!self.currentPresentedVC) return;
@@ -1419,9 +1419,9 @@ initialSpringVelocity:kSpringVelocityCollapse
 - (void)handleDragGestureBegan:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
     self.initialY = cardView.frame.origin.y;
     
-    if (!isRunningOniPad()) {
+    if (!stash_isRunningOniPad()) {
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, @(cardView.frame.size.height), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        switchWebViewToFrameLayoutInCardView(cardView);
+        stash_switchWebViewToFrameLayoutInCardView(cardView);
     }
     
     [self setSkipLayoutDuringInitialSetup:YES forViewController:self.currentPresentedVC];
@@ -1433,7 +1433,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     CGFloat screenHeight = self.portraitWindow ? self.portraitWindow.bounds.size.height : cardView.superview.bounds.size.height;
     CGFloat height = cardView.frame.size.height;
     
-    if (isRunningOniPad()) {
+    if (stash_isRunningOniPad()) {
         // iPad: drag-down only (toward dismiss). No expand/collapse.
         if (currentTravel <= 0) return;
             CGFloat newY = MIN(screenHeight, self.initialY + currentTravel);
@@ -1445,13 +1445,13 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     
         CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-        CGFloat safeTop = getSafeAreaTopForView(cardView);
+        CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
         BOOL landscapeHeightOnly = [self isIPhoneLandscapeCurrentOrientation];
         CGRect collapsedFrame;
         if (self.portraitWindow && _forcePortraitOnCheckout) {
             collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
         } else {
-            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
+            collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
         }
         CGFloat collapsedWidth = collapsedFrame.size.width;
         CGFloat collapsedHeight = collapsedFrame.size.height;
@@ -1503,7 +1503,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
     
 - (void)handleDragGestureEnded:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
-    if (!isRunningOniPad()) {
+    if (!stash_isRunningOniPad()) {
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyInitialCardHeight, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     
@@ -1518,7 +1518,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     BOOL shouldCollapse = NO;
     BOOL shouldDismiss = NO;
     
-    if (isRunningOniPad()) {
+    if (stash_isRunningOniPad()) {
         // iPad: dismiss only. No expand/collapse.
         if (currentTravel > 0) {
             CGFloat currentY = cardView.frame.origin.y;
@@ -1596,7 +1596,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         }];
     } else {
         // Snap back: iPad to center, iPhone to expanded/collapsed
-        if (isRunningOniPad()) {
+        if (stash_isRunningOniPad()) {
             CGRect screenBounds = [UIScreen mainScreen].bounds;
             CGRect targetFrame = stashFrameForIPadSdkCard(screenBounds, cardView);
             CGFloat originalWidth = targetFrame.size.width;
@@ -1738,7 +1738,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
 
 - (void)handleExpandMessage {
-    if (_useModalPresentation || _usePopupPresentation) {
+    if (stash_useModalPresentation || stash_usePopupPresentation) {
         return;
     }
     // Phones only: landscape cards stay at their configured size.
@@ -1752,7 +1752,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
 
 - (void)handleCollapseMessage {
-    if (_useModalPresentation || _usePopupPresentation) {
+    if (stash_useModalPresentation || stash_usePopupPresentation) {
         return;
     }
     // Phones only: landscape cards stay at their configured size.
@@ -1867,7 +1867,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         BOOL rotationSucceeded = actualBounds.size.width < actualBounds.size.height;
         CGRect r;
         if (rotationSucceeded) {
-            r = computePhoneCardFrameForBoundsAndOrientation(actualBounds, NO);
+            r = stash_computePhoneCardFrameForBoundsAndOrientation(actualBounds, NO);
         } else {
             CGFloat cardWidth = apw;
             CGFloat cardHeight = aph * _cardHeightRatioPortrait;
@@ -1885,17 +1885,17 @@ initialSpringVelocity:kSpringVelocityCollapse
         return r;
     }
     BOOL isLandscape = actualBounds.size.width > actualBounds.size.height;
-    return computePhoneCardFrameForBoundsAndOrientation(actualBounds, isLandscape);
+    return stash_computePhoneCardFrameForBoundsAndOrientation(actualBounds, isLandscape);
 }
 
 - (void)relayoutIPhoneCardWindowWithTargetBounds:(CGRect)targetBounds forcedCardExpansionProgress:(CGFloat)forcedProgress {
     if (!_isCardCurrentlyPresented || !self.portraitWindow) {
         return;
     }
-    if (isRunningOniPad()) {
+    if (stash_isRunningOniPad()) {
         return;
     }
-    if (_usePopupPresentation || _useModalPresentation) {
+    if (stash_usePopupPresentation || stash_useModalPresentation) {
         return;
     }
     UIViewController *vc = self.currentPresentedVC;
@@ -1928,7 +1928,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     if (!cardView) {
         return;
     }
-    switchWebViewToFrameLayoutInCardView(cardView);
+    stash_switchWebViewToFrameLayoutInCardView(cardView);
     CGFloat p;
     if (forcedProgress >= 0.0 && forcedProgress <= 1.0) {
         p = (CGFloat)forcedProgress;
@@ -1972,7 +1972,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
     if (!self.portraitWindow || !self.currentPresentedVC) {
         return;
     }
-    if (isRunningOniPad() || _usePopupPresentation || _useModalPresentation) {
+    if (stash_isRunningOniPad() || stash_usePopupPresentation || stash_useModalPresentation) {
         return;
     }
     // Force-portrait checkout: the system keyboard can still follow the host when the device rotates.
@@ -2045,7 +2045,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
 }
 
 - (void)stashApplyKeyboardOrientationLockIfNeeded {
-    if (isRunningOniPad() || _usePopupPresentation || _useModalPresentation) {
+    if (stash_isRunningOniPad() || stash_usePopupPresentation || stash_useModalPresentation) {
         return;
     }
     if (!self.portraitWindow) {
@@ -2327,7 +2327,7 @@ static UIInterfaceOrientationMask stashOrientationMaskForOrientation(UIInterface
     }
 }
 
-BOOL isRunningOniPad(void) {
+BOOL stash_isRunningOniPad(void) {
 #if !ENABLE_IPAD_SUPPORT
     return NO;
 #else
@@ -2342,7 +2342,7 @@ BOOL isRunningOniPad(void) {
 #endif
 }
 
-CGSize calculateiPadCardSize(CGRect screenBounds) {
+CGSize stash_calculateiPadCardSize(CGRect screenBounds) {
     if (screenBounds.size.width <= 0 || screenBounds.size.height <= 0) {
         return CGSizeMake(kFallbackTabletCardWidth, kFallbackTabletCardHeight);
     }
@@ -2384,12 +2384,12 @@ CGSize calculateiPadCardSize(CGRect screenBounds) {
     return CGSizeMake(cardWidth, cardHeight);
 }
 
-CGRect computePopupFrameForScreenBounds(CGRect screenBounds) {
-    BOOL isLandscape = UIInterfaceOrientationIsLandscape(getInterfaceOrientation());
+CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds) {
+    BOOL isLandscape = UIInterfaceOrientationIsLandscape(stash_getInterfaceOrientation());
     CGFloat smallerDimension = fmin(screenBounds.size.width, screenBounds.size.height);
-    CGFloat percentage = isRunningOniPad() ? kPopupBaseSizePercentageIPad : kPopupBaseSizePercentagePhone;
+    CGFloat percentage = stash_isRunningOniPad() ? kPopupBaseSizePercentageIPad : kPopupBaseSizePercentagePhone;
     CGFloat baseSize = fmax(
-        isRunningOniPad() ? kPopupBaseSizeMinIPad : kPopupBaseSizeMinPhone,
+        stash_isRunningOniPad() ? kPopupBaseSizeMinIPad : kPopupBaseSizeMinPhone,
         fmin(kPopupBaseSizeMax, smallerDimension * percentage)
     );
     CGFloat portraitWidthMultiplier = _useCustomPopupSize ? _customPortraitWidthMultiplier : kPopupPortraitWidthMultiplier;
@@ -2403,9 +2403,9 @@ CGRect computePopupFrameForScreenBounds(CGRect screenBounds) {
     return CGRectMake(x, y, width, height);
 }
 
-CGRect computeModalFrameForScreenBounds(CGRect screenBounds) {
+CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds) {
     BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
-    BOOL isTablet = isRunningOniPad();
+    BOOL isTablet = stash_isRunningOniPad();
     
     CGFloat widthRatio, heightRatio;
     if (isTablet) {
@@ -2442,7 +2442,7 @@ CGRect computeModalFrameForScreenBounds(CGRect screenBounds) {
     return CGRectMake(x, y, width, height);
 }
 
-UIColor* getSystemBackgroundColor(void) {
+UIColor* stash_getSystemBackgroundColor(void) {
     if (@available(iOS 13.0, *)) {
         UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
         return (currentStyle == UIUserInterfaceStyleDark) ? StashNativeDarkSurfaceColor() : [UIColor systemBackgroundColor];
@@ -2566,7 +2566,7 @@ UIColor* stash_sheetBackgroundUIColor(void) {
             return parsed;
         }
     }
-    return getSystemBackgroundColor();
+    return stash_getSystemBackgroundColor();
 }
 
 BOOL StashNativeSheetUsesDarkWebTheme(void) {
@@ -2580,7 +2580,7 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void) {
         hex];
 }
 
-CGFloat getSafeAreaTopForView(UIView *view) {
+CGFloat stash_getSafeAreaTopForView(UIView *view) {
     if (!view) return _cardSafeAreaTop;
     if (@available(iOS 11.0, *)) {
         UIView *parentView = view.superview;
@@ -2594,7 +2594,7 @@ CGFloat getSafeAreaTopForView(UIView *view) {
     return _cardSafeAreaTop;
 }
 
-CGFloat getSafeAreaBottomForView(UIView *view) {
+CGFloat stash_getSafeAreaBottomForView(UIView *view) {
     if (!view) return 0;
     if (@available(iOS 11.0, *)) {
         UIView *parentView = view.superview;
@@ -2607,8 +2607,8 @@ CGFloat getSafeAreaBottomForView(UIView *view) {
 
 CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView) {
     CGFloat ratioCap = screenBounds.size.height * kExpandedCardHeightScreenRatio;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
-    CGFloat safeBottom = getSafeAreaBottomForView(cardView);
+    CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
+    CGFloat safeBottom = stash_getSafeAreaBottomForView(cardView);
     CGFloat insetsCap = screenBounds.size.height - safeTop - safeBottom;
     if (insetsCap < 1.0f) {
         insetsCap = screenBounds.size.height;
@@ -2622,7 +2622,7 @@ CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBo
 }
 
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView) {
-    CGSize base = calculateiPadCardSize(screenBounds);
+    CGSize base = stash_calculateiPadCardSize(screenBounds);
     CGFloat w = base.width;
     CGFloat h = base.height;
     if (_isCardExpanded) {
@@ -2633,7 +2633,7 @@ CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView) {
     return CGRectMake(x, y, w, h);
 }
 
-CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape) {
+CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape) {
     CGFloat cardWidth, cardHeight, cardX, cardY;
     const CGFloat minPhone = 300.0f;
     if (isLandscape) {
@@ -2663,11 +2663,11 @@ CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandsc
     return CGRectMake(cardX, cardY, cardWidth, cardHeight);
 }
 
-void resetCardExpandedStateAfterRotation(void) {
+void stash_resetCardExpandedStateAfterRotation(void) {
     _isCardExpanded = NO;
 }
 
-WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
+WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView) {
     if (!cardView) return nil;
     for (UIView *subview in cardView.subviews) {
         if ([subview isKindOfClass:[WKWebView class]]) {
@@ -2688,7 +2688,7 @@ WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
 
 /// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
 /// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
-void layoutCardContentToBounds(UIView *cardView) {
+void stash_layoutCardContentToBounds(UIView *cardView) {
     if (!cardView) return;
     CGRect bounds = cardView.bounds;
     for (UIView *subview in cardView.subviews) {
@@ -2705,10 +2705,10 @@ void layoutCardContentToBounds(UIView *cardView) {
         subview.translatesAutoresizingMaskIntoConstraints = YES;
         subview.frame = bounds;
     }
-    updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
+    stash_updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
 }
 
-void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
+void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
     if (!cardView) return;
     UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
     if (dragTray) {
@@ -2721,7 +2721,7 @@ void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
     }
 }
 
-void configureScrollViewForWebView(UIScrollView* scrollView) {
+void stash_configureScrollViewForWebView(UIScrollView* scrollView) {
     if (!scrollView) {
         return;
     }
@@ -2763,7 +2763,7 @@ static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL 
     return UIRectCornerAllCorners;
 }
 
-void setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
+void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
     webView.backgroundColor = color;
     webView.scrollView.backgroundColor = color;
     for (UIView *subview in webView.subviews) {
@@ -2776,7 +2776,7 @@ void setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
     }
 }
 
-CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius) {
+CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius) {
     UIBezierPath *maskPath = [UIBezierPath bezierPathWithRoundedRect:bounds
                                                   byRoundingCorners:corners
                                                         cornerRadii:CGSizeMake(radius, radius)];
@@ -2807,7 +2807,7 @@ static void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWind
     }
 }
 
-UIWindow* getKeyWindow(void) {
+UIWindow* stash_getKeyWindow(void) {
     if (@available(iOS 13.0, *)) {
         NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
         UIWindow * (^pickFromScene)(UIWindowScene *) = ^UIWindow *(UIWindowScene *ws) {
@@ -2859,15 +2859,15 @@ UIWindow* getKeyWindow(void) {
 #pragma clang diagnostic pop
 }
 
-UIViewController *getTopPresentedViewController(void) {
-    UIViewController *rootVC = getKeyWindow().rootViewController;
+UIViewController *stash_getTopPresentedViewController(void) {
+    UIViewController *rootVC = stash_getKeyWindow().rootViewController;
     while (rootVC.presentedViewController) {
         rootVC = rootVC.presentedViewController;
     }
     return rootVC;
 }
 
-UIInterfaceOrientation getInterfaceOrientation(void) {
+UIInterfaceOrientation stash_getInterfaceOrientation(void) {
     if (@available(iOS 13.0, *)) {
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
             if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
@@ -3201,8 +3201,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         _presentationBackgroundColorHex = nil;
     }
 
-    _usePopupPresentation = NO;
-    _useModalPresentation = NO;
+    stash_usePopupPresentation = NO;
+    stash_useModalPresentation = NO;
     [self openURLInternal:url];
 }
 
@@ -3242,7 +3242,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
     _presentationBackgroundColorHex = nil;
 
-    _usePopupPresentation = YES;
+    stash_usePopupPresentation = YES;
     
     if (sizeConfig) {
         _useCustomPopupSize = YES;
@@ -3275,8 +3275,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
     _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
 
-    _usePopupPresentation = NO;
-    _useModalPresentation = YES;
+    stash_usePopupPresentation = NO;
+    stash_useModalPresentation = YES;
 
     if (config) {
         _modalAllowDismiss = config.allowDismiss;
@@ -3391,7 +3391,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         rotationDelay = wasLandscape ? kRotationDelayAfterLandscape : 0.0;
         presenter = [self createSafariPortraitPresenter];
     } else {
-        presenter = getTopPresentedViewController();
+        presenter = stash_getTopPresentedViewController();
     }
 
     // Present Safari after the scene has settled.
@@ -3429,7 +3429,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         stashInstallOrientationSwizzleIfNeeded();
     }
 
-    UIWindow *gameWindow = getKeyWindow();
+    UIWindow *gameWindow = stash_getKeyWindow();
     internal.previousKeyWindow = gameWindow;
 
     CGRect screen = [UIScreen mainScreen].bounds;
@@ -3492,7 +3492,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     _isCardExpanded = NO;
 
     // Determine phone-only orientation flags (tablets always use normal expand/collapse logic).
-    if (!isRunningOniPad() && !_useModalPresentation && !_usePopupPresentation) {
+    if (!stash_isRunningOniPad() && !stash_useModalPresentation && !stash_usePopupPresentation) {
         CGRect sb = [UIScreen mainScreen].bounds;
         BOOL isLandscape = sb.size.width > sb.size.height;
         _cardIsInLandscape = !_forcePortraitOnCheckout && isLandscape;
@@ -3501,11 +3501,11 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
     
     // Dispatch to appropriate presentation method based on device type
-    if (_useModalPresentation) {
+    if (stash_useModalPresentation) {
         [self presentModalWithURL:url];
-    } else if (_usePopupPresentation) {
+    } else if (stash_usePopupPresentation) {
         [self presentPopupWithURL:url];
-    } else if (isRunningOniPad()) {
+    } else if (stash_isRunningOniPad()) {
         [self presentiPadModalWithURL:url];
     } else if (_forcePortraitOnCheckout) {
         [self presentIPhoneCardWithURL:url];
@@ -3527,7 +3527,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
 
     // Store previous key window
-    internal.previousKeyWindow = getKeyWindow();
+    internal.previousKeyWindow = stash_getKeyWindow();
     
     // Get current screen bounds and determine orientation
     CGRect screenBounds = [UIScreen mainScreen].bounds;
@@ -3731,7 +3731,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         containerVC.customFrame = CGRectMake(cardX, startY, cardWidth, cardHeight);
         
         // Apply corner radius (top corners only)
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+        CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
         
         // Add shadow (iPhone card style)
@@ -3788,7 +3788,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             containerVC.customFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
             
             // Update corner radius mask for new frame
-            CAShapeLayer *newMaskLayer = createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+            CAShapeLayer *newMaskLayer = stash_createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
             cardView.layer.mask = newMaskLayer;
         } completion:^(BOOL finished) {
             // Add tap-to-dismiss on overlay
@@ -3814,7 +3814,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 - (void)presentIPhoneCardInCurrentOrientationWithURL:(NSString *)url {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     
-    internal.previousKeyWindow = getKeyWindow();
+    internal.previousKeyWindow = stash_getKeyWindow();
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
     
@@ -3862,7 +3862,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
 
-    // Cache safe-area top so computePhoneCardFrameForBoundsAndOrientation uses the same clamp.
+    // Cache safe-area top so stash_computePhoneCardFrameForBoundsAndOrientation uses the same clamp.
     _cardSafeAreaTop = 0;
     if (@available(iOS 11.0, *)) {
         _cardSafeAreaTop = cardWindow.safeAreaInsets.top;
@@ -3914,7 +3914,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     containerVC.cardFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
     containerVC.customFrame = CGRectMake(cardX, startY, cardWidth, cardHeight);
     
-    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
     cardView.layer.mask = maskLayer;
     
     cardView.layer.shadowColor = [UIColor blackColor].CGColor;
@@ -3979,7 +3979,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
                      animations:^{
         cardView.frame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
         containerVC.customFrame = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
-        CAShapeLayer *newMaskLayer = createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+        CAShapeLayer *newMaskLayer = stash_createCornerRadiusMask(CGRectMake(0, 0, cardWidth, cardHeight), UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
         cardView.layer.mask = newMaskLayer;
     } completion:^(BOOL finished) {
         UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -4002,7 +4002,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGSize cardSize = calculateiPadCardSize(screenBounds);
+    CGSize cardSize = stash_calculateiPadCardSize(screenBounds);
     CGFloat cardX = (screenBounds.size.width - cardSize.width) / 2.0;
     CGFloat cardY = (screenBounds.size.height - cardSize.height) / 2.0;
     
@@ -4068,7 +4068,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
     
     // Create window
-    internal.previousKeyWindow = getKeyWindow();
+    internal.previousKeyWindow = stash_getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
     attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
@@ -4124,7 +4124,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 - (void)presentModalWithURL:(NSString *)url {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGRect frame = computeModalFrameForScreenBounds(screenBounds);
+    CGRect frame = stash_computeModalFrameForScreenBounds(screenBounds);
     
     // Window-based presentation (same pattern as iPad checkout): no portrait lock, works in game engines
     ModalViewController *containerVC = [[ModalViewController alloc] init];
@@ -4182,7 +4182,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
     
     // Create window
-    internal.previousKeyWindow = getKeyWindow();
+    internal.previousKeyWindow = stash_getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
     attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
@@ -4241,7 +4241,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 - (void)presentPopupWithURL:(NSString *)url {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGRect frame = computePopupFrameForScreenBounds(screenBounds);
+    CGRect frame = stash_computePopupFrameForScreenBounds(screenBounds);
     CGFloat x = frame.origin.x;
     CGFloat finalY = frame.origin.y;
     CGFloat width = frame.size.width;
@@ -4295,7 +4295,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
     
     // Create window
-    internal.previousKeyWindow = getKeyWindow();
+    internal.previousKeyWindow = stash_getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
     attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
@@ -4519,9 +4519,9 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     WKWebView *webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
     webView.opaque = YES;
     webView.hidden = NO;
-    setWebViewBackgroundColor(webView, chromeBackgroundColor);
+    stash_setWebViewBackgroundColor(webView, chromeBackgroundColor);
     webView.scrollView.opaque = YES;
-    configureScrollViewForWebView(webView.scrollView);
+    stash_configureScrollViewForWebView(webView.scrollView);
     if (@available(iOS 13.0, *)) {
         if (_presentationBackgroundColorHex.length > 0) {
             UIUserInterfaceStyle st = stash_effectiveThemeIsDark() ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;

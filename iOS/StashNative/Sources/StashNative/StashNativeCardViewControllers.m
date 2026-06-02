@@ -58,7 +58,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 - (void)updateCornerRadiusMask {
     UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
 }
 
@@ -72,7 +72,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     if (size.width > size.height) {
         size = CGSizeMake(size.height, size.width);
     }
-    resetCardExpandedStateAfterRotation();
+    stash_resetCardExpandedStateAfterRotation();
     CGRect target = CGRectMake(0, 0, size.width, size.height);
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(target, 0.0);
@@ -119,14 +119,14 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 - (void)updateCornerRadiusMask {
     UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
 }
 
 - (void)rotationResizeTick:(CADisplayLink *)link {
     UIView *cardView = objc_getAssociatedObject(self, kRotationResizeCardViewKey);
     if (cardView) {
-        layoutCardContentToBounds(cardView);
+        stash_layoutCardContentToBounds(cardView);
     }
 }
 
@@ -138,12 +138,12 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     UIView *cardView = [window viewWithTag:kCardViewTag];
     if (!cardView) return;
     
-    resetCardExpandedStateAfterRotation();
+    stash_resetCardExpandedStateAfterRotation();
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
 
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        switchWebViewToFrameLayoutInCardView(cardView);
+        stash_switchWebViewToFrameLayoutInCardView(cardView);
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
@@ -157,15 +157,15 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
         self.cardFrame = cardView.frame;
         self.customFrame = cardView.frame;
-        resetCardExpandedStateAfterRotation();
-        layoutCardContentToBounds(cardView);
+        stash_resetCardExpandedStateAfterRotation();
+        stash_layoutCardContentToBounds(cardView);
         [cardView setNeedsLayout];
         [cardView layoutIfNeeded];
         for (UIView *subview in cardView.subviews) {
             [subview setNeedsLayout];
             [subview layoutIfNeeded];
         }
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
+        CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
         cardView.layer.mask = maskLayer;
     }];
 }
@@ -213,7 +213,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     UIView *cardView = [self.view viewWithTag:kCardViewTag];
     if (!cardView) return;
     
-    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
     cardView.layer.mask = maskLayer;
 }
 
@@ -228,13 +228,13 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         cardView.frame = newFrame;
-        layoutCardContentToBounds(cardView);
+        stash_layoutCardContentToBounds(cardView);
         [cardView layoutIfNeeded];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         self.previousScreenSize = size;
         self.customFrame = newFrame;
         cardView.frame = newFrame;
-        layoutCardContentToBounds(cardView);
+        stash_layoutCardContentToBounds(cardView);
         [cardView layoutIfNeeded];
         [self updateCornerRadiusMaskForCardView];
     }];
@@ -259,7 +259,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    CGRect newCardFrame = computeModalFrameForScreenBounds(targetBounds);
+    CGRect newCardFrame = stash_computeModalFrameForScreenBounds(targetBounds);
     UIView *cardView = [self.view viewWithTag:kCardViewTag];
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
@@ -280,7 +280,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     UIView *cardView = [self.view viewWithTag:kCardViewTag];
     if (!cardView) return;
     
-    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
     cardView.layer.mask = maskLayer;
 }
 
@@ -315,19 +315,19 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     
-    if (!_usePopupPresentation) {
+    if (!stash_usePopupPresentation) {
         return;
     }
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    CGRect newCardFrame = computePopupFrameForScreenBounds(targetBounds);
+    CGRect newCardFrame = stash_computePopupFrameForScreenBounds(targetBounds);
     
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         if (overlayView) {
             overlayView.frame = targetBounds;
         }
-        if (_usePopupPresentation) {
+        if (stash_usePopupPresentation) {
             self.view.frame = newCardFrame;
             self.customFrame = newCardFrame;
         }
@@ -340,7 +340,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 - (void)viewWillLayoutSubviews {
     [super viewWillLayoutSubviews];
     
-    if (!_usePopupPresentation) {
+    if (!stash_usePopupPresentation) {
         return;
     }
     
@@ -360,7 +360,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     }
     
     // Use appropriate frame calculation based on presentation type
-    CGRect newFrame = computePopupFrameForScreenBounds(containerBounds);
+    CGRect newFrame = stash_computePopupFrameForScreenBounds(containerBounds);
     if (!CGRectEqualToRect(self.view.frame, newFrame)) {
         [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
             self.view.frame = newFrame;
@@ -372,12 +372,12 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 }
 
 - (void)updateCornerRadiusMask {
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
 }
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    if (self.enforcePortrait && !isRunningOniPad()) {
+    if (self.enforcePortrait && !stash_isRunningOniPad()) {
         return UIInterfaceOrientationMaskPortrait;
     }
     return UIInterfaceOrientationMaskAll;
@@ -388,10 +388,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 }
 
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
-    if (self.enforcePortrait && !isRunningOniPad()) {
+    if (self.enforcePortrait && !stash_isRunningOniPad()) {
         return UIInterfaceOrientationPortrait;
     }
-    return getInterfaceOrientation();
+    return stash_getInterfaceOrientation();
 }
 
 @end

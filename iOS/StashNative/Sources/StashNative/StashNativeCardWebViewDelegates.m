@@ -104,7 +104,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     WKWebView *wv = _webView;
     UIColor *bg = stash_sheetBackgroundUIColor();
-    setWebViewBackgroundColor(wv, bg);
+    stash_setWebViewBackgroundColor(wv, bg);
     wv.opaque = NO;
     wv.scrollView.backgroundColor = bg;
     wv.scrollView.opaque = YES;
@@ -177,7 +177,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
                                                       repeats:NO];
         stashAddTimerToMainRunLoop(_networkTimeoutTimer);
         // Modal fallback: reveal after N seconds if didCommit/didFinish never fire (e.g. Unreal)
-        if (_useModalPresentation) {
+        if (stash_useModalPresentation) {
             _modalFallbackTimer = [NSTimer timerWithTimeInterval:kModalFallbackRevealInterval
                                                           target:self
                                                         selector:@selector(handleModalFallbackReveal:)
@@ -522,7 +522,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
     if (_webView) {
-        configureScrollViewForWebView(_webView.scrollView);
+        stash_configureScrollViewForWebView(_webView.scrollView);
     }
     if (_modalFallbackTimer) {
         [_modalFallbackTimer invalidate];
@@ -608,7 +608,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didFinishNavigation session=%lu", (unsigned long)_expectedPresentationSessionToken);
     if (webView) {
-        configureScrollViewForWebView(webView.scrollView);
+        stash_configureScrollViewForWebView(webView.scrollView);
     }
     // Initial load completion for stall timers is driven by main-frame non-redirect HTTP
     // response (or data:/file: fallback in didCommit), not didFinish alone.
@@ -636,7 +636,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
     if (webView) {
-        configureScrollViewForWebView(webView.scrollView);
+        stash_configureScrollViewForWebView(webView.scrollView);
     }
     STASH_DEBUG_LOG(@"StashNative: didCommitNavigation url=%@", webView.URL.absoluteString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didCommit url=%@ session=%lu", webView.URL.absoluteString, (unsigned long)_expectedPresentationSessionToken);
@@ -730,7 +730,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {
-    UIViewController *presenter = getTopPresentedViewController();
+    UIViewController *presenter = stash_getTopPresentedViewController();
     if (!presenter) {
         completionHandler();
         return;
@@ -747,7 +747,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptConfirmPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler {
-    UIViewController *presenter = getTopPresentedViewController();
+    UIViewController *presenter = stash_getTopPresentedViewController();
     if (!presenter) {
         completionHandler(NO);
         return;

@@ -10,21 +10,21 @@
 #import <WebKit/WebKit.h>
 
 /// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
-UIViewController *getTopPresentedViewController(void);
+UIViewController *stash_getTopPresentedViewController(void);
 
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
-CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
+CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
 
 /// Modal frame (x, y, width, height) for given screen bounds; uses current orientation and modal ratios.
-CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
+CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
 
 /// Phone card frame (x, y, width, height) for given bounds and orientation; used by current-orientation presentation and rotation.
-CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
+CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 
 /// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
 NSUInteger StashNativeCurrentPresentationSessionToken(void);
 /// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
-void resetCardExpandedStateAfterRotation(void);
+void stash_resetCardExpandedStateAfterRotation(void);
 
 /// Preferred full-screen bounds for a window's scene (rotation-safe vs UIScreen.main).
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
@@ -34,14 +34,14 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
 
 /// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
-void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
+void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 /// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
-void layoutCardContentToBounds(UIView *cardView);
+void stash_layoutCardContentToBounds(UIView *cardView);
 /// Switches the card's WebView from Auto Layout to frame-based layout; call before animating card frame (e.g. rotation) so WebView resizes with the card.
-WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
+WKWebView *stash_switchWebViewToFrameLayoutInCardView(UIView *cardView);
 
 /// Applies bounce/overscroll limits to the WKWebView's scroll view; call after creation and on navigation (WebKit may reset scroll properties).
-void configureScrollViewForWebView(UIScrollView *scrollView);
+void stash_configureScrollViewForWebView(UIScrollView *scrollView);
 
 /// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
 BOOL StashNativeSheetUsesDarkWebTheme(void);
@@ -53,8 +53,8 @@ UIColor *StashNativeDarkSurfaceColor(void);
 
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
 // extern declarations the sibling .m files (view controllers, delegates) rely on.
-extern BOOL _usePopupPresentation;
-extern BOOL _useModalPresentation;
+extern BOOL stash_usePopupPresentation;
+extern BOOL stash_useModalPresentation;
 extern const CGFloat kPopupPortraitWidthMultiplier;
 extern const CGFloat kPopupPortraitHeightMultiplier;
 extern const CGFloat kPopupLandscapeWidthMultiplier;
@@ -75,13 +75,13 @@ extern const NSInteger kCardViewTag;
 extern const NSInteger kDragTrayViewTag;
 extern const NSInteger kDragHandleViewTag;
 extern NSString * const StashNativeAssociatedKeyOverlayView;
-BOOL isRunningOniPad(void);
-CGSize calculateiPadCardSize(CGRect screenBounds);
+BOOL stash_isRunningOniPad(void);
+CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
-UIInterfaceOrientation getInterfaceOrientation(void);
+CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
+UIInterfaceOrientation stash_getInterfaceOrientation(void);
 UIColor* stash_sheetBackgroundUIColor(void);
-void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
+void stash_setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
 
 @interface DragTrayView : UIView
 @end
