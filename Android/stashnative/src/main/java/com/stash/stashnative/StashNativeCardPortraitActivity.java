@@ -2765,6 +2765,34 @@ public class StashNativeCardPortraitActivity extends Activity {
     });
   }
   
+  // Animates one cardContainer layout dimension with the standard rotation spring. animateWidth picks
+  // the LayoutParams field; applyBottomGravity reasserts BOTTOM|CENTER_HORIZONTAL each frame for the
+  // phone checkout sheet (tablet/modal leave gravity untouched). No-op when current already equals target.
+  private void animateCardDimension(
+      int current, int target, boolean animateWidth, boolean applyBottomGravity) {
+    if (current == target) {
+      return;
+    }
+    ValueAnimator anim = ValueAnimator.ofInt(current, target);
+    anim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
+    anim.setInterpolator(new SpringInterpolator());
+    anim.addUpdateListener(animation -> {
+      if (cardContainer != null) {
+        FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
+        if (animateWidth) {
+          p.width = (Integer) animation.getAnimatedValue();
+        } else {
+          p.height = (Integer) animation.getAnimatedValue();
+        }
+        if (applyBottomGravity) {
+          p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+        }
+        cardContainer.setLayoutParams(p);
+      }
+    });
+    anim.start();
+  }
+
   private void animateTabletRotation() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     int[] newSize = calculateTabletCardSize(metrics);
@@ -2782,37 +2810,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     int currentWidth = params.width;
     int currentHeight = params.height;
 
-    // Animate width
-    if (currentWidth != newWidth) {
-      ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
-      widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      widthAnim.setInterpolator(new SpringInterpolator());
-      widthAnim.addUpdateListener(
-          animation -> {
-            if (cardContainer != null) {
-              FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-              p.width = (Integer) animation.getAnimatedValue();
-              cardContainer.setLayoutParams(p);
-            }
-          });
-      widthAnim.start();
-    }
-
-    // Animate height
-    if (currentHeight != targetHeight) {
-      ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, targetHeight);
-      heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      heightAnim.setInterpolator(new SpringInterpolator());
-      heightAnim.addUpdateListener(
-          animation -> {
-            if (cardContainer != null) {
-              FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-              p.height = (Integer) animation.getAnimatedValue();
-              cardContainer.setLayoutParams(p);
-            }
-          });
-      heightAnim.start();
-    }
+    animateCardDimension(currentWidth, newWidth, true, false);
+    animateCardDimension(currentHeight, targetHeight, false, false);
   }
   
   private void animateModalRotation() {
@@ -2824,36 +2823,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
     int currentWidth = params.width;
     int currentHeight = params.height;
-    
-    // Animate width
-    if (currentWidth != newWidth) {
-      ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
-      widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      widthAnim.setInterpolator(new SpringInterpolator());
-      widthAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.width = (int) (Integer) animation.getAnimatedValue();
-          cardContainer.setLayoutParams(p);
-        }
-      });
-      widthAnim.start();
-    }
-    
-    // Animate height
-    if (currentHeight != newHeight) {
-      ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
-      heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      heightAnim.setInterpolator(new SpringInterpolator());
-      heightAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.height = (int) (Integer) animation.getAnimatedValue();
-          cardContainer.setLayoutParams(p);
-        }
-      });
-      heightAnim.start();
-    }
+
+    animateCardDimension(currentWidth, newWidth, true, false);
+    animateCardDimension(currentHeight, newHeight, false, false);
   }
   
   /**
@@ -2929,35 +2901,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       cardContainer.setLayoutParams(params);
       return;
     }
-    
-    if (currentWidth != newWidth) {
-      ValueAnimator widthAnim = ValueAnimator.ofInt(currentWidth, newWidth);
-      widthAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      widthAnim.setInterpolator(new SpringInterpolator());
-      widthAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.width = (int) (Integer) animation.getAnimatedValue();
-          p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-          cardContainer.setLayoutParams(p);
-        }
-      });
-      widthAnim.start();
-    }
-    
-    if (currentHeight != newHeight) {
-      ValueAnimator heightAnim = ValueAnimator.ofInt(currentHeight, newHeight);
-      heightAnim.setDuration(CardConstants.ANIMATION_DURATION_DEFAULT);
-      heightAnim.setInterpolator(new SpringInterpolator());
-      heightAnim.addUpdateListener(animation -> {
-        if (cardContainer != null) {
-          FrameLayout.LayoutParams p = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-          p.height = (int) (Integer) animation.getAnimatedValue();
-          p.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
-          cardContainer.setLayoutParams(p);
-        }
-      });
-      heightAnim.start();
-    }
+
+    animateCardDimension(currentWidth, newWidth, true, true);
+    animateCardDimension(currentHeight, newHeight, false, true);
   }
 }
