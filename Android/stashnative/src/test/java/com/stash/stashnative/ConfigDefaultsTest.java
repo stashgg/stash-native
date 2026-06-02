@@ -23,7 +23,7 @@ public class ConfigDefaultsTest {
   public void modalConfigDefaults() {
     StashNativeCard.ModalConfig cfg = new StashNativeCard.ModalConfig();
     assertTrue(cfg.allowDismiss);
-    assertEquals(0.9f, cfg.phoneWidthRatioPortrait, 0.01f);
+    assertEquals(0.80f, cfg.phoneWidthRatioPortrait, 0.01f);
     assertEquals(0.50f, cfg.phoneHeightRatioPortrait, 0.01f);
     assertEquals(0.50f, cfg.phoneWidthRatioLandscape, 0.01f);
     assertEquals(0.80f, cfg.phoneHeightRatioLandscape, 0.01f);

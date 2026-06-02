@@ -177,8 +177,8 @@ public final class CardConstants {
   // Modal Default Size Ratios (openModal always shows centered modal)
   // ============================================================================
   
-  /** Default modal phone width ratio for portrait . */
-  public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.9f;
+  /** Default modal phone width ratio for portrait (matches iOS default 0.80). */
+  public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.80f;
   
   /** Default modal phone height ratio for portrait . */
   public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.50f;
