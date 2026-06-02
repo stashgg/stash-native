@@ -14,7 +14,23 @@ Checkout SDK embedding webviews in native containers (card/modal/browser) for in
 - ARC and non-ARC compatibility on iOS (Unreal Engine requirement). The delegate property uses `__has_feature(objc_arc)` guard.
 - Game engine wrapper compatibility: Unity, Unreal 4, Unreal 5. The checkout activity runs in the same process as the host (no `android:process` isolate).
 - No emojis in code, comments, or documentation.
-- Comments should be terse and direct, like from a human programmer. No AI-style verbose explanations.
+- All prose -- comments, README, CHANGELOG, COMPATIBILITY, `docs/` -- is terse, direct, and human, like a senior engineer wrote it. No AI-style verbose explanations or filler. CHANGELOG follows Keep a Changelog: plain past-tense statements of what changed.
+
+## Coding Standards
+
+- Swift: follow the Swift API Design Guidelines (swift.org). Objective-C: Apple Coding Guidelines for Cocoa (naming, `NS_ASSUME_NONNULL`, designated initializers). Java: AOSP / Google Java Style.
+- Linters are the gate, not taste: SwiftLint (`.swiftlint.yml`) and Checkstyle run in CI; treat warnings on changed lines as errors.
+- Hard constraints above always override the formatter. Never let tooling rewrite the ARC/non-ARC guards, the file-scope-static + `extern` sharing, the reflection-catches-`Throwable` idiom, the JS-bridge string mirroring, or the ProGuard public-surface rules.
+
+## Commit Conventions
+
+- One commit per step (a single fix or one tightly-scoped group); never bundle unrelated changes. Each commit builds and passes its gate before the next.
+- Authored by `ondrejrehacek@gmail.com`. No AI co-author / attribution trailer.
+- Clear imperative subject, then a description: what changed, the root cause, and why behavior is unchanged (or, for a deliberate fix, what observable behavior changes and how it was validated).
+
+## Quality Bar
+
+- Backward compatible only (see Critical Constraints). Prefer correctness, clarity, and testability. No cosmetic refactor without measurable benefit -- abstraction that does not reduce complexity is out of scope.
 
 ## Build Commands
 
