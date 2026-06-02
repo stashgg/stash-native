@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 /**
@@ -138,6 +139,19 @@ public class StashKeepAliveService extends Service {
       return START_NOT_STICKY;
     }
     return START_NOT_STICKY;
+  }
+
+  /**
+   * Android 14 (API 34) short-service timeout (~3 minutes). The system requires the service to stop
+   * here; not stopping triggers a ForegroundServiceDidNotStopInTimeException that crashes the host
+   * process (e.g. during a slow PSP / 3DS step-up in the external browser). stopSelf drives
+   * onDestroy, which removes the foreground notification.
+   */
+  @RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+  @Override
+  public void onTimeout(int startId) {
+    Log.w(TAG, "Keep-alive short service timed out; stopping to avoid a host crash.");
+    stopSelf(startId);
   }
 
   @Override
