@@ -30,8 +30,11 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     super.onCreate(savedInstanceState);
 
     if (savedInstanceState != null) {
-      // Process death while CCT was on top: the result is lost and we have no way to
-      // recover it. Finish silently rather than relaunching CCT.
+      // Recreated after process death or a configuration change while CCT was on top: the
+      // activity-result is lost and we must not relaunch CCT. Notify browser-closed (the plugin
+      // gate no-ops if no close was pending, e.g. after full process death) so a waiting host
+      // listener and any pending checkout dismiss are not left stuck, then finish.
+      StashNativeCard.notifyBrowserClosedFromProxyInternal();
       finish();
       return;
     }
