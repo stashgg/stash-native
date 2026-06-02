@@ -104,12 +104,16 @@ public class StashNativeCardPortraitActivity extends Activity {
   private int tabletSdkBaseHeightPx = -1;
   /** Running {@link #animateCardHeight} animator; cancelled before starting a new height change. */
   private ValueAnimator cardHeightAnimator;
-  /** Soft-keyboard overlap currently applied to the card, px; 0 when the keyboard is hidden. */
+  /** Soft-keyboard overlap currently applied, px; 0 when the keyboard is hidden. */
   private int currentImeOverlapPx = 0;
-  /** Card height snapshotted when the keyboard first appears, restored on hide; -1 = none. */
-  private int imeSnapshotCardHeightPx = -1;
   /** Pre-API-30: last keyboard-free bottom system-window inset (nav bar), used to keep the card static. */
   private int navBottomInsetPx = 0;
+  /** Pre-API-30 keyboard detector (Type.ime() is 30+); null on API 30+. */
+  private android.view.ViewTreeObserver.OnGlobalLayoutListener imeGlobalLayoutListener;
+  /** True while the keyboard is open (suppresses page-driven expand/collapse during that time). */
+  private boolean keyboardActive = false;
+  /** True when the keyboard-show triggered the card expand, so we collapse it again on keyboard hide. */
+  private boolean keyboardExpandedCard = false;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -451,6 +455,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       setContentView(rootLayout);
       ViewCompat.setOnApplyWindowInsetsListener(rootLayout, this::onWindowInsets);
       ViewCompat.requestApplyInsets(rootLayout);
+      registerImeGlobalLayoutListenerIfNeeded();
       // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
       // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
       if (!usePopup && !useModal && !cachedIsTablet) {
@@ -611,6 +616,77 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
+  /**
+   * Pre-API-30 keyboard detection. {@code WindowInsets.Type.ime()} is API 30+, so on older devices
+   * the keyboard height is derived from the visible display frame and fed into the same
+   * {@link #applyImeOverlap} card expand used on API 30+. No-op on API 30+, where the inset listener
+   * drives it.
+   */
+  private void registerImeGlobalLayoutListenerIfNeeded() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || rootLayout == null) {
+      return;
+    }
+    if (imeGlobalLayoutListener != null) {
+      return;
+    }
+    imeGlobalLayoutListener = this::updateKeyboardOverlapPreApi30;
+    rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(imeGlobalLayoutListener);
+  }
+
+  private void updateKeyboardOverlapPreApi30() {
+    if (cardContainer == null || rootLayout == null || usePopup) {
+      return;
+    }
+    try {
+      android.graphics.Rect r = new android.graphics.Rect();
+      rootLayout.getWindowVisibleDisplayFrame(r);
+      int fullHeight = rootLayout.getRootView().getHeight();
+      if (fullHeight <= 0) {
+        return;
+      }
+      int nav = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
+      boolean keyboardShown = (fullHeight - r.bottom) > (int) StashWebViewUtils.dpToPx(this, 80);
+      // Keyboard height above the navigation bar (r.bottom is the keyboard top in screen coords).
+      int overlap = keyboardShown ? Math.max(0, (fullHeight - nav) - r.bottom) : 0;
+      applyImeOverlap(overlap);
+      // Pre-30 WebView does not scroll the focused input for content padding, so shrink the WebView's
+      // HEIGHT so its bottom sits at the keyboard top -- Chromium then scrolls the input into view.
+      // Recomputed every layout pass, so it tracks the card's expand animation. -1 restores full.
+      applyPreApi30WebViewHeight(keyboardShown ? r.bottom : -1);
+    } catch (Throwable t) {
+      Log.w(TAG, "IME<30 overlap failed: " + t.getMessage());
+    }
+  }
+
+  /**
+   * Pre-API-30: sizes the WebView so its bottom sits at {@code keyboardTopScreenY}, leaving the card
+   * geometry untouched. {@code keyboardTopScreenY} {@literal <} 0 restores MATCH_PARENT.
+   */
+  private void applyPreApi30WebViewHeight(int keyboardTopScreenY) {
+    if (webView == null) {
+      return;
+    }
+    ViewGroup.LayoutParams lp = webView.getLayoutParams();
+    if (lp == null) {
+      return;
+    }
+    if (keyboardTopScreenY < 0) {
+      if (lp.height != ViewGroup.LayoutParams.MATCH_PARENT) {
+        lp.height = ViewGroup.LayoutParams.MATCH_PARENT;
+        webView.setLayoutParams(lp);
+      }
+      return;
+    }
+    int[] loc = new int[2];
+    webView.getLocationOnScreen(loc);
+    int target = Math.max(1, keyboardTopScreenY - loc[1]);
+    // Tolerance avoids a relayout loop once it settles (setLayoutParams re-triggers global layout).
+    if (Math.abs(lp.height - target) > 2) {
+      lp.height = target;
+      webView.setLayoutParams(lp);
+    }
+  }
+
   /** Content height available to gravity-positioned children (root height minus inset padding). */
   private int rootContentHeightPx() {
     if (rootLayout == null) {
@@ -621,11 +697,12 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Resizes / shifts the card so the focused input clears the soft keyboard while the card stays on
-   * screen. Phone bottom-sheet: keep the top fixed and shrink from the bottom (the WebView shrinks
-   * with it, so the page scrolls the focused field into the smaller viewport). Centered card / modal:
-   * slide up only as far as the keyboard intrudes, clamped so the top never leaves the screen.
-   * {@code overlapPx} 0 restores the card.
+   * Matches the iOS behaviour: when the keyboard opens the card expands to the STANDARD expanded size
+   * (the same {@link #animateExpand} used by drag / the {@code expand()} bridge), and collapses again
+   * on hide. The focused input is kept visible by insetting the WebView content from the bottom by
+   * the keyboard height (so the card geometry is untouched -- only the web viewport shrinks, and the
+   * page scrolls the input into it). Centered card / modal slide up instead. {@code overlapPx} is the
+   * keyboard height above the navigation bar (0 = hidden).
    */
   private void applyImeOverlap(int overlapPx) {
     if (cardContainer == null || usePopup) {
@@ -649,58 +726,75 @@ public class StashNativeCardPortraitActivity extends Activity {
       int gapBelow = Math.max(0, (rootContentHeightPx() - cardHeight) / 2);
       int shift = Math.min(gapBelow, Math.max(0, overlapPx - gapBelow));
       cardContainer.setTranslationY(-shift);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        applyWebViewBottomInset(overlapPx);
+      }
       currentImeOverlapPx = overlapPx;
       return;
     }
 
-    // Phone bottom-sheet (gravity BOTTOM): bottom margin slides the card up, reduced height keeps
-    // the top fixed, so the WebView shrinks by exactly the keyboard overlap.
-    if (overlapPx > 0) {
-      if (imeSnapshotCardHeightPx < 0) {
-        int base = params.height > 0 ? params.height : cardContainer.getHeight();
-        if (base <= 0) {
-          return;
-        }
-        imeSnapshotCardHeightPx = base;
+    boolean showing = currentImeOverlapPx == 0 && overlapPx > 0;
+    boolean hiding = overlapPx == 0;
+
+    if (showing) {
+      keyboardActive = true;
+      // Expand to the standard expanded size (same as drag / expand()); skip if already expanded.
+      if (!isExpanded && !isLandscapeMode()) {
+        animateExpand();
+        keyboardExpandedCard = true;
       }
-      int minHeight = (int) StashWebViewUtils.dpToPx(this, 160);
-      int newHeight = imeSnapshotCardHeightPx - overlapPx;
-      int margin = overlapPx;
-      if (newHeight < minHeight) {
-        // Keyboard taller than the sheet: cap height, keep the top within the content box.
-        newHeight = minHeight;
-        margin = Math.max(0, Math.min(overlapPx, rootContentHeightPx() - newHeight));
-      }
-      params.height = newHeight;
-      params.bottomMargin = margin;
-      cardContainer.setLayoutParams(params);
-    } else {
-      if (imeSnapshotCardHeightPx >= 0) {
-        params.height = imeSnapshotCardHeightPx;
-      }
-      params.bottomMargin = 0;
-      cardContainer.setLayoutParams(params);
-      imeSnapshotCardHeightPx = -1;
+    }
+
+    // Keep the focused input visible above the keyboard. API 30+: inset the WebView content (padding)
+    // -- modern WebView scrolls the focused element into the reduced viewport. Pre-30 WebView ignores
+    // content padding for scroll-into-view, so there the WebView HEIGHT is shrunk instead (handled by
+    // the global-layout listener, which has the keyboard top).
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      applyWebViewBottomInset(overlapPx);
     }
     currentImeOverlapPx = overlapPx;
+
+    if (hiding) {
+      keyboardActive = false;
+      if (keyboardExpandedCard) {
+        animateCollapse();
+        keyboardExpandedCard = false;
+      }
+    }
   }
 
-  /** Clears IME overlap state before a rotation re-layout; the next inset pass re-applies it. */
+  /**
+   * Insets the WebView content from the bottom by {@code bottomPx} so the page lays out / scrolls the
+   * focused input above the keyboard, without changing the card size. 0 clears it.
+   */
+  private void applyWebViewBottomInset(int bottomPx) {
+    if (webView == null) {
+      return;
+    }
+    int target = Math.max(0, bottomPx);
+    if (webView.getPaddingBottom() != target) {
+      webView.setPadding(
+          webView.getPaddingLeft(), webView.getPaddingTop(), webView.getPaddingRight(), target);
+    }
+  }
+
+  /** Clears IME state before a rotation re-layout; the next inset pass re-applies it. */
   private void resetImeOverlap() {
     if (cardContainer != null) {
       try {
-        FrameLayout.LayoutParams params =
-            (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-        if (params != null && params.bottomMargin != 0) {
-          params.bottomMargin = 0;
-          cardContainer.setLayoutParams(params);
-        }
         cardContainer.setTranslationY(0f);
       } catch (Throwable ignored) {
       }
     }
+    applyWebViewBottomInset(0);
+    applyPreApi30WebViewHeight(-1);
+    if (keyboardExpandedCard) {
+      // The rotation resize recomputes the card height from the collapsed base.
+      isExpanded = false;
+      keyboardExpandedCard = false;
+    }
+    keyboardActive = false;
     currentImeOverlapPx = 0;
-    imeSnapshotCardHeightPx = -1;
   }
 
   private void createCard() {
@@ -2420,7 +2514,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         runOnUiThread(() -> {
           try {
-            if (!usePopup && !isExpanded && !isLandscapeMode()) {
+            // While the keyboard owns the card geometry, ignore page-driven expand.
+            if (!usePopup && !keyboardActive && !isExpanded && !isLandscapeMode()) {
               animateExpand();
             }
           } catch (Exception e) {
@@ -2442,7 +2537,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         runOnUiThread(() -> {
           try {
-            if (!usePopup && isExpanded && !isLandscapeMode()) {
+            // While the keyboard owns the card geometry, ignore page-driven collapse.
+            if (!usePopup && !keyboardActive && isExpanded && !isLandscapeMode()) {
               animateCollapse();
             }
           } catch (Exception e) {
@@ -2525,6 +2621,14 @@ public class StashNativeCardPortraitActivity extends Activity {
     try {
       super.onDestroy();
       cancelLoadTimers();
+
+      if (imeGlobalLayoutListener != null && rootLayout != null) {
+        try {
+          rootLayout.getViewTreeObserver().removeOnGlobalLayoutListener(imeGlobalLayoutListener);
+        } catch (Throwable ignored) {
+        }
+        imeGlobalLayoutListener = null;
+      }
 
       if (webView != null) {
         try {
