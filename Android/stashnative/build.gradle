@@ -28,6 +28,7 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
     }
 
     publishing {
@@ -47,4 +48,7 @@ dependencies {
     api 'androidx.webkit:webkit:1.11.0'
 
     testImplementation 'junit:junit:4.13.2'
+    // Robolectric provides real android.* (Uri, Color) so JVM tests can exercise the parsing/
+    // normalization paths that returnDefaultValues stubs out for plain JUnit tests.
+    testImplementation 'org.robolectric:robolectric:4.11.1'
 }
