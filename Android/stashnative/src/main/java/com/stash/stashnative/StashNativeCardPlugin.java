@@ -52,7 +52,7 @@ public class StashNativeCardPlugin {
   // Use WeakReference to prevent Activity memory leaks
   private WeakReference<Activity> activityRef;
   /** Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in background. */
-  private StashNativeCard.StashNativeCardListener listener;
+  private volatile StashNativeCard.StashNativeCardListener listener;
 
   private Dialog currentDialog;
   private WebView webView;
@@ -88,8 +88,9 @@ public class StashNativeCardPlugin {
   private volatile boolean paymentSuccessHandled;
   /** Accessed from UI and JS threads; volatile for visibility. */
   private volatile boolean isPurchaseProcessing;
-  private boolean usePopupPresentation;
-  private boolean useModalPresentation;
+  // Written by public open* on the caller thread, read inside openUrlInternal's runOnUiThread block.
+  private volatile boolean usePopupPresentation;
+  private volatile boolean useModalPresentation;
   private int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
   
   // Modal configuration (used when useModalPresentation is true)
@@ -1138,6 +1139,16 @@ public class StashNativeCardPlugin {
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
+      // No checkout will appear (e.g. activity missing from the host manifest merge, or a
+      // background-launch restriction). Signal the host so it is not left waiting with no callback.
+      StashNativeCard.StashNativeCardListener l = getListener();
+      if (l != null) {
+        try {
+          l.onNetworkError();
+        } catch (Throwable t) {
+          Log.w(TAG, "onNetworkError threw: " + t.getMessage());
+        }
+      }
     }
   }
   

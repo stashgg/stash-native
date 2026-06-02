@@ -71,7 +71,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean pendingCreateUIAfterRotation;
   private boolean callbackSent;
   private boolean googlePayRedirectHandled;
-  private boolean isPurchaseProcessing;
+  // Set from the JS bridge thread (onPurchaseProcessing), read on the main thread for drag/dismiss gating.
+  private volatile boolean isPurchaseProcessing;
   private boolean initialPageLoadComplete;
   private boolean networkErrorHandled;
   private boolean mainFrameErrorReceived;
