@@ -365,7 +365,19 @@ public class StashNativeCard {
   public StashNativeCardListener getListener() {
     return listener;
   }
-  
+
+  /**
+   * Releases the SDK's references to the host: clears the listener and unregisters internal
+   * receivers and lifecycle callbacks. Call this from your Activity's {@code onDestroy} (or when the
+   * host is going away) so the process-lifetime singleton does not retain the Activity. Any
+   * presented checkout is dismissed. Safe to call more than once.
+   */
+  public void release() {
+    this.listener = null;
+    plugin.setListener(null);
+    plugin.cleanup();
+  }
+
   /**
    * Opens a URL in a sliding card UI.
    *
