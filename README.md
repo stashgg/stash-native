@@ -6,7 +6,7 @@
 </p>
 
 
-The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application. Library is delivered as AAR for Android and xcframework for iOS.
+The stash-native package adds Stash in-app purchases (IAPs) and webshops to your game or app. Payment and selection dialogs appear as native system dialogs on Android and iOS via embedded webviews, with direct callbacks to your application. Distributed as an AAR for Android and an xcframework for iOS.
 
 ## Table of contents
 
@@ -42,14 +42,14 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 ## Game Engine Wrappers
 
-If you're using one of the game engines listed below, we offer dedicated wrappers for this library. These wrappers provide ready-to-use interfaces for integrating Stash features into your project.
+If you use one of the game engines below, we provide dedicated wrappers with ready-to-use interfaces.
 
 |                                                                                             | Engine        | Repository                                              | Compatibility                                    |
 | ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------------------------ |
 | <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   | Unity 2019.4+ (LTS recommended)                  |
 | <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) | Unreal Engine 4.27+ (4.x/5.x branches available)  |
 
-For building your own wrappers, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a integration checklist.
+For building your own wrappers, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a checklist.
 
 ## Downloads
 
@@ -193,7 +193,7 @@ StashNativeCard.sharedInstance().disableAutoOrientationUnlock = YES;
 
 ### Landscape Backdrop (Android, Optional)
 
-When `forcePortrait` is `true` and the host app is in landscape, Android rotates the activity to portrait. During this transition the underlying app surface may appear black or distorted. To mask this, you can optionally pass a screenshot of the current screen to the SDK **before** calling `openCard`. The SDK will display it as a full-screen backdrop behind the dim overlay, creating a seamless visual transition.
+When `forcePortrait` is `true` and the host app is in landscape, Android rotates the activity to portrait. During this transition the underlying app surface may appear black or distorted. To mask this, you can optionally pass a screenshot of the current screen to the SDK **before** calling `openCard`. The SDK displays it as a full-screen backdrop behind the dim overlay during the rotation.
 
 This is **completely optional** — if no backdrop is set, the card opens normally with the standard dim overlay.
 
