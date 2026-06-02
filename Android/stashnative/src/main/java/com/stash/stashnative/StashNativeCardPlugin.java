@@ -267,7 +267,7 @@ public class StashNativeCardPlugin {
         }
         final String action = intent.getAction();
         final Intent intentCopy = intent;
-        new Handler(Looper.getMainLooper()).post(() -> dispatchCheckoutBridgeIntent(action, intentCopy));
+        mainHandler.post(() -> dispatchCheckoutBridgeIntent(action, intentCopy));
       }
     };
     IntentFilter filter = new IntentFilter();
@@ -342,7 +342,7 @@ public class StashNativeCardPlugin {
    * Used by JS interface handlers to avoid duplicating post + listener + dismiss logic.
    */
   private void runOnMainAndDismiss(Runnable beforeDismiss) {
-    new Handler(Looper.getMainLooper()).post(() -> {
+    mainHandler.post(() -> {
       try {
         if (beforeDismiss != null) {
           beforeDismiss.run();
@@ -390,7 +390,7 @@ public class StashNativeCardPlugin {
     @JavascriptInterface
     public void onPurchaseProcessing() {
       isPurchaseProcessing = true;
-      new Handler(Looper.getMainLooper()).post(() -> {
+      mainHandler.post(() -> {
         try {
           if (currentDialog != null && currentDialog.isShowing()) {
             currentDialog.setCanceledOnTouchOutside(false);
@@ -425,7 +425,7 @@ public class StashNativeCardPlugin {
       if (isPurchaseProcessing) {
         return;
       }
-      new Handler(Looper.getMainLooper()).post(() -> {
+      mainHandler.post(() -> {
         try {
           dismissCurrentDialog();
         } catch (Exception e) {
@@ -436,7 +436,7 @@ public class StashNativeCardPlugin {
 
     @JavascriptInterface
     public void openExternalBrowser(String url) {
-      new Handler(Looper.getMainLooper()).post(() -> {
+      mainHandler.post(() -> {
         try {
           String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
           if (normalized == null) {

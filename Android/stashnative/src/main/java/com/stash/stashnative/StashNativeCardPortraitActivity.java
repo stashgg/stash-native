@@ -863,7 +863,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   private void createPopup() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int size = (int) (Math.min(metrics.widthPixels, metrics.heightPixels) * 0.75f);
+    int size = (int) (Math.min(metrics.widthPixels, metrics.heightPixels)
+        * CardConstants.POPUP_SIZE_RATIO_PHONE);
     
     configureCardContainer(true, size, size);
     
