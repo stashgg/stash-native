@@ -541,8 +541,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
 
     // Enforce minimum sizes for usability
-    int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
-    int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
+    int minWidth = StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP);
+    int minHeight = StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP);
     int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
     cardWidth = clamped[0];
     cardHeight = clamped[1];
@@ -919,13 +919,14 @@ public class StashNativeCardPortraitActivity extends Activity {
     int cardWidth = (int) (screenWidth * widthRatio);
     int cardHeight = (int) (screenHeight * heightRatio);
     
-    // Apply minimum sizes
-    int minWidth = isTablet
+    // Apply minimum sizes. Convert the dp constants to px (matching the plugin path); the phone
+    // minHeight intentionally reuses MIN_PHONE_CARD_WIDTH_DP, same as StashNativeCardPlugin.
+    int minWidth = StashWebViewUtils.dpToPx(this, isTablet
         ? (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
-    int minHeight = isTablet
+        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
+    int minHeight = StashWebViewUtils.dpToPx(this, isTablet
         ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
+        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
 
     int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
     cardWidth = clamped[0];

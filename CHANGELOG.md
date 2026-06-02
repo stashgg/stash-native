@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file. Format foll
 - Android: duplicate terminal payment events on the card/modal path are de-duplicated while `autoClose` is on (matching iOS); with `autoClose` off, follow-up events still pass through.
 - Android 14: the keep-alive short service now stops on timeout, preventing a `ForegroundServiceDidNotStopInTimeException` host crash during long external-browser sessions.
 - Android: `onBrowserClosed()` is delivered (and a stuck presentation cleared) when the internal browser proxy activity is recreated mid-session.
+- Android: the tablet and modal minimum card sizes are now applied in pixels (via `dpToPx`) instead of treating the `dp` constants as raw pixels, so the minimum-size floor engages at the intended physical size on high-density screens (matching the popup path). Only affects degenerate/small size ratios where the floor actually engages; default ratios are unchanged.
 - Docs: corrected the removed-`onActivityResult` guidance, the network-load timeout (15s), the landscape card-ratio defaults, and the same-process wording.
 
 ### Security
