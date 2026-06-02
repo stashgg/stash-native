@@ -69,8 +69,13 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Run unit tests
-        run: cd Android && ./gradlew :stashnative:testDebugUnitTest
+        run: |
+          chmod +x Android/gradlew
+          cd Android && ./gradlew :stashnative:testDebugUnitTest
 
   test-ios:
     name: Test iOS Library
