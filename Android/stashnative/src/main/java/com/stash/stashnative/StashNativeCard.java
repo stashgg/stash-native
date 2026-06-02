@@ -46,7 +46,7 @@ import android.graphics.BitmapFactory;
  *
  *     {@literal @}Override
  *     public void onExternalPayment(String url) {
- *         // {@code window.stash_sdk.openExternalBrowser(url)} — URL includes theme query when applicable
+ *         // {@code window.stash_sdk.openExternalBrowser(url)} — page-supplied URL as-is (no theme query)
  *     }
  *
  *     {@literal @}Override
@@ -114,8 +114,8 @@ public class StashNativeCard {
     /**
      * Called when the checkout page calls {@code window.stash_sdk.openExternalBrowser(url)}. The SDK closes
      * the card/modal without invoking {@link #onDialogDismissed()}, then opens the URL in Chrome
-     * Custom Tabs (or the system browser as fallback). The {@code url} includes the theme query
-     * parameter when applicable.
+     * Custom Tabs (or the system browser as fallback). The {@code url} is the page-supplied URL as-is;
+     * the theme query parameter is applied only to in-card content, not to external URLs.
      *
      * @param url Validated {@code http} or {@code https} URL
      */

@@ -2578,15 +2578,13 @@ public class StashNativeCardPortraitActivity extends Activity {
             if (normalized == null) {
               return;
             }
-            String themed =
-                StashWebViewUtils.appendThemeQueryParameter(
-                    normalized, effectiveIsDarkForContent);
+            // Theme is applied only to in-card content, never to URLs handed to an external browser.
             callbackSent = true;
             isPurchaseProcessing = false;
             StashNativeCardPlugin.getInstance()
                 .openExternalBrowserFromCheckout(
                     StashNativeCardPortraitActivity.this,
-                    themed,
+                    normalized,
                     true,
                     StashNativeCardPortraitActivity.this::hideCardSheetLeavingDimOverlay,
                     StashNativeCardPortraitActivity.this::finishAfterExternalBrowserClose);

@@ -446,21 +446,20 @@ public class StashNativeCardPlugin {
           if (activity == null) {
             return;
           }
-          boolean effDark = dialogEffectiveDarkForWeb(activity);
-          String themed = StashWebViewUtils.appendThemeQueryParameter(normalized, effDark);
+          // Theme is applied only to in-card content, never to URLs handed to an external browser.
           paymentSuccessHandled = true;
           isPurchaseProcessing = false;
           StashNativeCard.StashNativeCardListener listener = getListener();
           if (listener != null) {
-            listener.onExternalPayment(themed);
+            listener.onExternalPayment(normalized);
           }
           dismissCurrentDialog();
           Activity act = getActivity();
-          if (act == null || themed.isEmpty()) {
+          if (act == null || normalized.isEmpty()) {
             return;
           }
           startKeepAliveBeforeBrowser(act);
-          launchExternalBrowser(act, themed);
+          launchExternalBrowser(act, normalized);
         } catch (Exception e) {
           cancelBrowserCloseTrackingLaunch();
           Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
@@ -816,12 +815,7 @@ public class StashNativeCardPlugin {
       if (!url.startsWith("http://") && !url.startsWith("https://")) {
         url = "https://" + url;
       }
-      try {
-        url = StashWebViewUtils.appendThemeQueryParameter(url,
-            StashWebViewUtils.isDarkTheme(activity));
-      } catch (Exception e) {
-        Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
-      }
+      // External browser URLs are opened as-is; theme is applied only to in-card content.
       final String finalUrl = url;
       final Activity finalActivity = activity;
       activity.runOnUiThread(() -> {

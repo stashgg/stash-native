@@ -1823,12 +1823,12 @@ initialSpringVelocity:kSpringVelocityCollapse
         if (!normalized) {
             return;
         }
-        NSString *themed = appendThemeQueryParameter(normalized);
+        // Theme is applied only to in-card content, never to URLs handed to an external browser.
         dispatch_async(dispatch_get_main_queue(), ^{
             id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
             if (externalDelegate
                 && [externalDelegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
-                [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:themed];
+                [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:normalized];
             }
             StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
             // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
@@ -3220,8 +3220,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     }
     _safariOpenedViaOpenBrowser = YES;
     _safariBrowserCloseDelegatePending = YES;
-    NSString *urlWithTheme = appendThemeQueryParameter(url);
-    [self openInSafariViewController:urlWithTheme];
+    // External browser URLs are opened as-is; theme is applied only to in-card content.
+    [self openInSafariViewController:url];
 }
 
 - (void)closeBrowser {

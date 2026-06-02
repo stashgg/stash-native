@@ -181,8 +181,8 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Called when the checkout page calls \c window.stash_sdk.openExternalBrowser(url). The SDK closes the
  * checkout without invoking \c stashNativeCardDidDismiss, then opens the URL in
- * \c SFSafariViewController (same behavior as \c -openBrowserWithURL:). The \c url string includes
- * the theme query parameter when applicable.
+ * \c SFSafariViewController (same behavior as \c -openBrowserWithURL:). The \c url is the page-supplied
+ * URL as-is; the theme query parameter is applied only to in-card content, not to external URLs.
  */
 - (void)stashNativeCardDidRequestExternalPaymentWithURL:(NSString *)url
     NS_SWIFT_NAME(stashNativeCardDidRequestExternalPayment(with:));
