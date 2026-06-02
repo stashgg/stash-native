@@ -8,9 +8,9 @@
 
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
+#import "StashNativeCardSupport.h"
 
 /// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
-UIViewController *stash_getTopPresentedViewController(void);
 
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
 CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
@@ -49,7 +49,6 @@ BOOL StashNativeSheetUsesDarkWebTheme(void);
 NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
 /// Dark-surface color (#1e1e1e) for the loading overlay and the dark system-background fallback.
-UIColor *StashNativeDarkSurfaceColor(void);
 
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
 // extern declarations the sibling .m files (view controllers, delegates) rely on.
@@ -75,11 +74,8 @@ extern const NSInteger kCardViewTag;
 extern const NSInteger kDragTrayViewTag;
 extern const NSInteger kDragHandleViewTag;
 extern NSString * const StashNativeAssociatedKeyOverlayView;
-BOOL stash_isRunningOniPad(void);
 CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
-UIInterfaceOrientation stash_getInterfaceOrientation(void);
 UIColor* stash_sheetBackgroundUIColor(void);
 void stash_setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
 

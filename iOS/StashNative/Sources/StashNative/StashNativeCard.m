@@ -426,9 +426,6 @@ static NSArray<NSString *> *stashAllMessageHandlerNames(void) {
              kMessageHandlerWindowClose, kMessageHandlerPageReady];
 }
 
-UIColor *StashNativeDarkSurfaceColor(void) {
-    return [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0];
-}
 
 #pragma mark - Associated Object Keys
 
@@ -446,14 +443,12 @@ static BOOL stash_effectiveThemeIsDark(void);
 static NSString *stash_cssHexFromUIColor(UIColor *color);
 static UIColor *stash_parseHTMLHexColor(NSString *hex);
 
-BOOL stash_isRunningOniPad(void);
 CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView);
 CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
 CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
 CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
-UIColor* stash_getSystemBackgroundColor(void);
 UIColor* stash_sheetBackgroundUIColor(void);
 CGFloat stash_getSafeAreaTopForView(UIView *view);
 WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView);
@@ -461,10 +456,7 @@ void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth
 void stash_configureScrollViewForWebView(UIScrollView* scrollView);
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
-CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
 static NSString* appendThemeQueryParameter(NSString* url);
-UIWindow* stash_getKeyWindow(void);
-UIInterfaceOrientation stash_getInterfaceOrientation(void);
 static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
@@ -2327,20 +2319,6 @@ static UIInterfaceOrientationMask stashOrientationMaskForOrientation(UIInterface
     }
 }
 
-BOOL stash_isRunningOniPad(void) {
-#if !ENABLE_IPAD_SUPPORT
-    return NO;
-#else
-    // Interface idiom is constant for the process; cache it. The old per-call
-    // dispatch_sync to main could deadlock when invoked from a background thread.
-    static BOOL result = NO;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        result = ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
-    });
-    return result;
-#endif
-}
 
 CGSize stash_calculateiPadCardSize(CGRect screenBounds) {
     if (screenBounds.size.width <= 0 || screenBounds.size.height <= 0) {
@@ -2442,13 +2420,6 @@ CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds) {
     return CGRectMake(x, y, width, height);
 }
 
-UIColor* stash_getSystemBackgroundColor(void) {
-    if (@available(iOS 13.0, *)) {
-        UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        return (currentStyle == UIUserInterfaceStyleDark) ? StashNativeDarkSurfaceColor() : [UIColor systemBackgroundColor];
-    }
-    return [UIColor whiteColor];
-}
 
 static double stash_srgbLinearize(double c) {
     return (c <= 0.03928) ? (c / 12.92) : pow((c + 0.055) / 1.055, 2.4);
@@ -2566,7 +2537,6 @@ UIColor* stash_sheetBackgroundUIColor(void) {
             return parsed;
         }
     }
-    return stash_getSystemBackgroundColor();
 }
 
 BOOL StashNativeSheetUsesDarkWebTheme(void) {
@@ -2776,15 +2746,6 @@ void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
     }
 }
 
-CAShapeLayer* stash_createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius) {
-    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRoundedRect:bounds
-                                                  byRoundingCorners:corners
-                                                        cornerRadii:CGSizeMake(radius, radius)];
-    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
-    maskLayer.frame = bounds;
-    maskLayer.path = maskPath.CGPath;
-    return maskLayer;
-}
 
 /// Attach cardWindow to the same UIWindowScene as the app (e.g. Unreal) so it renders in game engines.
 static void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWindow) {
@@ -2807,80 +2768,8 @@ static void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWind
     }
 }
 
-UIWindow* stash_getKeyWindow(void) {
-    if (@available(iOS 13.0, *)) {
-        NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
-        UIWindow * (^pickFromScene)(UIWindowScene *) = ^UIWindow *(UIWindowScene *ws) {
-            for (UIWindow *w in ws.windows) {
-                if (w.isKeyWindow) {
-                    return w;
-                }
-            }
-            return ws.windows.firstObject;
-        };
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            if (scene.activationState != UISceneActivationStateForegroundActive) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            if (scene.activationState != UISceneActivationStateForegroundActive &&
-                scene.activationState != UISceneActivationStateForegroundInactive) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-    }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return [UIApplication sharedApplication].keyWindow;
-#pragma clang diagnostic pop
-}
 
-UIViewController *stash_getTopPresentedViewController(void) {
-    UIViewController *rootVC = stash_getKeyWindow().rootViewController;
-    while (rootVC.presentedViewController) {
-        rootVC = rootVC.presentedViewController;
-    }
-    return rootVC;
-}
 
-UIInterfaceOrientation stash_getInterfaceOrientation(void) {
-    if (@available(iOS 13.0, *)) {
-        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]] && scene.activationState == UISceneActivationStateForegroundActive) {
-                return ((UIWindowScene *)scene).interfaceOrientation;
-            }
-        }
-        return UIInterfaceOrientationUnknown;
-    }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return [UIApplication sharedApplication].statusBarOrientation;
-#pragma clang diagnostic pop
-}
 
 static void runWithoutImplicitAnimations(void (^block)(void)) {
     [CATransaction begin];
