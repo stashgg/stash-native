@@ -247,7 +247,6 @@ const CGFloat kHandleBarHeight = 5.0f;
 const CGFloat kHandleBarTopInset = 8.0f;
 static const CGFloat kHandleBarHalfWidth = 18.0f;
 static const CGFloat kHandleBarCornerRadius = 3.0f;
-static const CGFloat kHandleBarGray = 0.8f;
 const CGFloat kHandleHitAreaInset = 15.0f;
 
 #pragma mark - Overlay / Dismiss Appearance
