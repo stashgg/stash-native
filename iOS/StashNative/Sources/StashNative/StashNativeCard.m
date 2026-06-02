@@ -2318,17 +2318,16 @@ static UIInterfaceOrientationMask stashOrientationMaskForOrientation(UIInterface
 BOOL isRunningOniPad(void) {
 #if !ENABLE_IPAD_SUPPORT
     return NO;
+#else
+    // Interface idiom is constant for the process; cache it. The old per-call
+    // dispatch_sync to main could deadlock when invoked from a background thread.
+    static BOOL result = NO;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        result = ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
+    });
+    return result;
 #endif
-    
-    if (![NSThread isMainThread]) {
-        __block BOOL result = NO;
-        dispatch_sync(dispatch_get_main_queue(), ^{
-            result = isRunningOniPad();
-        });
-        return result;
-    }
-    
-    return ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
 }
 
 CGSize calculateiPadCardSize(CGRect screenBounds) {
@@ -3149,6 +3148,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     return self;
 }
 
+// These getters reflect presentation state that the SDK mutates on the main thread.
+// Read them from the main thread for a coherent value; an off-main read may see a
+// stale value during a presentation/teardown transition.
 - (BOOL)isCurrentlyPresented {
     return _isCardCurrentlyPresented;
 }
@@ -3172,6 +3174,10 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 }
 
 - (void)openCardWithURL:(NSString *)url config:(StashNativeCardConfig *)config {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openCardWithURL:url config:config]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
         return;
     }
@@ -3205,6 +3211,10 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 }
 
 - (void)openBrowserWithURL:(NSString *)url {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openBrowserWithURL:url]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
         return;
     }
@@ -3223,6 +3233,10 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 }
 
 - (void)openPopupWithURL:(NSString *)url sizeConfig:(StashNativePopupSizeConfig *)sizeConfig {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openPopupWithURL:url sizeConfig:sizeConfig]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
         return;
     }
@@ -3252,6 +3266,10 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 }
 
 - (void)openModalWithURL:(NSString *)url config:(StashNativeModalConfig *)config {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openModalWithURL:url config:config]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
         return;
     }
@@ -4636,6 +4654,10 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 - (void)dismiss {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self dismiss]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     [internal dismissWithAnimation:^{
         [internal cleanupCardInstance];
@@ -4644,6 +4666,10 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 - (void)resetPresentationState {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self resetPresentationState]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     [internal cleanupCardInstance];
     _isCardCurrentlyPresented = NO;
@@ -4664,6 +4690,10 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 - (void)dismissSafariViewController {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self dismissSafariViewController]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     if (internal.currentSafariViewController) {
         [internal.currentSafariViewController dismissViewControllerAnimated:YES completion:^{
@@ -4673,6 +4703,10 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 - (void)dismissSafariViewControllerWithResult:(BOOL)success {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self dismissSafariViewControllerWithResult:success]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     if (internal.currentSafariViewController) {
         if (success) {
