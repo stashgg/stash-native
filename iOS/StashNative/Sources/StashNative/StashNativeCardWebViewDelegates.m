@@ -130,7 +130,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         }
         if (@available(iOS 13.0, *)) {
             BOOL dark = [UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark;
-            _loadingView.backgroundColor = dark ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor whiteColor];
+            _loadingView.backgroundColor = dark ? StashNativeDarkSurfaceColor() : [UIColor whiteColor];
         }
         _loadingView.alpha = 1.0;
         _loadingView.hidden = NO;

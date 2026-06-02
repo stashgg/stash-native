@@ -417,6 +417,18 @@ static NSString * const kMessageHandlerWindowClose = @"stashWindowClose";
 static NSString * const kMessageHandlerExternalPayment = @"stashExternalPayment";
 static NSString * const kMessageHandlerPageReady = @"stashNativePageReady";
 
+// All script-message handler names, registered and torn down together (order does not matter).
+// Single source so adding a handler cannot drift between the add and remove sites.
+static NSArray<NSString *> *stashAllMessageHandlerNames(void) {
+    return @[kMessageHandlerPaymentSuccess, kMessageHandlerPaymentFailure, kMessageHandlerPurchaseProcessing,
+             kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerExternalPayment,
+             kMessageHandlerWindowClose, kMessageHandlerPageReady];
+}
+
+UIColor *StashNativeDarkSurfaceColor(void) {
+    return [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0];
+}
+
 #pragma mark - Associated Object Keys
 
 static NSString * const kAssociatedKeyWebViewDelegate = @"webViewDelegate";
@@ -742,15 +754,9 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             webView.navigationDelegate = nil;
             webView.UIDelegate = nil;
 
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentSuccess];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentFailure];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPurchaseProcessing];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerWindowClose];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExternalPayment];
-            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPageReady];
+            for (NSString *handlerName in stashAllMessageHandlerNames()) {
+                [webView.configuration.userContentController removeScriptMessageHandlerForName:handlerName];
+            }
             [webView.configuration.userContentController removeAllUserScripts];
 
             // Remove immediately — loadHTMLString:@"" would restart the WebContent
@@ -2405,7 +2411,7 @@ CGRect computeModalFrameForScreenBounds(CGRect screenBounds) {
 UIColor* getSystemBackgroundColor(void) {
     if (@available(iOS 13.0, *)) {
         UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        return (currentStyle == UIUserInterfaceStyleDark) ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0] : [UIColor systemBackgroundColor];
+        return (currentStyle == UIUserInterfaceStyleDark) ? StashNativeDarkSurfaceColor() : [UIColor systemBackgroundColor];
     }
     return [UIColor whiteColor];
 }
@@ -4450,15 +4456,9 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
         }
     }
     
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentSuccess];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentFailure];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPurchaseProcessing];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerOptin];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerExternalPayment];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerWindowClose];
-    [userContentController addScriptMessageHandler:internal name:kMessageHandlerPageReady];
+    for (NSString *handlerName in stashAllMessageHandlerNames()) {
+        [userContentController addScriptMessageHandler:internal name:handlerName];
+    }
     {
         NSString *pageReadyHook = [NSString stringWithFormat:
             @"(function(){"

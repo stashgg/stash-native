@@ -48,6 +48,9 @@ BOOL StashNativeSheetUsesDarkWebTheme(void);
 /// Injects document meta + html/body background for dark sheet (BG matches configured background color).
 NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
+/// Dark-surface color (#1e1e1e) for the loading overlay and the dark system-background fallback.
+UIColor *StashNativeDarkSurfaceColor(void);
+
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
 // extern declarations the sibling .m files (view controllers, delegates) rely on.
 extern BOOL _usePopupPresentation;
