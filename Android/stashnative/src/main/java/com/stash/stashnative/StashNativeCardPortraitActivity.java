@@ -108,8 +108,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private int currentImeOverlapPx = 0;
   /** Card height snapshotted when the keyboard first appears, restored on hide; -1 = none. */
   private int imeSnapshotCardHeightPx = -1;
-  /** Pre-API-30 keyboard detector (Type.ime() is 30+); null on API 30+. */
-  private android.view.ViewTreeObserver.OnGlobalLayoutListener imeGlobalLayoutListener;
+  /** Pre-API-30: last keyboard-free bottom system-window inset (nav bar), used to keep the card static. */
+  private int navBottomInsetPx = 0;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
@@ -451,7 +451,6 @@ public class StashNativeCardPortraitActivity extends Activity {
       setContentView(rootLayout);
       ViewCompat.setOnApplyWindowInsetsListener(rootLayout, this::onWindowInsets);
       ViewCompat.requestApplyInsets(rootLayout);
-      registerImeGlobalLayoutListenerIfNeeded();
       // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
       // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
       if (!usePopup && !useModal && !cachedIsTablet) {
@@ -583,75 +582,32 @@ public class StashNativeCardPortraitActivity extends Activity {
     } catch (Throwable t) {
       Log.w(TAG, "IME-aware inset handling unavailable: " + t.getMessage());
     }
-    // Pre-API-30: pad with stable insets (exclude the IME) so the keyboard does not inflate the
-    // bottom padding and shift the card off-screen. The keyboard overlap itself is tracked via the
-    // global-layout listener (registerImeGlobalLayoutListenerIfNeeded), since Type.ime() is 30+.
-    return StashWindowCompat.applyStableBarInsetsPadding(v, insets);
+    // Pre-API-30 (Type.ime() is 30+): keep the card exactly sized and positioned and let the
+    // keyboard simply slide over it. The legacy system-window bottom inset includes the keyboard
+    // height, so we clamp it back to the keyboard-free (navigation-bar) value; otherwise the inflated
+    // padding would lift the bottom-pinned card and make it jump. No resize/cap here.
+    return applyPreApi30StaticPadding(v, insets);
   }
 
-  /**
-   * Pre-API-30 keyboard tracking. {@code WindowInsets.Type.ime()} is API 30+, so on older devices
-   * (e.g. Android 10) the keyboard height is measured from the visible display frame and fed into
-   * the same {@link #applyImeOverlap} geometry. No-op on API 30+, where the inset listener handles it.
-   */
-  private void registerImeGlobalLayoutListenerIfNeeded() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || rootLayout == null) {
-      return;
-    }
-    if (imeGlobalLayoutListener != null) {
-      return;
-    }
-    imeGlobalLayoutListener = this::updateImeOverlapFromVisibleFrame;
-    rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(imeGlobalLayoutListener);
-  }
-
-  private void updateImeOverlapFromVisibleFrame() {
-    if (cardContainer == null || rootLayout == null || usePopup) {
-      return;
-    }
-    if (isPurchaseProcessing) {
-      return;
-    }
+  private WindowInsetsCompat applyPreApi30StaticPadding(View v, WindowInsetsCompat insets) {
     try {
-      android.graphics.Rect r = new android.graphics.Rect();
-      rootLayout.getWindowVisibleDisplayFrame(r);
-      int fullHeight = rootLayout.getRootView().getHeight();
-      if (fullHeight <= 0) {
-        return;
+      int left = insets.getSystemWindowInsetLeft();
+      int top = insets.getSystemWindowInsetTop();
+      int right = insets.getSystemWindowInsetRight();
+      int sysBottom = insets.getSystemWindowInsetBottom();
+      int navRef = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
+      boolean imeInflated =
+          navRef > 0 && sysBottom > navRef + (int) StashWebViewUtils.dpToPx(this, 80);
+      if (!imeInflated) {
+        // Remember the exact keyboard-free bottom inset so the card does not shift when the keyboard
+        // later appears (reusing this value avoids a few-pixel jump from dimension rounding).
+        navBottomInsetPx = sysBottom;
       }
-      int rootContent = rootContentHeightPx();
-      boolean keyboardShown = (fullHeight - r.bottom) > (int) StashWebViewUtils.dpToPx(this, 80);
-
-      FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-      if (params == null) {
-        return;
-      }
-
-      // Pre-30 the framework (adjustResize) already lifts the content above the keyboard, so we only
-      // CAP the card height to the visible area so its top does not overflow off-screen. No extra
-      // margin/translation here, otherwise the card would be shifted twice (the gap bug).
-      if (keyboardShown) {
-        if (imeSnapshotCardHeightPx < 0) {
-          int h = params.height > 0 ? params.height : cardContainer.getHeight();
-          if (h <= 0) {
-            return;
-          }
-          imeSnapshotCardHeightPx = h;
-        }
-        int target = Math.min(imeSnapshotCardHeightPx, rootContent);
-        if (target > 0 && (params.height != target || params.bottomMargin != 0)) {
-          params.height = target;
-          params.bottomMargin = 0;
-          cardContainer.setLayoutParams(params);
-        }
-      } else if (imeSnapshotCardHeightPx >= 0) {
-        params.height = imeSnapshotCardHeightPx;
-        params.bottomMargin = 0;
-        cardContainer.setLayoutParams(params);
-        imeSnapshotCardHeightPx = -1;
-      }
+      int bottom = imeInflated ? navBottomInsetPx : sysBottom;
+      v.setPadding(left, top, right, bottom);
+      return insets.replaceSystemWindowInsets(0, 0, 0, 0);
     } catch (Throwable t) {
-      Log.w(TAG, "IME<30 cap failed: " + t.getMessage());
+      return StashWindowCompat.onApplySystemBarInsetsPadding(v, insets);
     }
   }
 
@@ -2569,14 +2525,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     try {
       super.onDestroy();
       cancelLoadTimers();
-
-      if (imeGlobalLayoutListener != null && rootLayout != null) {
-        try {
-          rootLayout.getViewTreeObserver().removeOnGlobalLayoutListener(imeGlobalLayoutListener);
-        } catch (Throwable ignored) {
-        }
-        imeGlobalLayoutListener = null;
-      }
 
       if (webView != null) {
         try {

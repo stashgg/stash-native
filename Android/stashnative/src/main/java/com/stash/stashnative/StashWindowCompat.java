@@ -217,26 +217,27 @@ final class StashWindowCompat {
   }
 
   /**
-   * Applies system-bar padding using the STABLE insets (status + navigation), which exclude the IME
-   * on all API levels. Used as the pre-API-30 fallback (where {@link
-   * #applySystemBarsPaddingExcludingIme} is unavailable) so a visible soft keyboard does not inflate
-   * the bottom padding and push a bottom-pinned card off the top of the screen. Falls back to {@link
-   * #onApplySystemBarInsetsPadding} if stable insets are unavailable.
+   * Navigation-bar (bottom) reference height in px that EXCLUDES the IME: the stable bottom inset if
+   * available, otherwise the framework {@code navigation_bar_height}. Pre-API-30 callers compare the
+   * (IME-inflated) system-window bottom inset against this to detect and strip the keyboard, so a
+   * visible keyboard does not lift the bottom-pinned card.
    */
-  static WindowInsetsCompat applyStableBarInsetsPadding(
-      View target, WindowInsetsCompat windowInsets) {
-    try {
-      int left = windowInsets.getStableInsetLeft();
-      int top = windowInsets.getStableInsetTop();
-      int right = windowInsets.getStableInsetRight();
-      int bottom = windowInsets.getStableInsetBottom();
-      if (left == 0 && top == 0 && right == 0 && bottom == 0) {
-        return onApplySystemBarInsetsPadding(target, windowInsets);
-      }
-      target.setPadding(left, top, right, bottom);
-      return windowInsets.replaceSystemWindowInsets(0, 0, 0, 0);
-    } catch (Throwable t) {
-      return onApplySystemBarInsetsPadding(target, windowInsets);
+  static int getStableOrNavBottomPx(View view) {
+    if (view == null) {
+      return 0;
     }
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        android.view.WindowInsets wi = view.getRootWindowInsets();
+        if (wi != null) {
+          int stable = wi.getStableInsetBottom();
+          if (stable > 0) {
+            return stable;
+          }
+        }
+      }
+    } catch (Throwable ignored) {
+    }
+    return systemBarDimensionPx(view.getContext(), "navigation_bar_height");
   }
 }
