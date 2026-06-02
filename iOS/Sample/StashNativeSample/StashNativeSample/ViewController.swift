@@ -33,6 +33,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var isModalAdvancedExpanded = false
     let forcePortraitOnCheckoutSwitch = UISwitch()
     let cardAutoCloseSwitch = UISwitch()
+    // Maps each percentage slider to the label it updates, so all sliders can share one handler.
+    var sliderLabels: [ObjectIdentifier: UILabel] = [:]
     let phoneCardHeightSlider = UISlider()
     let phoneCardHeightLabel = UILabel()
     let checkoutTabletPortraitWidthSlider = UISlider()

@@ -95,50 +95,11 @@ extension ViewController {
         tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
     }
 
-    @objc func phoneCardHeightChanged() {
-        phoneCardHeightLabel.text = "\(Int(phoneCardHeightSlider.value))%"
-    }
-    @objc func checkoutTabletPortraitWidthChanged() {
-        checkoutTabletPortraitWidthLabel.text = "\(Int(checkoutTabletPortraitWidthSlider.value))%"
-    }
-    @objc func checkoutTabletPortraitHeightChanged() {
-        checkoutTabletPortraitHeightLabel.text = "\(Int(checkoutTabletPortraitHeightSlider.value))%"
-    }
-    @objc func checkoutTabletLandscapeWidthChanged() {
-        checkoutTabletLandscapeWidthLabel.text = "\(Int(checkoutTabletLandscapeWidthSlider.value))%"
-    }
-    @objc func checkoutTabletLandscapeHeightChanged() {
-        checkoutTabletLandscapeHeightLabel.text = "\(Int(checkoutTabletLandscapeHeightSlider.value))%"
-    }
-    @objc func checkoutPhoneLandscapeWidthChanged() {
-        checkoutPhoneLandscapeWidthLabel.text = "\(Int(checkoutPhoneLandscapeWidthSlider.value))%"
-    }
-    @objc func checkoutPhoneLandscapeHeightChanged() {
-        checkoutPhoneLandscapeHeightLabel.text = "\(Int(checkoutPhoneLandscapeHeightSlider.value))%"
-    }
-    @objc func modalPhonePortraitWidthChanged() {
-        modalPhonePortraitWidthLabel.text = "\(Int(modalPhonePortraitWidthSlider.value))%"
-    }
-    @objc func modalPhonePortraitHeightChanged() {
-        modalPhonePortraitHeightLabel.text = "\(Int(modalPhonePortraitHeightSlider.value))%"
-    }
-    @objc func modalPhoneLandscapeWidthChanged() {
-        modalPhoneLandscapeWidthLabel.text = "\(Int(modalPhoneLandscapeWidthSlider.value))%"
-    }
-    @objc func modalPhoneLandscapeHeightChanged() {
-        modalPhoneLandscapeHeightLabel.text = "\(Int(modalPhoneLandscapeHeightSlider.value))%"
-    }
-    @objc func modalTabletPortraitWidthChanged() {
-        modalTabletPortraitWidthLabel.text = "\(Int(modalTabletPortraitWidthSlider.value))%"
-    }
-    @objc func modalTabletPortraitHeightChanged() {
-        modalTabletPortraitHeightLabel.text = "\(Int(modalTabletPortraitHeightSlider.value))%"
-    }
-    @objc func modalTabletLandscapeWidthChanged() {
-        modalTabletLandscapeWidthLabel.text = "\(Int(modalTabletLandscapeWidthSlider.value))%"
-    }
-    @objc func modalTabletLandscapeHeightChanged() {
-        modalTabletLandscapeHeightLabel.text = "\(Int(modalTabletLandscapeHeightSlider.value))%"
+    // Every percentage slider shares this handler; configureSlider registers each slider's label
+    // in sliderLabels. The config builders read slider.value directly at open time, so this only
+    // keeps the on-screen percentage in sync.
+    @objc func sliderValueChanged(_ sender: UISlider) {
+        sliderLabels[ObjectIdentifier(sender)]?.text = "\(Int(sender.value))%"
     }
 
     @objc func dismissKeyboard() {
