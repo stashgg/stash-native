@@ -533,6 +533,8 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 - (void)animateExpandWithDuration:(NSTimeInterval)duration completion:(void (^)(void))completion;
 - (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView;
 - (CGFloat)currentExpansionProgressForCardView:(UIView *)cardView;
+- (CGRect)frameForExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView;
+- (void)collapsedRect:(CGRect *)outCollapsed expandedRect:(CGRect *)outExpanded forCardView:(UIView *)cardView;
 - (void)startKeyboardObserving;
 - (void)stopKeyboardObserving;
 - (BOOL)isIPhoneLandscapeCurrentOrientation;
@@ -1210,11 +1212,9 @@ initialSpringVelocity:kSpringVelocityCollapse
     [self.expandDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
 }
 
-- (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
-    if (!cardView) return;
-
-    progress = MAX(0.0, MIN(1.0, progress));
-
+// Collapsed and expanded card frames for the current device/orientation. The expand/collapse
+// interpolation, current-progress read, and per-frame relayout all derive from these two rects.
+- (void)collapsedRect:(CGRect *)outCollapsed expandedRect:(CGRect *)outExpanded forCardView:(UIView *)cardView {
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = getSafeAreaTopForView(cardView);
 
@@ -1260,18 +1260,18 @@ initialSpringVelocity:kSpringVelocityCollapse
         }
     }
 
-    CGFloat currentWidth = collapsedWidth + (expandedWidth - collapsedWidth) * progress;
-    CGFloat currentHeight = collapsedHeight + (expandedHeight - collapsedHeight) * progress;
-    CGFloat currentX = collapsedX + (expandedX - collapsedX) * progress;
-    CGFloat currentY;
-    if (isRunningOniPad()) {
-        currentY = collapsedY + (expandedY - collapsedY) * progress;
-    } else {
-        // iPhone: keep bottom of card anchored to bottom of screen every frame (no gap)
-        currentY = screenBounds.size.height - currentHeight;
-    }
+    if (outCollapsed) *outCollapsed = CGRectMake(collapsedX, collapsedY, collapsedWidth, collapsedHeight);
+    if (outExpanded) *outExpanded = CGRectMake(expandedX, expandedY, expandedWidth, expandedHeight);
+}
 
-    cardView.frame = CGRectMake(currentX, currentY, currentWidth, currentHeight);
+- (void)updateCardExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
+    if (!cardView) return;
+
+    progress = MAX(0.0, MIN(1.0, progress));
+
+    CGRect frame = [self frameForExpansionProgress:progress cardView:cardView];
+    CGFloat currentWidth = frame.size.width;
+    cardView.frame = frame;
 
     for (UIView *subview in cardView.subviews) {
         if ([subview isKindOfClass:[WKWebView class]]) {
@@ -1314,27 +1314,10 @@ initialSpringVelocity:kSpringVelocityCollapse
 
 - (CGFloat)currentExpansionProgressForCardView:(UIView *)cardView {
     if (!cardView) return 0.0f;
-    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
-    CGFloat collapsedHeight, expandedHeight;
-    if (isRunningOniPad()) {
-        CGSize cardSize = calculateiPadCardSize(screenBounds);
-        collapsedHeight = cardSize.height;
-        expandedHeight = stashTabletSdkExpandedHeightFromBase(collapsedHeight, screenBounds, cardView);
-    } else {
-        CGRect collapsedFrame;
-        if (self.portraitWindow && _forcePortraitOnCheckout) {
-            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
-        } else {
-            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
-        }
-        collapsedHeight = collapsedFrame.size.height;
-        if ([self isIPhoneLandscapeCurrentOrientation]) {
-            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
-        } else {
-            expandedHeight = screenBounds.size.height - safeTop;
-        }
-    }
+    CGRect collapsed, expanded;
+    [self collapsedRect:&collapsed expandedRect:&expanded forCardView:cardView];
+    CGFloat collapsedHeight = collapsed.size.height;
+    CGFloat expandedHeight = expanded.size.height;
     CGFloat currentHeight = cardView.frame.size.height;
     CGFloat heightRange = expandedHeight - collapsedHeight;
     if (heightRange <= 0.0f) return 0.0f;
@@ -1345,52 +1328,17 @@ initialSpringVelocity:kSpringVelocityCollapse
 - (CGRect)frameForExpansionProgress:(CGFloat)progress cardView:(UIView *)cardView {
     if (!cardView) return CGRectZero;
     progress = (CGFloat)MAX(0.0, MIN(1.0, (double)progress));
-    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
-    CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
-    CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
-    if (isRunningOniPad()) {
-        CGSize cardSize = calculateiPadCardSize(screenBounds);
-        CGFloat baseW = cardSize.width;
-        CGFloat baseH = cardSize.height;
-        CGFloat expandedH = stashTabletSdkExpandedHeightFromBase(baseH, screenBounds, cardView);
-        collapsedWidth = expandedWidth = baseW;
-        collapsedHeight = baseH;
-        expandedHeight = expandedH;
-        collapsedX = expandedX = (screenBounds.size.width - baseW) / 2.0;
-        collapsedY = (screenBounds.size.height - collapsedHeight) / 2.0;
-        expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
-    } else {
-        CGRect collapsedFrame;
-        if (self.portraitWindow && _forcePortraitOnCheckout) {
-            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
-        } else {
-            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
-        }
-        collapsedWidth = collapsedFrame.size.width;
-        collapsedHeight = collapsedFrame.size.height;
-        collapsedX = collapsedFrame.origin.x;
-        collapsedY = collapsedFrame.origin.y;
-        if ([self isIPhoneLandscapeCurrentOrientation]) {
-            expandedWidth = collapsedWidth;
-            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
-            expandedX = collapsedX;
-            expandedY = screenBounds.size.height - expandedHeight;
-            if (expandedY < safeTop) expandedY = safeTop;
-        } else {
-            expandedWidth = screenBounds.size.width;
-            expandedHeight = screenBounds.size.height - safeTop;
-            expandedX = 0;
-            expandedY = safeTop;
-        }
-    }
-    CGFloat w = collapsedWidth + (expandedWidth - collapsedWidth) * progress;
-    CGFloat h = collapsedHeight + (expandedHeight - collapsedHeight) * progress;
-    CGFloat x = collapsedX + (expandedX - collapsedX) * progress;
+    CGRect collapsed, expanded;
+    [self collapsedRect:&collapsed expandedRect:&expanded forCardView:cardView];
+    CGFloat w = collapsed.size.width + (expanded.size.width - collapsed.size.width) * progress;
+    CGFloat h = collapsed.size.height + (expanded.size.height - collapsed.size.height) * progress;
+    CGFloat x = collapsed.origin.x + (expanded.origin.x - collapsed.origin.x) * progress;
     CGFloat y;
     if (isRunningOniPad()) {
-        y = collapsedY + (expandedY - collapsedY) * progress;
+        y = collapsed.origin.y + (expanded.origin.y - collapsed.origin.y) * progress;
     } else {
+        // iPhone: keep bottom of card anchored to bottom of screen every frame (no gap)
+        CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
         y = screenBounds.size.height - h;
     }
     return CGRectMake(x, y, w, h);
