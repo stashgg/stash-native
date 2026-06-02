@@ -1659,6 +1659,161 @@ initialSpringVelocity:kSpringVelocityCollapse
 
 #pragma mark - WKScriptMessageHandler
 
+// The WKScriptMessageHandler bridge below dispatches one message to one of these per-message
+// handlers. Each handler is the verbatim body of its former else-if branch; the dispatcher keeps
+// the main-frame gate and the mutually-exclusive routing, so exactly one runs per message.
+
+- (void)handlePaymentSuccessMessage:(WKScriptMessage *)message delegate:(id<StashNativeCardDelegate>)delegate {
+    // When autoClose is on, the dialog tears down after the first event, so guard against
+    // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
+    // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
+    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
+    self.isPurchaseProcessing = NO;
+
+    NSString *orderString = nil;
+    id body = message.body;
+    if ([body isKindOfClass:[NSString class]]) {
+        NSString *s = (NSString *)body;
+        if (s.length > 0) {
+            orderString = s;
+        }
+    }
+
+    if (delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
+            });
+        } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [delegate stashNativeCardDidCompletePayment];
+            });
+        }
+    }
+
+    if (_autoCloseOnPaymentEvent) {
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+        }];
+    }
+}
+
+- (void)handlePaymentFailureWithDelegate:(id<StashNativeCardDelegate>)delegate {
+    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
+    self.isPurchaseProcessing = NO;
+
+    if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [delegate stashNativeCardDidFailPayment];
+        });
+    }
+
+    if (_autoCloseOnPaymentEvent) {
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+        }];
+    }
+}
+
+- (void)handlePurchaseProcessingMessage {
+    self.isPurchaseProcessing = YES;
+    [self updateDragTrayVisibilityForPurchaseProcessing:YES];
+}
+
+- (void)handleOptinMessage:(WKScriptMessage *)message delegate:(id<StashNativeCardDelegate>)delegate {
+    NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
+
+    if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidReceiveOptIn:)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [delegate stashNativeCardDidReceiveOptIn:optinType];
+        });
+    }
+
+    [self dismissWithAnimation:^{
+        [self cleanupCardInstance];
+    }];
+}
+
+- (void)handleExpandMessage {
+    if (_useModalPresentation || _usePopupPresentation) {
+        return;
+    }
+    // Phones only: landscape cards stay at their configured size.
+    if (_cardIsInLandscape) {
+        return;
+    }
+
+    if (!_isCardExpanded && self.currentPresentedVC) {
+        [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
+    }
+}
+
+- (void)handleCollapseMessage {
+    if (_useModalPresentation || _usePopupPresentation) {
+        return;
+    }
+    // Phones only: landscape cards stay at their configured size.
+    if (_cardIsInLandscape) {
+        return;
+    }
+
+    if (_isCardExpanded && self.currentPresentedVC) {
+        [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
+    }
+}
+
+- (void)handleExternalPaymentMessage:(WKScriptMessage *)message {
+    NSString *raw = @"";
+    if ([message.body isKindOfClass:[NSString class]]) {
+        raw = (NSString *)message.body;
+    }
+    NSString *normalized = NormalizeExternalPaymentURL(raw);
+    if (!normalized) {
+        return;
+    }
+    // Theme is applied only to in-card content, never to URLs handed to an external browser.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
+        if (externalDelegate
+            && [externalDelegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
+            [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:normalized];
+        }
+        StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+        // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
+        // presented from it immediately — no scene-rotation animation between card and Safari.
+        if (_forcePortraitOnCheckout) {
+            internal.isHandingOffPortraitWindowToSafari = YES;
+        }
+        [internal dismissWithAnimation:^{
+            [internal cleanupCardInstance];
+            [[StashNativeCard sharedInstance] openBrowserWithURL:normalized];
+        }];
+    });
+}
+
+- (void)handleWindowCloseMessage {
+    if (self.isPurchaseProcessing) {
+        return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+            [self callDelegateCallbackOnce];
+        }];
+    });
+}
+
+- (void)handlePageReadyMessage {
+    WebViewLoadDelegate *loadDelegate = self.activeWebViewLoadDelegate;
+    if (loadDelegate) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [loadDelegate notifyPageReadyFromInjectedScript];
+        });
+    }
+}
+
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
     NSString *name = message.name;
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
@@ -1675,138 +1830,23 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
 
     if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
-        // When autoClose is on, the dialog tears down after the first event, so guard against
-        // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
-        // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
-        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-        self.isPurchaseProcessing = NO;
-        
-        NSString *orderString = nil;
-        id body = message.body;
-        if ([body isKindOfClass:[NSString class]]) {
-            NSString *s = (NSString *)body;
-            if (s.length > 0) {
-                orderString = s;
-            }
-        }
-        
-        if (delegate) {
-            if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
-                });
-            } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [delegate stashNativeCardDidCompletePayment];
-                });
-            }
-        }
-
-        if (_autoCloseOnPaymentEvent) {
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-            }];
-        }
+        [self handlePaymentSuccessMessage:message delegate:delegate];
     } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
-        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-        self.isPurchaseProcessing = NO;
-
-        if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidFailPayment];
-            });
-        }
-
-        if (_autoCloseOnPaymentEvent) {
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-            }];
-        }
+        [self handlePaymentFailureWithDelegate:delegate];
     } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
-        self.isPurchaseProcessing = YES;
-        [self updateDragTrayVisibilityForPurchaseProcessing:YES];
+        [self handlePurchaseProcessingMessage];
     } else if ([name isEqualToString:kMessageHandlerOptin]) {
-        NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
-
-        if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidReceiveOptIn:)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidReceiveOptIn:optinType];
-            });
-        }
-
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-        }];
+        [self handleOptinMessage:message delegate:delegate];
     } else if ([name isEqualToString:kMessageHandlerExpand]) {
-        if (_useModalPresentation || _usePopupPresentation) {
-            return;
-        }
-        // Phones only: landscape cards stay at their configured size.
-        if (_cardIsInLandscape) {
-            return;
-        }
-
-        if (!_isCardExpanded && self.currentPresentedVC) {
-            [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
-        }
+        [self handleExpandMessage];
     } else if ([name isEqualToString:kMessageHandlerCollapse]) {
-        if (_useModalPresentation || _usePopupPresentation) {
-            return;
-        }
-        // Phones only: landscape cards stay at their configured size.
-        if (_cardIsInLandscape) {
-            return;
-        }
-
-        if (_isCardExpanded && self.currentPresentedVC) {
-            [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
-        }
+        [self handleCollapseMessage];
     } else if ([name isEqualToString:kMessageHandlerExternalPayment]) {
-        NSString *raw = @"";
-        if ([message.body isKindOfClass:[NSString class]]) {
-            raw = (NSString *)message.body;
-        }
-        NSString *normalized = NormalizeExternalPaymentURL(raw);
-        if (!normalized) {
-            return;
-        }
-        // Theme is applied only to in-card content, never to URLs handed to an external browser.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
-            if (externalDelegate
-                && [externalDelegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
-                [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:normalized];
-            }
-            StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-            // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
-            // presented from it immediately — no scene-rotation animation between card and Safari.
-            if (_forcePortraitOnCheckout) {
-                internal.isHandingOffPortraitWindowToSafari = YES;
-            }
-            [internal dismissWithAnimation:^{
-                [internal cleanupCardInstance];
-                [[StashNativeCard sharedInstance] openBrowserWithURL:normalized];
-            }];
-        });
+        [self handleExternalPaymentMessage:message];
     } else if ([name isEqualToString:kMessageHandlerWindowClose]) {
-        if (self.isPurchaseProcessing) {
-            return;
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-                [self callDelegateCallbackOnce];
-            }];
-        });
+        [self handleWindowCloseMessage];
     } else if ([name isEqualToString:kMessageHandlerPageReady]) {
-        WebViewLoadDelegate *loadDelegate = self.activeWebViewLoadDelegate;
-        if (loadDelegate) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [loadDelegate notifyPageReadyFromInjectedScript];
-            });
-        }
+        [self handlePageReadyMessage];
     }
 }
 
