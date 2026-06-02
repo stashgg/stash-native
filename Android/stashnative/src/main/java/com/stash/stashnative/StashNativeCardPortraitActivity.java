@@ -2471,7 +2471,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
   }
 
-  private class JSInterface {
+  private class JSInterface implements StashCheckoutBridgeApi {
     @JavascriptInterface
     public void onPaymentSuccess(String order) {
       try {

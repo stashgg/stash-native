@@ -355,7 +355,7 @@ public class StashNativeCardPlugin {
     });
   }
 
-  private class StashJavaScriptInterface {
+  private class StashJavaScriptInterface implements StashCheckoutBridgeApi {
     @JavascriptInterface
     public void onPaymentSuccess(String order) {
       if (paymentSuccessHandled) {
