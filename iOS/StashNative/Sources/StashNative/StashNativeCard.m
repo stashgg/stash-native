@@ -3166,6 +3166,11 @@ static inline CGFloat stashClampRatio(CGFloat r) {
     return MAX((CGFloat)0.1, MIN((CGFloat)1.0, r));
 }
 
+// Popup multipliers may exceed 1.0; only reject degenerate (<=0 or NaN) values, falling back to the default.
+static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) {
+    return (isnan(v) || v <= 0.0) ? fallback : v;
+}
+
 - (void)openCardWithURL:(NSString *)url config:(StashNativeCardConfig *)config {
     if (url == nil || url.length == 0) {
         return;
@@ -3231,10 +3236,10 @@ static inline CGFloat stashClampRatio(CGFloat r) {
     
     if (sizeConfig) {
         _useCustomPopupSize = YES;
-        _customPortraitWidthMultiplier = sizeConfig.portraitWidthMultiplier;
-        _customPortraitHeightMultiplier = sizeConfig.portraitHeightMultiplier;
-        _customLandscapeWidthMultiplier = sizeConfig.landscapeWidthMultiplier;
-        _customLandscapeHeightMultiplier = sizeConfig.landscapeHeightMultiplier;
+        _customPortraitWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitWidthMultiplier, kPopupPortraitWidthMultiplier);
+        _customPortraitHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitHeightMultiplier, kPopupPortraitHeightMultiplier);
+        _customLandscapeWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeWidthMultiplier, kPopupLandscapeWidthMultiplier);
+        _customLandscapeHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeHeightMultiplier, kPopupLandscapeHeightMultiplier);
     } else {
         _useCustomPopupSize = NO;
     }
