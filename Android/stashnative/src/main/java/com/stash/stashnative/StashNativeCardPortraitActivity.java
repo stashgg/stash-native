@@ -514,40 +514,13 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   private int[] calculateTabletCardSize(DisplayMetrics metrics) {
-    // Use actual current screen dimensions
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    
-    // Determine orientation and use appropriate ratios
-    boolean isLandscape = screenWidth > screenHeight;
-
-    float widthRatio;
-    float heightRatio;
-    if (isLandscape) {
-      widthRatio = tabletWidthRatioLandscape;
-      heightRatio = tabletHeightRatioLandscape;
-    } else {
-      widthRatio = tabletWidthRatioPortrait;
-      heightRatio = tabletHeightRatioPortrait;
-    }
-    
-    // Apply orientation-specific tablet ratios to actual screen dimensions
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-    
-    if (cardWidth <= 0 || cardHeight <= 0) {
-      return new int[]{
-          CardConstants.FALLBACK_TABLET_CARD_WIDTH, CardConstants.FALLBACK_TABLET_CARD_HEIGHT};
-    }
-
-    // Enforce minimum sizes for usability
-    int minWidth = StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP);
-    int minHeight = StashWebViewUtils.dpToPx(this, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP);
-    int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
-    cardWidth = clamped[0];
-    cardHeight = clamped[1];
-    
-    return new int[]{cardWidth, cardHeight};
+    return StashSheetGeometry.tabletCardSize(
+        this,
+        metrics,
+        tabletWidthRatioPortrait,
+        tabletHeightRatioPortrait,
+        tabletWidthRatioLandscape,
+        tabletHeightRatioLandscape);
   }
 
   /**
@@ -891,48 +864,18 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   private int[] calculateModalCardSize(DisplayMetrics metrics) {
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    boolean isLandscape = screenWidth > screenHeight;
-    boolean isTablet = cachedIsTablet;
-
-    float widthRatio;
-    float heightRatio;
-    if (isTablet) {
-      if (isLandscape) {
-        widthRatio = modalTabletWidthRatioLandscape;
-        heightRatio = modalTabletHeightRatioLandscape;
-      } else {
-        widthRatio = modalTabletWidthRatioPortrait;
-        heightRatio = modalTabletHeightRatioPortrait;
-      }
-    } else {
-      if (isLandscape) {
-        widthRatio = modalPhoneWidthRatioLandscape;
-        heightRatio = modalPhoneHeightRatioLandscape;
-      } else {
-        widthRatio = modalPhoneWidthRatioPortrait;
-        heightRatio = modalPhoneHeightRatioPortrait;
-      }
-    }
-    
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-    
-    // Apply minimum sizes. Convert the dp constants to px (matching the plugin path); the phone
-    // minHeight intentionally reuses MIN_PHONE_CARD_WIDTH_DP, same as StashNativeCardPlugin.
-    int minWidth = StashWebViewUtils.dpToPx(this, isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-    int minHeight = StashWebViewUtils.dpToPx(this, isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-
-    int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
-    cardWidth = clamped[0];
-    cardHeight = clamped[1];
-
-    return new int[]{cardWidth, cardHeight};
+    return StashSheetGeometry.modalCardSize(
+        this,
+        metrics,
+        cachedIsTablet,
+        modalTabletWidthRatioPortrait,
+        modalTabletHeightRatioPortrait,
+        modalTabletWidthRatioLandscape,
+        modalTabletHeightRatioLandscape,
+        modalPhoneWidthRatioPortrait,
+        modalPhoneHeightRatioPortrait,
+        modalPhoneWidthRatioLandscape,
+        modalPhoneHeightRatioLandscape);
   }
 
   private void addDragHandle() {
