@@ -2997,6 +2997,38 @@ static UIInterfaceOrientationMask stashInfoPlistSupportedOrientationMask(void) {
     return cached;
 }
 
+// Resolves the interface-orientation mask for a window the SDK governs during a forced-portrait
+// card/Safari presentation. Returns YES and writes *outMask when the window is the card window,
+// the Safari portrait window, or a system window (keyboard/alert) shown over the card; returns NO
+// when the caller should apply its own default (host window, or no card presented). Shared by the
+// auto-managed swizzle and the public +supportedInterfaceOrientationsForWindow: forwarder so the
+// two cannot drift; each keeps its own nil-window guard and fall-through tail.
+static BOOL stashResolveCardWindowOrientationMask(StashNativeCardInternal *internal,
+                                                  UIWindow *window,
+                                                  UIInterfaceOrientationMask *outMask) {
+    if (window && (window == internal.portraitWindow || window == internal.safariPresentationWindow)) {
+        if (internal.isSafariPortraitLocked) {
+            *outMask = UIInterfaceOrientationMaskPortrait;
+            return YES;
+        }
+        if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
+            *outMask = [internal stashKeyboardOrientationLockMaskForCardWindow];
+            return YES;
+        }
+        UIViewController *rootVC = window.rootViewController;
+        *outMask = rootVC ? [rootVC supportedInterfaceOrientations] : UIInterfaceOrientationMaskAll;
+        return YES;
+    }
+    if (internal.portraitWindow && window != internal.previousKeyWindow) {
+        UIViewController *cardRootVC = internal.portraitWindow.rootViewController;
+        if (cardRootVC) {
+            *outMask = [cardRootVC supportedInterfaceOrientations];
+            return YES;
+        }
+    }
+    return NO;
+}
+
 static void stashInstallOrientationSwizzleIfNeeded(void) {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -3014,43 +3046,12 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         IMP newIMP = imp_implementationWithBlock(
             ^UIInterfaceOrientationMask(id blockSelf, UIApplication *app, UIWindow *window) {
                 StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-                if (window && (window == internal.portraitWindow ||
-                               window == internal.safariPresentationWindow)) {
-                    // Dedicated Safari portrait window (external payment path).
-                    if (window == internal.safariPresentationWindow && internal.isSafariPortraitLocked) {
-                        return UIInterfaceOrientationMaskPortrait;
-                    }
-                    // While Safari is actively presented in forced-portrait mode, lock the window
-                    // to portrait so the device physically rotating to landscape doesn't flip it.
-                    if (internal.isSafariPortraitLocked) {
-                        return UIInterfaceOrientationMaskPortrait;
-                    }
-                    // Card window + keyboard: lock to the card's orientation (must NOT answer
-                    // portrait for nil/host windows — that intersects to empty with landscape-only
-                    // roots and raises UIApplicationInvalidInterfaceOrientation).
-                    if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
-                        return [internal stashKeyboardOrientationLockMaskForCardWindow];
-                    }
-                    // Card window (no keyboard): return the root VC's orientation mask so iOS 15
-                    // constrains rotation to the card's intended orientation. On iOS 16+ scene
-                    // geometry preferences take precedence. If rootVC is not yet set (brief window
-                    // during initial creation), fall back to MaskAll.
-                    UIViewController *rootVC = window.rootViewController;
-                    if (rootVC) {
-                        return [rootVC supportedInterfaceOrientations];
-                    }
-                    return UIInterfaceOrientationMaskAll;
-                }
-                // While an orientation-locked card is presented, system windows
-                // (keyboard, alerts) must match the card's orientation. On iOS 16+
-                // scene geometry handles this; on iOS 15 the delegate callback is
-                // the only mechanism. Return the card's mask for any window that is
-                // not the host app's own window.
-                if (internal.portraitWindow && window != internal.previousKeyWindow) {
-                    UIViewController *cardRootVC = internal.portraitWindow.rootViewController;
-                    if (cardRootVC) {
-                        return [cardRootVC supportedInterfaceOrientations];
-                    }
+                // Card window, Safari portrait window, or a system window (keyboard/alert) over the
+                // card: lock to the card's orientation so a physical rotation can't flip it, and so
+                // iOS 15 (which has no scene-geometry path) constrains rotation correctly.
+                UIInterfaceOrientationMask mask;
+                if (stashResolveCardWindowOrientationMask(internal, window, &mask)) {
+                    return mask;
                 }
                 // Host app's window (or no card presented): forward to original.
                 if (originalIMP) {
@@ -3081,26 +3082,11 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         return 0;
     }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (window == internal.portraitWindow || window == internal.safariPresentationWindow) {
-        if (internal.isSafariPortraitLocked) {
-            return UIInterfaceOrientationMaskPortrait;
-        }
-        if (window == internal.portraitWindow && internal.isIPhoneCardKeyboardVisible) {
-            return [internal stashKeyboardOrientationLockMaskForCardWindow];
-        }
-        UIViewController *rootVC = window.rootViewController;
-        if (rootVC) {
-            return [rootVC supportedInterfaceOrientations];
-        }
-        return UIInterfaceOrientationMaskAll;
+    UIInterfaceOrientationMask mask;
+    if (stashResolveCardWindowOrientationMask(internal, window, &mask)) {
+        return mask;
     }
-    // System windows (keyboard, alerts) while card is presented: match the card.
-    if (internal.portraitWindow && window != internal.previousKeyWindow) {
-        UIViewController *cardRootVC = internal.portraitWindow.rootViewController;
-        if (cardRootVC) {
-            return [cardRootVC supportedInterfaceOrientations];
-        }
-    }
+    // Host window, or no card presented: 0 lets the caller's own mask take effect.
     return 0;
 }
 
