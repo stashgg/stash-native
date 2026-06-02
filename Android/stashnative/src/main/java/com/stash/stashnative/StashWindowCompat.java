@@ -215,4 +215,28 @@ final class StashWindowCompat {
     }
     return 0;
   }
+
+  /**
+   * Applies system-bar padding using the STABLE insets (status + navigation), which exclude the IME
+   * on all API levels. Used as the pre-API-30 fallback (where {@link
+   * #applySystemBarsPaddingExcludingIme} is unavailable) so a visible soft keyboard does not inflate
+   * the bottom padding and push a bottom-pinned card off the top of the screen. Falls back to {@link
+   * #onApplySystemBarInsetsPadding} if stable insets are unavailable.
+   */
+  static WindowInsetsCompat applyStableBarInsetsPadding(
+      View target, WindowInsetsCompat windowInsets) {
+    try {
+      int left = windowInsets.getStableInsetLeft();
+      int top = windowInsets.getStableInsetTop();
+      int right = windowInsets.getStableInsetRight();
+      int bottom = windowInsets.getStableInsetBottom();
+      if (left == 0 && top == 0 && right == 0 && bottom == 0) {
+        return onApplySystemBarInsetsPadding(target, windowInsets);
+      }
+      target.setPadding(left, top, right, bottom);
+      return windowInsets.replaceSystemWindowInsets(0, 0, 0, 0);
+    } catch (Throwable t) {
+      return onApplySystemBarInsetsPadding(target, windowInsets);
+    }
+  }
 }
