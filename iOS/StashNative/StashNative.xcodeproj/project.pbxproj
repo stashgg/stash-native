@@ -14,6 +14,7 @@
 		STN009 /* StashNativeCard.h in Headers */ = {isa = PBXBuildFile; fileRef = STN00A /* StashNativeCard.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		STN00B /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00C /* SafariServices.framework */; };
 		STN00D /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00E /* WebKit.framework */; };
+		STN022 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = STN023 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +27,7 @@
 		STN00C /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
 		STN00E /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		STN021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		STN023 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +61,7 @@
 				STN016 /* StashNativeCardPrivate.h */,
 				STN004 /* StashNativeCardViewControllers.m */,
 				STN006 /* StashNativeCardWebViewDelegates.m */,
+				STN023 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Sources/StashNative;
 			sourceTree = "<group>";
@@ -104,6 +107,17 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXResourcesBuildPhase section */
+		STN024 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				STN022 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXNativeTarget section */
 		STN018 /* StashNative */ = {
 			isa = PBXNativeTarget;
@@ -112,6 +126,7 @@
 				STN01A /* Sources */,
 				STN017 /* Headers */,
 				STN010 /* Frameworks */,
+				STN024 /* Resources */,
 			);
 			buildRules = (
 			);

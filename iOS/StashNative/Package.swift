@@ -19,7 +19,10 @@ let package = Package(
             name: "StashNative",
             dependencies: [],
             path: "Sources/StashNative",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            resources: [
+                .copy("PrivacyInfo.xcprivacy")
+            ]
         ),
         .testTarget(
             name: "StashNativeTests",
