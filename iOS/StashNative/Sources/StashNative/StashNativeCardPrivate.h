@@ -50,6 +50,14 @@ BOOL StashNativeSheetUsesDarkWebTheme(void);
 /// Injects document meta + html/body background for dark sheet (BG matches configured background color).
 NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
+// Shared file-scope state and helpers defined in StashNativeCard.m, used by the delegate classes.
+extern BOOL _usePopupPresentation;
+extern BOOL _useModalPresentation;
+extern const NSInteger kDragTrayViewTag;
+BOOL isRunningOniPad(void);
+UIColor* stash_sheetBackgroundUIColor(void);
+void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
+
 @interface DragTrayView : UIView
 @end
 

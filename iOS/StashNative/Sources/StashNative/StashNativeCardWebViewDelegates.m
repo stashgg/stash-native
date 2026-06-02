@@ -39,17 +39,6 @@ static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
-#pragma mark - Extern declarations (defined in StashNativeCard.m)
-
-extern BOOL _usePopupPresentation;
-extern BOOL _useModalPresentation;
-extern BOOL isRunningOniPad(void);
-extern UIColor* stash_sheetBackgroundUIColor(void);
-extern UIViewController *getTopPresentedViewController(void);
-extern void configureScrollViewForWebView(UIScrollView *scrollView);
-extern void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
-extern const NSInteger kDragTrayViewTag;
-
 #pragma mark - WebViewLoadDelegate
 
 @implementation WebViewLoadDelegate {
