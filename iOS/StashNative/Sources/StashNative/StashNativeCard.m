@@ -153,12 +153,6 @@ static BOOL _callbackWasCalled = NO;              // Ensures dismiss callback fi
 static BOOL _isCardCurrentlyPresented = NO;       // Guards against double-presentation
 static BOOL _paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
 
-// --- Expand/collapse original values (stored when card is presented) ---
-static CGFloat _originalCardHeightRatio = 0.68;
-static CGFloat _originalCardVerticalPosition = 1.0;
-static CGFloat _originalCardWidthRatio = 1.0;
-static CGFloat _originalTabletWidthRatio = 0.8;
-static CGFloat _originalTabletHeightRatio = 0.75;
 
 // --- User-configurable sizing (persists across presentations) ---
 static BOOL _forcePortraitOnCheckout = NO;
@@ -351,7 +345,6 @@ static NSMutableURLRequest *requestForURL(NSURL *url) {
 
 #pragma mark - Timing
 
-static const NSTimeInterval kWebViewRemoveDelaySeconds = 0.05;
 static const NSTimeInterval kDismissAnimationDurationPopup = 0.35;
 
 #pragma mark - Spring Velocities (expand/collapse)
@@ -465,7 +458,6 @@ void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 void setOverlayToDismissAppearance(UIView *overlayView);
 static NSString *NormalizeExternalPaymentURL(NSString *raw);
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
-void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
 #pragma mark - StashNativeCardInternal
@@ -1608,8 +1600,7 @@ initialSpringVelocity:kSpringVelocityCollapse
             CGRect screenBounds = [UIScreen mainScreen].bounds;
             CGRect targetFrame = stashFrameForIPadSdkCard(screenBounds, cardView);
             CGFloat originalWidth = targetFrame.size.width;
-            CGFloat originalHeight = targetFrame.size.height;
-            
+
             [UIView animateWithDuration:kAnimationDurationFast 
                                   delay:0 
                  usingSpringWithDamping:kSpringDampingSnapBack 
@@ -2632,17 +2623,6 @@ CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandsc
     return CGRectMake(cardX, cardY, cardWidth, cardHeight);
 }
 
-void updateOriginalCardRatiosForOrientation(BOOL isLandscape) {
-    if (isLandscape) {
-        _originalCardWidthRatio = _cardWidthRatioLandscape;
-        _originalCardHeightRatio = _cardHeightRatioLandscape;
-    } else {
-        _originalCardWidthRatio = 1.0f;
-        _originalCardHeightRatio = _cardHeightRatioPortrait;
-    }
-    _originalCardVerticalPosition = 1.0f;
-}
-
 void resetCardExpandedStateAfterRotation(void) {
     _isCardExpanded = NO;
 }
@@ -3492,34 +3472,6 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         _cardIsInLandscape = !_forcePortraitOnCheckout && isLandscape;
     } else {
         _cardIsInLandscape = NO;
-    }
-    
-    // Store original (collapsed) configuration from orientation-specific values
-    _originalTabletWidthRatio = _tabletWidthRatioPortrait;
-    _originalTabletHeightRatio = _tabletHeightRatioPortrait;
-    
-    if (isRunningOniPad()) {
-        // Tablet uses portrait ratios for initial store; not used for phone path
-        _originalCardHeightRatio = _cardHeightRatioPortrait;
-        _originalCardVerticalPosition = 1.0;
-        _originalCardWidthRatio = 1.0;
-    } else if (_forcePortraitOnCheckout) {
-        _originalCardHeightRatio = _cardHeightRatioPortrait;
-        _originalCardVerticalPosition = 1.0;
-        _originalCardWidthRatio = 1.0;  // Phone card is always full width in portrait
-    } else {
-        // Current-orientation path: set originals from current screen orientation
-        CGRect screenBounds = [UIScreen mainScreen].bounds;
-        BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
-        if (isLandscape) {
-            _originalCardWidthRatio = _cardWidthRatioLandscape;
-            _originalCardHeightRatio = _cardHeightRatioLandscape;
-            _originalCardVerticalPosition = 1.0;
-        } else {
-            _originalCardWidthRatio = 1.0;
-            _originalCardHeightRatio = _cardHeightRatioPortrait;
-            _originalCardVerticalPosition = 1.0;
-        }
     }
     
     // Dispatch to appropriate presentation method based on device type

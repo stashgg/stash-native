@@ -20,8 +20,6 @@ CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
 
 /// Phone card frame (x, y, width, height) for given bounds and orientation; used by current-orientation presentation and rotation.
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
-/// Updates _originalCard* in StashNativeCard.m for the given orientation (used after rotation in IPhoneCardCurrentOrientationViewController).
-void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
 
 /// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
 NSUInteger StashNativeCurrentPresentationSessionToken(void);

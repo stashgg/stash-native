@@ -141,8 +141,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     resetCardExpandedStateAfterRotation();
     
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
-    BOOL isLandscape = size.width > size.height;
-    
+
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         switchWebViewToFrameLayoutInCardView(cardView);
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
@@ -158,7 +157,6 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
         self.cardFrame = cardView.frame;
         self.customFrame = cardView.frame;
-        updateOriginalCardRatiosForOrientation(isLandscape);
         resetCardExpandedStateAfterRotation();
         layoutCardContentToBounds(cardView);
         [cardView setNeedsLayout];
