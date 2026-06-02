@@ -6,21 +6,21 @@ final class StashNativeTests: XCTestCase {
     // -- Version --
 
     func testSdkVersionIsNonEmpty() {
-        let v = StashNativeCard.sdkVersion()
-        XCTAssertFalse(v.isEmpty)
+        let version = StashNativeCard.sdkVersion()
+        XCTAssertFalse(version.isEmpty)
     }
 
     func testSdkVersionContainsDot() {
-        let v = StashNativeCard.sdkVersion()
-        XCTAssertTrue(v.contains("."), "Version should be semver-like")
+        let version = StashNativeCard.sdkVersion()
+        XCTAssertTrue(version.contains("."), "Version should be semver-like")
     }
 
     // -- Singleton --
 
     func testSharedInstanceReturnsSameObject() {
-        let a = StashNativeCard.sharedInstance()
-        let b = StashNativeCard.sharedInstance()
-        XCTAssertTrue(a === b)
+        let first = StashNativeCard.sharedInstance()
+        let second = StashNativeCard.sharedInstance()
+        XCTAssertTrue(first === second)
     }
 
     // -- CardConfig defaults --
