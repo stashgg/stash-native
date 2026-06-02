@@ -283,6 +283,10 @@ public class StashWebViewUtils {
       if (uri.getHost() == null || uri.getHost().isEmpty()) {
         return null;
       }
+      // Upgrade cleartext http to https for the external payment URL (rather than rejecting it).
+      if ("http".equals(scheme)) {
+        uri = uri.buildUpon().scheme("https").build();
+      }
       return uri.toString();
     } catch (Exception e) {
       Log.w(TAG, "normalizeExternalPaymentUrl: " + e.getMessage());

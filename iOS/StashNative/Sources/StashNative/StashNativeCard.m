@@ -2957,6 +2957,15 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (u.host.length == 0) {
         return nil;
     }
+    // Upgrade cleartext http to https for the external payment URL (rather than rejecting it).
+    if ([scheme isEqualToString:@"http"]) {
+        NSURLComponents *comps = [NSURLComponents componentsWithURL:u resolvingAgainstBaseURL:NO];
+        comps.scheme = @"https";
+        NSURL *upgraded = comps.URL;
+        if (upgraded) {
+            return upgraded.absoluteString;
+        }
+    }
     return u.absoluteString;
 }
 
