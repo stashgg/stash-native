@@ -105,8 +105,8 @@ public class StashNativeCard {
 
     /**
      * Called when checkout cannot be shown or must be torn down due to a load failure.
-     * This includes: no network connection, page load failure, timeout (5 seconds), and
-     * (on Android 8.0+, API 26+) when the WebView renderer process crashes or is killed; in
+     * This includes: no network connection, page load failure, timeout (15-second load deadline),
+     * and (on Android 8.0+, API 26+) when the WebView renderer process crashes or is killed; in
      * that case the card is dismissed before this callback runs.
      */
     void onNetworkError();
@@ -124,13 +124,14 @@ public class StashNativeCard {
     /**
      * Called when the browser opened via {@link #openBrowser(String)} or
      * {@code window.stash_sdk.openExternalBrowser} is dismissed by the user.
-     * For Chrome Custom Tabs, the SDK uses {@link Activity#startActivityForResult} and, when Chrome
-     * supports it, engagement session callbacks so this also runs when the tab is closed from
-     * floating or minimized UI. Forward {@link #onActivityResult} from the launching activity.
-     * External browser ({@code ACTION_VIEW}) uses host lifecycle with a short debounce.
+     * For Chrome Custom Tabs the SDK owns the result lifecycle internally via
+     * {@link StashNativeBrowserProxyActivity}, and when Chrome supports it engagement session
+     * callbacks let this also fire when the tab is closed from floating or minimized UI. The host
+     * does not forward anything. External browser ({@code ACTION_VIEW}) uses host lifecycle with a
+     * short debounce.
      * <p>
-     * Very old Chrome or devices without engagement support may still delay {@code onActivityResult}
-     * in some floating-dismiss cases until the next host activity transition.
+     * Very old Chrome or devices without engagement support may still delay the close signal in some
+     * floating-dismiss cases until the next host activity transition.
      */
     void onBrowserClosed();
   }
@@ -262,9 +263,9 @@ public class StashNativeCard {
     public boolean forcePortrait = false;
     /** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
     public float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
-    /** Phone card width ratio in landscape (0.1-1.0). Default 0.9. */
+    /** Phone card width ratio in landscape (0.1-1.0). Default 0.7. */
     public float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
-    /** Phone card height ratio in landscape (0.1-1.0). Default 0.6. */
+    /** Phone card height ratio in landscape (0.1-1.0). Default 0.9. */
     public float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
     /** Tablet width ratio in portrait (0.1-1.0). Default 0.4. */
     public float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
@@ -475,8 +476,9 @@ public class StashNativeCard {
   
   /**
    * Opens a URL in Chrome Custom Tabs when {@code androidx.browser} is present, otherwise in the
-   * system browser ({@code ACTION_VIEW}). For Custom Tabs, forward {@link #onActivityResult} from
-   * this activity so {@link StashNativeCardListener#onBrowserClosed()} runs when the tab closes;
+   * system browser ({@code ACTION_VIEW}). For Custom Tabs the SDK owns the result lifecycle
+   * internally via {@link StashNativeBrowserProxyActivity}, so {@link
+   * StashNativeCardListener#onBrowserClosed()} fires when the tab closes with no host forwarding;
    * {@code ACTION_VIEW} uses lifecycle-based detection (see {@link StashNativeCardListener#onBrowserClosed}).
    *
    * @param url The URL to open in the browser

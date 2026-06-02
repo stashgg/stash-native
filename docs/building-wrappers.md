@@ -70,7 +70,7 @@ flowchart LR
 ### Android
 
 - Package the AAR and add Gradle dependencies required by the host app (for example `androidx.appcompat` as in the [README](../README.md)). `androidx.browser` is optional: add it if you want Chrome Custom Tabs for external URLs; otherwise the SDK opens the system browser.
-- Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, forward `onActivityResult` from the same activity for Custom Tabs, and open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`).
+- Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, and the open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`). Custom Tabs results are owned internally by `StashNativeBrowserProxyActivity`; the host does not forward `onActivityResult`.
 - If the engine launches checkout from native plugin code, ensure the JNI or C# layer obtains the current `Activity` from the engine’s Android entry point.
 
 ### iOS
@@ -112,6 +112,6 @@ Unity and Unreal wrappers often ship editor play-mode tools to exercise flows wi
 
 - [Architecture Overview](./architecture-overview.md) — shared runtime model.
 - [JavaScript `stash_sdk` API](./stash-sdk-js.md) — web page contract for checkout and webshop.
-- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, isolated process, `StashCheckoutBridge`.
+- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, same-process checkout activity, `StashCheckoutBridge`.
 - [iOS Implementation](./ios.md) — message handlers, presentation modes, load errors.
 - [Maintenance and Testing](./maintenance-and-testing.md) — building AAR/XCFramework and CI expectations.

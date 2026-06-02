@@ -123,6 +123,6 @@ flowchart LR
 ## Related Documentation
 
 - [Architecture Overview](./architecture-overview.md) — high-level bridge model.
-- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, `StashAndroid`, isolated process bridge.
+- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, `StashAndroid`, same-process broadcast bridge.
 - [iOS Implementation](./ios.md) — message handler names and delegate mapping.
 - [Building Wrappers](./building-wrappers.md) — wrappers must not redefine this contract for production checkout.

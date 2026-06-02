@@ -22,7 +22,7 @@ public final class StashUrlLauncher {
 
   private static final String TAG = "StashUrlLauncher";
 
-  /** Custom Tabs launched with {@link Activity#startActivityForResult}; forward {@link com.stash.stashnative.StashNativeCard#onActivityResult}. */
+  /** Custom Tabs launched with {@link Activity#startActivityForResult}; the result is owned internally by {@link StashNativeBrowserProxyActivity}. */
   public static final int OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT = 1;
   /** Custom Tabs via {@code launchUrl} / {@code startActivity} (no activity result). */
   public static final int OPEN_EXTERNAL_CCT = 2;
@@ -58,8 +58,8 @@ public final class StashUrlLauncher {
 
   /**
    * Opens URL with Chrome Custom Tabs when possible. When {@code context} is an {@link Activity}
-   * and {@code activityRequestCode} is non-zero, CCT uses {@code startActivityForResult} so the
-   * host can forward {@link com.stash.stashnative.StashNativeCard#onActivityResult}; otherwise CCT
+   * and {@code activityRequestCode} is non-zero, CCT uses {@code startActivityForResult} so {@link
+   * StashNativeBrowserProxyActivity} receives the result internally; otherwise CCT
    * uses {@code startActivity}. Falls back to {@link Intent#ACTION_VIEW}.
    *
    * @param activityRequestCode 0 for no result contract; else pass {@link
@@ -149,7 +149,7 @@ public final class StashUrlLauncher {
 
   /**
    * Unbinds the Custom Tabs service used for engagement callbacks after the tab finishes or when
-   * {@link com.stash.stashnative.StashNativeCard#onActivityResult} runs.
+   * {@link StashNativeBrowserProxyActivity} receives the activity result.
    */
   public static void unbindCustomTabsEngagement(@Nullable Context context) {
     if (context == null) {

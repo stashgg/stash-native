@@ -423,9 +423,10 @@ public class StashWebViewUtils {
 
   /**
    * Opens the URL using Custom Tabs when possible, else system browser.
-   * Uses request code 0 (no {@code startActivityForResult}); use {@link StashUrlLauncher#openExternalUrl}
-   * with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB} when integrating {@link
-   * StashNativeCard#onActivityResult}.
+   * Uses request code 0 (no {@code startActivityForResult}). The in-SDK Custom Tabs flow that needs
+   * a result is launched by {@link StashNativeBrowserProxyActivity} via {@link
+   * StashUrlLauncher#openExternalUrl} with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB}; the
+   * proxy owns that result lifecycle, so the host does not forward anything.
    */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
