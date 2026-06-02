@@ -2144,6 +2144,28 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
 
 @end
 
+// Creates and wires the load + UI delegates for a checkout WKWebView (the setup that is identical
+// across all present* builders) and tracks them on the internal singleton. Returns the load delegate
+// so the caller can drive the initial load. Per-builder associated objects (cardView / loadingView)
+// stay in each builder.
+static WebViewLoadDelegate *stashAttachCheckoutDelegates(WKWebView *webView,
+                                                         UIView *loadingView,
+                                                         UIViewController *containerVC,
+                                                         StashNativeCardInternal *internal) {
+    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
+                                                                     loadingView:loadingView
+                                                                   retryArmDelay:0.0
+                                                        presentationSessionToken:internal.presentationSessionToken];
+    webView.navigationDelegate = delegate;
+    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
+    webView.UIDelegate = uiDelegate;
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    internal.activeWebViewLoadDelegate = delegate;
+    internal.activeWebViewUIDelegate = uiDelegate;
+    return delegate;
+}
+
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window) {
     if (!window) {
         return [UIScreen mainScreen].bounds;
@@ -3658,17 +3680,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     loadingView.translatesAutoresizingMaskIntoConstraints = NO;
     loadingView.alpha = 1.0;
 
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
-                                                                     loadingView:loadingView
-                                                                   retryArmDelay:0.0
-                                                        presentationSessionToken:internal.presentationSessionToken];
-    webView.navigationDelegate = delegate;
-    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-    webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    internal.activeWebViewLoadDelegate = delegate;
-    internal.activeWebViewUIDelegate = uiDelegate;
+    WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     
     // Preload: attach WebView off-screen so networking begins before the card slides in.
     CGFloat preloadH = portraitBounds.size.height * _cardHeightRatioPortrait;
@@ -4010,17 +4022,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [cardView addSubview:dragTray];
     internal.dragTrayView = dragTray;
     
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
-                                                                     loadingView:loadingView
-                                                                   retryArmDelay:0.0
-                                                        presentationSessionToken:internal.presentationSessionToken];
-    webView.navigationDelegate = delegate;
-    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-    webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    internal.activeWebViewLoadDelegate = delegate;
-    internal.activeWebViewUIDelegate = uiDelegate;
+    WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     
     [cardWindow layoutIfNeeded];
     NSURL *nsurl = [NSURL URLWithString:url];
@@ -4127,18 +4129,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     internal.dragTrayView = dragTray;
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
-                                                                     loadingView:loadingView
-                                                                   retryArmDelay:0.0
-                                                        presentationSessionToken:internal.presentationSessionToken];
-    webView.navigationDelegate = delegate;
-    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-    webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    internal.activeWebViewLoadDelegate = delegate;
-    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
@@ -4251,18 +4243,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     ]];
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
-                                                                     loadingView:loadingView
-                                                                   retryArmDelay:0.0
-                                                        presentationSessionToken:internal.presentationSessionToken];
-    webView.navigationDelegate = delegate;
-    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-    webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    internal.activeWebViewLoadDelegate = delegate;
-    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
@@ -4374,18 +4356,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     ]];
     
     // Create delegates
-    WebViewLoadDelegate *delegate = [[WebViewLoadDelegate alloc] initWithWebView:webView
-                                                                     loadingView:loadingView
-                                                                   retryArmDelay:0.0
-                                                        presentationSessionToken:internal.presentationSessionToken];
-    webView.navigationDelegate = delegate;
-    WebViewUIDelegate *uiDelegate = [[WebViewUIDelegate alloc] init];
-    webView.UIDelegate = uiDelegate;
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, uiDelegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyLoadingView, loadingView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    internal.activeWebViewLoadDelegate = delegate;
-    internal.activeWebViewUIDelegate = uiDelegate;
     
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
