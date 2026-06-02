@@ -53,23 +53,11 @@ public final class SettingsItem {
         null, false, 0, false, 0, false, false);
   }
 
-  /** Section header (no card). */
-  public static SettingsItem sectionHeader(@StringRes int titleRes) {
-    return new SettingsItem(
-        TYPE_SECTION_HEADER, titleRes, 0, null, false, 0, false, 0, false, false);
-  }
-
   /** Section header with card grouping. */
   public static SettingsItem sectionHeader(
       @StringRes int titleRes, boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
         TYPE_SECTION_HEADER, titleRes, 0, null, false, 0, false, 0, firstInCard, lastInCard);
-  }
-
-  /** Section footer (no card). */
-  public static SettingsItem sectionFooter(@StringRes int titleRes) {
-    return new SettingsItem(
-        TYPE_SECTION_FOOTER, titleRes, 0, null, false, 0, false, 0, false, false);
   }
 
   /** Section footer with card grouping. */

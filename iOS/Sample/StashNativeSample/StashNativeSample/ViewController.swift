@@ -109,6 +109,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     // Checkout Generation Settings
+    // Shared throwaway demo key for the public test card. Not a production credential - replace it.
     static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
     static let userDefaultsApiKeyKey = "StashApiKey"
     static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
@@ -148,13 +149,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tapGesture.cancelsTouchesInView = false
         view.addGestureRecognizer(tapGesture)
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if navigationController == nil {
-            navigationController?.navigationBar.prefersLargeTitles = true
-        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -238,6 +232,13 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     func setupStashNativeCard() {
         StashNativeCard.sharedInstance().delegate = self
+    }
+
+    deinit {
+        // Mirror the Android sample's setListener(null) in onDestroy: drop our delegate on teardown.
+        if StashNativeCard.sharedInstance().delegate === self {
+            StashNativeCard.sharedInstance().delegate = nil
+        }
     }
 
     // MARK: - Helpers

@@ -22,10 +22,6 @@ extension ViewController {
         }
     }
 
-    @objc func forcePortraitOnCheckoutToggled(_ sender: UISwitch) {
-        // Config is built at open time; no-op here.
-    }
-
     @objc func openCardTapped() {
         guard let url = checkoutUrlTextField.text, !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a URL")

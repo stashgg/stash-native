@@ -27,6 +27,7 @@ public class MainViewModel extends AndroidViewModel {
       + "refs/heads/main/.github/Stash.Popup.Test/index.html";
   private static final String DEFAULT_MODAL_URL =
       "https://checkout.stash.gg/pay/channel-selection";
+  // Shared throwaway demo key for the public test card. Not a production credential - replace it.
   public static final String DEFAULT_STASH_API_KEY =
       "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg";
 
