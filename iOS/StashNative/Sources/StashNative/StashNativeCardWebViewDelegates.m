@@ -451,8 +451,9 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
     
-    if ([urlString containsString:@"apps.apple.com"] ||
-        [urlString containsString:@"itunes.apple.com"]) {
+    NSString *host = url.host.lowercaseString;
+    if ([host isEqualToString:@"apps.apple.com"] ||
+        [host isEqualToString:@"itunes.apple.com"]) {
         decisionHandler(WKNavigationActionPolicyCancel);
         [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
         return;

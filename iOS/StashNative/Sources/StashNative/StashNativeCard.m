@@ -1724,7 +1724,18 @@ initialSpringVelocity:kSpringVelocityCollapse
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
     NSString *name = message.name;
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
-    
+
+    // Privileged action handlers must originate from the main frame (the checkout page), not a
+    // nested third-party iframe. Payment-result handlers are intentionally not gated here.
+    if (!message.frameInfo.isMainFrame &&
+        ([name isEqualToString:kMessageHandlerExternalPayment] ||
+         [name isEqualToString:kMessageHandlerWindowClose] ||
+         [name isEqualToString:kMessageHandlerOptin] ||
+         [name isEqualToString:kMessageHandlerExpand] ||
+         [name isEqualToString:kMessageHandlerCollapse])) {
+        return;
+    }
+
     if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
         // When autoClose is on, the dialog tears down after the first event, so guard against
         // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
@@ -3333,6 +3344,12 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         resetSafariOpenBrowserTrackingFlags();
         return;
     }
+    // SFSafariViewController only supports web URLs; reject any non-http(s) scheme (also avoids a crash).
+    NSString *scheme = nsurl.scheme.lowercaseString;
+    if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) {
+        resetSafariOpenBrowserTrackingFlags();
+        return;
+    }
 
     SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:nsurl];
     safariVC.delegate = [StashNativeCardInternal sharedInstance];
@@ -4440,7 +4457,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     }
     if (@available(iOS 11.0, *)) {
         config.websiteDataStore = [WKWebsiteDataStore defaultDataStore];
-        config.dataDetectorTypes = WKDataDetectorTypeAll;
+        config.dataDetectorTypes = WKDataDetectorTypeNone;
     }
     
     WKPreferences *preferences = [[WKPreferences alloc] init];
