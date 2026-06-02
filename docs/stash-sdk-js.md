@@ -55,6 +55,8 @@ Signals payment failure.
 
 > **Auto-close behavior:** By default the card / modal dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card / modal config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Web pages should not assume the dialog has been torn down by the time these callbacks return.
 
+> **Duplicate terminal events:** While `autoClose` is on, duplicate terminal events are suppressed (the host callback fires at most once, since the dialog tears down). While `autoClose` is off, the page may emit follow-up events (e.g. failure -> retry -> success) and each is forwarded to the host. This is consistent across iOS, Android card / modal, and the Android popup path.
+
 ### `window.stash_sdk.onPurchaseProcessing(data?)`
 
 Signals that a purchase is still processing.

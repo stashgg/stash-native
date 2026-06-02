@@ -70,6 +70,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean awaitingExternalBrowserDimOverlay;
   private boolean pendingCreateUIAfterRotation;
   private boolean callbackSent;
+  // Dedup latch for duplicate terminal payment events; only used while autoClose is on (matches iOS).
+  private boolean paymentEventHandled;
   private boolean googlePayRedirectHandled;
   // Set from the JS bridge thread (onPurchaseProcessing), read on the main thread for drag/dismiss gating.
   private volatile boolean isPurchaseProcessing;
@@ -2402,6 +2404,20 @@ public class StashNativeCardPortraitActivity extends Activity {
     try {
       runOnUiThread(() -> {
         try {
+          boolean isPaymentEvent =
+              CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
+                  || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
+
+          // Dedup duplicate terminal payment events only while autoClose is on (matches iOS and the
+          // plugin popup path). With autoClose off the page may legitimately emit follow-up events
+          // (e.g. failure -> retry -> success), so duplicates are allowed through.
+          if (isPaymentEvent && autoCloseOnPaymentEvent) {
+            if (paymentEventHandled) {
+              return;
+            }
+            paymentEventHandled = true;
+          }
+
           if (success) {
             // Always re-enable interaction so the user can dismiss the card after the result.
             isPurchaseProcessing = false;
@@ -2412,10 +2428,6 @@ public class StashNativeCardPortraitActivity extends Activity {
               callbackSent = true;
             }
           }
-          
-          boolean isPaymentEvent =
-              CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
-                  || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
 
           switch (messageType) {
             case CardConstants.MESSAGE_TYPE_SUCCESS:
