@@ -3161,8 +3161,18 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 // openCardWithURL:config: (applies config to static sizing, then opens)
 // ============================================================================
 
+// Clamps a caller-supplied size ratio to the documented [0.1, 1.0] range (matches Android).
+static inline CGFloat stashClampRatio(CGFloat r) {
+    return MAX((CGFloat)0.1, MIN((CGFloat)1.0, r));
+}
+
 - (void)openCardWithURL:(NSString *)url config:(StashNativeCardConfig *)config {
     if (url == nil || url.length == 0) {
+        return;
+    }
+    // Reject a second open before mutating config statics, so a rejected open
+    // cannot corrupt the live card (openURLInternal: also guards after the main hop).
+    if (_isCardCurrentlyPresented) {
         return;
     }
 
@@ -3170,13 +3180,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
     if (config) {
         _forcePortraitOnCheckout = config.forcePortrait;
-        _cardHeightRatioPortrait = config.cardHeightRatioPortrait;
-        _cardWidthRatioLandscape = config.cardWidthRatioLandscape;
-        _cardHeightRatioLandscape = config.cardHeightRatioLandscape;
-        _tabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
-        _tabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
-        _tabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
-        _tabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
+        _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
+        _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
+        _tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        _tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        _tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        _tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
@@ -3211,6 +3221,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     if (url == nil || url.length == 0) {
         return;
     }
+    if (_isCardCurrentlyPresented) {
+        return;
+    }
 
     _presentationBackgroundColorHex = nil;
 
@@ -3237,6 +3250,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     if (url == nil || url.length == 0) {
         return;
     }
+    if (_isCardCurrentlyPresented) {
+        return;
+    }
 
     _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
 
@@ -3245,14 +3261,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
     if (config) {
         _modalAllowDismiss = config.allowDismiss;
-        _modalPhoneWidthRatioPortrait = config.phoneWidthRatioPortrait;
-        _modalPhoneHeightRatioPortrait = config.phoneHeightRatioPortrait;
-        _modalPhoneWidthRatioLandscape = config.phoneWidthRatioLandscape;
-        _modalPhoneHeightRatioLandscape = config.phoneHeightRatioLandscape;
-        _modalTabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
-        _modalTabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
-        _modalTabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
-        _modalTabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        _modalPhoneWidthRatioPortrait = stashClampRatio(config.phoneWidthRatioPortrait);
+        _modalPhoneHeightRatioPortrait = stashClampRatio(config.phoneHeightRatioPortrait);
+        _modalPhoneWidthRatioLandscape = stashClampRatio(config.phoneWidthRatioLandscape);
+        _modalPhoneHeightRatioLandscape = stashClampRatio(config.phoneHeightRatioLandscape);
+        _modalTabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        _modalTabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        _modalTabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        _modalTabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
