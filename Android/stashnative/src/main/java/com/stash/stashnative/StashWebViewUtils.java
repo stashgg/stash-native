@@ -221,6 +221,9 @@ public class StashWebViewUtils {
     WebSettings settings = webView.getSettings();
     settings.setAllowFileAccess(false);
     settings.setAllowContentAccess(false);
+    // Pin the secure default explicitly (already the KitKat+ default) so the payment surface is not
+    // weakened by an OEM or future platform default change.
+    settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     
     settings.setJavaScriptEnabled(true);
     settings.setDomStorageEnabled(true);
