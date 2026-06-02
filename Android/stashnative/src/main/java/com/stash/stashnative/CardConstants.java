@@ -44,12 +44,6 @@ public final class CardConstants {
   /** Snap back animation duration. */
   public static final int ANIMATION_DURATION_SNAP_BACK = 450;
 
-  /** Checkout overlay height expand animation (matches default card timing). */
-  public static final int ANIMATION_DURATION_EXPAND = ANIMATION_DURATION_DEFAULT;
-
-  /** Delay after opening Chrome Custom Tabs before reporting dialog dismissed. */
-  public static final int DIALOG_DISMISS_DELAY_MS = 300;
-
   /**
    * When a host backdrop is used with force-portrait phone checkout, {@code finish()} is delayed
    * until landscape configuration is applied; this caps wait if the device never reports it.
@@ -346,13 +340,9 @@ public final class CardConstants {
       "com.stash.stashnative.internal.CHECKOUT_NETWORK_ERROR";
   public static final String BROADCAST_CHECKOUT_DIALOG_DISMISSED =
       "com.stash.stashnative.internal.CHECKOUT_DIALOG_DISMISSED";
-  public static final String BROADCAST_CHECKOUT_EXTERNAL_PAYMENT =
-      "com.stash.stashnative.internal.CHECKOUT_EXTERNAL_PAYMENT";
   public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
   /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
-  /** URL for {@code window.stash_sdk.openExternalBrowser(url)} (includes theme query when applicable). */
-  public static final String BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL = "stashExternalPaymentUrl";
 
   /** Message types for notifyListenerAndDismiss (success/failure/optin). */
   public static final String MESSAGE_TYPE_SUCCESS = "success";
