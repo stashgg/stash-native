@@ -165,7 +165,11 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     self = [super init];
     if (self) {
         _webView = webView;
+#if __has_feature(objc_arc)
         _loadingView = loadingView;
+#else
+        _loadingView = [loadingView retain];
+#endif
         _retryArmDelay = retryArmDelay;
         _expectedPresentationSessionToken = presentationSessionToken;
         _stallReloadCount = 0;
@@ -290,7 +294,11 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     if (!url || _checkoutURL || _initialLoadComplete || _networkErrorHandled) {
         return;
     }
+#if __has_feature(objc_arc)
     _checkoutURL = url;
+#else
+    _checkoutURL = [url retain];
+#endif
     NSTimeInterval retryDelay = kRetryTimeoutInterval + MAX(0.0, _retryArmDelay);
     [self scheduleStallRetryTimerWithDelay:retryDelay reason:@"initial-main-frame-arm"];
 }
