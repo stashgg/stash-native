@@ -105,6 +105,11 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onDialogDismissed() {
         Log.i(TAG, "Dialog dismissed");
+        runOnUiThread(
+            () ->
+                Toast.makeText(
+                        MainActivity.this, "Dialog dismissed callback fired", Toast.LENGTH_SHORT)
+                    .show());
       }
 
       @Override

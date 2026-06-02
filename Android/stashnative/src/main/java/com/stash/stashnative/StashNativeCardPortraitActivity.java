@@ -2282,8 +2282,14 @@ public class StashNativeCardPortraitActivity extends Activity {
       runOnUiThread(() -> {
         try {
           if (success) {
-            callbackSent = true;
+            // Always re-enable interaction so the user can dismiss the card after the result.
             isPurchaseProcessing = false;
+            // Only latch callbackSent (which suppresses the onDestroy dismiss callback) when the
+            // card actually auto-closes as part of this payment event. With autoClose = false the
+            // card stays open and the later, user-initiated close must still emit onDialogDismissed.
+            if (autoCloseOnPaymentEvent) {
+              callbackSent = true;
+            }
           }
           
           boolean isPaymentEvent =
