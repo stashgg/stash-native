@@ -513,17 +513,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
-  /** Floor-only minimum clamp on an already-computed (width,height) px pair. Pure: no view/field reads. */
-  private static int[] applyMinFloors(int width, int height, int minWidthPx, int minHeightPx) {
-    if (width < minWidthPx) {
-      width = minWidthPx;
-    }
-    if (height < minHeightPx) {
-      height = minHeightPx;
-    }
-    return new int[]{width, height};
-  }
-
   private int[] calculateTabletCardSize(DisplayMetrics metrics) {
     // Use actual current screen dimensions
     int screenWidth = metrics.widthPixels;
@@ -554,7 +543,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     // Enforce minimum sizes for usability
     int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
     int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
-    int[] clamped = applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
+    int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
     cardWidth = clamped[0];
     cardHeight = clamped[1];
     
@@ -613,7 +602,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       int sysBottom = insets.getSystemWindowInsetBottom();
       int navRef = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
       boolean imeInflated =
-          navRef > 0 && sysBottom > navRef + (int) StashWebViewUtils.dpToPx(this, 80);
+          navRef > 0 && sysBottom > navRef + StashWebViewUtils.dpToPx(this, 80);
       if (!imeInflated) {
         // Remember the exact keyboard-free bottom inset so the card does not shift when the keyboard
         // later appears (reusing this value avoids a few-pixel jump from dimension rounding).
@@ -656,7 +645,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         return;
       }
       int nav = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
-      boolean keyboardShown = (fullHeight - r.bottom) > (int) StashWebViewUtils.dpToPx(this, 80);
+      boolean keyboardShown = (fullHeight - r.bottom) > StashWebViewUtils.dpToPx(this, 80);
       // Keyboard height above the navigation bar (r.bottom is the keyboard top in screen coords).
       int overlap = keyboardShown ? Math.max(0, (fullHeight - nav) - r.bottom) : 0;
       applyImeOverlap(overlap);
@@ -832,7 +821,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         // Phone checkout in landscape without forcing portrait: use landscape ratios
         int w = (int) (metrics.widthPixels * cardWidthRatioLandscape);
         int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
-        int minPx = (int) StashWebViewUtils.dpToPx(
+        int minPx = StashWebViewUtils.dpToPx(
             this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
         if (w < minPx) {
           w = minPx;
@@ -938,7 +927,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
         : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
 
-    int[] clamped = applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
+    int[] clamped = StashWebViewUtils.applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
     cardWidth = clamped[0];
     cardHeight = clamped[1];
 
@@ -1249,7 +1238,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       int maxH = metrics.heightPixels - StashWindowCompat.getSystemTopInsetPx(getWindow());
       if (maxH <= 0) maxH = metrics.heightPixels;
       int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
+      int minPx = StashWebViewUtils.dpToPx(
           this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
       if (h < minPx) {
         h = minPx;
@@ -2894,7 +2883,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
       int w = (int) (screenWidth * cardWidthRatioLandscape);
       int h = (int) (contentHeight * cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
+      int minPx = StashWebViewUtils.dpToPx(
           this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
       if (w < minPx) {
         w = minPx;

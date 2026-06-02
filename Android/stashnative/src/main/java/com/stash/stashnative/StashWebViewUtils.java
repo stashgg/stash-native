@@ -179,6 +179,17 @@ public class StashWebViewUtils {
     return Math.round(dp * context.getResources().getDisplayMetrics().density);
   }
 
+  /** Floor-only minimum clamp on an already-computed (width,height) px pair. Pure: no view/field reads. */
+  static int[] applyMinFloors(int width, int height, int minWidthPx, int minHeightPx) {
+    if (width < minWidthPx) {
+      width = minWidthPx;
+    }
+    if (height < minHeightPx) {
+      height = minHeightPx;
+    }
+    return new int[]{width, height};
+  }
+
   /**
    * Returns true if the activity is running on a tablet-sized device.
    *
