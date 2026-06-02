@@ -543,6 +543,7 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 - (void)stopKeyboardObserving;
 - (BOOL)isIPhoneLandscapeCurrentOrientation;
 - (void)restorePrePortraitOrientation;
+- (void)teardownPresentationWindow:(UIWindow *)window;
 - (CGRect)referenceScreenBoundsForIPhoneCardLayout;
 - (CGRect)collapsedPhoneCardFrameForReferenceBounds:(CGRect)actualBounds;
 - (void)relayoutIPhoneCardWindowWithTargetBounds:(CGRect)targetBounds forcedCardExpansionProgress:(CGFloat)forcedProgress;
@@ -784,18 +785,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             if (self.portraitWindow.rootViewController) {
                 [self.portraitWindow.rootViewController dismissViewControllerAnimated:NO completion:nil];
             }
-            
-            self.portraitWindow.hidden = YES;
-            self.portraitWindow.rootViewController = nil;
-            
-            if (self.previousKeyWindow) {
-                // Restore scene orientation whenever it was locked during this card session.
-                // restorePrePortraitOrientation is a no-op if previousSceneOrientationMask == 0.
-                [self restorePrePortraitOrientation];
-                [self.previousKeyWindow makeKeyAndVisible];
-                self.previousKeyWindow = nil;
-            }
-            
+            [self teardownPresentationWindow:self.portraitWindow];
             self.portraitWindow = nil;
         }
     }
@@ -865,6 +855,21 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }
 }
 
+// Hides and detaches a dedicated SDK window (card portrait window or Safari portrait window),
+// restoring the host's previous key window and the pre-portrait scene orientation. The caller
+// clears its own strong reference to the window afterward.
+- (void)teardownPresentationWindow:(UIWindow *)window {
+    window.hidden = YES;
+    window.rootViewController = nil;
+    if (self.previousKeyWindow) {
+        // Restore scene orientation whenever it was locked during this session.
+        // restorePrePortraitOrientation is a no-op if previousSceneOrientationMask == 0.
+        [self restorePrePortraitOrientation];
+        [self.previousKeyWindow makeKeyAndVisible];
+        self.previousKeyWindow = nil;
+    }
+}
+
 - (void)dismissWithAnimation:(void (^)(void))completion {
     if (!self.currentPresentedVC) {
         if (completion) completion();
@@ -923,13 +928,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
     // If we created a dedicated Safari portrait window (standalone browser path), tear it down.
     if (self.safariPresentationWindow) {
-        self.safariPresentationWindow.hidden = YES;
-        self.safariPresentationWindow.rootViewController = nil;
-        if (self.previousKeyWindow) {
-            [self restorePrePortraitOrientation];
-            [self.previousKeyWindow makeKeyAndVisible];
-            self.previousKeyWindow = nil;
-        }
+        [self teardownPresentationWindow:self.safariPresentationWindow];
         self.safariPresentationWindow = nil;
     }
 
@@ -941,13 +940,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         // External-payment handoff OR openBrowserWithURL:forcePortrait:YES — the portrait
         // window was kept/created so Safari ran in portrait. Tear it down and restore landscape.
         if (self.portraitWindow) {
-            self.portraitWindow.hidden = YES;
-            self.portraitWindow.rootViewController = nil;
-            if (self.previousKeyWindow) {
-                [self restorePrePortraitOrientation];
-                [self.previousKeyWindow makeKeyAndVisible];
-                self.previousKeyWindow = nil;
-            }
+            [self teardownPresentationWindow:self.portraitWindow];
             self.portraitWindow = nil;
         }
         if (_safariBrowserCloseDelegatePending) {
