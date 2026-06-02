@@ -50,11 +50,41 @@ BOOL StashNativeSheetUsesDarkWebTheme(void);
 /// Injects document meta + html/body background for dark sheet (BG matches configured background color).
 NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
-// Shared file-scope state and helpers defined in StashNativeCard.m, used by the delegate classes.
+// Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
+// extern declarations the sibling .m files (view controllers, delegates) rely on.
 extern BOOL _usePopupPresentation;
 extern BOOL _useModalPresentation;
+extern BOOL _modalAllowDismiss;
+extern BOOL _useCustomPopupSize;
+extern CGFloat _customPortraitWidthMultiplier;
+extern CGFloat _customPortraitHeightMultiplier;
+extern CGFloat _customLandscapeWidthMultiplier;
+extern CGFloat _customLandscapeHeightMultiplier;
+extern const CGFloat kPopupPortraitWidthMultiplier;
+extern const CGFloat kPopupPortraitHeightMultiplier;
+extern const CGFloat kPopupLandscapeWidthMultiplier;
+extern const CGFloat kPopupLandscapeHeightMultiplier;
+extern const CGFloat kPopupBaseSizePercentageIPad;
+extern const CGFloat kPopupBaseSizePercentagePhone;
+extern const CGFloat kPopupBaseSizeMinIPad;
+extern const CGFloat kPopupBaseSizeMinPhone;
+extern const CGFloat kPopupBaseSizeMax;
+extern const NSTimeInterval kPopupFrameAnimationDuration;
+extern const CGFloat kCornerRadiusDefault;
+extern const CGFloat kDragTrayHeight;
+extern const CGFloat kHandleBarWidth;
+extern const CGFloat kHandleBarHeight;
+extern const CGFloat kHandleBarTopInset;
+extern const CGFloat kHandleHitAreaInset;
+extern const NSInteger kCardViewTag;
 extern const NSInteger kDragTrayViewTag;
+extern const NSInteger kDragHandleViewTag;
+extern NSString * const StashNativeAssociatedKeyOverlayView;
 BOOL isRunningOniPad(void);
+CGSize calculateiPadCardSize(CGRect screenBounds);
+CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
+CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
+UIInterfaceOrientation getInterfaceOrientation(void);
 UIColor* stash_sheetBackgroundUIColor(void);
 void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
 
