@@ -16,6 +16,7 @@ public class ConfigDefaultsTest {
     assertEquals(0.5f, cfg.tabletHeightRatioPortrait, 0.01f);
     assertEquals(0.3f, cfg.tabletWidthRatioLandscape, 0.01f);
     assertEquals(0.6f, cfg.tabletHeightRatioLandscape, 0.01f);
+    assertTrue(cfg.autoClose);
     assertNull(cfg.backgroundColor);
   }
 
@@ -31,6 +32,7 @@ public class ConfigDefaultsTest {
     assertEquals(0.30f, cfg.tabletHeightRatioPortrait, 0.01f);
     assertEquals(0.30f, cfg.tabletWidthRatioLandscape, 0.01f);
     assertEquals(0.40f, cfg.tabletHeightRatioLandscape, 0.01f);
+    assertTrue(cfg.autoClose);
     assertNull(cfg.backgroundColor);
   }
 

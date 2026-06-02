@@ -984,12 +984,13 @@ public class StashNativeCardPlugin {
   // Orientation-Specific Phone Card Size Configuration
   // ============================================================================
 
-  private float clampRatio(float ratio) {
+  // Package-private static so the [0.1,1.0] clamp invariant is unit-testable on the JVM.
+  static float clampRatio(float ratio) {
     return Math.max(0.1f, Math.min(1.0f, ratio));
   }
 
   /** Popup multipliers may exceed 1.0; only reject degenerate (<=0 or NaN) values, falling back to the default. */
-  private static float sanitizePopupMultiplier(float value, float fallback) {
+  static float sanitizePopupMultiplier(float value, float fallback) {
     return (Float.isNaN(value) || value <= 0f) ? fallback : value;
   }
 
