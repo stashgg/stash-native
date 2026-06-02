@@ -513,6 +513,17 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
+  /** Floor-only minimum clamp on an already-computed (width,height) px pair. Pure: no view/field reads. */
+  private static int[] applyMinFloors(int width, int height, int minWidthPx, int minHeightPx) {
+    if (width < minWidthPx) {
+      width = minWidthPx;
+    }
+    if (height < minHeightPx) {
+      height = minHeightPx;
+    }
+    return new int[]{width, height};
+  }
+
   private int[] calculateTabletCardSize(DisplayMetrics metrics) {
     // Use actual current screen dimensions
     int screenWidth = metrics.widthPixels;
@@ -543,12 +554,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     // Enforce minimum sizes for usability
     int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
     int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
+    int[] clamped = applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
+    cardWidth = clamped[0];
+    cardHeight = clamped[1];
     
     return new int[]{cardWidth, cardHeight};
   }
@@ -929,13 +937,10 @@ public class StashNativeCardPortraitActivity extends Activity {
     int minHeight = isTablet
         ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
         : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
-    
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
+
+    int[] clamped = applyMinFloors(cardWidth, cardHeight, minWidth, minHeight);
+    cardWidth = clamped[0];
+    cardHeight = clamped[1];
 
     return new int[]{cardWidth, cardHeight};
   }

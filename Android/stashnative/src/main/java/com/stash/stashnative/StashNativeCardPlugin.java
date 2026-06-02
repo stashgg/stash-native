@@ -1784,6 +1784,17 @@ public class StashNativeCardPlugin {
     }
   }
 
+  /** Floor-only minimum clamp on an already-computed (width,height) px pair. Pure: no view/field reads. */
+  private static int[] applyMinFloors(int width, int height, int minWidthPx, int minHeightPx) {
+    if (width < minWidthPx) {
+      width = minWidthPx;
+    }
+    if (height < minHeightPx) {
+      height = minHeightPx;
+    }
+    return new int[]{width, height};
+  }
+
   private int[] calculateModalDimensions(Activity activity) {
     if (activity == null || currentModalConfig == null) {
       Log.e(TAG, "Activity or modal config is null in calculateModalDimensions");
@@ -1825,12 +1836,9 @@ public class StashNativeCardPlugin {
           ? StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP)
           : StashWebViewUtils.dpToPx(activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
 
-      if (cardWidth < minWidthPx) {
-        cardWidth = minWidthPx;
-      }
-      if (cardHeight < minHeightPx) {
-        cardHeight = minHeightPx;
-      }
+      int[] clamped = applyMinFloors(cardWidth, cardHeight, minWidthPx, minHeightPx);
+      cardWidth = clamped[0];
+      cardHeight = clamped[1];
 
       return new int[]{cardWidth, cardHeight};
     } catch (Exception e) {
