@@ -168,12 +168,12 @@ static CGFloat _tabletWidthRatioLandscape = 0.3;
 static CGFloat _tabletHeightRatioLandscape = 0.6;
 
 // --- Popup size configuration (reset on cleanup) ---
-// Non-static: referenced by StashNativeCardViewControllers.m and StashNativeCardWebViewDelegates.m
-BOOL _useCustomPopupSize = NO;
-CGFloat _customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
-CGFloat _customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
-CGFloat _customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape is wider
-CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
+// File-local: read only inside computePopupFrameForScreenBounds (defined in this TU).
+static BOOL _useCustomPopupSize = NO;
+static CGFloat _customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
+static CGFloat _customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
+static CGFloat _customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape is wider
+static CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
 
 // --- Presentation mode flags (reset on cleanup) ---
 /** When YES, the current SFSafariViewController was opened via openBrowser (card-dismiss callbacks differ). */
@@ -198,19 +198,20 @@ static BOOL _cardIsInLandscape = NO;
 static CGFloat _cardSafeAreaTop = 0.0f;
 
 // --- Modal configuration (reset on cleanup) ---
-// Non-static: referenced by StashNativeCardViewControllers.m
+// _useModalPresentation is non-static (read by StashNativeCardWebViewDelegates.m); the ratios and
+// allowDismiss are file-local (read only by this TU's modal builder + computeModalFrameForScreenBounds).
 BOOL _useModalPresentation = NO;
-BOOL _modalAllowDismiss = YES;
+static BOOL _modalAllowDismiss = YES;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
 static BOOL _autoCloseOnPaymentEvent = YES;
-CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
-CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
-CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
-CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
-CGFloat _modalTabletWidthRatioPortrait = 0.40f;
-CGFloat _modalTabletHeightRatioPortrait = 0.30f;
-CGFloat _modalTabletWidthRatioLandscape = 0.30f;
-CGFloat _modalTabletHeightRatioLandscape = 0.40f;
+static CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
+static CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
+static CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
+static CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
+static CGFloat _modalTabletWidthRatioPortrait = 0.40f;
+static CGFloat _modalTabletHeightRatioPortrait = 0.30f;
+static CGFloat _modalTabletWidthRatioLandscape = 0.30f;
+static CGFloat _modalTabletHeightRatioLandscape = 0.40f;
 
 /** Optional #hex for card/modal chrome; cleared on cleanup. */
 static NSString *_presentationBackgroundColorHex = nil;
@@ -458,16 +459,16 @@ CGFloat getSafeAreaTopForView(UIView *view);
 WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView);
 void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 void configureScrollViewForWebView(UIScrollView* scrollView);
-UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
+static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 void setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
 CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
-NSString* appendThemeQueryParameter(NSString* url);
+static NSString* appendThemeQueryParameter(NSString* url);
 UIWindow* getKeyWindow(void);
 UIInterfaceOrientation getInterfaceOrientation(void);
-void runWithoutImplicitAnimations(void (^block)(void));
-UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
-void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
-void setOverlayToDismissAppearance(UIView *overlayView);
+static void runWithoutImplicitAnimations(void (^block)(void));
+static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
+static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
+static void setOverlayToDismissAppearance(UIView *overlayView);
 static NSString *NormalizeExternalPaymentURL(NSString *raw);
 CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
@@ -2750,7 +2751,7 @@ void configureScrollViewForWebView(UIScrollView* scrollView) {
 #endif
 }
 
-UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
+static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
     if (isiPad) {
         return UIRectCornerAllCorners;
     }
@@ -2881,14 +2882,14 @@ UIInterfaceOrientation getInterfaceOrientation(void) {
 #pragma clang diagnostic pop
 }
 
-void runWithoutImplicitAnimations(void (^block)(void)) {
+static void runWithoutImplicitAnimations(void (^block)(void)) {
     [CATransaction begin];
     [CATransaction setDisableActions:YES];
     if (block) block();
     [CATransaction commit];
 }
 
-UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc) {
+static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc) {
     UIView *overlayView = [[UIView alloc] initWithFrame:frame];
     overlayView.backgroundColor = [UIColor clearColor];
     overlayView.userInteractionEnabled = YES;
@@ -2900,7 +2901,7 @@ UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger i
     return overlayView;
 }
 
-void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle) {
+static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle) {
     if (!layer) return;
     layer.shadowColor = [UIColor blackColor].CGColor;
     if (phoneStyle) {
@@ -2914,7 +2915,7 @@ void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle) {
     }
 }
 
-void setOverlayToDismissAppearance(UIView *overlayView) {
+static void setOverlayToDismissAppearance(UIView *overlayView) {
     if (overlayView) {
         overlayView.backgroundColor = [UIColor colorWithWhite:kOverlayDismissAlpha alpha:kOverlayDismissAlpha];
     }
@@ -2958,7 +2959,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     return u.absoluteString;
 }
 
-NSString* appendThemeQueryParameter(NSString* url) {
+static NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return url;
     }

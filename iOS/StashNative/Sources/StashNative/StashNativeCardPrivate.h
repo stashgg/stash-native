@@ -55,12 +55,6 @@ UIColor *StashNativeDarkSurfaceColor(void);
 // extern declarations the sibling .m files (view controllers, delegates) rely on.
 extern BOOL _usePopupPresentation;
 extern BOOL _useModalPresentation;
-extern BOOL _modalAllowDismiss;
-extern BOOL _useCustomPopupSize;
-extern CGFloat _customPortraitWidthMultiplier;
-extern CGFloat _customPortraitHeightMultiplier;
-extern CGFloat _customLandscapeWidthMultiplier;
-extern CGFloat _customLandscapeHeightMultiplier;
 extern const CGFloat kPopupPortraitWidthMultiplier;
 extern const CGFloat kPopupPortraitHeightMultiplier;
 extern const CGFloat kPopupLandscapeWidthMultiplier;
