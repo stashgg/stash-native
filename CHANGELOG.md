@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-06-02
+
+### Added
+- Android: `release()` on `StashNativeCard` to drop the SDK's references to the host (clears the listener, unregisters internal receivers and lifecycle callbacks). Call it from `onDestroy` to avoid leaking the Activity through the singleton.
+- iOS: `PrivacyInfo.xcprivacy` privacy manifest, bundled via both SwiftPM and the xcframework. Declares no tracking, no collected data, and no Required-Reason API use.
+
+### Changed
+- iOS/Android: the `theme` query parameter is appended only to URLs loaded inside the card/modal/popup, never to URLs handed to an external browser. `onExternalPayment` / `stashNativeCardDidRequestExternalPaymentWithURL:` now receive the page URL as-is.
+- Android: default `openModal` phone-portrait width is now `0.80` (was `0.90`), matching iOS. Only affects callers that pass no width.
+
+### Fixed
+- iOS: fixed heap corruption / use-after-free on the non-ARC (Unreal) build path caused by an unbalanced retain/release of the loading view and checkout URL.
+- iOS: caller-supplied card/modal size ratios are now clamped to `[0.1, 1.0]` (matching Android), and a second `open` while a card is presented no longer overwrites the live card's configuration.
+- iOS: `dismiss`, `resetPresentationState`, the browser entry points, and the config setters now run on the main thread when called from a background thread; removed a latent main-thread deadlock in iPad detection.
+- Android: a failed checkout-activity launch now reports `onNetworkError()` instead of leaving the host with no signal.
+- Android: duplicate terminal payment events on the card/modal path are de-duplicated while `autoClose` is on (matching iOS); with `autoClose` off, follow-up events still pass through.
+- Android 14: the keep-alive short service now stops on timeout, preventing a `ForegroundServiceDidNotStopInTimeException` host crash during long external-browser sessions.
+- Android: `onBrowserClosed()` is delivered (and a stuck presentation cleared) when the internal browser proxy activity is recreated mid-session.
+- Docs: corrected the removed-`onActivityResult` guidance, the network-load timeout (15s), the landscape card-ratio defaults, and the same-process wording.
+
+### Security
+- iOS: privileged JS-bridge actions (external browser, window close, opt-in, expand/collapse) are gated to the main frame; App Store deep links match by exact host; data detectors are disabled on the checkout webview; non-`http(s)` schemes are rejected at the `SFSafariViewController` chokepoint.
+- iOS/Android: external-payment URLs are upgraded from `http` to `https`.
+- Android: WebView mixed-content mode is pinned to never-allow.
+
 ## [2.2.1] - 2026-05-29
 
 ### Added
