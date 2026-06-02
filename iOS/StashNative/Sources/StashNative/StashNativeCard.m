@@ -977,6 +977,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     handleView.backgroundColor = darkChrome ? [UIColor colorWithWhite:0.82 alpha:1.0]
                                            : [UIColor colorWithWhite:0.39 alpha:1.0];
     handleView.layer.cornerRadius = kHandleBarCornerRadius;
+    handleView.isAccessibilityElement = NO;  // purely visual drag affordance
     handleView.tag = kDragHandleViewTag;
     handleView.frame = CGRectMake(cardWidth/2 - kHandleBarHalfWidth, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
     handleView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
@@ -3859,6 +3860,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
             [overlayView addSubview:dismissButton];
             [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+            dismissButton.accessibilityLabel = @"Close checkout";
+            dismissButton.accessibilityTraits = UIAccessibilityTraitButton;
             
             [internal startKeyboardObserving];
             [internal registerIPhoneCardWindowGeometryObservers];
@@ -4057,6 +4060,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [overlayView addSubview:dismissButton];
         [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+        dismissButton.accessibilityLabel = @"Close checkout";
+        dismissButton.accessibilityTraits = UIAccessibilityTraitButton;
         [internal startKeyboardObserving];
         [internal registerIPhoneCardWindowGeometryObservers];
         containerVC.skipLayoutDuringInitialSetup = NO;
@@ -4190,6 +4195,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
             [overlayView addSubview:dismissButton];
             [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+            dismissButton.accessibilityLabel = @"Close checkout";
+            dismissButton.accessibilityTraits = UIAccessibilityTraitButton;
         }];
     });
 }
@@ -4314,6 +4321,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
                 dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
                 [overlayView addSubview:dismissButton];
                 [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
+                dismissButton.accessibilityLabel = @"Close checkout";
+                dismissButton.accessibilityTraits = UIAccessibilityTraitButton;
             }
         }];
     });

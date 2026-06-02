@@ -949,7 +949,10 @@ public class StashNativeCardPortraitActivity extends Activity {
         StashWebViewUtils.dpToPx(this, Math.round(CardConstants.DRAG_TRAY_PADDING_BOTTOM_DP));
     dragArea.setPadding(padH, padTop, padH, padBottom);
 
+    dragArea.setContentDescription("Drag down to dismiss checkout");
+
     View handle = new View(this);
+    handle.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);  // purely visual
     GradientDrawable handleBg = new GradientDrawable();
     handleBg.setColor(StashBackgroundColorUtils.dragHandleFor(sheetChromeBackgroundArgb));
     handleBg.setCornerRadius(
@@ -1941,6 +1944,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   private void addHomeButton() {
     homeButton = new Button(this);
     homeButton.setText("⌂");
+    homeButton.setContentDescription("Checkout home");
     homeButton.setTextSize(18);
     homeButton.setTextColor(Color.parseColor(CardConstants.COLOR_HOME_TEXT));
     homeButton.setGravity(Gravity.CENTER);
