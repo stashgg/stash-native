@@ -869,10 +869,16 @@ public class StashNativeCardPlugin {
     try {
       usePopupPresentation = true;
       useModalPresentation = false;
-      customPortraitWidthMultiplier = portraitWidthMultiplier;
-      customPortraitHeightMultiplier = portraitHeightMultiplier;
-      customLandscapeWidthMultiplier = landscapeWidthMultiplier;
-      customLandscapeHeightMultiplier = landscapeHeightMultiplier;
+      // Popup multipliers are not clamped to [0.1,1.0] (defaults exceed 1.0), but a
+      // degenerate <=0/NaN value would collapse the popup; fall back to the default instead.
+      customPortraitWidthMultiplier = sanitizePopupMultiplier(
+          portraitWidthMultiplier, CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER);
+      customPortraitHeightMultiplier = sanitizePopupMultiplier(
+          portraitHeightMultiplier, CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER);
+      customLandscapeWidthMultiplier = sanitizePopupMultiplier(
+          landscapeWidthMultiplier, CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER);
+      customLandscapeHeightMultiplier = sanitizePopupMultiplier(
+          landscapeHeightMultiplier, CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER);
       useCustomSize = true;
       openUrlInternal(url);
     } catch (Exception e) {
@@ -985,6 +991,11 @@ public class StashNativeCardPlugin {
 
   private float clampRatio(float ratio) {
     return Math.max(0.1f, Math.min(1.0f, ratio));
+  }
+
+  /** Popup multipliers may exceed 1.0; only reject degenerate (<=0 or NaN) values, falling back to the default. */
+  private static float sanitizePopupMultiplier(float value, float fallback) {
+    return (Float.isNaN(value) || value <= 0f) ? fallback : value;
   }
 
   /** Hex string for the upcoming portrait activity / theme query, or null for system default. */
