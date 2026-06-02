@@ -369,9 +369,11 @@ public class StashNativeCard {
 
   /**
    * Releases the SDK's references to the host: clears the listener and unregisters internal
-   * receivers and lifecycle callbacks. Call this from your Activity's {@code onDestroy} (or when the
-   * host is going away) so the process-lifetime singleton does not retain the Activity. Any
-   * presented checkout is dismissed. Safe to call more than once.
+   * receivers and lifecycle callbacks, and tears down any popup presentation. Call this from your
+   * Activity's {@code onDestroy} (or when the host is going away) so the process-lifetime singleton
+   * does not retain the Activity. A card/modal shown via the checkout Activity is left to its own
+   * lifecycle (page or user dismissal); call {@link #dismiss()} first if you need it closed. Safe to
+   * call more than once.
    */
   public void release() {
     this.listener = null;

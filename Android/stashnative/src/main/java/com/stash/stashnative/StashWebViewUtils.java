@@ -270,7 +270,7 @@ public class StashWebViewUtils {
     if (lower.startsWith("javascript:") || lower.startsWith("file:") || lower.startsWith("data:")) {
       return null;
     }
-    if (!s.startsWith("http://") && !s.startsWith("https://")) {
+    if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
       s = "https://" + s;
     }
     try {

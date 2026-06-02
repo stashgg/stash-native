@@ -2,10 +2,12 @@
 
 This document describes the JavaScript API injected into checkout and webshop pages loaded inside the Stash Native WebView. Web authors call these functions to report payment outcomes, adjust the native chrome, request an external browser, or close the sheet.
 
-The native implementations are kept in lockstep on Android and iOS. Source of truth:
+The `window.stash_sdk` surface (function names and arguments) is kept identical on Android and iOS. Source of truth:
 
 - Android: [`StashWebViewUtils.JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (constant `JS_SDK_SCRIPT`).
 - iOS: `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (assembled `NSString` passed to `WKUserScript` at `WKUserScriptInjectionTimeAtDocumentStart`).
+
+> **Frame origin (platform difference):** On iOS the privileged action handlers (`openExternalBrowser`, `window.close`, `setPaymentChannel`, `expand`, `collapse`) are accepted only from the main frame (`WKScriptMessage.frameInfo.isMainFrame`); payment-result handlers are not gated. Android does not yet enforce an equivalent main-frame check on its `StashAndroid` bridge (a robust Android gate requires a per-load token handshake, tracked as a follow-up). Treat the checkout page as the trusted top frame on both platforms and do not embed untrusted third-party iframes in it.
 
 ## Availability and Detection
 
