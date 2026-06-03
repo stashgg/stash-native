@@ -1915,8 +1915,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       return;
     }
     
-    String lower = url.toLowerCase();
-    if (lower.contains(CardConstants.GOOGLE_PAY_DOMAIN)) {
+    if (url.toLowerCase().contains(CardConstants.GOOGLE_PAY_DOMAIN)) {
       googlePayRedirectHandled = true;
       openGooglePayInBrowser(initialURL);
     }

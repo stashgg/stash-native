@@ -257,8 +257,7 @@ public class StashNativeCardPlugin {
           return;
         }
         final String action = intent.getAction();
-        final Intent intentCopy = intent;
-        mainHandler.post(() -> dispatchCheckoutBridgeIntent(action, intentCopy));
+        mainHandler.post(() -> dispatchCheckoutBridgeIntent(action, intent));
       }
     };
     IntentFilter filter = new IntentFilter();

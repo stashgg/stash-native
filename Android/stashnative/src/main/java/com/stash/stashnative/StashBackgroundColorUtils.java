@@ -58,8 +58,7 @@ public final class StashBackgroundColorUtils {
 
   /** True when the background luminance is below 0.5. */
   public static boolean isDarkBackground(int colorArgb) {
-    double lum = ColorUtils.calculateLuminance(colorArgb);
-    return lum < 0.5;
+    return ColorUtils.calculateLuminance(colorArgb) < 0.5;
   }
 
   public static int spinnerLightAccent() {
