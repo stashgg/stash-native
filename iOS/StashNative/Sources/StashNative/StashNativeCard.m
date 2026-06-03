@@ -22,7 +22,6 @@
 #import <math.h>
 #import <stdlib.h>
 
-
 // Non-ARC compatibility: These warnings are suppressed when compiling without ARC
 // (e.g., in game engines like Unreal Engine that manage memory manually).
 // ARC builds do not need these suppressions.
@@ -41,7 +40,6 @@ const CGFloat kPopupPortraitHeightMultiplier = 1.485;
 const CGFloat kPopupLandscapeWidthMultiplier = 1.2275445;
 const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 
-
 #pragma mark - Private State
 // Note: These statics are reset in [StashNativeCardInternal cleanupCardInstance].
 // They are file-scope to this translation unit and effectively private to the SDK.
@@ -50,7 +48,6 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 static BOOL _callbackWasCalled = NO;              // Ensures dismiss callback fires only once
 BOOL stash_isCardCurrentlyPresented = NO;       // Guards against double-presentation
 BOOL stash_paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
-
 
 // --- User-configurable sizing (persists across presentations) ---
 BOOL stash_forcePortraitOnCheckout = NO;
@@ -104,7 +101,6 @@ CGFloat stash_modalTabletHeightRatioLandscape = 0.40f;
 
 /** Optional #hex for card/modal chrome; cleared on cleanup. */
 NSString *stash_presentationBackgroundColorHex = nil;
-
 
 #pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
 
@@ -293,8 +289,7 @@ const CGFloat kFallbackTabletCardHeight = 700.0f;
 const CGFloat kTabletMinHeight = 500.0f;
 const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 
-#pragma mark - Message Handler Names (WKScriptMessageHandler)
-
+#pragma mark - Message Handler Registration (name string values are defined in StashNativeCardWebBridge.m)
 
 // All script-message handler names, registered and torn down together (order does not matter).
 // Single source so adding a handler cannot drift between the add and remove sites.
@@ -303,7 +298,6 @@ static NSArray<NSString *> *stashAllMessageHandlerNames(void) {
              kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerExternalPayment,
              kMessageHandlerWindowClose, kMessageHandlerPageReady];
 }
-
 
 #pragma mark - Associated Object Keys
 
@@ -316,18 +310,14 @@ static NSString * const kAssociatedKeyInitialCardHeight = @"initialCardHeight";
 
 #pragma mark - Helper Function Prototypes
 
-
-UIColor* stash_sheetBackgroundUIColor(void);
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 static NSString* appendThemeQueryParameter(NSString* url);
 static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 static void setOverlayToDismissAppearance(UIView *overlayView);
-CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
 #pragma mark - StashNativeCardInternal
-
 
 NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     return [StashNativeCardInternal sharedInstance].presentationSessionToken;
@@ -439,7 +429,6 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         dispatch_async(dispatch_get_main_queue(), apply);
     }
 }
-
 
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc {
     if (vc && [vc respondsToSelector:@selector(setSkipLayoutDuringInitialSetup:)]) {
@@ -575,7 +564,6 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     stash_cardSafeAreaTop = 0.0f;
 }
 
-
 - (void)dismissWithAnimation:(void (^)(void))completion {
     if (!self.currentPresentedVC) {
         if (completion) completion();
@@ -626,7 +614,6 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         if (completion) completion();
     }];
 }
-
 
 - (UIView *)createDragTrayViewWithWidth:(CGFloat)cardWidth {
     // Shared: build drag tray + handle bar (no gesture). Used by createDragTray.
@@ -1334,7 +1321,6 @@ initialSpringVelocity:kSpringVelocityCollapse
 // handlers. Each handler is the verbatim body of its former else-if branch; the dispatcher keeps
 // the main-frame gate and the mutually-exclusive routing, so exactly one runs per message.
 
-
 #pragma mark - iPhone card window bounds / relayout
 
 - (CGRect)referenceScreenBoundsForIPhoneCardLayout {
@@ -1513,7 +1499,6 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
     self.pendingIPhoneCardGeometryRelayoutBlock = work;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), work);
 }
-
 
 @end
 
@@ -1710,14 +1695,6 @@ void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBound
 
 #pragma mark - Helper Functions
 
-// Maps a UIInterfaceOrientation to the corresponding single-orientation mask for restore.
-
-
-
-
-
-
-
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
     if (isiPad) {
         return UIRectCornerAllCorners;
@@ -1729,13 +1706,6 @@ static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL 
     }
     return UIRectCornerAllCorners;
 }
-
-
-
-/// Attach cardWindow to the same UIWindowScene as the app (e.g. Unreal) so it renders in game engines.
-
-
-
 
 static void runWithoutImplicitAnimations(void (^block)(void)) {
     [CATransaction begin];
@@ -1776,7 +1746,6 @@ static void setOverlayToDismissAppearance(UIView *overlayView) {
     }
 }
 
-
 static NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
         return url;
@@ -1814,7 +1783,6 @@ static NSString* appendThemeQueryParameter(NSString* url) {
 // ============================================================================
 
 @implementation StashNativeCard
-
 
 + (instancetype)sharedInstance {
     static StashNativeCard *sharedInstance = nil;
@@ -1897,7 +1865,6 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     stash_useModalPresentation = NO;
     [self openURLInternal:url];
 }
-
 
 - (void)openPopupWithURL:(NSString *)url {
     [self openPopupWithURL:url sizeConfig:nil];
@@ -1997,8 +1964,6 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     NSString *urlWithTheme = appendThemeQueryParameter(url);
     [self openInCardUI:urlWithTheme];
 }
-
-
 
 - (void)openInCardUI:(NSString *)url {
     StashNativeCardInternal *sessionInternal = [StashNativeCardInternal sharedInstance];
@@ -2532,7 +2497,6 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     containerVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
     containerVC.view.backgroundColor = [UIColor clearColor];
     containerVC.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    containerVC.previousScreenSize = screenBounds.size;
     
     // Create cardView (centered dialog)
     UIView *cardView = [[UIView alloc] init];
@@ -3119,9 +3083,6 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     [internal cleanupCardInstance];
     stash_isCardCurrentlyPresented = NO;
 }
-
-
-
 
 @end
 

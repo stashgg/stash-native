@@ -14,16 +14,8 @@
 #import "StashNativeCardTheme.h"
 #import "StashNativeCardGeometry.h"
 
-
-/// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
-
-/// Modal frame (x, y, width, height) for given screen bounds; uses current orientation and modal ratios.
-
-/// Phone card frame (x, y, width, height) for given bounds and orientation; used by current-orientation presentation and rotation.
-
 /// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
 NSUInteger StashNativeCurrentPresentationSessionToken(void);
-/// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
 
 /// Preferred full-screen bounds for a window's scene (rotation-safe vs UIScreen.main).
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
@@ -31,12 +23,6 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 /// Relayouts the iPhone card window, overlay, and sheet. `forcedCardExpansionProgress` in [0,1] overrides
 /// measured progress (use 0 after rotation). Pass a value outside [0,1] (e.g. -1) to use automatic progress.
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
-
-
-
-/// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
-/// Injects document meta + html/body background for dark sheet (BG matches configured background color).
-
 
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
 // extern declarations the sibling .m files (view controllers, delegates) rely on.
@@ -119,7 +105,6 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
 @end
 
 @interface IPadModalViewController : UIViewController
-@property (nonatomic, assign) CGSize previousScreenSize;
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
 - (void)updateCornerRadiusMaskForCardView;

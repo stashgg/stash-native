@@ -231,7 +231,6 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         stash_layoutCardContentToBounds(cardView);
         [cardView layoutIfNeeded];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        self.previousScreenSize = size;
         self.customFrame = newFrame;
         cardView.frame = newFrame;
         stash_layoutCardContentToBounds(cardView);

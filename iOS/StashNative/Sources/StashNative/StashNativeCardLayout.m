@@ -8,6 +8,7 @@
 //
 
 #import "StashNativeCardPrivate.h"
+#import "StashNativeCardLayout.h"
 
 #if !__has_feature(objc_arc)
 #pragma clang diagnostic push
