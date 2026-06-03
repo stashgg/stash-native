@@ -105,7 +105,6 @@ CGFloat stash_modalTabletHeightRatioLandscape = 0.40f;
 /** Optional #hex for card/modal chrome; cleared on cleanup. */
 NSString *stash_presentationBackgroundColorHex = nil;
 
-#define ENABLE_IPAD_SUPPORT 1
 
 #pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
 
