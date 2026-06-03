@@ -15,6 +15,7 @@ Checkout SDK embedding webviews in native containers (card/modal/browser) for in
 - Game engine wrapper compatibility: Unity, Unreal 4, Unreal 5. The checkout activity runs in the same process as the host (no `android:process` isolate).
 - No emojis in code, comments, or documentation.
 - All prose -- comments, README, CHANGELOG, COMPATIBILITY, `docs/` -- is terse, direct, and human, like a senior engineer wrote it. No AI-style verbose explanations or filler. CHANGELOG follows Keep a Changelog: plain past-tense statements of what changed.
+- Every comment states a fact about what the code or file is or does. No reasoning ("because", "so that", "to keep"), no history ("previously", "moved from"), no opinion or obligation. A why that is load-bearing is restated as a fact about behavior, not deleted. Applies to file headers, doc-comments, inline comments, and `#pragma mark` labels.
 
 ## Coding Standards
 
