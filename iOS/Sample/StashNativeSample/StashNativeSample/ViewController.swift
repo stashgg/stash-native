@@ -33,7 +33,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var isModalAdvancedExpanded = false
     let forcePortraitOnCheckoutSwitch = UISwitch()
     let cardAutoCloseSwitch = UISwitch()
-    // Maps each percentage slider to the label it updates, so all sliders can share one handler.
+    // Maps each percentage slider to the label it updates.
     var sliderLabels: [ObjectIdentifier: UILabel] = [:]
     let phoneCardHeightSlider = UISlider()
     let phoneCardHeightLabel = UILabel()
@@ -111,7 +111,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     // Checkout Generation Settings
-    // Shared throwaway demo key for the public test card. Not a production credential - replace it.
+    // Demo API key for the public test card. Not a production credential.
     static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
     static let userDefaultsApiKeyKey = "StashApiKey"
     static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
@@ -237,7 +237,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     deinit {
-        // Mirror the Android sample's setListener(null) in onDestroy: drop our delegate on teardown.
+        // Clears the SDK delegate on teardown.
         if StashNativeCard.sharedInstance().delegate === self {
             StashNativeCard.sharedInstance().delegate = nil
         }

@@ -5,7 +5,7 @@
 
 import UIKit
 
-/// Forwards orientation to top VC, mirroring game engine (Unity/Unreal) behavior.
+/// Forwards supported orientations and autorotate to the top view controller.
 final class ForwardingNavigationController: UINavigationController {
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         topViewController?.supportedInterfaceOrientations ?? .all

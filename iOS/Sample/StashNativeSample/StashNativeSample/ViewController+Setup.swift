@@ -21,7 +21,7 @@ extension ViewController {
     }
 
     func setupCheckoutSlidersAndSwitches() {
-        // Switch state is read in buildCardConfig at open time, so no value-changed handler is needed.
+        // Switch state is read in buildCardConfig at open time.
         forcePortraitOnCheckoutSwitch.isOn = false
         cardAutoCloseSwitch.isOn = true
         configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)

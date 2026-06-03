@@ -95,9 +95,7 @@ extension ViewController {
         tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
     }
 
-    // Every percentage slider shares this handler; configureSlider registers each slider's label
-    // in sliderLabels. The config builders read slider.value directly at open time, so this only
-    // keeps the on-screen percentage in sync.
+    // Updates the slider's label in sliderLabels to the slider value as a percentage.
     @objc func sliderValueChanged(_ sender: UISlider) {
         sliderLabels[ObjectIdentifier(sender)]?.text = "\(Int(sender.value))%"
     }
@@ -145,7 +143,7 @@ extension ViewController {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
-        // Test fixtures -- replace with real user/product data in production.
+        // Test fixture user and product data.
         let body: [String: Any] = [
             "user": [
                 "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
@@ -216,7 +214,7 @@ extension ViewController {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
-        // Test fixtures -- replace with real user data in production.
+        // Test fixture user data.
         let body: [String: Any] = [
             "user": [
                 "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",

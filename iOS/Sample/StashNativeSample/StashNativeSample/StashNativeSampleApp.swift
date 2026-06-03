@@ -18,7 +18,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         true
     }
 
-    // Explicitly wire up SceneDelegate so iOS doesn't rely on plist class-name resolution.
+    // Returns a scene configuration whose delegate class is SceneDelegate.
     func application(
         _ application: UIApplication,
         configurationForConnecting connectingSceneSession: UISceneSession,
