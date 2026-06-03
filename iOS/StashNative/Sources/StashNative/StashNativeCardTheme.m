@@ -7,7 +7,6 @@
 //  JavaScript that paints the page background to match.
 //
 
-#import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import "StashNativeCardTheme.h"
 

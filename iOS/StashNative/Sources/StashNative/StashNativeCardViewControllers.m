@@ -13,7 +13,6 @@
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import <UIKit/UIKit.h>
-#import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 

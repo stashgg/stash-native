@@ -13,7 +13,6 @@
 #import "StashNativeCardWebBridge.h"
 #import "StashNativeCardScripts.h"
 #import "StashNativeCardOrientation.h"
-#import <SafariServices/SafariServices.h>
 #import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>

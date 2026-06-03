@@ -7,7 +7,6 @@
 //  safe-area insets, and the rotation expand-reset.
 //
 
-#import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import "StashNativeCardGeometry.h"
 
