@@ -57,6 +57,7 @@ extern BOOL stash_paymentSuccessHandled;
 extern BOOL stash_cardIsInLandscape;
 extern BOOL stash_isCardExpanded;
 extern BOOL stash_forcePortraitOnCheckout;
+extern BOOL stash_isCardCurrentlyPresented;
 extern const CGFloat kPopupPortraitWidthMultiplier;
 extern const CGFloat kPopupPortraitHeightMultiplier;
 extern const CGFloat kPopupLandscapeWidthMultiplier;
