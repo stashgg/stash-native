@@ -22,8 +22,8 @@ public final class StashBackgroundColorUtils {
   }
 
   /**
-   * Parses #RGB, #RRGGBB, or #AARRGGBB into opaque ARGB (alpha forced to 0xFF). Returns null if
-   * invalid.
+   * Parses #RGB and #RRGGBB as opaque ARGB (alpha forced to 0xFF), and #AARRGGBB with its given
+   * alpha preserved. Returns null if invalid.
    */
   public static Integer parseSolidColorOrNull(String hex) {
     String s = normalizeHexOrNull(hex);

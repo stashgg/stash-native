@@ -36,5 +36,5 @@ public class UrlNormalizationTest {
     assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("file:///etc/passwd"));
   }
 
-  // Valid http/https URL cases live in androidTest/ (instrumented).
+  // Valid http/https URL cases live in UrlAndColorRobolectricTest (Robolectric, real Uri).
 }

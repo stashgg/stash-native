@@ -752,7 +752,7 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Opens the given URL in card (sliding bottom sheet or portrait activity) presentation.
+   * Opens the given URL as a sliding bottom sheet rendered in {@link StashNativeCardPortraitActivity}.
    *
    * @param url checkout URL to load
    * @param config card sizing config or null for defaults

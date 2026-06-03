@@ -5,7 +5,7 @@ import org.junit.Test;
 
 /**
  * Tests for StashWebViewUtils.appendThemeQueryParameter().
- * Uri-dependent assertions require instrumented tests (androidTest).
+ * Uri-dependent assertions run under Robolectric in UrlAndColorRobolectricTest (real android.net.Uri).
  */
 public class ThemeParameterTest {
 

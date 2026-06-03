@@ -21,8 +21,8 @@ import java.lang.ref.WeakReference;
 
 /**
  * Binds Custom Tabs, attaches a {@link CustomTabsSession}, and launches with {@link
- * Activity#startActivityForResult}. Uses {@link EngagementSignalsCallback} when Chrome exposes it,
- * and {@link CustomTabsCallback} {@code NAVIGATION_ABORTED} otherwise.
+ * Activity#startActivityForResult}. Always wires {@link CustomTabsCallback} {@code NAVIGATION_ABORTED}
+ * as a backup close signal, and additionally registers {@link EngagementSignalsCallback} when Chrome exposes it.
  */
 final class StashCustomTabsEngagement {
 

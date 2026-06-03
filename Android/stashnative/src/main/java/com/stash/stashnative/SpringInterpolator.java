@@ -3,7 +3,7 @@ package com.stash.stashnative;
 import android.view.animation.Interpolator;
 
 /**
- * Spring interpolator matching iOS spring animations with damping 0.85.
+ * Spring interpolator approximating iOS spring motion with damping 0.85.
  * Uses a damped harmonic oscillator model.
  */
 public class SpringInterpolator implements Interpolator {

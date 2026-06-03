@@ -336,7 +336,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
           requestWindowFeature(Window.FEATURE_NO_TITLE);
           window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          // Edge-to-edge disabled; system bar insets are applied as padding on rootLayout.
+          // Edge-to-edge enabled; system bar insets are applied as padding on rootLayout.
           StashWindowCompat.setDecorFitsSystemWindows(window, false);
           if (chromeColorOverrideActive) {
             StashWebViewUtils.applySystemBarAppearanceForSheet(
