@@ -240,7 +240,7 @@ const NSInteger kDragHandleViewTag = 8889;
 const CGFloat kHandleBarWidth = 36.0f;
 const CGFloat kHandleBarHeight = 5.0f;
 const CGFloat kHandleBarTopInset = 8.0f;
-static const CGFloat kHandleBarHalfWidth = 18.0f;
+const CGFloat kHandleBarHalfWidth = 18.0f;
 static const CGFloat kHandleBarCornerRadius = 3.0f;
 const CGFloat kHandleHitAreaInset = 15.0f;
 
@@ -451,11 +451,7 @@ CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
 CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
 UIColor* stash_sheetBackgroundUIColor(void);
 CGFloat stash_getSafeAreaTopForView(UIView *view);
-WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView);
-void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
-void stash_configureScrollViewForWebView(UIScrollView* scrollView);
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
-void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color);
 static NSString* appendThemeQueryParameter(NSString* url);
 static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
@@ -2638,89 +2634,11 @@ void stash_resetCardExpandedStateAfterRotation(void) {
     _isCardExpanded = NO;
 }
 
-WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView) {
-    if (!cardView) return nil;
-    for (UIView *subview in cardView.subviews) {
-        if ([subview isKindOfClass:[WKWebView class]]) {
-            WKWebView *webView = (WKWebView *)subview;
-            NSMutableArray *constraintsToRemove = [NSMutableArray array];
-            for (NSLayoutConstraint *constraint in cardView.constraints) {
-                if (constraint.firstItem == webView || constraint.secondItem == webView) {
-                    [constraintsToRemove addObject:constraint];
-                }
-            }
-            [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-            webView.translatesAutoresizingMaskIntoConstraints = YES;
-            return webView;
-        }
-    }
-    return nil;
-}
 
 /// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
 /// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
-void stash_layoutCardContentToBounds(UIView *cardView) {
-    if (!cardView) return;
-    CGRect bounds = cardView.bounds;
-    for (UIView *subview in cardView.subviews) {
-        if (subview.tag == kDragTrayViewTag) {
-            continue;
-        }
-        NSMutableArray *constraintsToRemove = [NSMutableArray array];
-        for (NSLayoutConstraint *constraint in cardView.constraints) {
-            if (constraint.firstItem == subview || constraint.secondItem == subview) {
-                [constraintsToRemove addObject:constraint];
-            }
-        }
-        [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-        subview.translatesAutoresizingMaskIntoConstraints = YES;
-        subview.frame = bounds;
-    }
-    stash_updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
-}
 
-void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
-    if (!cardView) return;
-    UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-    if (dragTray) {
-        dragTray.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
-        UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-        if (handle) {
-            CGFloat handleX = (cardWidth / 2.0) - kHandleBarHalfWidth;
-            handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
-        }
-    }
-}
 
-void stash_configureScrollViewForWebView(UIScrollView* scrollView) {
-    if (!scrollView) {
-        return;
-    }
-    if (@available(iOS 11.0, *)) {
-        scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-    }
-    scrollView.contentInset = UIEdgeInsetsZero;
-    scrollView.scrollIndicatorInsets = UIEdgeInsetsZero;
-    scrollView.bounces = NO;
-    scrollView.alwaysBounceVertical = NO;
-    scrollView.alwaysBounceHorizontal = NO;
-    scrollView.bouncesZoom = NO;
-    if (@available(iOS 17.4, *)) {
-        scrollView.bouncesVertically = NO;
-        scrollView.bouncesHorizontally = NO;
-        scrollView.transfersVerticalScrollingToParent = NO;
-        scrollView.transfersHorizontalScrollingToParent = NO;
-    }
-#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
-    if (@available(iOS 26.0, *)) {
-        UIScrollEdgeEffectStyle *hardStyle = [UIScrollEdgeEffectStyle hardStyle];
-        scrollView.topEdgeEffect.style = hardStyle;
-        scrollView.bottomEdgeEffect.style = hardStyle;
-        scrollView.leftEdgeEffect.style = hardStyle;
-        scrollView.rightEdgeEffect.style = hardStyle;
-    }
-#endif
-}
 
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
     if (isiPad) {
@@ -2734,18 +2652,6 @@ static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL 
     return UIRectCornerAllCorners;
 }
 
-void stash_setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
-    webView.backgroundColor = color;
-    webView.scrollView.backgroundColor = color;
-    for (UIView *subview in webView.subviews) {
-        subview.backgroundColor = color;
-        subview.opaque = YES;
-    }
-    for (UIView *subview in webView.scrollView.subviews) {
-        subview.backgroundColor = color;
-        subview.opaque = YES;
-    }
-}
 
 
 /// Attach cardWindow to the same UIWindowScene as the app (e.g. Unreal) so it renders in game engines.

@@ -9,6 +9,7 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 #import "StashNativeCardSupport.h"
+#import "StashNativeCardLayout.h"
 
 /// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
 
@@ -34,14 +35,10 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
 
 /// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
-void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
 /// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
-void stash_layoutCardContentToBounds(UIView *cardView);
 /// Switches the card's WebView from Auto Layout to frame-based layout; call before animating card frame (e.g. rotation) so WebView resizes with the card.
-WKWebView *stash_switchWebViewToFrameLayoutInCardView(UIView *cardView);
 
 /// Applies bounce/overscroll limits to the WKWebView's scroll view; call after creation and on navigation (WebKit may reset scroll properties).
-void stash_configureScrollViewForWebView(UIScrollView *scrollView);
 
 /// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
 BOOL StashNativeSheetUsesDarkWebTheme(void);
@@ -67,6 +64,7 @@ extern const NSTimeInterval kPopupFrameAnimationDuration;
 extern const CGFloat kCornerRadiusDefault;
 extern const CGFloat kDragTrayHeight;
 extern const CGFloat kHandleBarWidth;
+extern const CGFloat kHandleBarHalfWidth;
 extern const CGFloat kHandleBarHeight;
 extern const CGFloat kHandleBarTopInset;
 extern const CGFloat kHandleHitAreaInset;
@@ -77,7 +75,6 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
 CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
 UIColor* stash_sheetBackgroundUIColor(void);
-void stash_setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
 
 @interface DragTrayView : UIView
 @end
