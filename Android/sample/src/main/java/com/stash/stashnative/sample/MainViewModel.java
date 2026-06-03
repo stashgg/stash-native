@@ -27,8 +27,9 @@ public class MainViewModel extends AndroidViewModel {
       + "refs/heads/main/.github/Stash.Popup.Test/index.html";
   private static final String DEFAULT_MODAL_URL =
       "https://checkout.stash.gg/pay/channel-selection";
-  // Shared demo key for the public test card.
-  public static final String DEFAULT_STASH_API_KEY =
+  // Demo test-API key for the sample. In a real integration, checkout links are generated on the
+  // app's own backend and the API key never ships in the client.
+  private static final String DEFAULT_STASH_API_KEY =
       "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg";
 
   private final SharedPreferences prefs;
@@ -171,6 +172,12 @@ public class MainViewModel extends AndroidViewModel {
 
   public String getStashApiKey() {
     return stashApiKey;
+  }
+
+  /** The trimmed user key, or the demo key when the field is empty. */
+  public String getEffectiveApiKey() {
+    String key = stashApiKey != null ? stashApiKey.trim() : "";
+    return key.isEmpty() ? DEFAULT_STASH_API_KEY : key;
   }
 
   public void setUseTestApi(boolean useTest) {

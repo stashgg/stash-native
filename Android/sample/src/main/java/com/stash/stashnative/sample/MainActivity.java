@@ -126,6 +126,8 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onNetworkError() {
         Log.e(TAG, "Network error");
+        runOnUiThread(() -> showOutcomeDialog(
+            "Network Error", getString(R.string.error_checkout_load)));
       }
 
       @Override
@@ -229,8 +231,7 @@ public class MainActivity extends AppCompatActivity {
   private void generateQuickPayCheckout(boolean openInBrowser) {
     String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
     String urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url";
-    String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
-    final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
+    final String apiKey = viewModel.getEffectiveApiKey();
 
     Executors.newSingleThreadExecutor().execute(() -> {
       HttpURLConnection conn = null;
@@ -322,8 +323,7 @@ public class MainActivity extends AppCompatActivity {
   private void generateAuthenticatedWebshopUrl() {
     String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
     String urlString = baseUrl + "/sdk/server/generate_url";
-    String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
-    final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
+    final String apiKey = viewModel.getEffectiveApiKey();
 
     Executors.newSingleThreadExecutor().execute(() -> {
       HttpURLConnection conn = null;
@@ -412,7 +412,9 @@ public class MainActivity extends AppCompatActivity {
 
   @Override
   protected void onDestroy() {
-    StashNativeCard.getInstance().setListener(null);
+    // release() is the documented teardown: clears the listener, unregisters the SDK's receivers and
+    // lifecycle callbacks, and tears down any popup. Prefer it over setListener(null).
+    StashNativeCard.getInstance().release();
     binding = null;
     super.onDestroy();
   }

@@ -33,6 +33,7 @@
     <string name="hint_modal_background_color">Modal background (hex)</string>
     <string name="error_generate_checkout_url">Failed to generate checkout URL</string>
     <string name="error_generate_webshop_url">Failed to generate webshop URL</string>
+    <string name="error_checkout_load">The checkout page failed to load. Check your connection and try again.</string>
     <string name="option_web_view_mode">Use Web View mode</string>
     <string name="option_web_view_mode_supporting">Open in Chrome</string>
     <string name="option_force_portrait_on_checkout">Force portrait on checkout</string>
