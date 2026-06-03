@@ -38,8 +38,8 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Configuration for modal presentation.
  *
- * Modal always appears centered on screen (unlike checkout which uses cards on phones).
- * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+ * Modal appears centered on screen. Independent sizing for phone/tablet and
+ * portrait/landscape orientations.
  */
 @interface StashNativeModalConfig : NSObject
 
@@ -90,16 +90,14 @@ NS_ASSUME_NONNULL_BEGIN
  * Configuration for card presentation (openCard).
  *
  * Card slides up from bottom on phones; centered on tablets.
- * Supports independent sizing for phone/tablet and portrait/landscape orientations.
+ * Independent sizing for phone/tablet and portrait/landscape orientations.
  */
 @interface StashNativeCardConfig : NSObject
 
 /**
  * When YES, phone card forces portrait orientation. Default NO.
- * On iOS this rotates the shared UIWindowScene to portrait for the whole checkout; the host
- * app's window is in that scene, so its layout/orientation follows until checkout dismisses.
- * Landscape-locked hosts that must not change geometry should keep this NO (e.g. use modal/popup
- * or current-orientation presentation instead).
+ * Rotates the shared UIWindowScene to portrait for the duration of the checkout. The host
+ * app's window shares that scene and follows its orientation until checkout dismisses.
  */
 @property (nonatomic, assign) BOOL forcePortrait;
 /** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
@@ -145,7 +143,8 @@ NS_ASSUME_NONNULL_BEGIN
     NS_SWIFT_NAME(stashNativeCardDidCompletePayment(withOrder:));
 
 /**
- * Called when a payment completes successfully (legacy; prefer \c stashNativeCardDidCompletePaymentWithOrder: when you need order data).
+ * Called when a payment completes successfully. Legacy variant without order data;
+ * \c stashNativeCardDidCompletePaymentWithOrder: carries the order string.
  */
 - (void)stashNativeCardDidCompletePayment;
 
@@ -276,9 +275,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Opens a URL in a centered modal dialog with default configuration.
  *
- * Unlike openCardWithURL:config: which uses different presentations on phones vs iPads,
- * openModalWithURL always shows a centered modal on all devices. The modal resizes
- * seamlessly when the device rotates.
+ * Shows a centered modal on all devices. The modal resizes when the device rotates.
  *
  * Uses default sizing ratios and shows drag bar with dismiss enabled.
  *
@@ -289,9 +286,7 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Opens a URL in a centered modal dialog with custom configuration.
  *
- * Unlike openCardWithURL:config: which uses different presentations on phones vs iPads,
- * openModalWithURL always shows a centered modal on all devices. The modal resizes
- * seamlessly when the device rotates.
+ * Shows a centered modal on all devices. The modal resizes when the device rotates.
  *
  * @param url The URL to load in the modal
  * @param config Configuration for sizing, drag bar, and dismiss behavior (nil for defaults)

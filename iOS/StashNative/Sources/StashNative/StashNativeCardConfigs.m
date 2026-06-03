@@ -5,8 +5,8 @@
 //  Implementations of the public configuration value types: StashNativeCardConfig (card sizing +
 //  forcePortrait/autoClose/background), StashNativeModalConfig (modal sizing + allowDismiss), and
 //  StashNativePopupSizeConfig (popup multipliers). Their public @interfaces live in
-//  include/StashNativeCard.h; these designated initializers just set documented defaults. No SDK
-//  state -- pure value objects. Moved verbatim from StashNativeCard.m.
+//  include/StashNativeCard.h. Initializers set the default values. Pure value objects with no SDK
+//  state.
 //
 
 #import "StashNativeCard.h"

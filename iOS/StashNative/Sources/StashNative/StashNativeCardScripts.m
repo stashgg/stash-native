@@ -2,9 +2,7 @@
 //  StashNativeCardScripts.m
 //  StashNative
 //
-//  See StashNativeCardScripts.h. These return the exact JS sources that were previously inline in
-//  the WebView setup; the bridge source is the canonical window.stash_sdk surface (mirror Android +
-//  docs/stash-sdk-js.md). Values are byte-identical to the prior inline literals.
+//  JS source strings injected into the WebView, including the window.stash_sdk bridge surface.
 //
 
 #import "StashNativeCardScripts.h"
@@ -17,7 +15,7 @@ NSString *stash_viewportUserScriptSource(void) {
         document.head.appendChild(meta);";
 }
 
-// Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on Android (StashWebViewUtils.JS_SDK_SCRIPT).
+// window.stash_sdk bridge JavaScript.
 NSString *stash_bridgeUserScriptSource(void) {
     return [NSString stringWithFormat:@"(function() {"
         "window.stash_sdk = window.stash_sdk || {};"

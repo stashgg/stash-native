@@ -2,17 +2,15 @@
 //  StashNativeCardSupport.h
 //  StashNative
 //
-//  Cross-cutting pure helpers used across the SDK's translation units (idiom detection, key
+//  Pure helpers used across the SDK's translation units: idiom detection, key
 //  window / top view controller lookup, interface orientation, system/dark surface colors,
-//  corner-radius mask). No file-scope state; this header is a dependency leaf.
+//  corner-radius mask.
 //
 
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-// iPad support is always compiled in. This gates stash_isRunningOniPad below (and is visible to
-// every TU via StashNativeCardPrivate.h, which imports this header). Defining it here -- rather than
-// in StashNativeCard.m -- is what keeps the iPad branch alive after the file split.
+// Compile-time flag for iPad support, default 1. Gates stash_isRunningOniPad.
 #ifndef ENABLE_IPAD_SUPPORT
 #define ENABLE_IPAD_SUPPORT 1
 #endif

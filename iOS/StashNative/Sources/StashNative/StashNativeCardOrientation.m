@@ -3,12 +3,10 @@
 //  StashNative
 //
 //  Forced-portrait orientation control for the card and the dedicated Safari portrait window.
-//  Holds the one-time AppDelegate swizzle on application:supportedInterfaceOrientationsForWindow:
-//  (so the SDK window can be portrait even when a Unity/Unreal host is landscape-locked), the
-//  shared window->orientation-mask resolver, the public +supportedInterfaceOrientationsForWindow:
-//  forwarder for hosts that manage orientation manually, the pre-portrait orientation restore +
-//  window teardown, and the iPhone-card keyboard orientation lock. Moved verbatim from
-//  StashNativeCard.m.
+//  Holds the one-time AppDelegate swizzle on application:supportedInterfaceOrientationsForWindow:,
+//  the shared window->orientation-mask resolver, the public +supportedInterfaceOrientationsForWindow:
+//  forwarder, the pre-portrait orientation restore and window teardown, and the iPhone-card keyboard
+//  orientation lock.
 //
 
 #import "StashNativeCard.h"
@@ -40,8 +38,7 @@ void stash_attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWindo
             cardWindow.windowScene = keyWindow.windowScene;
             return;
         }
-        // Cold start / early presentation: key window may be nil before the scene is foreground-active.
-        // Any window scene with a window is enough to attach; otherwise the card window has no scene.
+        // Fallback when the key window has no scene: first connected window scene that owns a window.
         for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
             if ([scene isKindOfClass:[UIWindowScene class]]) {
                 UIWindowScene *ws = (UIWindowScene *)scene;
@@ -56,20 +53,14 @@ void stash_attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWindo
 
 // Orientation unlock swizzle
 //
-// When forcePortrait is used the SDK installs a one-time swizzle on
-// application:supportedInterfaceOrientationsForWindow: on the AppDelegate class.
-// This lets the SDK's portrait window (and the dedicated Safari portrait window)
-// rotate to portrait even when the host app's Info.plist is landscape-only —
-// the common case for Unity, Unreal, and other landscape-locked game engines.
-//
-// The swizzle is surgical: for non-SDK windows it always calls through to the
-// original implementation, so nothing else in the app changes behaviour.
-// dispatch_once guarantees the swizzle is installed exactly once and only when
-// it is first needed (not at app launch).
+// Installs a one-time swizzle on application:supportedInterfaceOrientationsForWindow: on the
+// AppDelegate class. SDK windows (the portrait window and the dedicated Safari portrait window)
+// resolve to the card orientation; non-SDK windows call through to the original implementation.
+// dispatch_once installs the swizzle exactly once, on first use.
 // ============================================================================
 
 // Returns the orientation mask from the host app's Info.plist (UISupportedInterfaceOrientations).
-// Used as fallback when the app had no application:supportedInterfaceOrientationsForWindow:.
+// Fallback when the app has no application:supportedInterfaceOrientationsForWindow:.
 static UIInterfaceOrientationMask stashInfoPlistSupportedOrientationMask(void) {
     static UIInterfaceOrientationMask cached = 0;
     static dispatch_once_t onceToken;
@@ -94,9 +85,8 @@ static UIInterfaceOrientationMask stashInfoPlistSupportedOrientationMask(void) {
 // Resolves the interface-orientation mask for a window the SDK governs during a forced-portrait
 // card/Safari presentation. Returns YES and writes *outMask when the window is the card window,
 // the Safari portrait window, or a system window (keyboard/alert) shown over the card; returns NO
-// when the caller should apply its own default (host window, or no card presented). Shared by the
-// auto-managed swizzle and the public +supportedInterfaceOrientationsForWindow: forwarder so the
-// two cannot drift; each keeps its own nil-window guard and fall-through tail.
+// for a host window or when no card is presented. Shared by the swizzle and the public
+// +supportedInterfaceOrientationsForWindow: forwarder.
 static BOOL stashResolveCardWindowOrientationMask(StashNativeCardInternal *internal,
                                                   UIWindow *window,
                                                   UIInterfaceOrientationMask *outMask) {
@@ -132,8 +122,8 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
         Class delegateClass = [appDelegate class];
         SEL sel = @selector(application:supportedInterfaceOrientationsForWindow:);
 
-        // We need a stable reference to originalIMP that the block can capture and call.
-        // __block + a C-function-pointer typedef makes this safe.
+        // C-function-pointer typedef for the original implementation; __block so the block can
+        // capture and call it.
         typedef UIInterfaceOrientationMask (*OriginalIMP)(id, SEL, UIApplication *, UIWindow *);
         __block OriginalIMP originalIMP = NULL;
 
@@ -141,29 +131,27 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             ^UIInterfaceOrientationMask(id blockSelf, UIApplication *app, UIWindow *window) {
                 StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
                 // Card window, Safari portrait window, or a system window (keyboard/alert) over the
-                // card: lock to the card's orientation so a physical rotation can't flip it, and so
-                // iOS 15 (which has no scene-geometry path) constrains rotation correctly.
+                // card: return the card's orientation mask.
                 UIInterfaceOrientationMask mask;
                 if (stashResolveCardWindowOrientationMask(internal, window, &mask)) {
                     return mask;
                 }
-                // Host app's window (or no card presented): forward to original.
+                // Host app's window, or no card presented: forward to the original.
                 if (originalIMP) {
                     return originalIMP(blockSelf, sel, app, window);
                 }
-                // App had no original implementation -- return Info.plist orientations
-                // so the swizzle does not permanently unlock all orientations for the host.
+                // No original implementation: return the Info.plist orientations.
                 return stashInfoPlistSupportedOrientationMask();
             });
 
         Method method = class_getInstanceMethod(delegateClass, sel);
         if (method) {
-            // Method exists on this class (or a superclass) — replace and save the original.
+            // Method exists on this class or a superclass: replace it and save the original.
             originalIMP = (OriginalIMP)method_setImplementation(method, newIMP);
         } else {
-            // Method doesn't exist — add it; "originalIMP" stays NULL (no original to call).
+            // Method does not exist: add it; originalIMP stays NULL.
             // Type encoding: return UIInterfaceOrientationMask (NSUInteger = 8 bytes on 64-bit),
-            // args: self (id @8), _cmd (SEL @8), UIApplication * (@8), UIWindow * (@8) → 40 bytes.
+            // args self (id @8), _cmd (SEL @8), UIApplication * (@8), UIWindow * (@8) = 40 bytes.
             class_addMethod(delegateClass, sel, newIMP, "Q40@0:8@16@24");
         }
     });
@@ -180,7 +168,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
     if (stashResolveCardWindowOrientationMask(internal, window, &mask)) {
         return mask;
     }
-    // Host window, or no card presented: 0 lets the caller's own mask take effect.
+    // Host window, or no card presented: 0 leaves the caller's own mask in effect.
     return 0;
 }
 
@@ -200,9 +188,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
     UIInterfaceOrientationMask mask = self.previousSceneOrientationMask;
     self.previousSceneOrientationMask = 0;
 
-    // MaskAll means "opened from portrait/neutral -- no forced rotation needed on restore."
-    // Requesting MaskAll would unlock all orientations and potentially cause an unwanted rotation
-    // from the accelerometer. Instead, just let the window teardown return control to the app.
+    // MaskAll marks an open from portrait/neutral: no forced rotation on restore.
     if (mask == UIInterfaceOrientationMaskAll) {
         return;
     }
@@ -229,7 +215,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             }];
         }
     } else {
-        // UIDevice hack only needed for landscape restore; portrait/neutral returns naturally.
+        // Pre-iOS 16: UIDevice orientation set for landscape restore only.
         if (mask == UIInterfaceOrientationMaskLandscapeLeft ||
             mask == UIInterfaceOrientationMaskLandscapeRight) {
             UIInterfaceOrientation target =
@@ -249,8 +235,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
     window.hidden = YES;
     window.rootViewController = nil;
     if (self.previousKeyWindow) {
-        // Restore scene orientation whenever it was locked during this session.
-        // restorePrePortraitOrientation is a no-op if previousSceneOrientationMask == 0.
+        // Restore scene orientation; no-op when previousSceneOrientationMask == 0.
         [self restorePrePortraitOrientation];
         [self.previousKeyWindow makeKeyAndVisible];
         self.previousKeyWindow = nil;
@@ -310,8 +295,8 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             }
         }
     } else {
-        // iOS 15: trigger re-query of supportedInterfaceOrientationsForWindow so the
-        // swizzle sees isIPhoneCardKeyboardVisible == YES and returns the lock mask.
+        // iOS 15: re-query supportedInterfaceOrientationsForWindow with
+        // isIPhoneCardKeyboardVisible == YES.
         [UIViewController attemptRotationToDeviceOrientation];
     }
 }
@@ -335,9 +320,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             STASH_DEBUG_LOG(@"StashNative keyboard orientation restore: %@", error);
         }];
     } else {
-        // iOS 15: reinforce the card's orientation so the next keyboard presented
-        // appears in portrait (or the locked orientation). Without this, the device
-        // is still physically rotated and the next keyboard would follow that.
+        // iOS 15: reinforce the card's orientation for the next keyboard presentation.
         if (self.portraitWindow) {
             if (stash_forcePortraitOnCheckout) {
                 [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)

@@ -2,10 +2,9 @@
 //  StashNativeCardTheme.h
 //  StashNative
 //
-//  Sheet theming helpers (light/dark decision + sheet background color + the dark-sheet document
-//  JavaScript), shared by the presentation/webview code. The caller's optional background-color hex
-//  is held by the file-scope stash_presentationBackgroundColorHex in StashNativeCard.m; these
-//  functions read it. Implementations live in StashNativeCardTheme.m.
+//  Sheet theming helpers: light/dark decision, sheet background color, and the dark-sheet document
+//  JavaScript. These functions read the file-scope stash_presentationBackgroundColorHex in
+//  StashNativeCard.m.
 //
 
 #import <UIKit/UIKit.h>
@@ -13,7 +12,7 @@
 /// Parses a #RGB/#RRGGBB(AA) string to a UIColor, or nil if malformed/empty.
 UIColor *stash_parseHTMLHexColor(NSString *hex);
 
-/// YES if the color's sRGB luminance is dark enough to warrant a dark sheet/web theme.
+/// YES if the color's sRGB luminance is below the dark-theme threshold.
 BOOL stash_colorIsDarkBackground(UIColor *color);
 
 /// YES when the sheet should use the dark theme: from the caller background color if set, else the

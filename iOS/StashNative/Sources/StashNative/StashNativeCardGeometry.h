@@ -2,9 +2,9 @@
 //  StashNativeCardGeometry.h
 //  StashNative
 //
-//  Sheet sizing/geometry math. Inputs are the caller ratio config (file-scope stash_*Ratio /
-//  stash_custom*Multiplier externs in StashNativeCard.m) and the live orientation/idiom; outputs are
-//  concrete frames. Implementations in StashNativeCardGeometry.m.
+//  Sheet sizing/geometry math. Takes caller ratio config (stash_*Ratio / stash_custom*Multiplier
+//  externs) and the live orientation/idiom, returns concrete frames. Implementations in
+//  StashNativeCardGeometry.m.
 //
 
 #import <UIKit/UIKit.h>
@@ -18,7 +18,7 @@ CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
 /// Modal frame for the screen bounds; uses current orientation and modal ratios.
 CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
 
-/// Phone card frame for the given bounds and orientation; used by current-orientation presentation and rotation.
+/// Phone card frame for the given bounds and orientation.
 CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 
 /// iPad SDK-card frame (centered, expand-aware) for the screen bounds.
@@ -36,5 +36,5 @@ CGFloat stash_getSafeAreaTopForView(UIView *view);
 /// Bottom safe-area inset (home indicator) for a view.
 CGFloat stash_getSafeAreaBottomForView(UIView *view);
 
-/// Resets expand/collapse state to collapsed after rotation so the card shows its initial size.
+/// Resets expand/collapse state to collapsed after rotation.
 void stash_resetCardExpandedStateAfterRotation(void);

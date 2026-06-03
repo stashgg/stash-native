@@ -3,8 +3,8 @@
 //  StashNative
 //
 //  Internal interface for the StashNativeCardInternal singleton: presentation state and the private
-//  methods shared across the SDK translation units (core + category files). Not part of the public
-//  API; never published in the framework Headers.
+//  methods shared across the SDK translation units (core + category files). Not published in the
+//  framework Headers.
 //
 
 #import <UIKit/UIKit.h>
@@ -34,33 +34,32 @@
 @property (nonatomic, assign) NSTimeInterval expandDuration;
 @property (nonatomic, assign) CGFloat expandInitialProgress;
 @property (nonatomic, assign) CGFloat collapseInitialProgress;
-@property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // 0 = default; set for snap-back for stronger spring
+@property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // Easing overshoot amount; 0 = no overshoot.
 @property (nonatomic, copy) void (^expandCompletion)(void);
 @property (nonatomic, strong) WebViewLoadDelegate *activeWebViewLoadDelegate;
 @property (nonatomic, strong) WebViewUIDelegate *activeWebViewUIDelegate;
-/// Bumped on each card open and on teardown; WebViewLoadDelegate compares to ignore stale callbacks.
+/// Bumped on each card open and on teardown; WebViewLoadDelegate compares it to identify stale callbacks.
 @property (nonatomic, assign) NSUInteger presentationSessionToken;
-/// YES after beginDismissStoppingLoadAndTimers until cleanup finishes (avoids double token bump).
+/// YES from beginDismissStoppingLoadAndTimers until cleanup finishes.
 @property (nonatomic, assign) BOOL isDismissingCard;
 /// The scene orientation mask in effect before forcePortrait was applied; restored on dismiss.
 @property (nonatomic, assign) UIInterfaceOrientationMask previousSceneOrientationMask;
 /// Dedicated portrait window created for SFSafariViewController on the external-payment path.
 @property (nonatomic, strong) UIWindow *safariPresentationWindow;
 /// YES when the external-payment path is about to present SFSafariViewController immediately
-/// after card dismissal. cleanupCardInstance keeps the portrait window alive so Safari can
-/// be presented from it without any scene-rotation animation between the card and Safari.
+/// after card dismissal. While YES, cleanupCardInstance keeps the portrait window alive and
+/// presents Safari from it.
 @property (nonatomic, assign) BOOL isHandingOffPortraitWindowToSafari;
-/// YES while SFSafariViewController is actively presented in a forced-portrait window.
-/// Causes the orientation swizzle to return UIInterfaceOrientationMaskPortrait for the
-/// SDK window, preventing iOS from rotating Safari to landscape when the device rotates.
+/// YES while SFSafariViewController is presented in a forced-portrait window.
+/// While YES, the orientation swizzle returns UIInterfaceOrientationMaskPortrait for the SDK window.
 @property (nonatomic, assign) BOOL isSafariPortraitLocked;
 @property (nonatomic, copy) dispatch_block_t pendingIPhoneCardGeometryRelayoutBlock;
 @property (nonatomic, assign) BOOL iPhoneCardWindowGeometryObserversRegistered;
 /// While YES, the orientation swizzle locks the card window (and system keyboard) to the card's orientation.
 @property (nonatomic, assign) BOOL isIPhoneCardKeyboardVisible;
-/// Last valid `UIDeviceOrientation` while the iPhone card keyboard is visible (0 = unset). Used to dismiss the keyboard when the device rotates so the next focus can present a portrait keyboard.
+/// Last valid `UIDeviceOrientation` while the iPhone card keyboard is visible (0 = unset).
 @property (nonatomic, assign) NSInteger stashLastValidDeviceOrientationForKeyboard;
-/// Scene size when keyboard lock was applied; used with `stashIPhoneCardGeometryMayHaveChanged` to dismiss when portrait/landscape geometry flips without a device-orientation notification.
+/// Scene size when keyboard lock was applied; compared by `stashIPhoneCardGeometryMayHaveChanged` to detect a portrait/landscape geometry flip.
 @property (nonatomic, assign) CGSize stashLastSceneSizeForKeyboardDismiss;
 
 + (instancetype)sharedInstance;

@@ -2,10 +2,9 @@
 //  StashNativeCardGeometry.m
 //  StashNative
 //
-//  Sheet sizing math: turns the caller ratio config (read via the stash_*Ratio /
-//  stash_custom*Multiplier externs) + the current orientation/idiom into concrete card, modal, and
-//  popup frames, plus the iPad/tablet sizing, safe-area insets, and the rotation expand-reset. Pure
-//  geometry -- no UIKit presentation, no payment/JS. Moved verbatim from StashNativeCard.m.
+//  Sheet sizing math: computes card, modal, and popup frames from the stash_*Ratio /
+//  stash_custom*Multiplier externs and the current orientation/idiom, plus iPad/tablet sizing,
+//  safe-area insets, and the rotation expand-reset.
 //
 
 #import "StashNativeCard.h"
@@ -48,7 +47,7 @@ CGSize stash_calculateiPadCardSize(CGRect screenBounds) {
         return CGSizeMake(kFallbackTabletCardWidth, kFallbackTabletCardHeight);
     }
     
-    // Enforce minimum sizes for usability
+    // Enforce minimum sizes.
     CGFloat minWidth = kPopupBaseSizeMinIPad;
     CGFloat minHeight = kTabletMinHeight;
     if (cardWidth < minWidth) {
@@ -127,8 +126,7 @@ CGFloat stash_getSafeAreaTopForView(UIView *view) {
         UIView *parentView = view.superview;
         if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
             CGFloat live = parentView.safeAreaInsets.top;
-            // On iOS 15, safeAreaInsets can transiently read 0 during rotation
-            // transitions. Fall back to the last known card safe area value.
+            // Returns the live top inset when positive, else stash_cardSafeAreaTop.
             if (live > 0) return live;
         }
     }
@@ -190,8 +188,7 @@ CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL is
         cardX = 0;
         cardY = bounds.size.height - cardHeight;
     }
-    // In landscape, safeAreaInsets.top can be 0 (notch on the side). Enforce a minimum
-    // buffer so the card doesn't collide with the notification pull-down gesture.
+    // In landscape, enforces an 8pt minimum top inset.
     CGFloat effectiveSafeTop = stash_cardSafeAreaTop;
     if (isLandscape && effectiveSafeTop < 8.0f) {
         effectiveSafeTop = 8.0f;

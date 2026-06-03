@@ -2,9 +2,8 @@
 //  StashNativeCardLayout.m
 //  StashNative
 //
-//  Stateless card view-layout utilities (WebView frame/scroll setup, drag-tray + handle layout,
-//  background color). Moved verbatim from StashNativeCard.m. These read no file-scope state; the
-//  frame geometry that depends on the sizing-config statics stays in StashNativeCard.m.
+//  Stateless card view-layout utilities: WebView frame/scroll setup, drag-tray and handle layout,
+//  background color.
 //
 
 #import "StashNativeCardPrivate.h"
@@ -36,8 +35,7 @@ WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView) {
     return nil;
 }
 
-// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
-// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
+// Pins every direct subview except the drag tray to cardView.bounds, deactivating their constraints first.
 void stash_layoutCardContentToBounds(UIView *cardView) {
     if (!cardView) return;
     CGRect bounds = cardView.bounds;

@@ -3,8 +3,7 @@
 //  StashNative
 //
 //  Cross-cutting pure helpers (idiom/window/orientation/colors/corner mask) shared across the SDK
-//  translation units. No file-scope state; all stash_-prefixed (plus the pre-existing
-//  StashNativeDarkSurfaceColor). Moved verbatim from StashNativeCard.m.
+//  translation units. All stash_-prefixed plus StashNativeDarkSurfaceColor.
 //
 
 #import "StashNativeCardSupport.h"
@@ -24,8 +23,7 @@ BOOL stash_isRunningOniPad(void) {
 #if !ENABLE_IPAD_SUPPORT
     return NO;
 #else
-    // Interface idiom is constant for the process; cache it. The old per-call
-    // dispatch_sync to main could deadlock when invoked from a background thread.
+    // Caches the interface idiom on first call via dispatch_once.
     static BOOL result = NO;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{

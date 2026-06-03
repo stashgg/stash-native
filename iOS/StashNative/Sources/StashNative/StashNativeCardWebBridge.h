@@ -2,10 +2,8 @@
 //  StashNativeCardWebBridge.h
 //  StashNative
 //
-//  window.stash_sdk message-name constants, defined in StashNativeCardWebBridge.m. Core references
-//  these to build the injected stashSDKScript and to register/remove the WKScriptMessage handlers.
-//  These string values are the externally-observable JS channel names -- keep them byte-identical
-//  and mirrored with Android (StashWebViewUtils.JS_SDK_SCRIPT) and docs/stash-sdk-js.md.
+//  window.stash_sdk message-handler name constants, defined in StashNativeCardWebBridge.m.
+//  Each string value is a WKScriptMessage handler name.
 //
 
 #import <Foundation/Foundation.h>

@@ -14,7 +14,7 @@
 #import "StashNativeCardTheme.h"
 #import "StashNativeCardGeometry.h"
 
-/// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
+/// Monotonic presentation session token, bumped on each card open and at dismiss teardown.
 NSUInteger StashNativeCurrentPresentationSessionToken(void);
 
 /// Preferred full-screen bounds for a window's scene (rotation-safe vs UIScreen.main).
@@ -24,8 +24,7 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 /// measured progress (use 0 after rotation). Pass a value outside [0,1] (e.g. -1) to use automatic progress.
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
 
-// Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
-// extern declarations the sibling .m files (view controllers, delegates) rely on.
+// Shared file-scope state and constants defined in StashNativeCard.m.
 extern BOOL stash_usePopupPresentation;
 extern BOOL stash_useModalPresentation;
 extern BOOL stash_autoCloseOnPaymentEvent;
@@ -110,7 +109,7 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
 - (void)updateCornerRadiusMaskForCardView;
 @end
 
-/// Window-based modal (same pattern as iPad checkout); no portrait lock, works in game engines.
+/// Window-based modal view controller with no orientation lock.
 @interface ModalViewController : UIViewController
 @property (nonatomic, assign) CGRect customFrame;
 @property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
@@ -124,8 +123,8 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
 - (void)updateCornerRadiusMask;
 @end
 
-/// Minimal portrait-only root VC for the dedicated UIWindow used to host SFSafariViewController
-/// on the external-payment path (after the card portrait window has been torn down).
+/// Portrait-only root view controller for the dedicated UIWindow that hosts SFSafariViewController
+/// on the external-payment path.
 @interface SafariPortraitContainerViewController : UIViewController
 @end
 
@@ -135,9 +134,9 @@ extern NSString * const StashNativeAssociatedKeyOverlayView;
                     loadingView:(UIView *)loadingView
                 retryArmDelay:(NSTimeInterval)retryArmDelay
        presentationSessionToken:(NSUInteger)presentationSessionToken;
-/// Arms the stall-retry timer chain once using the explicit checkout URL from presenter code (up to two stall reloads in the delegate).
+/// Arms the stall-retry timer chain once for the given main-frame URL, up to two stall reloads.
 - (void)armRetryTimerIfNeededForMainFrameURL:(NSURL *)url;
-/// Cancel all pending timers so stale delegates from closed cards cannot fire error callbacks.
+/// Cancels all pending timers on this delegate.
 - (void)invalidateAllTimers;
 /// After background/foreground or process resume: refresh deadlines and optionally reload if navigation looks dead.
 - (void)recoverStaleLoadAfterApplicationForegroundIfNeeded;

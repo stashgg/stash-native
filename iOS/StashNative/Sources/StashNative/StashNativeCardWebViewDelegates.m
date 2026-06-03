@@ -2,10 +2,10 @@
 //  StashNativeCardWebViewDelegates.m
 //  StashNative
 //
-//  WebViewLoadDelegate: the card WebView's WKNavigationDelegate + WKUIDelegate. Owns the load-recovery
-//  machinery -- the stall-retry timer chain (up to two aggressive reloads), the hard network-error
-//  deadline, and the session-token gate (StashNativeCurrentPresentationSessionToken) that drops
-//  callbacks from a closed card. Shared file-scope state via the externs in StashNativeCardPrivate.h.
+//  WebViewLoadDelegate: the card WebView's WKNavigationDelegate + WKUIDelegate. Holds the load-recovery
+//  machinery -- the stall-retry timer chain (up to two reloads), the hard network-error deadline, and
+//  the session-token gate (StashNativeCurrentPresentationSessionToken) that drops callbacks from a
+//  closed card. Shared file-scope state declared as externs in StashNativeCardPrivate.h.
 //
 
 #import "StashNativeCard.h"
@@ -15,10 +15,10 @@
 
 
 
-#pragma mark - Loading / Reveal Constants (aligned with card animation timing)
+#pragma mark - Loading / Reveal Constants
 
 static const NSTimeInterval kLoadingRevealAnimationDuration = 0.35;
-/// Same eligibility as injected `stashNativePageReady` hook; one-shot eval from didFinishNavigation only.
+/// Page-readiness predicate matching the injected `stashNativePageReady` hook; evaluated from didFinishNavigation.
 static NSString * const kPageReadyEvalJS =
     @"(function(){"
     @"try{"
@@ -30,11 +30,11 @@ static NSString * const kPageReadyEvalJS =
     @"}catch(e){return false;}"
     @"return true;"
     @"})()";
-/// Stall-retry cadence: time before / between aggressive reloads when the main frame is not responding.
+/// Seconds before and between stall-retry reloads while the main frame is not responding.
 static const NSTimeInterval kRetryTimeoutInterval = 1.25;
-/// Hard deadline — if still no commit after the retry, report a network error.
+/// Seconds without a main-frame HTTP success before reporting a network error.
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
-/// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
+/// Seconds after which the modal is revealed if no WebView load callback fires.
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
 #pragma mark - WebViewLoadDelegate
 
@@ -47,21 +47,21 @@ static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
     UIView* _loadingView;
     NSTimer* _networkTimeoutTimer;
     NSTimer* _modalFallbackTimer;
-    /// Fires after kRetryTimeoutInterval if no HTTP response has arrived — triggers one retry.
+    /// Fires a single retry after kRetryTimeoutInterval when no HTTP response has arrived.
     NSTimer* _retryTimer;
     BOOL _initialLoadComplete;
     BOOL _networkErrorHandled;
-    /// URL captured from the first main-frame navigationAction; used when retrying.
+    /// URL captured from the first main-frame navigationAction; used for retries.
     NSURL* _checkoutURL;
-    /// Additional delay before arming retry timer (e.g. iPhone portrait rotation warm-up).
+    /// Extra seconds added before the retry timer is armed.
     NSTimeInterval _retryArmDelay;
-    /// Stall-based reloads issued from handleRetryTimer (max 2). Independent of process-terminate recovery.
+    /// Count of stall reloads issued from handleRetryTimer, capped at 2.
     int _stallReloadCount;
-    /// Token captured at init; must match StashNativeCurrentPresentationSessionToken() for callbacks.
+    /// Token captured at init; callbacks run only when it matches StashNativeCurrentPresentationSessionToken().
     NSUInteger _expectedPresentationSessionToken;
-    /// Second WebContent process termination during the same presentation is a hard failure.
+    /// Set after the first WebContent process-termination reload; a second termination is a hard failure.
     BOOL _processTerminateRecoveryUsed;
-    /// At most one opportunistic reload when returning active — avoids breaking redirect chains on repeated foreground.
+    /// Count of foreground recovery reloads, capped at 1.
     int _foregroundRecoveryReloads;
 }
 
@@ -76,7 +76,7 @@ static void stashRestartLoadingSpinnerInView(UIView *loadingView) {
     }
 }
 
-/// Timers must use the main run loop so they fire when the host opens the card from a background thread.
+/// Adds the timer to the main run loop in NSRunLoopCommonModes.
 static void stashAddTimerToMainRunLoop(NSTimer *timer) {
     if (timer) {
         [[NSRunLoop mainRunLoop] addTimer:timer forMode:NSRunLoopCommonModes];
@@ -93,8 +93,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     return current == _expectedPresentationSessionToken;
 }
 
-/// Covers the WebView with the loading layer and hides the WebView before a new navigation.
-/// WKWebView often flashes white during reload even in dark mode; this masks that until content is ready again.
+/// Covers the WebView with the loading layer and sets the WebView alpha to 0 before a new navigation.
 - (void)prepareWebViewForReloadHidingFlash {
     if (!_webView || _networkErrorHandled) {
         return;
@@ -134,8 +133,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         _loadingView.userInteractionEnabled = YES;
         stashRestartLoadingSpinnerInView(_loadingView);
         [parent bringSubviewToFront:_loadingView];
-        // Keep drag tray above the loading mask (same order as initial setup: tray added last).
-        // Otherwise bringSubviewToFront:loadingView hides the handle for every stall retry / reload.
+        // Bring the drag tray above the loading mask.
         UIView *dragTray = [parent viewWithTag:kDragTrayViewTag];
         if (dragTray) {
             [parent bringSubviewToFront:dragTray];
@@ -173,7 +171,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
                                                      userInfo:nil
                                                       repeats:NO];
         stashAddTimerToMainRunLoop(_networkTimeoutTimer);
-        // Modal fallback: reveal after N seconds if didCommit/didFinish never fire (e.g. Unreal)
+        // Modal fallback timer: reveals after kModalFallbackRevealInterval if didCommit/didFinish never fire.
         if (stash_useModalPresentation) {
             _modalFallbackTimer = [NSTimer timerWithTimeInterval:kModalFallbackRevealInterval
                                                           target:self
@@ -241,8 +239,8 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     if (_initialLoadComplete || _networkErrorHandled || !_checkoutURL || !_webView) return;
 
-    // Up to 2 stall reloads (3 total load attempts). Stall timers clear on main-frame
-    // non-redirect HTTP success in decidePolicyForNavigationResponse (not on each didCommit).
+    // Caps at 2 stall reloads (3 total load attempts). Stall timers clear on main-frame
+    // non-redirect HTTP success in decidePolicyForNavigationResponse, not on each didCommit.
     if (_stallReloadCount >= 2) {
         return;
     }
@@ -251,18 +249,14 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
           _stallReloadCount, _checkoutURL.absoluteString, (unsigned long)_expectedPresentationSessionToken);
     STASH_DEBUG_LOG(@"StashNative: stall retry %d/2 — reloading %@", _stallReloadCount, _checkoutURL.absoluteString);
 
-    // Issue the new request directly — WKWebView cancels the stalled navigation internally
-    // and fires didFailNavigation with NSURLErrorCancelled (which we already suppress).
-    // Skipping an explicit stopLoading() avoids any intermediate visual state that could
-    // cause a flash, and NSURLRequestReloadIgnoringLocalCacheData ensures WebKit opens a
-    // fresh TCP connection rather than reusing the stale one.
+    // Loads the request directly without stopLoading(), with NSURLRequestReloadIgnoringLocalCacheData.
     [self prepareWebViewForReloadHidingFlash];
     NSURLRequest *retryRequest = [NSURLRequest requestWithURL:_checkoutURL
                                                   cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                               timeoutInterval:kNetworkTimeoutInterval];
     [_webView loadRequest:retryRequest];
 
-    // Full deadline from this reload onward (previous 15s window may be almost exhausted).
+    // Restarts the full network deadline from this reload.
     [self scheduleNetworkTimeoutTimerFromCurrentLoadAttempt];
 
     if (_stallReloadCount < 2) {
@@ -353,16 +347,16 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
           _stallReloadCount, wv.isLoading, wv.estimatedProgress, wv.URL.absoluteString ?: @"(nil)",
           (unsigned long)_expectedPresentationSessionToken);
 
-    // Refresh the hard deadline from now — wall time in background does not match NSTimer semantics users expect.
+    // Restarts the network deadline from now.
     [self scheduleNetworkTimeoutTimerFromCurrentLoadAttempt];
 
-    // Re-arm stall chain if nothing is scheduled (edge cases after suspend / process churn).
+    // Re-arms the stall chain when no retry timer is scheduled.
     if (!_retryTimer) {
         [self scheduleStallRetryTimerWithDelay:kRetryTimeoutInterval + MAX(0.0, _retryArmDelay)
                                         reason:@"foreground-rearm-stall"];
     }
 
-    // WKWebView can be left idle with no navigation callbacks after backgrounding; nudge once.
+    // Reloads once when the WebView is idle with progress below 0.05.
     BOOL looksStuck = !wv.isLoading && wv.estimatedProgress < 0.05;
     if (looksStuck && _foregroundRecoveryReloads < 1) {
         _foregroundRecoveryReloads += 1;
@@ -427,7 +421,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     STASH_DEBUG_LOG(@"StashNativeRetryTrace navigationAction type=%ld url=%@ session=%lu",
           (long)navigationAction.navigationType, urlString, (unsigned long)_expectedPresentationSessionToken);
 
-    // Retry arming is now driven by explicit presenter URL to avoid redirect/about:blank races.
+    // Retry arming is driven by the explicit presenter URL via armRetryTimerIfNeededForMainFrameURL:.
 
     if ([url.scheme isEqualToString:@"tel"] ||
         [url.scheme isEqualToString:@"mailto"] ||
@@ -471,9 +465,9 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
 
-    // Main-frame HTTP: 4xx/5xx fail; 301/302/303/307/308 are redirect hops — do not clear stall
-    // timers yet. Non-redirect success (2xx, 304, etc.) means bytes for a document response
-    // arrived — safe to clear stall retry (didCommit fires per redirect leg and must not).
+    // Main-frame HTTP: 4xx/5xx report a network error; 301/302/303/307/308 are redirect hops that
+    // leave the stall timers running; non-redirect success (2xx, 304, etc.) marks initial progress
+    // and clears the stall timers.
     if (!_initialLoadComplete && navigationResponse.isForMainFrame) {
         if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
             NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)navigationResponse.response;
@@ -531,8 +525,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         _webView.backgroundColor = backgroundColor;
         _webView.scrollView.backgroundColor = backgroundColor;
         _webView.scrollView.opaque = YES;
-        // Opaque WebView + simultaneous crossfade composites against an internal white
-        // background — causes a white flash. Non-opaque composites against backgroundColor.
+        // Marks the WebView non-opaque so it composites against backgroundColor during the crossfade.
         _webView.opaque = NO;
 
         if (@available(iOS 13.0, *)) {
@@ -546,8 +539,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
             self->_loadingView.alpha = 0.0;
             self->_webView.alpha = 1.0;
         } completion:^(BOOL finished) {
-            // Keep loading view in hierarchy so stall/process/foreground reloads can cover the WebView
-            // and avoid white flashes (do not removeFromSuperview).
+            // Leaves the loading view in the hierarchy and disables its interaction.
             self->_loadingView.userInteractionEnabled = NO;
             self->_webView.opaque = YES;
         }];
@@ -564,7 +556,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     [self showWebViewAndRemoveLoading];
 }
 
-/// If the injected document-end hook never posts (rare), one evaluation after navigation finishes.
+/// Evaluates kPageReadyEvalJS once after navigation finishes; reveals the WebView when it returns true.
 - (void)evaluatePageReadyOnceAfterNavigationFinished {
     if (!_webView || _networkErrorHandled) {
         return;
@@ -623,7 +615,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 
         self.pageLoadStartTime = 0;
     }
-    // Fallback if injected `stashNativePageReady` message did not fire (no polling).
+    // Fallback for when the injected `stashNativePageReady` message does not fire.
     [self evaluatePageReadyOnceAfterNavigationFinished];
 }
 
@@ -637,9 +629,8 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     }
     STASH_DEBUG_LOG(@"StashNative: didCommitNavigation url=%@", webView.URL.absoluteString);
     STASH_DEBUG_LOG(@"StashNativeRetryTrace didCommit url=%@ session=%lu", webView.URL.absoluteString, (unsigned long)_expectedPresentationSessionToken);
-    // Do not clear stall timers here: didCommit runs for each redirect leg; only
-    // decidePolicyForNavigationResponse (non-redirect HTTP) marks progress.
-    // Fallback for non-HTTP main-frame loads (data:, file:) where there is no HTTP status.
+    // Does not clear stall timers; decidePolicyForNavigationResponse marks progress on non-redirect HTTP.
+    // Fallback for non-HTTP main-frame loads (data:, file:) that have no HTTP status.
     if (!_initialLoadComplete && !_networkErrorHandled) {
         NSURL *u = webView.URL;
         NSString *scheme = u.scheme.lowercaseString;

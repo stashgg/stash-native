@@ -4,9 +4,7 @@
 //
 //  The window.stash_sdk -> native bridge: WKScriptMessage dispatch and the per-message handlers
 //  (payment success/failure, purchase processing, opt-in, expand/collapse, external payment, window
-//  close, page ready). The message-name constants live here as the single source; core injects them
-//  into the page (stashSDKScript) and registers/removes them via the extern declarations in
-//  StashNativeCardWebBridge.h. Methods moved verbatim from StashNativeCard.m.
+//  close, page ready). Defines the message-name constants.
 //
 
 #import "StashNativeCard.h"
@@ -21,7 +19,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
-// JS message handler names (mirror Android JS_SDK_SCRIPT + docs/stash-sdk-js.md). extern in the header.
+// JS message handler names.
 NSString * const kMessageHandlerPaymentSuccess = @"stashNativementSuccess";
 NSString * const kMessageHandlerPaymentFailure = @"stashNativementFailure";
 NSString * const kMessageHandlerPurchaseProcessing = @"stashPurchaseProcessing";
@@ -58,7 +56,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (u.host.length == 0) {
         return nil;
     }
-    // Upgrade cleartext http to https for the external payment URL (rather than rejecting it).
+    // Upgrade cleartext http to https for the external payment URL.
     if ([scheme isEqualToString:@"http"]) {
         NSURLComponents *comps = [NSURLComponents componentsWithURL:u resolvingAgainstBaseURL:NO];
         comps.scheme = @"https";
@@ -73,9 +71,8 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
 @implementation StashNativeCardInternal (WebBridge)
 
 - (void)handlePaymentSuccessMessage:(WKScriptMessage *)message delegate:(id<StashNativeCardDelegate>)delegate {
-    // When autoClose is on, the dialog tears down after the first event, so guard against
-    // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
-    // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
+    // When autoClose is on, the first payment event is handled once; later events are ignored.
+    // When autoClose is off, follow-up events (failure -> retry -> success) are not gated.
     if (stash_autoCloseOnPaymentEvent && stash_paymentSuccessHandled) return;
     if (stash_autoCloseOnPaymentEvent) stash_paymentSuccessHandled = YES;
     self.isPurchaseProcessing = NO;
@@ -149,7 +146,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (stash_useModalPresentation || stash_usePopupPresentation) {
         return;
     }
-    // Phones only: landscape cards stay at their configured size.
+    // No expand when the card is in landscape.
     if (stash_cardIsInLandscape) {
         return;
     }
@@ -163,7 +160,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (stash_useModalPresentation || stash_usePopupPresentation) {
         return;
     }
-    // Phones only: landscape cards stay at their configured size.
+    // No collapse when the card is in landscape.
     if (stash_cardIsInLandscape) {
         return;
     }
@@ -182,7 +179,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (!normalized) {
         return;
     }
-    // Theme is applied only to in-card content, never to URLs handed to an external browser.
+    // The external payment URL is handed to the browser without theme parameters.
     dispatch_async(dispatch_get_main_queue(), ^{
         id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
         if (externalDelegate
@@ -190,8 +187,7 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
             [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:normalized];
         }
         StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-        // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
-        // presented from it immediately — no scene-rotation animation between card and Safari.
+        // Marks cleanupCardInstance to keep the portrait window alive for the Safari handoff.
         if (stash_forcePortraitOnCheckout) {
             internal.isHandingOffPortraitWindowToSafari = YES;
         }
@@ -227,8 +223,8 @@ static NSString *NormalizeExternalPaymentURL(NSString *raw) {
     NSString *name = message.name;
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
 
-    // Privileged action handlers must originate from the main frame (the checkout page), not a
-    // nested third-party iframe. Payment-result handlers are intentionally not gated here.
+    // External payment, window close, opt-in, expand, and collapse are dropped when not from the
+    // main frame. Payment-result handlers are not gated by frame.
     if (!message.frameInfo.isMainFrame &&
         ([name isEqualToString:kMessageHandlerExternalPayment] ||
          [name isEqualToString:kMessageHandlerWindowClose] ||

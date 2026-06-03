@@ -5,8 +5,8 @@
 //  The UIView and UIViewController subclasses that host each presentation: DragTrayView (the card's
 //  draggable tray), the iPhone card controllers (fixed and current-orientation), the iPad/phone modal
 //  controllers, the orientation-locked container, and the SafariPortrait container for the external-
-//  payment handoff. Presentation logic and the file-scope state these read live in StashNativeCard.m
-//  (shared via the extern declarations in StashNativeCardPrivate.h).
+//  payment handoff. Presentation logic and the file-scope state these read live in StashNativeCard.m,
+//  declared extern in StashNativeCardPrivate.h.
 //
 
 #import "StashNativeCard.h"
@@ -70,8 +70,8 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     if (self.skipLayoutDuringInitialSetup) {
         return;
     }
-    // iOS 15: system may deliver a landscape transition even though this VC
-    // returns portrait-only. Coerce to portrait to prevent broken layout.
+    // On iOS 15 a landscape transition can arrive for this portrait-only VC.
+    // Swap to portrait dimensions.
     if (size.width > size.height) {
         size = CGSizeMake(size.height, size.width);
     }
@@ -244,7 +244,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 @end
 
-#pragma mark - ModalViewController (Window-based modal, no portrait lock; same pattern as iPad checkout)
+#pragma mark - ModalViewController (window-based modal, all orientations)
 
 @implementation ModalViewController
 
@@ -290,10 +290,9 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 #pragma mark - SafariPortraitContainerViewController
 
-/// Minimal portrait-only root VC for the dedicated UIWindow used to host SFSafariViewController
-/// on the external-payment path (when the card window has already been dismissed and the game's
-/// landscape window is key).  Presenting Safari from this VC gives it — and the system keyboard —
-/// the correct portrait orientation and safe-area insets.
+/// Portrait-only root VC for the dedicated UIWindow that hosts SFSafariViewController
+/// on the external-payment path. Reports portrait orientation and portrait safe-area insets
+/// to the presented Safari view controller and the system keyboard.
 @implementation SafariPortraitContainerViewController
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -310,7 +309,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 @end
 
-#pragma mark - OrientationLockedViewController (Popup rotation only; modal uses ModalViewController)
+#pragma mark - OrientationLockedViewController (popup rotation)
 
 @implementation OrientationLockedViewController
 
@@ -354,14 +353,13 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         cardWindow.frame = screenBounds;
     }
     
-    // Use container view bounds for overlay so it stays in sync during rotation
-    // (screen bounds can swap at a different time than the view hierarchy, causing rotation artifacts)
+    // Size the overlay to the container view bounds.
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
     if (overlayView && !CGRectEqualToRect(overlayView.frame, containerBounds)) {
         overlayView.frame = containerBounds;
     }
     
-    // Use appropriate frame calculation based on presentation type
+    // Popup frame for the current container bounds.
     CGRect newFrame = stash_computePopupFrameForScreenBounds(containerBounds);
     if (!CGRectEqualToRect(self.view.frame, newFrame)) {
         [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{

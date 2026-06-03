@@ -2,12 +2,10 @@
 //  StashNativeCard.m
 //  StashNative
 //
-//  Core implementation: the StashNativeCard public facade plus the StashNativeCardInternal
-//  presentation/lifecycle singleton. Cohesive responsibilities live in sibling translation units --
-//  Support (pure helpers), Layout (view-utils), WebBridge (JS message dispatch), Orientation
-//  (forced-portrait swizzle + keyboard lock), Safari (external browser), Configs (public value
-//  types) -- which read this file's stash_/k-prefixed externs. Declarations are split across
-//  StashNativeCardPrivate.h, StashNativeCardInternal.h, the per-cluster *.h, and StashNativeCardLogging.h.
+//  The StashNativeCard public facade and the StashNativeCardInternal presentation/lifecycle
+//  singleton. Sibling translation units (Support, Layout, WebBridge, Orientation, Safari, Configs)
+//  read this file's stash_/k-prefixed externs. Declarations are in StashNativeCardPrivate.h,
+//  StashNativeCardInternal.h, the per-cluster *.h, and StashNativeCardLogging.h.
 //
 
 #import "StashNativeCard.h"
@@ -23,9 +21,7 @@
 #import <math.h>
 #import <stdlib.h>
 
-// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
-// (e.g., in game engines like Unreal Engine that manage memory manually).
-// ARC builds do not need these suppressions.
+// Warning suppressions active only when compiling without ARC.
 #if !__has_feature(objc_arc)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wshadow"
@@ -34,21 +30,19 @@
 #endif
 
 #pragma mark - Default Popup Size Multipliers
-// Defined early so StashNativePopupSizeConfig (now in StashNativeCardConfigs.m) can use them; non-static
-// so StashNativeCardConfigs.m and StashNativeCardViewControllers.m reference them via extern
+// Default popup size multipliers, referenced via extern from sibling translation units.
 const CGFloat kPopupPortraitWidthMultiplier = 1.0285;
 const CGFloat kPopupPortraitHeightMultiplier = 1.485;
 const CGFloat kPopupLandscapeWidthMultiplier = 1.2275445;
 const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 
 #pragma mark - Private State
-// Note: These statics are reset in [StashNativeCardInternal cleanupCardInstance].
-// They are file-scope to this translation unit and effectively private to the SDK.
+// File-scope statics, reset in [StashNativeCardInternal cleanupCardInstance].
 
 // --- Transient presentation state (reset on each dismiss) ---
-static BOOL _callbackWasCalled = NO;              // Ensures dismiss callback fires only once
-BOOL stash_isCardCurrentlyPresented = NO;       // Guards against double-presentation
-BOOL stash_paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
+static BOOL _callbackWasCalled = NO;              // YES after the dismiss callback has fired once.
+BOOL stash_isCardCurrentlyPresented = NO;       // YES while a card is presented.
+BOOL stash_paymentSuccessHandled = NO;          // YES after the payment result callback has fired once.
 
 // --- User-configurable sizing (persists across presentations) ---
 BOOL stash_forcePortraitOnCheckout = NO;
@@ -78,18 +72,18 @@ BOOL stash_isCardExpanded = NO;
 
 // --- Landscape / force-portrait orientation flags (phones only; reset on cleanup) ---
 /// YES when the card was opened in the current (landscape) orientation without forcing portrait.
-/// Card stays at its configured size; expand/collapse have no effect.
+/// While set, the card stays at its configured size and expand/collapse have no effect.
 BOOL stash_cardIsInLandscape = NO;
 /// Safe-area top inset (notch / Dynamic Island) of the active card window, in points.
-/// Used to clamp card height so the card never overlaps the notch. Reset to 0 on cleanup.
+/// Clamps card height to the area below the notch. Reset to 0 on cleanup.
 CGFloat stash_cardSafeAreaTop = 0.0f;
 
 // --- Modal configuration (reset on cleanup) ---
-// stash_useModalPresentation is non-static (read by StashNativeCardWebViewDelegates.m); the ratios and
-// allowDismiss are file-local (read only by this TU's modal builder + stash_computeModalFrameForScreenBounds).
+// stash_useModalPresentation is extern'd by StashNativeCardWebViewDelegates.m; the ratios and
+// allowDismiss are file-local to this TU's modal builder and stash_computeModalFrameForScreenBounds.
 BOOL stash_useModalPresentation = NO;
 static BOOL _modalAllowDismiss = YES;
-/** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
+/** When NO, the dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
 BOOL stash_autoCloseOnPaymentEvent = YES;
 CGFloat stash_modalPhoneWidthRatioPortrait = 0.9f;
 CGFloat stash_modalPhoneHeightRatioPortrait = 0.7f;
@@ -103,25 +97,25 @@ CGFloat stash_modalTabletHeightRatioLandscape = 0.40f;
 /** Optional #hex for card/modal chrome; cleared on cleanup. */
 NSString *stash_presentationBackgroundColorHex = nil;
 
-#pragma mark - Animation Constants (Apple Pay–style: single duration + spring for consistent feel)
+#pragma mark - Animation Constants
 
 static const CGFloat kSpringDampingDefault = 0.82f;
 static const CGFloat kSpringDampingTight = 0.82f;
 const CGFloat kAnimationDurationDefault = 0.5f;
 static const CGFloat kAnimationDurationFast = 0.5f;
-// Non-static for StashNativeCardViewControllers.m
+// Default corner radius, points. Extern'd by StashNativeCardViewControllers.m.
 const CGFloat kCornerRadiusDefault = 20.0f;
 static const CGFloat kCornerRadiusExpanded = 24.0f;
 const CGFloat kDragTrayHeight = 44.0f;
 
 #pragma mark - View Tag Constants
-// Non-static for StashNativeCardViewControllers.m
+// View tags, extern'd by StashNativeCardViewControllers.m.
 const NSInteger kCardViewTag = 9999;
 const NSInteger kDragTrayViewTag = 8888;
 const NSInteger kDragHandleViewTag = 8889;
 
 #pragma mark - Handle Bar (Drag Tray) Constants
-// Non-static so StashNativeCardViewControllers.m can reference them via extern
+// Handle bar dimensions, points. Extern'd by StashNativeCardViewControllers.m.
 const CGFloat kHandleBarWidth = 36.0f;
 const CGFloat kHandleBarHeight = 5.0f;
 const CGFloat kHandleBarTopInset = 8.0f;
@@ -134,13 +128,13 @@ const CGFloat kHandleHitAreaInset = 15.0f;
 static const CGFloat kOverlayDismissAlpha = 0.0f;
 static const CGFloat kDismissCardAlpha = 0.0f;
 static const CGFloat kDismissCardScale = 0.9f;
-static const CGFloat kOverlayOpacity = 0.4f;  /* Unified overlay dim (40%) - same on all modes and as Android */
-/// Backdrop is this many times larger than the card window (centered) so dimming edges stay off-screen during rotation.
+static const CGFloat kOverlayOpacity = 0.4f;  /* Overlay dim alpha (40%). */
+/// Multiplier for the centered backdrop size relative to the card window.
 static const CGFloat kIPhoneCardBackdropOverscanFactor = 5.0f;
-static const CGFloat kIPhoneLandscapeExpandedHeightRatio = 0.9f;  /* Expand = 90% screen height in landscape */
+static const CGFloat kIPhoneLandscapeExpandedHeightRatio = 0.9f;  /* Expanded card height = 90% of screen height in landscape. */
 static const NSTimeInterval kOverlayFadeInDuration = 0.25;
 
-/// Centered frame larger than `windowBounds` so the dimming layer does not show rotating edges during scene orientation changes.
+/// Centered frame larger than `windowBounds` by kIPhoneCardBackdropOverscanFactor.
 static inline CGRect stashIPhoneCardOverscanBackdropFrameForWindowBounds(CGRect windowBounds) {
     CGFloat w = windowBounds.size.width;
     CGFloat h = windowBounds.size.height;
@@ -158,16 +152,15 @@ static inline CGRect stashIPhoneCardOverscanBackdropFrameForWindowBounds(CGRect 
 
 static const CGFloat kSpringDampingSnapBack = 0.82f;
 static const NSTimeInterval kSnapBackAnimationDuration = 0.45;
-/// Slide-up presentation: duration tuned for sheet feel. Damping 1 + zero velocity avoids spring overshoot
-/// past the rest Y (undershoot in UIKit spring briefly lifts the card → visible gap above screen bottom).
+/// Slide-up presentation spring duration, seconds.
 static const NSTimeInterval kCardEntrySpringDuration = 0.55;
 static const CGFloat kCardEntrySpringDamping = 1.0f;
 static const CGFloat kCardEntrySpringVelocity = 0.0f;
-/// After overlay fade finishes, brief hold before sheet slide so off-screen WebView can advance load.
+/// Hold between overlay fade-in completion and the sheet slide, seconds.
 static const NSTimeInterval kCardEntryHoldAfterOverlayFadeIn = 0.2;
-/// Ease-out-back constant for display-link expand/collapse.
+/// Ease-out-back overshoot constant for display-link expand/collapse.
 static const CGFloat kEaseOutBackOvershoot = 1.70158f;
-/// Stronger overshoot for snap-back when dismiss gesture does not hit threshold (smooth spring back).
+/// Ease-out-back overshoot constant for snap-back when a dismiss gesture does not hit threshold.
 static const CGFloat kEaseOutBackSnapBackOvershoot = 2.4f;
 
 static inline CGFloat easeOutBackWithOvershoot(CGFloat t, CGFloat overshoot) {
@@ -239,9 +232,9 @@ static const CGFloat kSpringVelocityCollapse = 0.3f;
 
 #pragma mark - iPad SDK expand/collapse (height only, clamped)
 
-/** Base height × this value when expanded via JS (50% growth); clamped by max card height. */
+/** Multiplier applied to base height when expanded via JS, clamped by max card height. */
 const CGFloat kTabletSdkExpandHeightMultiplier = 1.5f;
-/** Matches Android CardConstants.EXPANDED_CARD_HEIGHT_RATIO — max card height when expanding via SDK. */
+/** Max card height as a fraction of screen height when expanding via SDK. */
 const CGFloat kExpandedCardHeightScreenRatio = 0.95f;
 
 #pragma mark - Progress Thresholds (corner radius)
@@ -279,7 +272,7 @@ static const CGFloat kVelocityThresholdForFastCollapse = 600.0f;
 static const CGFloat kVelocityThresholdForFastDismiss = 1000.0f;
 
 #pragma mark - Popup Frame (OrientationLockedViewController)
-// Non-static so StashNativeCardViewControllers.m can reference them via extern
+// Popup frame constants, extern'd by StashNativeCardViewControllers.m.
 const CGFloat kPopupBaseSizePercentageIPad = 0.5f;
 const CGFloat kPopupBaseSizePercentagePhone = 0.75f;
 const CGFloat kPopupBaseSizeMinIPad = 400.0f;
@@ -292,8 +285,7 @@ const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 
 #pragma mark - Message Handler Registration (name string values are defined in StashNativeCardWebBridge.m)
 
-// All script-message handler names, registered and torn down together (order does not matter).
-// Single source so adding a handler cannot drift between the add and remove sites.
+// All script-message handler names, registered and torn down together.
 static NSArray<NSString *> *stashAllMessageHandlerNames(void) {
     return @[kMessageHandlerPaymentSuccess, kMessageHandlerPaymentFailure, kMessageHandlerPurchaseProcessing,
              kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerExternalPayment,
@@ -487,13 +479,11 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         if (!self.isDismissingCard) {
             [self beginDismissStoppingLoadAndTimers];
         }
-        // Cancel all delegate timers before releasing — NSTimer retains its target, so a stale
-        // _networkTimeoutTimer would keep the delegate alive and fire handleNetworkError on a
-        // future card presentation if the user opens/closes rapidly.
+        // Cancel all delegate timers before releasing the delegate.
         WebViewLoadDelegate *activeDelegate = objc_getAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate);
         [activeDelegate invalidateAllTimers];
 
-        // Clear all associated objects to break retain cycles and allow deallocation
+        // Clear all associated objects.
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)kAssociatedKeyWebViewUIDelegate, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self.currentPresentedVC, (__bridge const void *)StashNativeAssociatedKeyOverlayView, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -517,8 +507,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             }
             [webView.configuration.userContentController removeAllUserScripts];
 
-            // Remove immediately — loadHTMLString:@"" would restart the WebContent
-            // process and keep the (now-private) process pool alive longer than needed.
+            // Remove from the view hierarchy.
             [webView removeFromSuperview];
         }
         
@@ -533,10 +522,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     
     if (self.portraitWindow) {
         if (self.isHandingOffPortraitWindowToSafari) {
-            // External-payment path: Safari is about to be presented from this portrait window.
-            // Keep the window and scene in portrait — no rotation animations.
-            // Give the window a solid background so nothing shows through during the
-            // brief gap between card teardown and Safari sliding up.
+            // External-payment path: Safari is presented from this portrait window.
+            // Window and scene stay in portrait. Set a solid background on the window.
             self.portraitWindow.backgroundColor = stash_sheetBackgroundUIColor();
         } else {
             if (self.portraitWindow.rootViewController) {
@@ -582,7 +569,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     
     [UIView animateWithDuration:animationDuration delay:0 options:UIViewAnimationOptionCurveEaseInOut animations:^{
         if (stash_useModalPresentation) {
-            // Modal: fade out only (no scale to avoid webview shift)
+            // Modal: fade out only, no scale.
             UIView *cardView = objc_getAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView);
             if (!cardView) cardView = [containerVC.view viewWithTag:kCardViewTag];
             UIView *targetView = cardView ? cardView : containerVC.view;
@@ -862,8 +849,9 @@ initialSpringVelocity:kSpringVelocityCollapse
     [self.expandDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
 }
 
-// Collapsed and expanded card frames for the current device/orientation. The expand/collapse
-// interpolation, current-progress read, and per-frame relayout all derive from these two rects.
+// Writes the collapsed and expanded card frames for the current device/orientation into the
+// out-parameters. The expand/collapse interpolation, current-progress read, and per-frame
+// relayout all derive from these two rects.
 - (void)collapsedRect:(CGRect *)outCollapsed expandedRect:(CGRect *)outExpanded forCardView:(UIView *)cardView {
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
@@ -1281,20 +1269,19 @@ initialSpringVelocity:kSpringVelocityCollapse
                 [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
             }];
         } else {
-            // iPhone snap back: use display-link expand/collapse so every frame is bottom-anchored (no gap), with stronger spring
+            // iPhone snap back: display-link expand/collapse, bottom-anchored each frame, with stronger overshoot.
             if (stash_isCardExpanded) {
                 self.expandCollapseEaseOvershoot = kEaseOutBackSnapBackOvershoot;
                 [self animateExpandWithDuration:kSnapBackAnimationDuration completion:^{
                     [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
                 }];
             } else {
-                // Collapsed card may have been dragged down (only Y changed); progress is still 0 so display-link collapse would do nothing.
-                // Spring the frame back to canonical collapsed position for a native Apple-like feel.
+                // Collapsed card with progress 0 may have been dragged down (only Y changed).
+                // Animate the frame back to the canonical collapsed position.
                 CGRect targetFrame = [self frameForExpansionProgress:kProgressFullyCollapsed cardView:cardView];
                 BOOL needsSpringBack = (fabs(cardView.frame.origin.y - targetFrame.origin.y) > 0.5f);
                 if (needsSpringBack) {
-                    // Ease-out only (no UIKit spring): spring overshoot on Y made the sheet sit above
-                    // the bottom briefly — same gap as entry overshoot; display-link paths stay bottom-anchored.
+                    // Ease-out only, no UIKit spring.
                     [UIView animateWithDuration:kSnapBackAnimationDuration
                                           delay:0
                                         options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState
@@ -1318,9 +1305,9 @@ initialSpringVelocity:kSpringVelocityCollapse
 
 #pragma mark - WKScriptMessageHandler
 
-// The WKScriptMessageHandler bridge below dispatches one message to one of these per-message
-// handlers. Each handler is the verbatim body of its former else-if branch; the dispatcher keeps
-// the main-frame gate and the mutually-exclusive routing, so exactly one runs per message.
+// The WKScriptMessageHandler bridge dispatches each message to one per-message handler. The
+// dispatcher applies the main-frame gate and mutually-exclusive routing; exactly one handler
+// runs per message.
 
 #pragma mark - iPhone card window bounds / relayout
 
@@ -1383,10 +1370,8 @@ initialSpringVelocity:kSpringVelocityCollapse
     vc.view.frame = w.bounds;
     if (@available(iOS 11.0, *)) {
         CGFloat fresh = w.safeAreaInsets.top;
-        // On iOS 15, safeAreaInsets can transiently report 0 during
-        // attemptRotationToDeviceOrientation (keyboard dismiss + rotation).
-        // A device with a notch/Dynamic Island cannot genuinely have 0 safe
-        // area while the card is presented portrait, so keep the last known value.
+        // Adopt the fresh inset only when it is non-zero, or when no value has been cached yet.
+        // A transient 0 reading while a value is already cached is ignored.
         if (fresh > 0 || stash_cardSafeAreaTop == 0) {
             stash_cardSafeAreaTop = fresh;
         }
@@ -1446,8 +1431,8 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
     if (stash_isRunningOniPad() || stash_usePopupPresentation || stash_useModalPresentation) {
         return;
     }
-    // Force-portrait checkout: the system keyboard can still follow the host when the device rotates.
-    // Dismiss editing so the next tap can present the keyboard in a clean portrait state.
+    // Force-portrait checkout: dismiss editing when the device orientation changes while the
+    // keyboard is visible.
     if (stash_forcePortraitOnCheckout && self.isIPhoneCardKeyboardVisible) {
         UIDeviceOrientation d = [UIDevice currentDevice].orientation;
         if (UIDeviceOrientationIsValidInterfaceOrientation(d)) {
@@ -1486,11 +1471,9 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
                 strongSelf.stashLastSceneSizeForKeyboardDismiss = sz;
             }
         }
-        // iOS 15 guard: the scene coordinate space can report bounds matching the
-        // device orientation even when the card window is locked to a different one.
-        // Swap width/height when bounds violate the card's orientation constraint.
+        // iOS 15: swap width/height when scene bounds violate the card's orientation lock.
         if (@available(iOS 16.0, *)) {
-            // Scene geometry preferences prevent this on iOS 16+.
+            // No coercion on iOS 16+.
         } else {
             b = stashCoerceBoundsToCardOrientationLock(b, strongSelf.currentPresentedVC);
         }
@@ -1503,10 +1486,9 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
 
 @end
 
-// Creates and wires the load + UI delegates for a checkout WKWebView (the setup that is identical
-// across all present* builders) and tracks them on the internal singleton. Returns the load delegate
-// so the caller can drive the initial load. Per-builder associated objects (cardView / loadingView)
-// stay in each builder.
+// Creates and wires the load + UI delegates for a checkout WKWebView and tracks them on the
+// internal singleton. Returns the load delegate. Per-builder associated objects (cardView /
+// loadingView) are set by each builder.
 static WebViewLoadDelegate *stashAttachCheckoutDelegates(WKWebView *webView,
                                                          UIView *loadingView,
                                                          UIViewController *containerVC,
@@ -1538,8 +1520,8 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window) {
     return window.screen.bounds;
 }
 
-/// iOS 15 helper: if the scene reports bounds that violate the card's orientation lock,
-/// swap width/height to get correct portrait/landscape dimensions.
+/// iOS 15 helper: returns `b` with width/height swapped when the scene bounds violate the card's
+/// orientation lock, otherwise returns `b` unchanged.
 static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController *presentedVC) {
     if (stash_forcePortraitOnCheckout) {
         if (b.size.width > b.size.height) {
@@ -1805,9 +1787,9 @@ static NSString* appendThemeQueryParameter(NSString* url) {
     return self;
 }
 
-// These getters reflect presentation state that the SDK mutates on the main thread.
-// Read them from the main thread for a coherent value; an off-main read may see a
-// stale value during a presentation/teardown transition.
+// These getters return presentation state mutated on the main thread. A coherent value
+// requires a main-thread read; an off-main read may return a stale value during a
+// presentation/teardown transition.
 - (BOOL)isCurrentlyPresented {
     return stash_isCardCurrentlyPresented;
 }
@@ -1838,8 +1820,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     if (url == nil || url.length == 0) {
         return;
     }
-    // Reject a second open before mutating config statics, so a rejected open
-    // cannot corrupt the live card (openURLInternal: also guards after the main hop).
+    // Reject a second open before mutating config statics. openURLInternal: guards again
+    // after the main-thread hop.
     if (stash_isCardCurrentlyPresented) {
         return;
     }
@@ -2006,27 +1988,24 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 - (void)presentIPhoneCardWithURL:(NSString *)url {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
 
-    // Unlock portrait in the AppDelegate delegate method so iOS 13–15 and landscape-locked
-    // game engines (Unity, Unreal) allow the portrait rotation, unless the integrator has
-    // opted out to handle orientation unlocking themselves.
+    // Install the orientation swizzle unless the integrator handles orientation unlocking.
     if (!self.disableAutoOrientationUnlock) {
         stashInstallOrientationSwizzleIfNeeded();
     }
 
     // Store previous key window
     internal.previousKeyWindow = stash_getKeyWindow();
-    
+
     // Get current screen bounds and determine orientation
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
-    
+
     // Calculate portrait dimensions
     CGFloat portraitWidth = isLandscape ? screenBounds.size.height : screenBounds.size.width;
     CGFloat portraitHeight = isLandscape ? screenBounds.size.width : screenBounds.size.height;
     CGRect portraitBounds = CGRectMake(0, 0, portraitWidth, portraitHeight);
-    
-    // Create the window - use portrait bounds directly
-    // When the window becomes key with a portrait-only VC, iOS should rotate
+
+    // Create the window with portrait bounds.
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:portraitBounds];
     stash_attachWindowToKeyWindowScene(cardWindow, internal.previousKeyWindow);
     cardWindow.windowLevel = UIWindowLevelAlert;
@@ -2041,13 +2020,12 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     containerVC.view.frame = portraitBounds;
     containerVC.skipLayoutDuringInitialSetup = YES;
     
-    // Set as root VC BEFORE making visible - this helps iOS recognize orientation preference
+    // Set as root VC before making the window visible.
     cardWindow.rootViewController = containerVC;
     internal.currentPresentedVC = containerVC;
-    
+
     // Capture current orientation for restoration on dismiss, then request portrait.
-    // If already portrait, store MaskAll so dismiss unlocks normally without forcing a rotation.
-    // If landscape, store the specific landscape mask so dismiss rotates back.
+    // Portrait stores MaskAll; landscape stores the specific landscape mask.
     if (@available(iOS 16.0, *)) {
         UIWindowScene *scene = cardWindow.windowScene;
         if (scene) {
@@ -2084,7 +2062,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
 
-    // Create WebView early so networking starts during the rotation delay.
+    // Create the WebView before the rotation settle.
     WKWebView *webView = [self createConfiguredWebViewWithInternal:internal];
     webView.translatesAutoresizingMaskIntoConstraints = NO;
     webView.alpha = 0.0;
@@ -2095,7 +2073,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
     WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     
-    // Preload: attach WebView off-screen so networking begins before the card slides in.
+    // Preload: attach the WebView off-screen and start the load.
     CGFloat preloadH = portraitBounds.size.height * stash_cardHeightRatioPortrait;
     CGFloat preloadW = portraitBounds.size.width;
     UIView *preloadHost = [[UIView alloc] initWithFrame:CGRectMake(0, -10000, preloadW, preloadH)];
@@ -2143,21 +2121,18 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             [preloadHost removeFromSuperview];
             return;
         }
-        // Prefer scene coordinate space — UIScreen.main.bounds can lag during rotation.
+        // Use the scene coordinate space bounds.
         CGRect actualBounds = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
 
         CGFloat actualPortraitWidth = fmin(actualBounds.size.width, actualBounds.size.height);
         CGFloat actualPortraitHeight = fmax(actualBounds.size.width, actualBounds.size.height);
         BOOL rotationSucceeded = (actualBounds.size.width < actualBounds.size.height);
 
-        // On iOS 15, the scene's coordinateSpace.bounds can still report landscape
-        // even after the interfaceOrientation has settled to portrait (race between
-        // the orientation property and the coordinate space). Since this is a
-        // force-portrait card, always use portrait dimensions for the window frame
-        // and card layout. On iOS 16+ scene geometry preferences keep them in sync.
+        // iOS 15: force portrait dimensions for the window frame and card layout when the
+        // scene still reports landscape bounds. iOS 16+ keeps them in sync.
         if (!rotationSucceeded) {
             if (@available(iOS 16.0, *)) {
-                // iOS 16+: scene geometry preferences handle this.
+                // No override on iOS 16+.
             } else {
                 actualBounds = CGRectMake(0, 0, actualPortraitWidth, actualPortraitHeight);
                 rotationSucceeded = YES;
@@ -2183,7 +2158,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             cardFinalY = actualBounds.size.height - cardHeight;
             startY = actualBounds.size.height + cardHeight;
         } else {
-            // Rotation failed (iOS 16+ only path now) - present in portrait within landscape
+            // Rotation did not succeed: present in portrait within landscape bounds.
             cardWidth = actualPortraitWidth;
             cardHeight = actualPortraitHeight * stash_cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
@@ -2191,14 +2166,14 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
             startY = actualBounds.size.height + cardHeight;
         }
         
-        // Compute safe-area top for clamping the card so it never overlaps the notch.
+        // Safe-area top inset used to clamp the card top.
         CGFloat safeTop = 0;
         if (@available(iOS 11.0, *)) {
             safeTop = cardWindow.safeAreaInsets.top;
         }
         stash_cardSafeAreaTop = safeTop;
 
-        // Cap the card so its top edge never overlaps the notch / Dynamic Island.
+        // Clamp the card top to the safe-area top.
         if (cardFinalY < safeTop) {
             cardFinalY = safeTop;
             cardHeight = actualBounds.size.height - safeTop;
@@ -2246,24 +2221,24 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         ]];
         [cardWindow layoutIfNeeded];
         
-        // Dimming backdrop after load has started; short hold after fade before slide gives WebKit time off-screen.
+        // Dimming backdrop.
         UIView *overlayView = createOverlayViewWithFrame(stashIPhoneCardOverscanBackdropFrameForWindowBounds(actualBounds),
                                                          cardWindow,
                                                          0,
                                                          containerVC);
         overlayView.autoresizingMask = UIViewAutoresizingNone;
 
-        // Add drag tray so it is part of the card from the start (visible during slide-up)
+        // Add the drag tray to the card.
         UIView *dragTray = [internal createDragTray:cardWidth];
         [cardView addSubview:dragTray];
         internal.dragTrayView = dragTray;
-        
+
         // Animate overlay fade in
         [UIView animateWithDuration:kOverlayFadeInDuration delay:0 options:UIViewAnimationOptionCurveEaseOut animations:^{
             overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:nil];
-        
-        // Animate card sliding UP from BOTTOM (after overlay fade + hold)
+
+        // Animate the card sliding up from the bottom after the overlay fade and hold.
         NSTimeInterval cardSlideDelay = kOverlayFadeInDuration + kCardEntryHoldAfterOverlayFadeIn;
         [UIView animateWithDuration:kCardEntrySpringDuration
                               delay:cardSlideDelay
@@ -2318,19 +2293,18 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     containerVC.view.frame = screenBounds;
     containerVC.skipLayoutDuringInitialSetup = YES;
 
-    // Lock to the orientation the card was opened in so the user cannot rotate while the card is visible.
+    // Lock to the orientation the card was opened in.
     UIInterfaceOrientationMask lockMask = isLandscape ? UIInterfaceOrientationMaskLandscape
                                                       : UIInterfaceOrientationMaskPortrait;
     containerVC.lockedOrientationMask = lockMask;
-    // Store "allow all" so cleanupCardInstance/restorePrePortraitOrientation releases the lock on iOS 16+.
+    // Store "allow all"; cleanupCardInstance/restorePrePortraitOrientation releases the lock on iOS 16+.
     internal.previousSceneOrientationMask = UIInterfaceOrientationMaskAll;
 
     cardWindow.rootViewController = containerVC;
     internal.currentPresentedVC = containerVC;
 
     // iOS 16+: lock the scene geometry before making the window visible.
-    // iOS 15: trigger rotation re-evaluation so the swizzle (which returns lockMask
-    // via rootVC) locks this window to the opening orientation.
+    // iOS 15: trigger rotation re-evaluation; the swizzle returns lockMask via rootVC.
     if (@available(iOS 16.0, *)) {
         UIWindowScene *scene = cardWindow.windowScene;
         if (scene) {
@@ -2349,7 +2323,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [containerVC.view setNeedsLayout];
     [containerVC.view layoutIfNeeded];
 
-    // Cache safe-area top so stash_computePhoneCardFrameForBoundsAndOrientation uses the same clamp.
+    // Cache safe-area top read by stash_computePhoneCardFrameForBoundsAndOrientation.
     stash_cardSafeAreaTop = 0;
     if (@available(iOS 11.0, *)) {
         stash_cardSafeAreaTop = cardWindow.safeAreaInsets.top;
@@ -2378,9 +2352,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         startY = actualBounds.size.height + cardHeight;
     }
 
-    // Cap so the card top never overlaps the notch / Dynamic Island.
-    // In landscape, safeAreaInsets.top can be 0 (notch is on the side). Enforce a minimum
-    // buffer so the card does not collide with the notification/control center pull-down gesture.
+    // Clamp the card top to the safe-area top, with an 8pt minimum buffer in landscape
+    // where safeAreaInsets.top can be 0.
     CGFloat effectiveSafeTop = stash_cardSafeAreaTop;
     if (isLandscapeLayout && effectiveSafeTop < 8.0f) {
         effectiveSafeTop = 8.0f;
@@ -2446,7 +2419,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         [webView loadRequest:request];
     }
     
-    // Backdrop below card: insert after card is in hierarchy so stacking matches portrait-forced path.
+    // Backdrop below the card, inserted after the card is in the hierarchy.
     UIView *overlayView = createOverlayViewWithFrame(stashIPhoneCardOverscanBackdropFrameForWindowBounds(actualBounds),
                                                      cardWindow,
                                                      0,
@@ -2535,15 +2508,15 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         [loadingView.bottomAnchor constraintEqualToAnchor:cardView.bottomAnchor]
     ]];
     
-    // Add drag tray so it is part of the card from the start (visible during fade-in)
+    // Add the drag tray to the card.
     UIView *dragTray = [internal createDragTray:cardSize.width];
     [cardView addSubview:dragTray];
     internal.dragTrayView = dragTray;
-    
+
     // Create delegates
     WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     objc_setAssociatedObject(containerVC, (__bridge const void *)kAssociatedKeyCardView, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    
+
     // Load URL
     NSURL *nsurl = [NSURL URLWithString:url];
     if (nsurl) {
@@ -2552,7 +2525,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         delegate.pageLoadStartTime = CFAbsoluteTimeGetCurrent();
         [webView loadRequest:request];
     }
-    
+
     // Create window
     internal.previousKeyWindow = stash_getKeyWindow();
     UIWindow *cardWindow = [[UIWindow alloc] initWithFrame:screenBounds];
@@ -2562,15 +2535,15 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     cardWindow.rootViewController = containerVC;
     internal.portraitWindow = cardWindow;
     internal.currentPresentedVC = containerVC;
-    
+
     stash_isCardExpanded = NO;
-    
+
     UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
-    
+
     [containerVC updateCornerRadiusMaskForCardView];
     applyCardShadowToLayer(cardView.layer, NO);
-    
-    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+
+    // 50ms delay before showing the window.
     NSUInteger sessionWhenIPadModalBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (internal.presentationSessionToken != sessionWhenIPadModalBlockScheduled) {
@@ -2612,7 +2585,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     CGRect screenBounds = [UIScreen mainScreen].bounds;
     CGRect frame = stash_computeModalFrameForScreenBounds(screenBounds);
     
-    // Window-based presentation (same pattern as iPad checkout): no portrait lock, works in game engines
+    // Window-based presentation, no portrait lock.
     ModalViewController *containerVC = [[ModalViewController alloc] init];
     containerVC.modalPresentationStyle = UIModalPresentationOverFullScreen;
     containerVC.view.backgroundColor = [UIColor clearColor];
@@ -2685,7 +2658,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [containerVC updateCornerRadiusMaskForCardView];
     applyCardShadowToLayer(cardView.layer, NO);
     
-    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    // 50ms delay before showing the window.
     NSUInteger sessionWhenModalBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (internal.presentationSessionToken != sessionWhenModalBlockScheduled) {
@@ -2698,7 +2671,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         [containerVC.view setNeedsLayout];
         [containerVC.view layoutIfNeeded];
         
-        // Same pattern as iPad modal: dim + card appear immediately; WebView stays on loading until ready.
+        // Dim and card fade in; the WebView stays on the loading view until ready.
         [UIView animateWithDuration:kAnimationDurationDefault
                               delay:0
              usingSpringWithDamping:kSpringDampingDefault
@@ -2796,7 +2769,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     containerVC.view.layer.cornerRadius = kCornerRadiusDefault;
     applyCardShadowToLayer(containerVC.view.layer, NO);
     
-    // Short delay before showing (helps rendering in game engines e.g. Unreal)
+    // 50ms delay before showing the window.
     NSUInteger sessionWhenPopupBlockScheduled = internal.presentationSessionToken;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.05 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (internal.presentationSessionToken != sessionWhenPopupBlockScheduled) {
@@ -2822,9 +2795,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
 #pragma mark - WebView Creation Helper
 
-/// Removes WKWebView's built-in form input toolbar (Prev/Next/Done) by dynamically
-/// subclassing the internal WKContentView and overriding inputAccessoryView → nil.
-/// Uses only public UIResponder API and standard ObjC runtime functions.
+/// Removes WKWebView's form input toolbar (Prev/Next/Done) by subclassing the internal
+/// WKContentView at runtime and overriding inputAccessoryView to return nil.
 static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     static const char *kSubclassName = "StashNative_WKContentView";
     for (UIView *subview in webView.scrollView.subviews) {
@@ -2846,9 +2818,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 
 - (WKWebView *)createConfiguredWebViewWithInternal:(StashNativeCardInternal *)internal {
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
-    // Use the default WKProcessPool (do not assign config.processPool). A custom singleton
-    // pool kept an idle networking process that could miss server GOAWAY/RST_STREAM frames,
-    // causing the next load to hang silently until the retry timer fires.
+    // Uses the default WKProcessPool; config.processPool is left unassigned.
     config.allowsInlineMediaPlayback = YES;
     config.allowsAirPlayForMediaPlayback = YES;
     config.allowsPictureInPictureMediaPlayback = YES;
@@ -2885,7 +2855,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
                                                           forMainFrameOnly:YES];
     [userContentController addUserScript:viewportInjection];
     
-    // window.stash_sdk bridge. The JS source (and its mirror/spec obligations) lives in stash_bridgeUserScriptSource.
+    // window.stash_sdk bridge. JS source is stash_bridgeUserScriptSource().
     NSString *stashSDKScript = stash_bridgeUserScriptSource();
     WKUserScript *stashSDKInjection = [[WKUserScript alloc] initWithSource:stashSDKScript
                                                              injectionTime:WKUserScriptInjectionTimeAtDocumentStart

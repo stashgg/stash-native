@@ -2,11 +2,9 @@
 //  StashNativeCardTheme.m
 //  StashNative
 //
-//  Sheet theming: parses the optional caller background-color hex, decides light/dark (sRGB
-//  luminance or the system trait collection), and produces the sheet UIColor + the document-end
-//  JavaScript that paints the page background to match. The chosen background color is applied to
-//  the card/modal chrome and mirrored into the WebView so there is no white flash. Moved verbatim
-//  from StashNativeCard.m.
+//  Sheet theming: parses the optional caller background-color hex, determines light/dark via sRGB
+//  luminance or the system trait collection, and produces the sheet UIColor plus the document-end
+//  JavaScript that paints the page background to match.
 //
 
 #import "StashNativeCard.h"
