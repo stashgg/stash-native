@@ -270,7 +270,7 @@ static const NSTimeInterval kRotationDelayAfterLandscape = 0.35;
     // Unlock portrait before window teardown.
     self.isSafariPortraitLocked = NO;
 
-    // If we created a dedicated Safari portrait window (standalone browser path), tear it down.
+    // If we created a dedicated Safari portrait window (external-payment handoff path), tear it down.
     if (self.safariPresentationWindow) {
         [self teardownPresentationWindow:self.safariPresentationWindow];
         self.safariPresentationWindow = nil;

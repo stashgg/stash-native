@@ -3,8 +3,7 @@
 //  StashNative
 //
 //  The StashNativeCard public facade and the StashNativeCardInternal presentation/lifecycle
-//  singleton. Sibling translation units (Support, Layout, WebBridge, Orientation, Safari, Configs)
-//  read this file's stash_/k-prefixed externs. Declarations are in StashNativeCardPrivate.h,
+//  singleton. Sibling translation units read this file's stash_/k-prefixed externs. Declarations are in StashNativeCardPrivate.h,
 //  StashNativeCardInternal.h, the per-cluster *.h, and StashNativeCardLogging.h.
 //
 
@@ -58,7 +57,7 @@ CGFloat stash_tabletWidthRatioLandscape = 0.3;
 CGFloat stash_tabletHeightRatioLandscape = 0.6;
 
 // --- Popup size configuration (reset on cleanup) ---
-// File-local: read only inside stash_computePopupFrameForScreenBounds (defined in this TU).
+// Extern; read by stash_computePopupFrameForScreenBounds in StashNativeCardGeometry.m.
 BOOL stash_useCustomPopupSize = NO;
 CGFloat stash_customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
 CGFloat stash_customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
@@ -109,13 +108,13 @@ static const CGFloat kCornerRadiusExpanded = 24.0f;
 const CGFloat kDragTrayHeight = 44.0f;
 
 #pragma mark - View Tag Constants
-// View tags, extern'd by StashNativeCardViewControllers.m.
+// View tags. Extern'd by StashNativeCardViewControllers.m, StashNativeCardLayout.m, and StashNativeCardWebViewDelegates.m.
 const NSInteger kCardViewTag = 9999;
 const NSInteger kDragTrayViewTag = 8888;
 const NSInteger kDragHandleViewTag = 8889;
 
 #pragma mark - Handle Bar (Drag Tray) Constants
-// Handle bar dimensions, points. Extern'd by StashNativeCardViewControllers.m.
+// Handle bar dimensions, points. Extern'd by StashNativeCardLayout.m.
 const CGFloat kHandleBarWidth = 36.0f;
 const CGFloat kHandleBarHeight = 5.0f;
 const CGFloat kHandleBarTopInset = 8.0f;
@@ -272,7 +271,7 @@ static const CGFloat kVelocityThresholdForFastCollapse = 600.0f;
 static const CGFloat kVelocityThresholdForFastDismiss = 1000.0f;
 
 #pragma mark - Popup Frame (OrientationLockedViewController)
-// Popup frame constants, extern'd by StashNativeCardViewControllers.m.
+// Popup frame constants. Extern'd by StashNativeCardGeometry.m (sizing) and StashNativeCardViewControllers.m (kPopupFrameAnimationDuration).
 const CGFloat kPopupBaseSizePercentageIPad = 0.5f;
 const CGFloat kPopupBaseSizePercentagePhone = 0.75f;
 const CGFloat kPopupBaseSizeMinIPad = 400.0f;

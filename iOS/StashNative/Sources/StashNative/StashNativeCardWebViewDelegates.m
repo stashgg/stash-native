@@ -2,7 +2,7 @@
 //  StashNativeCardWebViewDelegates.m
 //  StashNative
 //
-//  WebViewLoadDelegate: the card WebView's WKNavigationDelegate + WKUIDelegate. Holds the load-recovery
+//  WebViewLoadDelegate: the card WebView's WKNavigationDelegate; the WKUIDelegate is the separate WebViewUIDelegate below. Holds the load-recovery
 //  machinery -- the stall-retry timer chain (up to two reloads), the hard network-error deadline, and
 //  the session-token gate (StashNativeCurrentPresentationSessionToken) that drops callbacks from a
 //  closed card. Shared file-scope state declared as externs in StashNativeCardPrivate.h.
@@ -47,7 +47,7 @@ static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
     UIView* _loadingView;
     NSTimer* _networkTimeoutTimer;
     NSTimer* _modalFallbackTimer;
-    /// Fires a single retry after kRetryTimeoutInterval when no HTTP response has arrived.
+    /// Fires the stall-retry reload after kRetryTimeoutInterval and re-arms in handleRetryTimer:, up to two reloads total.
     NSTimer* _retryTimer;
     BOOL _initialLoadComplete;
     BOOL _networkErrorHandled;

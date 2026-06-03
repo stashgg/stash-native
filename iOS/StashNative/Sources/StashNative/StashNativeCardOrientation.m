@@ -150,8 +150,8 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             originalIMP = (OriginalIMP)method_setImplementation(method, newIMP);
         } else {
             // Method does not exist: add it; originalIMP stays NULL.
-            // Type encoding: return UIInterfaceOrientationMask (NSUInteger = 8 bytes on 64-bit),
-            // args self (id @8), _cmd (SEL @8), UIApplication * (@8), UIWindow * (@8) = 40 bytes.
+            // Type encoding "Q40@0:8@16@24": Q = returned NSUInteger (UIInterfaceOrientationMask); 40 =
+            // legacy frame size (ignored by the modern runtime); arg offsets self@0, _cmd@8, UIApplication*@16, UIWindow*@24.
             class_addMethod(delegateClass, sel, newIMP, "Q40@0:8@16@24");
         }
     });
@@ -295,7 +295,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             }
         }
     } else {
-        // iOS 15: re-query supportedInterfaceOrientationsForWindow with
+        // Pre-iOS 16: re-query supportedInterfaceOrientationsForWindow with
         // isIPhoneCardKeyboardVisible == YES.
         [UIViewController attemptRotationToDeviceOrientation];
     }
@@ -320,7 +320,7 @@ void stashInstallOrientationSwizzleIfNeeded(void) {
             STASH_DEBUG_LOG(@"StashNative keyboard orientation restore: %@", error);
         }];
     } else {
-        // iOS 15: reinforce the card's orientation for the next keyboard presentation.
+        // Pre-iOS 16: reinforce the card's orientation for the next keyboard presentation.
         if (self.portraitWindow) {
             if (stash_forcePortraitOnCheckout) {
                 [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)

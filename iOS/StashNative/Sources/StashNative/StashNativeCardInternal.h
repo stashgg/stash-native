@@ -34,7 +34,7 @@
 @property (nonatomic, assign) NSTimeInterval expandDuration;
 @property (nonatomic, assign) CGFloat expandInitialProgress;
 @property (nonatomic, assign) CGFloat collapseInitialProgress;
-@property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // Easing overshoot amount; 0 = no overshoot.
+@property (nonatomic, assign) CGFloat expandCollapseEaseOvershoot; // Easing overshoot amount; 0 selects the default ease-out-back overshoot (1.70158).
 @property (nonatomic, copy) void (^expandCompletion)(void);
 @property (nonatomic, strong) WebViewLoadDelegate *activeWebViewLoadDelegate;
 @property (nonatomic, strong) WebViewUIDelegate *activeWebViewUIDelegate;
@@ -67,7 +67,7 @@
 - (void)dismissWithAnimation:(void (^)(void))completion;
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
-- (UIView *)cardViewForCurrentPresentation;  // Returns cardView (kCardViewTag) for iPhone/iPad; nil if none
+- (UIView *)cardViewForCurrentPresentation;  // kCardViewTag view for the current presentation; on iPhone falls back to the presented VC's view; nil when none is presented.
 - (void)updateDragTrayVisibilityForPurchaseProcessing:(BOOL)isProcessing;
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc;
 - (UIView *)createDragTray:(CGFloat)cardWidth;

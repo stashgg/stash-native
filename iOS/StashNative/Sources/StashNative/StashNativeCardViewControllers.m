@@ -5,8 +5,9 @@
 //  The UIView and UIViewController subclasses that host each presentation: DragTrayView (the card's
 //  draggable tray), the iPhone card controllers (fixed and current-orientation), the iPad/phone modal
 //  controllers, the orientation-locked container, and the SafariPortrait container for the external-
-//  payment handoff. Presentation logic and the file-scope state these read live in StashNativeCard.m,
-//  declared extern in StashNativeCardPrivate.h.
+//  payment handoff. Presentation entry points and the file-scope state these read live in
+//  StashNativeCard.m (extern in StashNativeCardPrivate.h); frame geometry, content layout, and shared
+//  helpers live in StashNativeCardGeometry.m, StashNativeCardLayout.m, and StashNativeCardSupport.m.
 //
 
 #import "StashNativeCard.h"
@@ -105,7 +106,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 @end
 
-#pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
+#pragma mark - IPhoneCardCurrentOrientationViewController (rotates freely when lockedOrientationMask is 0; otherwise restricts to lockedOrientationMask)
 
 @implementation IPhoneCardCurrentOrientationViewController
 
