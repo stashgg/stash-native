@@ -1384,7 +1384,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     stash_switchWebViewToFrameLayoutInCardView(cardView);
     CGFloat p;
     if (forcedProgress >= 0.0 && forcedProgress <= 1.0) {
-        p = (CGFloat)forcedProgress;
+        p = forcedProgress;
     } else {
         p = stash_isCardExpanded ? 1.0f : [self currentExpansionProgressForCardView:cardView];
     }
@@ -1755,10 +1755,6 @@ static NSString* appendThemeQueryParameter(NSString* url) {
 }
 
 #pragma mark - StashNativeCard Implementation
-
-@interface StashNativeCard ()
-@property (nonatomic, assign) BOOL isCardExpanded;
-@end
 
 // ============================================================================
 

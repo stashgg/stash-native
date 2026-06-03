@@ -60,8 +60,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 }
 
 - (void)updateCornerRadiusMask {
-    UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
 }
 
@@ -121,8 +120,7 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 }
 
 - (void)updateCornerRadiusMask {
-    UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
+    CAShapeLayer *maskLayer = stash_createCornerRadiusMask(self.view.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
     self.view.layer.mask = maskLayer;
 }
 

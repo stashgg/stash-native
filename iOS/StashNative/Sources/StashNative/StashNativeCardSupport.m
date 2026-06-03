@@ -35,8 +35,7 @@ BOOL stash_isRunningOniPad(void) {
 
 UIColor* stash_getSystemBackgroundColor(void) {
     if (@available(iOS 13.0, *)) {
-        UIUserInterfaceStyle currentStyle = [UITraitCollection currentTraitCollection].userInterfaceStyle;
-        return (currentStyle == UIUserInterfaceStyleDark) ? StashNativeDarkSurfaceColor() : [UIColor systemBackgroundColor];
+        return ([UITraitCollection currentTraitCollection].userInterfaceStyle == UIUserInterfaceStyleDark) ? StashNativeDarkSurfaceColor() : [UIColor systemBackgroundColor];
     }
     return [UIColor whiteColor];
 }
