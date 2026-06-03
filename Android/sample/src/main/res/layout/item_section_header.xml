@@ -4,9 +4,9 @@
     android:id="@+id/sectionHeaderText"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingStart="20dp"
-    android:paddingEnd="20dp"
-    android:paddingTop="24dp"
-    android:paddingBottom="8dp"
+    android:paddingStart="@dimen/list_row_padding_horizontal"
+    android:paddingEnd="@dimen/list_row_padding_horizontal"
+    android:paddingTop="@dimen/list_section_header_padding_top"
+    android:paddingBottom="@dimen/list_section_header_padding_bottom"
     android:textAppearance="@style/TextAppearance.StashNative.LabelLarge"
     tools:text="CHECKOUT" />

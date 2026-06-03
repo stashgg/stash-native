@@ -5,19 +5,19 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:paddingStart="20dp"
-    android:paddingEnd="20dp"
-    android:paddingTop="12dp"
-    android:paddingBottom="12dp"
-    android:minHeight="48dp"
+    android:paddingStart="@dimen/list_row_padding_horizontal"
+    android:paddingEnd="@dimen/list_row_padding_horizontal"
+    android:paddingTop="@dimen/list_row_padding_vertical"
+    android:paddingBottom="@dimen/list_row_padding_vertical"
+    android:minHeight="@dimen/list_row_min_height"
     android:clickable="true"
     android:focusable="true">
 
     <ImageView
         android:id="@+id/expandableIcon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:layout_marginEnd="16dp"
+        android:layout_width="@dimen/list_icon_size"
+        android:layout_height="@dimen/list_icon_size"
+        android:layout_marginEnd="@dimen/list_icon_margin_end"
         android:contentDescription="@null" />
 
     <TextView
@@ -29,8 +29,8 @@
 
     <ImageView
         android:id="@+id/expandableChevron"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
+        android:layout_width="@dimen/list_icon_size"
+        android:layout_height="@dimen/list_icon_size"
         android:src="@drawable/ic_ms_chevron_right_24"
         android:contentDescription="@null" />
 </LinearLayout>

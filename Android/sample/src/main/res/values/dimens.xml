@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- List row spacing -->
+    <dimen name="list_row_padding_horizontal">20dp</dimen>
+    <dimen name="list_row_padding_vertical">12dp</dimen>
+    <dimen name="list_row_min_height">56dp</dimen>
+
+    <!-- Leading icon, and the content keyline every title aligns to (horizontal + icon + margin) -->
+    <dimen name="list_icon_size">24dp</dimen>
+    <dimen name="list_icon_margin_end">16dp</dimen>
+    <dimen name="list_content_inset_start">60dp</dimen>
+
+    <!-- Section header / footer spacing -->
+    <dimen name="list_section_header_padding_top">24dp</dimen>
+    <dimen name="list_section_header_padding_bottom">8dp</dimen>
+    <dimen name="list_section_footer_padding_top">6dp</dimen>
+    <dimen name="list_section_footer_padding_bottom">20dp</dimen>
+
+    <!-- Card container -->
+    <dimen name="card_corner_radius">12dp</dimen>
+    <dimen name="card_margin_horizontal">16dp</dimen>
+    <dimen name="card_margin_vertical">12dp</dimen>
+</resources>

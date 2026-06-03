@@ -1,6 +1,5 @@
 package com.stash.stashnative.sample;
 
-import android.content.Context;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -141,16 +140,11 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
-  private static final int CARD_MARGIN_HORIZONTAL_DP = 16;
-  private static final int CARD_MARGIN_TOP_DP = 12;
-  private static final int CARD_MARGIN_BOTTOM_DP = 12;
-
   private void applyCardStyle(View itemView, SettingsItem item) {
-    Context ctx = itemView.getContext();
-    float density = ctx.getResources().getDisplayMetrics().density;
-    int horizontal = Math.round(CARD_MARGIN_HORIZONTAL_DP * density);
-    int top = Math.round(CARD_MARGIN_TOP_DP * density);
-    int bottom = Math.round(CARD_MARGIN_BOTTOM_DP * density);
+    android.content.res.Resources res = itemView.getContext().getResources();
+    int horizontal = res.getDimensionPixelSize(R.dimen.card_margin_horizontal);
+    int top = res.getDimensionPixelSize(R.dimen.card_margin_vertical);
+    int bottom = top;
 
     boolean first = item.firstInCard;
     boolean last = item.lastInCard;
