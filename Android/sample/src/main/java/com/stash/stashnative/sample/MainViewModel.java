@@ -376,33 +376,33 @@ public class MainViewModel extends AndroidViewModel {
     list.add(SettingsItem.sectionHeader(R.string.section_card, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_checkout_url, checkoutUrl,
-        R.drawable.ic_ms_link_24, false, false));
+        false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_card, R.drawable.ic_ms_credit_card_24, false, false));
+        R.string.open_card, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.generate_checkout, R.drawable.ic_ms_credit_card_24, false, false));
+        R.string.generate_checkout, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_webshop, R.drawable.ic_ms_public_24, false, false));
+        R.string.open_webshop, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_card, false, true));
 
     // Modal section
     list.add(SettingsItem.sectionHeader(R.string.section_modal, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_modal_url, modalUrl,
-        R.drawable.ic_ms_link_24, false, false));
+        false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_modal, R.drawable.ic_ms_view_quilt_24, false, false));
+        R.string.open_modal, false, false));
     list.add(SettingsItem.sectionFooter(R.string.footer_modal, false, true));
 
     // Browser section (under Modal)
     list.add(SettingsItem.sectionHeader(R.string.section_browser, true, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_browser_url, browserUrl,
-        R.drawable.ic_ms_link_24, false, false));
+        false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.open_browser, R.drawable.ic_ms_public_24, false, false));
+        R.string.open_browser, false, false));
     list.add(SettingsItem.actionPreference(
-        R.string.generate_checkout_for_browser, R.drawable.ic_ms_shopping_cart_24, false, false));
+        R.string.generate_checkout_for_browser, false, false));
     list.add(SettingsItem.switchPreference(
         R.string.option_keep_alive, R.string.option_keep_alive_supporting,
         keepAliveEnabled, false, false));
@@ -412,11 +412,11 @@ public class MainViewModel extends AndroidViewModel {
     list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
     list.add(SettingsItem.expandableHeader(
         checkoutOptionsExpanded ? R.string.hide_checkout_options : R.string.show_checkout_options,
-        checkoutOptionsExpanded, R.drawable.ic_ms_tune_24, false, false));
+        checkoutOptionsExpanded, false, false));
     if (checkoutOptionsExpanded) {
       list.add(SettingsItem.urlPreference(
           R.string.hint_card_background_color, cardBackgroundColorHex,
-          R.drawable.ic_ms_tune_24, false, false));
+          false, false));
       list.add(SettingsItem.switchPreference(
           R.string.option_force_portrait_on_checkout,
           R.string.option_force_portrait_on_checkout_supporting,
@@ -442,12 +442,12 @@ public class MainViewModel extends AndroidViewModel {
     }
     list.add(SettingsItem.expandableHeader(
         modalOptionsExpanded ? R.string.hide_modal_options : R.string.show_modal_options,
-        modalOptionsExpanded, R.drawable.ic_ms_tune_24, false,
+        modalOptionsExpanded, false,
         !modalOptionsExpanded));
     if (modalOptionsExpanded) {
       list.add(SettingsItem.urlPreference(
           R.string.hint_modal_background_color, modalBackgroundColorHex,
-          R.drawable.ic_ms_tune_24, false, false));
+          false, false));
       list.add(SettingsItem.switchPreference(
           R.string.option_allow_dismiss, R.string.option_allow_dismiss_supporting,
           modalAllowDismiss, false, false));
@@ -480,7 +480,7 @@ public class MainViewModel extends AndroidViewModel {
         R.string.option_use_test_api, 0, useTestApi, false, false));
     list.add(SettingsItem.urlPreference(
         R.string.hint_api_key, stashApiKey,
-        R.drawable.ic_ms_key_24, false, false));
+        false, false));
     list.add(SettingsItem.sectionFooter(
         R.string.footer_checkout_generation_settings, false, true));
 

@@ -217,7 +217,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item) {
       boundTitleRes = item.titleRes;
-      binding.preferenceIcon.setImageResource(item.iconRes);
       binding.urlInputLayout.setHint(item.titleRes);
       binding.urlEditText.removeTextChangedListener(watcher);
       binding.urlEditText.setText(item.value);
@@ -260,7 +259,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
 
     void bind(SettingsItem item) {
-      binding.actionIcon.setImageResource(item.iconRes);
       binding.actionTitle.setText(item.titleRes);
       binding.actionRow.setOnClickListener(v -> {
         if (item.titleRes == R.string.open_card) {
@@ -289,7 +287,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
 
     void bind(SettingsItem item) {
-      binding.expandableIcon.setImageResource(item.iconRes);
       binding.expandableTitle.setText(item.titleRes);
       binding.expandableChevron.setRotation(item.expanded ? 90f : 0f);
       binding.expandableRow.setOnClickListener(v -> {

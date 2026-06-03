@@ -5,10 +5,8 @@
     <dimen name="list_row_padding_vertical">12dp</dimen>
     <dimen name="list_row_min_height">56dp</dimen>
 
-    <!-- Leading icon, and the content keyline every title aligns to (horizontal + icon + margin) -->
+    <!-- Trailing chevron / control icon size -->
     <dimen name="list_icon_size">24dp</dimen>
-    <dimen name="list_icon_margin_end">16dp</dimen>
-    <dimen name="list_content_inset_start">60dp</dimen>
 
     <!-- Section header / footer spacing -->
     <dimen name="list_section_header_padding_top">24dp</dimen>

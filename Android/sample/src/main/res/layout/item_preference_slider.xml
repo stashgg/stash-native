@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:paddingStart="@dimen/list_content_inset_start"
+    android:paddingStart="@dimen/list_row_padding_horizontal"
     android:paddingEnd="@dimen/list_row_padding_horizontal"
     android:paddingTop="@dimen/list_row_padding_vertical"
     android:paddingBottom="@dimen/list_row_padding_vertical"

@@ -13,13 +13,6 @@
     android:clickable="true"
     android:focusable="true">
 
-    <ImageView
-        android:id="@+id/expandableIcon"
-        android:layout_width="@dimen/list_icon_size"
-        android:layout_height="@dimen/list_icon_size"
-        android:layout_marginEnd="@dimen/list_icon_margin_end"
-        android:contentDescription="@null" />
-
     <TextView
         android:id="@+id/expandableTitle"
         android:layout_width="0dp"

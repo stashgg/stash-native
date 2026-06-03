@@ -11,13 +11,6 @@
     android:paddingBottom="@dimen/list_row_padding_vertical"
     android:minHeight="@dimen/list_row_min_height">
 
-    <ImageView
-        android:id="@+id/preferenceIcon"
-        android:layout_width="@dimen/list_icon_size"
-        android:layout_height="@dimen/list_icon_size"
-        android:layout_marginEnd="@dimen/list_icon_margin_end"
-        android:contentDescription="@null" />
-
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/urlInputLayout"
         android:layout_width="0dp"
