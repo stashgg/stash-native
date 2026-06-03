@@ -7,7 +7,7 @@
 
 import UIKit
 import StashNative
-// StashNative is imported via bridging header
+// StashNative is imported as a Swift module (line above).
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 

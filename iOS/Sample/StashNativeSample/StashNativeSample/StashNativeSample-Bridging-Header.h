@@ -2,7 +2,7 @@
 //  StashNativeSample-Bridging-Header.h
 //  StashNativeSample
 //
-//  Bridging header to expose Objective-C StashNative SDK to Swift.
+//  Bridging header placeholder; StashNative is consumed as a Swift module via `import StashNative`, not through this header.
 //
 
 #ifndef StashNativeSample_Bridging_Header_h
