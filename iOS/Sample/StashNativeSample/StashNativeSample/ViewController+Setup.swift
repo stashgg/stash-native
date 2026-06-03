@@ -51,7 +51,7 @@ extension ViewController {
         slider.maximumValue = 100
         slider.value = value
         label.text = "\(Int(value))%"
-        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.font = Layout.bodyFont
         label.textColor = .secondaryLabel
         sliderLabels[ObjectIdentifier(slider)] = label
         slider.addTarget(self, action: #selector(sliderValueChanged(_:)), for: .valueChanged)

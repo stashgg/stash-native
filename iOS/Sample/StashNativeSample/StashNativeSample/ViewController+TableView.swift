@@ -43,14 +43,14 @@ extension ViewController {
         guard let titleText = title else { return nil }
         let label = UILabel()
         label.text = titleText
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.font = Layout.sectionHeaderFont
         label.textColor = .secondaryLabel
         label.translatesAutoresizingMaskIntoConstraints = false
         let container = UIView()
         container.addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Layout.contentInset),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Layout.contentInset),
             label.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
             label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
         ])
@@ -62,15 +62,15 @@ extension ViewController {
               let footerTextContent = footerText(for: sectionType) else { return nil }
         let label = UILabel()
         label.text = footerTextContent
-        label.font = ViewController.footerFont
+        label.font = Layout.subtitleFont
         label.textColor = .secondaryLabel
         label.numberOfLines = 0
         label.translatesAutoresizingMaskIntoConstraints = false
         let container = UIView()
         container.addSubview(label)
         NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
+            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: Layout.contentInset),
+            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -Layout.contentInset),
             label.topAnchor.constraint(equalTo: container.topAnchor, constant: 6),
             label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -18)
         ])
@@ -80,12 +80,12 @@ extension ViewController {
     func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
         guard let sectionType = Section(rawValue: section),
               let text = footerText(for: sectionType) else { return 0 }
-        let width = tableView.bounds.width - 40
-        if width <= 0 { return 44 }
+        let width = tableView.bounds.width - 2 * Layout.contentInset
+        if width <= 0 { return Layout.standardRowHeight }
         let rect = text.boundingRect(
             with: CGSize(width: width, height: .greatestFiniteMagnitude),
             options: .usesLineFragmentOrigin,
-            attributes: [.font: ViewController.footerFont],
+            attributes: [.font: Layout.subtitleFont],
             context: nil
         )
         return ceil(rect.height) + 24
@@ -147,6 +147,6 @@ extension ViewController {
     }
 
     func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
-        44
+        Layout.standardRowHeight
     }
 }

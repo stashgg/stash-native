@@ -11,7 +11,15 @@ import UIKit
 
 extension ViewController {
 
-    static let footerFont = UIFont.systemFont(ofSize: 13, weight: .regular)
+    /// Shared sizing and type tokens for the settings list.
+    enum Layout {
+        static let bodyFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+        static let subtitleFont = UIFont.systemFont(ofSize: 13, weight: .regular)
+        static let sectionHeaderFont = UIFont.systemFont(ofSize: 13, weight: .semibold)
+        static let contentInset: CGFloat = 20
+        static let standardRowHeight: CGFloat = 44
+        static let sliderRowHeight: CGFloat = 72
+    }
 
     func footerText(for section: Section) -> String? {
         switch section {
@@ -47,88 +55,34 @@ extension ViewController {
     }
 
     func cardSectionCell(for indexPath: IndexPath) -> UITableViewCell {
-        if indexPath.row == 0 {
-            return urlCell(textField: checkoutUrlTextField, label: "URL", imageName: "link")
-        } else if indexPath.row == 1 {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Open URL in Card"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("creditcard.fill")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
-        } else if indexPath.row == 2 {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Generate Checkout"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("creditcard.fill")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
-        } else {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Open Webshop"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("storefront")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
+        switch indexPath.row {
+        case 0: return urlCell(textField: checkoutUrlTextField, label: "URL")
+        case 1: return actionCell(title: "Open URL in Card")
+        case 2: return actionCell(title: "Generate Checkout")
+        default: return actionCell(title: "Open Webshop")
         }
     }
 
     func modalSectionCell(for indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row == 0 {
-            return urlCell(textField: modalUrlTextField, label: "URL", imageName: "link")
-        } else {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Open URL in Modal Dialog"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("rectangle.stack.fill")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
+            return urlCell(textField: modalUrlTextField, label: "URL")
         }
+        return actionCell(title: "Open URL in Modal Dialog")
     }
 
     func browserSectionCell(for indexPath: IndexPath) -> UITableViewCell {
-        if indexPath.row == 0 {
-            return urlCell(textField: browserUrlTextField, label: "URL", imageName: "link")
-        } else if indexPath.row == 1 {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Open URL in Browser"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("safari")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
-        } else {
-            let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
-            cell.textLabel?.text = "Generate Checkout"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.textLabel?.textColor = .systemBlue
-            cell.imageView?.image = systemImage("cart.fill")
-            cell.imageView?.tintColor = .secondaryLabel
-            cell.accessoryType = .disclosureIndicator
-            return cell
+        switch indexPath.row {
+        case 0: return urlCell(textField: browserUrlTextField, label: "URL")
+        case 1: return actionCell(title: "Open URL in Browser")
+        default: return actionCell(title: "Generate Checkout")
         }
     }
 
     func checkoutGenerationCell(for indexPath: IndexPath) -> UITableViewCell {
         if indexPath.row == 0 {
-            let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
-            cell.selectionStyle = .none
-            cell.textLabel?.text = "Use test API"
-            cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
-            cell.accessoryView = useTestApiSwitch
-            return cell
-        } else {
-            return urlCell(textField: apiKeyTextField, label: "API Key", imageName: "key")
+            return switchCell(title: "Use test API", subtitle: nil, switchView: useTestApiSwitch)
         }
+        return urlCell(textField: apiKeyTextField, label: "API Key")
     }
 
     func gameSimulationCell(for indexPath: IndexPath) -> UITableViewCell {
@@ -139,22 +93,31 @@ extension ViewController {
         )
     }
 
-    func urlCell(textField: UITextField, label: String, imageName: String) -> UITableViewCell {
+    /// A tappable row with an accent title and a disclosure chevron.
+    func actionCell(title: String) -> UITableViewCell {
+        let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
+        cell.textLabel?.text = title
+        cell.textLabel?.font = Layout.bodyFont
+        cell.textLabel?.textColor = .systemBlue
+        cell.accessoryType = .disclosureIndicator
+        return cell
+    }
+
+    /// A label on the left and a right-aligned editable value field.
+    func urlCell(textField: UITextField, label: String) -> UITableViewCell {
         let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
         cell.selectionStyle = .none
         cell.textLabel?.text = label
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = Layout.bodyFont
         cell.textLabel?.textColor = .label
-        cell.imageView?.image = systemImage(imageName)
-        cell.imageView?.tintColor = .secondaryLabel
         cell.detailTextLabel?.text = nil
         if textField.superview != cell.contentView {
             textField.removeFromSuperview()
             textField.translatesAutoresizingMaskIntoConstraints = false
             cell.contentView.addSubview(textField)
             NSLayoutConstraint.activate([
-                textField.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 120),
-                textField.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -36),
+                textField.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 96),
+                textField.trailingAnchor.constraint(equalTo: cell.contentView.layoutMarginsGuide.trailingAnchor),
                 textField.centerYAnchor.constraint(equalTo: cell.contentView.centerYAnchor),
                 textField.heightAnchor.constraint(equalToConstant: 22)
             ])
@@ -166,10 +129,10 @@ extension ViewController {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
         cell.selectionStyle = .none
         cell.textLabel?.text = title
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = Layout.bodyFont
         cell.textLabel?.textColor = .label
         cell.detailTextLabel?.text = subtitle
-        cell.detailTextLabel?.font = .systemFont(ofSize: 13, weight: .regular)
+        cell.detailTextLabel?.font = Layout.subtitleFont
         cell.detailTextLabel?.textColor = .secondaryLabel
         cell.accessoryView = switchView
         return cell
@@ -181,10 +144,11 @@ extension ViewController {
         cell.contentView.subviews.forEach { $0.removeFromSuperview() }
         let content = makeSliderCellContent(title: title, valueLabel: valueLabel, slider: slider)
         cell.contentView.addSubview(content)
+        let margins = cell.contentView.layoutMarginsGuide
         NSLayoutConstraint.activate([
             content.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 12),
-            content.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 20),
-            content.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -20),
+            content.leadingAnchor.constraint(equalTo: margins.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: margins.trailingAnchor),
             content.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12)
         ])
         return cell

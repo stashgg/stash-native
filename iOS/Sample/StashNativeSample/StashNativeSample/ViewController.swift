@@ -173,7 +173,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         field.autocorrectionType = .no
         field.keyboardType = .URL
         field.textAlignment = .right
-        field.font = .systemFont(ofSize: 17, weight: .regular)
+        field.font = Layout.bodyFont
         field.clearButtonMode = .whileEditing
     }
 
@@ -192,7 +192,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         apiKeyTextField.autocapitalizationType = .none
         apiKeyTextField.autocorrectionType = .no
         apiKeyTextField.textAlignment = .right
-        apiKeyTextField.font = .systemFont(ofSize: 17, weight: .regular)
+        apiKeyTextField.font = Layout.bodyFont
         apiKeyTextField.clearButtonMode = .whileEditing
         apiKeyTextField.addTarget(self, action: #selector(apiKeyEditingDidEnd), for: .editingDidEnd)
         useTestApiSwitch.isOn = true
@@ -203,7 +203,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             field.autocorrectionType = .no
             field.keyboardType = .asciiCapable
             field.textAlignment = .right
-            field.font = .systemFont(ofSize: 17, weight: .regular)
+            field.font = Layout.bodyFont
             field.clearButtonMode = .whileEditing
             if let saved = UserDefaults.standard.string(forKey: key), !saved.isEmpty {
                 field.text = saved
@@ -251,10 +251,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     // MARK: - Helpers
 
-    func systemImage(_ name: String) -> UIImage? {
-        UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .regular))
-    }
-
     func makeSliderCellContent(title: String, valueLabel: UILabel, slider: UISlider) -> UIView {
         let stack = UIStackView()
         stack.axis = .vertical
@@ -266,9 +262,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         topRow.alignment = .center
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.font = Layout.bodyFont
         titleLabel.textColor = .label
         valueLabel.setContentHuggingPriority(.required, for: .horizontal)
+        valueLabel.textAlignment = .right
         topRow.addArrangedSubview(titleLabel)
         topRow.addArrangedSubview(valueLabel)
         stack.addArrangedSubview(topRow)

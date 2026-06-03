@@ -32,22 +32,18 @@ extension ViewController {
     private func checkoutOptionsHeaderCell() -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = isCheckoutAdvancedExpanded ? "Hide Card options" : "Show Card options"
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = Layout.bodyFont
         cell.textLabel?.textColor = .label
         cell.accessoryType = isCheckoutAdvancedExpanded ? .detailButton : .disclosureIndicator
-        cell.imageView?.image = systemImage("slider.horizontal.3")
-        cell.imageView?.tintColor = .secondaryLabel
         return cell
     }
 
     private func modalOptionsHeaderCell() -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = isModalAdvancedExpanded ? "Hide Modal options" : "Show Modal options"
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = Layout.bodyFont
         cell.textLabel?.textColor = .label
         cell.accessoryType = isModalAdvancedExpanded ? .detailButton : .disclosureIndicator
-        cell.imageView?.image = systemImage("rectangle.inset.filled")
-        cell.imageView?.tintColor = .secondaryLabel
         return cell
     }
 
@@ -58,11 +54,7 @@ extension ViewController {
         }
         switch checkoutRow {
         case .cardBackgroundHex:
-            return urlCell(
-                textField: cardBackgroundColorTextField,
-                label: "Background",
-                imageName: "paintpalette.fill"
-            )
+            return urlCell(textField: cardBackgroundColorTextField, label: "Background")
         case .forcePortraitOnCheckout:
             return switchCell(
                 title: "Force Portrait on Card",
@@ -127,11 +119,7 @@ extension ViewController {
         }
         switch modalRow {
         case .modalBackgroundHex:
-            return urlCell(
-                textField: modalBackgroundColorTextField,
-                label: "Background",
-                imageName: "paintpalette.fill"
-            )
+            return urlCell(textField: modalBackgroundColorTextField, label: "Background")
         case .allowDismiss:
             return switchCell(
                 title: "Allow Dismiss",
@@ -215,12 +203,12 @@ extension ViewController {
             }
             switch checkoutRow {
             case .cardBackgroundHex:
-                return 44
+                return Layout.standardRowHeight
             case .phoneCardHeight, .phoneLandscapeWidth, .phoneLandscapeHeight,
                  .tabletPortraitWidth, .tabletPortraitHeight,
                  .tabletLandscapeWidth, .tabletLandscapeHeight:
-                return 72
-            default: return 44
+                return Layout.sliderRowHeight
+            default: return Layout.standardRowHeight
             }
         }
         if row > modalHeaderIndex {
@@ -229,15 +217,15 @@ extension ViewController {
             }
             switch modalRow {
             case .modalBackgroundHex:
-                return 44
+                return Layout.standardRowHeight
             case .modalPhonePortraitWidth, .modalPhonePortraitHeight,
                  .modalPhoneLandscapeWidth, .modalPhoneLandscapeHeight,
                  .modalTabletPortraitWidth, .modalTabletPortraitHeight,
                  .modalTabletLandscapeWidth, .modalTabletLandscapeHeight:
-                return 72
-            default: return 44
+                return Layout.sliderRowHeight
+            default: return Layout.standardRowHeight
             }
         }
-        return 44
+        return Layout.standardRowHeight
     }
 }
