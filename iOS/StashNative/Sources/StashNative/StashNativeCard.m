@@ -17,7 +17,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import <math.h>
-#import <stdlib.h>
 
 // Warning suppressions active only when compiling without ARC.
 #if !__has_feature(objc_arc)
