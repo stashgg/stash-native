@@ -2537,6 +2537,7 @@ UIColor* stash_sheetBackgroundUIColor(void) {
             return parsed;
         }
     }
+    return stash_getSystemBackgroundColor();
 }
 
 BOOL StashNativeSheetUsesDarkWebTheme(void) {
