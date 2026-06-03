@@ -77,7 +77,7 @@ public class MainViewModel extends AndroidViewModel {
   private int modalTabletLandscapeW = 20;
   private int modalTabletLandscapeH = 30;
 
-  /** Creates the ViewModel and restores persisted API key from SharedPreferences. */
+  /** Creates the ViewModel and restores the persisted API key and card/modal background colors from SharedPreferences. */
   public MainViewModel(Application application) {
     super(application);
     prefs = application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE);

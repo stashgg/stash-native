@@ -19,7 +19,7 @@ public final class SettingsItem {
   public final int type;
   @StringRes public final int titleRes;
   @StringRes public final int supportingRes; // 0 if none
-  public final String value; // for URL, status text, slider label
+  public final String value; // URL text or slider label
   public final boolean checked; // for switch
   public final int progress; // for slider (0-90, display as progress+10 %)
   public final boolean expanded; // for expandable header
