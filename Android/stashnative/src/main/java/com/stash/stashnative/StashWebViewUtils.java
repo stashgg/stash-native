@@ -316,15 +316,13 @@ public class StashWebViewUtils {
     try {
       Uri.Builder builder = Uri.parse(url).buildUpon();
       
-      String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
-      builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
+      builder.appendQueryParameter(QUERY_PARAM_THEME, isDarkTheme ? THEME_DARK : THEME_LIGHT);
       
       return builder.build().toString();
     } catch (Exception e) {
       Log.w(TAG, "Error appending theme parameter: " + e.getMessage());
       String separator = url.contains("?") ? "&" : "?";
-      String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
-      return url + separator + QUERY_PARAM_THEME + "=" + theme;
+      return url + separator + QUERY_PARAM_THEME + "=" + (isDarkTheme ? THEME_DARK : THEME_LIGHT);
     }
   }
 

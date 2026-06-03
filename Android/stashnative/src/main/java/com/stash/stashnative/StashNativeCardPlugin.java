@@ -720,8 +720,7 @@ public class StashNativeCardPlugin {
       activity.startActivity(intent);
       return;
     }
-    int mode = StashUrlLauncher.openExternalUrl(activity, url);
-    applyBrowserCloseTrackingForLaunchMode(mode);
+    applyBrowserCloseTrackingForLaunchMode(StashUrlLauncher.openExternalUrl(activity, url));
   }
 
   private String resolveKeepAliveTitle(Context ctx) {
