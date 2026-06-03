@@ -11,6 +11,7 @@
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import "StashNativeCardInternal.h"
+#import "StashNativeCardWebBridge.h"
 #import <SafariServices/SafariServices.h>
 #import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -152,11 +153,11 @@ const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 // --- Transient presentation state (reset on each dismiss) ---
 static BOOL _callbackWasCalled = NO;              // Ensures dismiss callback fires only once
 static BOOL _isCardCurrentlyPresented = NO;       // Guards against double-presentation
-static BOOL _paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
+BOOL stash_paymentSuccessHandled = NO;          // Ensures payment result callback fires only once
 
 
 // --- User-configurable sizing (persists across presentations) ---
-static BOOL _forcePortraitOnCheckout = NO;
+BOOL stash_forcePortraitOnCheckout = NO;
 // Phone card: portrait = full width + height ratio; landscape = width/height ratios when not forcing portrait
 static CGFloat _cardHeightRatioPortrait = 0.68;
 static CGFloat _cardWidthRatioLandscape = 0.7f;
@@ -188,12 +189,12 @@ static void resetSafariOpenBrowserTrackingFlags(void) {
 }
 
 BOOL stash_usePopupPresentation = NO;
-static BOOL _isCardExpanded = NO;
+BOOL stash_isCardExpanded = NO;
 
 // --- Landscape / force-portrait orientation flags (phones only; reset on cleanup) ---
 /// YES when the card was opened in the current (landscape) orientation without forcing portrait.
 /// Card stays at its configured size; expand/collapse have no effect.
-static BOOL _cardIsInLandscape = NO;
+BOOL stash_cardIsInLandscape = NO;
 /// Safe-area top inset (notch / Dynamic Island) of the active card window, in points.
 /// Used to clamp card height so the card never overlaps the notch. Reset to 0 on cleanup.
 static CGFloat _cardSafeAreaTop = 0.0f;
@@ -204,7 +205,7 @@ static CGFloat _cardSafeAreaTop = 0.0f;
 BOOL stash_useModalPresentation = NO;
 static BOOL _modalAllowDismiss = YES;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
-static BOOL _autoCloseOnPaymentEvent = YES;
+BOOL stash_autoCloseOnPaymentEvent = YES;
 static CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
 static CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
 static CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
@@ -223,7 +224,7 @@ static NSString *_presentationBackgroundColorHex = nil;
 
 static const CGFloat kSpringDampingDefault = 0.82f;
 static const CGFloat kSpringDampingTight = 0.82f;
-static const CGFloat kAnimationDurationDefault = 0.5f;
+const CGFloat kAnimationDurationDefault = 0.5f;
 static const CGFloat kAnimationDurationFast = 0.5f;
 // Non-static for StashNativeCardViewControllers.m
 const CGFloat kCornerRadiusDefault = 20.0f;
@@ -409,15 +410,6 @@ const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 
 #pragma mark - Message Handler Names (WKScriptMessageHandler)
 
-static NSString * const kMessageHandlerPaymentSuccess = @"stashNativementSuccess";
-static NSString * const kMessageHandlerPaymentFailure = @"stashNativementFailure";
-static NSString * const kMessageHandlerPurchaseProcessing = @"stashPurchaseProcessing";
-static NSString * const kMessageHandlerOptin = @"stashOptin";
-static NSString * const kMessageHandlerExpand = @"stashExpand";
-static NSString * const kMessageHandlerCollapse = @"stashCollapse";
-static NSString * const kMessageHandlerWindowClose = @"stashWindowClose";
-static NSString * const kMessageHandlerExternalPayment = @"stashExternalPayment";
-static NSString * const kMessageHandlerPageReady = @"stashNativePageReady";
 
 // All script-message handler names, registered and torn down together (order does not matter).
 // Single source so adding a handler cannot drift between the add and remove sites.
@@ -458,7 +450,6 @@ static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 static void setOverlayToDismissAppearance(UIView *overlayView);
-static NSString *NormalizeExternalPaymentURL(NSString *raw);
 CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
@@ -704,16 +695,16 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     self.activeWebViewUIDelegate = nil;
     self.isDismissingCard = NO;
     self.isPurchaseProcessing = NO;
-    _isCardExpanded = NO;
+    stash_isCardExpanded = NO;
     _isCardCurrentlyPresented = NO;
     stash_usePopupPresentation = NO;
     stash_useModalPresentation = NO;
     _useCustomPopupSize = NO;
     _callbackWasCalled = NO;
-    _paymentSuccessHandled = NO;
-    _autoCloseOnPaymentEvent = YES;
+    stash_paymentSuccessHandled = NO;
+    stash_autoCloseOnPaymentEvent = YES;
     _presentationBackgroundColorHex = nil;
-    _cardIsInLandscape = NO;
+    stash_cardIsInLandscape = NO;
     _cardSafeAreaTop = 0.0f;
 }
 
@@ -900,7 +891,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     UIView *cardView = [self cardViewForCurrentPresentation];
     if (!cardView) return;
 
-    _isCardExpanded = YES;
+    stash_isCardExpanded = YES;
 
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
@@ -955,7 +946,7 @@ initialSpringVelocity:kSpringVelocityExpand
     UIView *cardView = [self cardViewForCurrentPresentation];
     if (!cardView) return;
 
-    _isCardExpanded = NO;
+    stash_isCardExpanded = NO;
 
     CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
     CGFloat width, height;
@@ -1022,7 +1013,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         self.expandCollapseEaseOvershoot = 0.0f;
         [self.collapseDisplayLink invalidate];
         self.collapseDisplayLink = nil;
-        _isCardExpanded = NO;
+        stash_isCardExpanded = NO;
         if (cardView) {
             UIRectCorner corners = getCornersToRoundForPosition(kProgressFullyExpanded, stash_isRunningOniPad());
             CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, corners, kCornerRadiusDefault);
@@ -1043,7 +1034,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     UIView *cardView = [self cardViewForCurrentPresentation];
     if (!cardView) {
-        _isCardExpanded = NO;
+        stash_isCardExpanded = NO;
         if (completion) completion();
         return;
     }
@@ -1074,7 +1065,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         self.expandCollapseEaseOvershoot = 0.0f;
         [self.expandDisplayLink invalidate];
         self.expandDisplayLink = nil;
-        _isCardExpanded = YES;
+        stash_isCardExpanded = YES;
         if (cardView) {
             if (stash_isRunningOniPad()) {
                 CAShapeLayer *maskLayer = stash_createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
@@ -1099,7 +1090,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     }
     UIView *cardView = [self cardViewForCurrentPresentation];
     if (!cardView) {
-        _isCardExpanded = YES;
+        stash_isCardExpanded = YES;
         if (completion) completion();
         return;
     }
@@ -1135,7 +1126,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     } else {
         // iPhone: use same canonical collapsed frame as initial present (includes min clamp)
         CGRect collapsedFrame;
-        if (self.portraitWindow && _forcePortraitOnCheckout) {
+        if (self.portraitWindow && stash_forcePortraitOnCheckout) {
             collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
         } else {
             collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
@@ -1274,7 +1265,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     [self stashApplyKeyboardOrientationLockIfNeeded];
 
     if (stash_usePopupPresentation || stash_useModalPresentation || stash_isRunningOniPad()) return;
-    if (_isCardExpanded) return;
+    if (stash_isCardExpanded) return;
     
     if (!self.currentPresentedVC) return;
     
@@ -1356,7 +1347,7 @@ initialSpringVelocity:kSpringVelocityCollapse
         CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
         BOOL landscapeHeightOnly = [self isIPhoneLandscapeCurrentOrientation];
         CGRect collapsedFrame;
-        if (self.portraitWindow && _forcePortraitOnCheckout) {
+        if (self.portraitWindow && stash_forcePortraitOnCheckout) {
             collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
         } else {
             collapsedFrame = stash_computePhoneCardFrameForBoundsAndOrientation(screenBounds, landscapeHeightOnly);
@@ -1368,9 +1359,9 @@ initialSpringVelocity:kSpringVelocityCollapse
         CGFloat currentProgress = 0.0;
         
         if (currentTravel < 0) {
-            if (_isCardExpanded) {
+            if (stash_isCardExpanded) {
                 currentProgress = 1.0;
-            } else if (_cardIsInLandscape) {
+            } else if (stash_cardIsInLandscape) {
                 // Landscape card stays at its configured size; don't show expand visual feedback.
                 currentProgress = 0.0;
             } else {
@@ -1379,7 +1370,7 @@ initialSpringVelocity:kSpringVelocityCollapse
                 currentProgress = MIN(1.0, dragAmount / heightRange);
             }
         } else if (currentTravel > 0) {
-            if (_isCardExpanded) {
+            if (stash_isCardExpanded) {
                 CGFloat dragAmount = currentTravel;
                 CGFloat heightRange = expandedHeight - collapsedHeight;
                 currentProgress = MAX(0.0, 1.0 - (dragAmount / heightRange));
@@ -1445,9 +1436,9 @@ initialSpringVelocity:kSpringVelocityCollapse
 
         if (currentTravel < -expandThreshold || velocity.y < kExpandVelocityThreshold) {
             // Landscape cards stay at their configured size; drag-up expand has no effect.
-            if (!_isCardExpanded && !_cardIsInLandscape) shouldExpand = YES;
+            if (!stash_isCardExpanded && !stash_cardIsInLandscape) shouldExpand = YES;
         } else if (currentTravel > 0) {
-            if (_isCardExpanded) {
+            if (stash_isCardExpanded) {
                 if (currentTravel > dismissThreshold && velocity.y > kDismissVelocityThreshold) {
                     shouldDismiss = YES;
                 } else if (currentTravel > collapseThreshold || velocity.y > kCollapseVelocityThreshold) {
@@ -1532,7 +1523,7 @@ initialSpringVelocity:kSpringVelocityCollapse
             }];
         } else {
             // iPhone snap back: use display-link expand/collapse so every frame is bottom-anchored (no gap), with stronger spring
-            if (_isCardExpanded) {
+            if (stash_isCardExpanded) {
                 self.expandCollapseEaseOvershoot = kEaseOutBackSnapBackOvershoot;
                 [self animateExpandWithDuration:kSnapBackAnimationDuration completion:^{
                     [self setSkipLayoutDuringInitialSetup:NO forViewController:self.currentPresentedVC];
@@ -1572,192 +1563,6 @@ initialSpringVelocity:kSpringVelocityCollapse
 // handlers. Each handler is the verbatim body of its former else-if branch; the dispatcher keeps
 // the main-frame gate and the mutually-exclusive routing, so exactly one runs per message.
 
-- (void)handlePaymentSuccessMessage:(WKScriptMessage *)message delegate:(id<StashNativeCardDelegate>)delegate {
-    // When autoClose is on, the dialog tears down after the first event, so guard against
-    // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
-    // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
-    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-    self.isPurchaseProcessing = NO;
-
-    NSString *orderString = nil;
-    id body = message.body;
-    if ([body isKindOfClass:[NSString class]]) {
-        NSString *s = (NSString *)body;
-        if (s.length > 0) {
-            orderString = s;
-        }
-    }
-
-    if (delegate) {
-        if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
-            });
-        } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidCompletePayment];
-            });
-        }
-    }
-
-    if (_autoCloseOnPaymentEvent) {
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-        }];
-    }
-}
-
-- (void)handlePaymentFailureWithDelegate:(id<StashNativeCardDelegate>)delegate {
-    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-    self.isPurchaseProcessing = NO;
-
-    if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [delegate stashNativeCardDidFailPayment];
-        });
-    }
-
-    if (_autoCloseOnPaymentEvent) {
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-        }];
-    }
-}
-
-- (void)handlePurchaseProcessingMessage {
-    self.isPurchaseProcessing = YES;
-    [self updateDragTrayVisibilityForPurchaseProcessing:YES];
-}
-
-- (void)handleOptinMessage:(WKScriptMessage *)message delegate:(id<StashNativeCardDelegate>)delegate {
-    NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
-
-    if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidReceiveOptIn:)]) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [delegate stashNativeCardDidReceiveOptIn:optinType];
-        });
-    }
-
-    [self dismissWithAnimation:^{
-        [self cleanupCardInstance];
-    }];
-}
-
-- (void)handleExpandMessage {
-    if (stash_useModalPresentation || stash_usePopupPresentation) {
-        return;
-    }
-    // Phones only: landscape cards stay at their configured size.
-    if (_cardIsInLandscape) {
-        return;
-    }
-
-    if (!_isCardExpanded && self.currentPresentedVC) {
-        [self animateExpandWithDuration:kAnimationDurationDefault completion:nil];
-    }
-}
-
-- (void)handleCollapseMessage {
-    if (stash_useModalPresentation || stash_usePopupPresentation) {
-        return;
-    }
-    // Phones only: landscape cards stay at their configured size.
-    if (_cardIsInLandscape) {
-        return;
-    }
-
-    if (_isCardExpanded && self.currentPresentedVC) {
-        [self animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
-    }
-}
-
-- (void)handleExternalPaymentMessage:(WKScriptMessage *)message {
-    NSString *raw = @"";
-    if ([message.body isKindOfClass:[NSString class]]) {
-        raw = (NSString *)message.body;
-    }
-    NSString *normalized = NormalizeExternalPaymentURL(raw);
-    if (!normalized) {
-        return;
-    }
-    // Theme is applied only to in-card content, never to URLs handed to an external browser.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        id<StashNativeCardDelegate> externalDelegate = [StashNativeCard sharedInstance].delegate;
-        if (externalDelegate
-            && [externalDelegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
-            [externalDelegate stashNativeCardDidRequestExternalPaymentWithURL:normalized];
-        }
-        StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-        // Signal cleanupCardInstance to keep the portrait window alive so Safari can be
-        // presented from it immediately — no scene-rotation animation between card and Safari.
-        if (_forcePortraitOnCheckout) {
-            internal.isHandingOffPortraitWindowToSafari = YES;
-        }
-        [internal dismissWithAnimation:^{
-            [internal cleanupCardInstance];
-            [[StashNativeCard sharedInstance] openBrowserWithURL:normalized];
-        }];
-    });
-}
-
-- (void)handleWindowCloseMessage {
-    if (self.isPurchaseProcessing) {
-        return;
-    }
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
-            [self callDelegateCallbackOnce];
-        }];
-    });
-}
-
-- (void)handlePageReadyMessage {
-    WebViewLoadDelegate *loadDelegate = self.activeWebViewLoadDelegate;
-    if (loadDelegate) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [loadDelegate notifyPageReadyFromInjectedScript];
-        });
-    }
-}
-
-- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
-    NSString *name = message.name;
-    id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
-
-    // Privileged action handlers must originate from the main frame (the checkout page), not a
-    // nested third-party iframe. Payment-result handlers are intentionally not gated here.
-    if (!message.frameInfo.isMainFrame &&
-        ([name isEqualToString:kMessageHandlerExternalPayment] ||
-         [name isEqualToString:kMessageHandlerWindowClose] ||
-         [name isEqualToString:kMessageHandlerOptin] ||
-         [name isEqualToString:kMessageHandlerExpand] ||
-         [name isEqualToString:kMessageHandlerCollapse])) {
-        return;
-    }
-
-    if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
-        [self handlePaymentSuccessMessage:message delegate:delegate];
-    } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
-        [self handlePaymentFailureWithDelegate:delegate];
-    } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
-        [self handlePurchaseProcessingMessage];
-    } else if ([name isEqualToString:kMessageHandlerOptin]) {
-        [self handleOptinMessage:message delegate:delegate];
-    } else if ([name isEqualToString:kMessageHandlerExpand]) {
-        [self handleExpandMessage];
-    } else if ([name isEqualToString:kMessageHandlerCollapse]) {
-        [self handleCollapseMessage];
-    } else if ([name isEqualToString:kMessageHandlerExternalPayment]) {
-        [self handleExternalPaymentMessage:message];
-    } else if ([name isEqualToString:kMessageHandlerWindowClose]) {
-        [self handleWindowCloseMessage];
-    } else if ([name isEqualToString:kMessageHandlerPageReady]) {
-        [self handlePageReadyMessage];
-    }
-}
 
 #pragma mark - iPhone card window bounds / relayout
 
@@ -1769,7 +1574,7 @@ initialSpringVelocity:kSpringVelocityCollapse
 }
 
 - (CGRect)collapsedPhoneCardFrameForReferenceBounds:(CGRect)actualBounds {
-    if (_forcePortraitOnCheckout) {
+    if (stash_forcePortraitOnCheckout) {
         CGFloat apw = MIN(actualBounds.size.width, actualBounds.size.height);
         CGFloat aph = MAX(actualBounds.size.width, actualBounds.size.height);
         BOOL rotationSucceeded = actualBounds.size.width < actualBounds.size.height;
@@ -1841,7 +1646,7 @@ initialSpringVelocity:kSpringVelocityCollapse
     if (forcedProgress >= 0.0 && forcedProgress <= 1.0) {
         p = (CGFloat)forcedProgress;
     } else {
-        p = _isCardExpanded ? 1.0f : [self currentExpansionProgressForCardView:cardView];
+        p = stash_isCardExpanded ? 1.0f : [self currentExpansionProgressForCardView:cardView];
     }
     [self updateCardExpansionProgress:p cardView:cardView];
     if ([vc respondsToSelector:@selector(setCardFrame:)]) {
@@ -1885,7 +1690,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
     }
     // Force-portrait checkout: the system keyboard can still follow the host when the device rotates.
     // Dismiss editing so the next tap can present the keyboard in a clean portrait state.
-    if (_forcePortraitOnCheckout && self.isIPhoneCardKeyboardVisible) {
+    if (stash_forcePortraitOnCheckout && self.isIPhoneCardKeyboardVisible) {
         UIDeviceOrientation d = [UIDevice currentDevice].orientation;
         if (UIDeviceOrientationIsValidInterfaceOrientation(d)) {
             NSInteger dn = (NSInteger)d;
@@ -1909,7 +1714,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
         CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(strongSelf.portraitWindow);
         // Keyboard dismiss detection uses RAW scene bounds to detect real orientation
         // changes before we coerce them for layout. The saved reference size is also raw.
-        if (_forcePortraitOnCheckout && strongSelf.isIPhoneCardKeyboardVisible) {
+        if (stash_forcePortraitOnCheckout && strongSelf.isIPhoneCardKeyboardVisible) {
             CGSize sz = b.size;
             if (sz.width > 1.0 && sz.height > 1.0 && strongSelf.stashLastSceneSizeForKeyboardDismiss.width > 1.0) {
                 BOOL wasLandscape =
@@ -1939,7 +1744,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
 }
 
 - (UIInterfaceOrientationMask)stashKeyboardOrientationLockMaskForCardWindow {
-    if (_forcePortraitOnCheckout) {
+    if (stash_forcePortraitOnCheckout) {
         return UIInterfaceOrientationMaskPortrait;
     }
     UIViewController *vc = self.currentPresentedVC;
@@ -1965,7 +1770,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
         self.stashLastValidDeviceOrientationForKeyboard =
             UIDeviceOrientationIsValidInterfaceOrientation(d) ? (NSInteger)d : 0;
     }
-    if (_forcePortraitOnCheckout && self.portraitWindow.windowScene) {
+    if (stash_forcePortraitOnCheckout && self.portraitWindow.windowScene) {
         self.stashLastSceneSizeForKeyboardDismiss = self.portraitWindow.windowScene.coordinateSpace.bounds.size;
     } else {
         self.stashLastSceneSizeForKeyboardDismiss = CGSizeZero;
@@ -1979,7 +1784,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
             [scene requestGeometryUpdateWithPreferences:prefs errorHandler:^(NSError *error) {
                 STASH_DEBUG_LOG(@"StashNative keyboard orientation lock: %@", error);
             }];
-            if (_forcePortraitOnCheckout) {
+            if (stash_forcePortraitOnCheckout) {
                 CGRect cb = scene.coordinateSpace.bounds;
                 BOOL boundsLandscape = cb.size.width > cb.size.height;
                 BOOL ioLandscape = UIInterfaceOrientationIsLandscape(scene.interfaceOrientation);
@@ -2020,7 +1825,7 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
         // appears in portrait (or the locked orientation). Without this, the device
         // is still physically rotated and the next keyboard would follow that.
         if (self.portraitWindow) {
-            if (_forcePortraitOnCheckout) {
+            if (stash_forcePortraitOnCheckout) {
                 [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
                                             forKey:@"orientation"];
             }
@@ -2069,7 +1874,7 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window) {
 /// iOS 15 helper: if the scene reports bounds that violate the card's orientation lock,
 /// swap width/height to get correct portrait/landscape dimensions.
 static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController *presentedVC) {
-    if (_forcePortraitOnCheckout) {
+    if (stash_forcePortraitOnCheckout) {
         if (b.size.width > b.size.height) {
             return CGRectMake(0, 0, b.size.height, b.size.width);
         }
@@ -2512,7 +2317,7 @@ CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView) {
     CGSize base = stash_calculateiPadCardSize(screenBounds);
     CGFloat w = base.width;
     CGFloat h = base.height;
-    if (_isCardExpanded) {
+    if (stash_isCardExpanded) {
         h = stashTabletSdkExpandedHeightFromBase(base.height, screenBounds, cardView);
     }
     CGFloat x = (screenBounds.size.width - w) / 2.0;
@@ -2551,7 +2356,7 @@ CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL is
 }
 
 void stash_resetCardExpandedStateAfterRotation(void) {
-    _isCardExpanded = NO;
+    stash_isCardExpanded = NO;
 }
 
 
@@ -2637,43 +2442,6 @@ static void setOverlayToDismissAppearance(UIView *overlayView) {
     }
 }
 
-static NSString *NormalizeExternalPaymentURL(NSString *raw) {
-    if (raw == nil) {
-        return nil;
-    }
-    NSString *s = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (s.length == 0) {
-        return nil;
-    }
-    NSString *lower = [s lowercaseString];
-    if ([lower hasPrefix:@"javascript:"] || [lower hasPrefix:@"file:"] || [lower hasPrefix:@"data:"]) {
-        return nil;
-    }
-    if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
-        s = [@"https://" stringByAppendingString:s];
-    }
-    NSURL *u = [NSURL URLWithString:s];
-    if (u == nil || u.scheme.length == 0) {
-        return nil;
-    }
-    NSString *scheme = [u.scheme lowercaseString];
-    if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) {
-        return nil;
-    }
-    if (u.host.length == 0) {
-        return nil;
-    }
-    // Upgrade cleartext http to https for the external payment URL (rather than rejecting it).
-    if ([scheme isEqualToString:@"http"]) {
-        NSURLComponents *comps = [NSURLComponents componentsWithURL:u resolvingAgainstBaseURL:NO];
-        comps.scheme = @"https";
-        NSURL *upgraded = comps.URL;
-        if (upgraded) {
-            return upgraded.absoluteString;
-        }
-    }
-    return u.absoluteString;
-}
 
 static NSString* appendThemeQueryParameter(NSString* url) {
     if (url == nil || url.length == 0) {
@@ -2899,10 +2667,10 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         return;
     }
 
-    _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
+    stash_autoCloseOnPaymentEvent = config ? config.autoClose : YES;
 
     if (config) {
-        _forcePortraitOnCheckout = config.forcePortrait;
+        stash_forcePortraitOnCheckout = config.forcePortrait;
         _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
         _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
         _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
@@ -2989,7 +2757,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         return;
     }
 
-    _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
+    stash_autoCloseOnPaymentEvent = config ? config.autoClose : YES;
 
     stash_usePopupPresentation = NO;
     stash_useModalPresentation = YES;
@@ -3099,7 +2867,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         }
         // else: scene is already portrait — present Safari immediately with no animation.
 
-    } else if (_forcePortraitOnCheckout && !_safariOpenedViaOpenBrowser) {
+    } else if (stash_forcePortraitOnCheckout && !_safariOpenedViaOpenBrowser) {
         // External payment handoff from a forcePortrait card -- keep Safari in portrait.
         // Standalone openBrowser calls skip this even if a previous card used forcePortrait.
         CGRect screen = [UIScreen mainScreen].bounds;
@@ -3204,16 +2972,16 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     // Reset state
     _isCardCurrentlyPresented = YES;
     _callbackWasCalled = NO;
-    _paymentSuccessHandled = NO;
-    _isCardExpanded = NO;
+    stash_paymentSuccessHandled = NO;
+    stash_isCardExpanded = NO;
 
     // Determine phone-only orientation flags (tablets always use normal expand/collapse logic).
     if (!stash_isRunningOniPad() && !stash_useModalPresentation && !stash_usePopupPresentation) {
         CGRect sb = [UIScreen mainScreen].bounds;
         BOOL isLandscape = sb.size.width > sb.size.height;
-        _cardIsInLandscape = !_forcePortraitOnCheckout && isLandscape;
+        stash_cardIsInLandscape = !stash_forcePortraitOnCheckout && isLandscape;
     } else {
-        _cardIsInLandscape = NO;
+        stash_cardIsInLandscape = NO;
     }
     
     // Dispatch to appropriate presentation method based on device type
@@ -3223,7 +2991,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         [self presentPopupWithURL:url];
     } else if (stash_isRunningOniPad()) {
         [self presentiPadModalWithURL:url];
-    } else if (_forcePortraitOnCheckout) {
+    } else if (stash_forcePortraitOnCheckout) {
         [self presentIPhoneCardWithURL:url];
     } else {
         [self presentIPhoneCardInCurrentOrientationWithURL:url];
@@ -3793,7 +3561,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     internal.portraitWindow = cardWindow;
     internal.currentPresentedVC = containerVC;
     
-    _isCardExpanded = NO;
+    stash_isCardExpanded = NO;
     
     UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
     
@@ -3908,7 +3676,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     internal.currentPresentedVC = containerVC;
     
     // Modal is always considered expanded (no expand/collapse)
-    _isCardExpanded = YES;
+    stash_isCardExpanded = YES;
     
     UIView *overlayView = createOverlayViewWithFrame(screenBounds, containerVC.view, 0, containerVC);
     
