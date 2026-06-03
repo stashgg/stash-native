@@ -21,10 +21,8 @@ public class MainViewModel extends AndroidViewModel {
 
   /** Default URL for the Card section. */
   private static final String DEFAULT_CARD_URL = "https://test.stashpreview.com/";
-  /** Default URL for the Browser section. htmlpreview wrapper for the popup test page. */
-  private static final String DEFAULT_BROWSER_URL =
-      "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/"
-      + "refs/heads/main/.github/Stash.Popup.Test/index.html";
+  /** Default URL for the Browser section. */
+  private static final String DEFAULT_BROWSER_URL = "https://test.stashpreview.com/";
   private static final String DEFAULT_MODAL_URL =
       "https://checkout.stash.gg/pay/channel-selection";
   // Demo test-API key for the sample. In a real integration, checkout links are generated on the
