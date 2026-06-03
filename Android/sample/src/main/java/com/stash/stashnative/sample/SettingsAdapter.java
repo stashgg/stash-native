@@ -14,7 +14,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.TextInputEditText;
 import com.stash.stashnative.sample.databinding.ItemExpandableHeaderBinding;
-import com.stash.stashnative.sample.databinding.ItemHeaderBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceActionBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSliderBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSwitchBinding;
@@ -55,6 +54,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     this.callbacks = callbacks;
   }
 
+  /** Replaces the list and rebinds every row via notifyDataSetChanged. */
   public void submitList(List<SettingsItem> newItems) {
     this.items = newItems != null ? newItems : new ArrayList<>();
     notifyDataSetChanged();
@@ -70,8 +70,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
     LayoutInflater inflater = LayoutInflater.from(parent.getContext());
     switch (viewType) {
-      case SettingsItem.TYPE_HEADER:
-        return new HeaderVH(ItemHeaderBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_SECTION_HEADER:
         return new SectionHeaderVH(ItemSectionHeaderBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_SECTION_FOOTER:
@@ -95,9 +93,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
     SettingsItem item = items.get(position);
     switch (item.type) {
-      case SettingsItem.TYPE_HEADER:
-        ((HeaderVH) holder).bind(item);
-        break;
       case SettingsItem.TYPE_SECTION_HEADER:
         ((SectionHeaderVH) holder).bind(item);
         break;
@@ -105,19 +100,19 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         ((SectionFooterVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_URL_PREFERENCE:
-        ((UrlPreferenceVH) holder).bind(item, position);
+        ((UrlPreferenceVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_ACTION_PREFERENCE:
-        ((ActionPreferenceVH) holder).bind(item, position);
+        ((ActionPreferenceVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_EXPANDABLE_HEADER:
         ((ExpandableHeaderVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_SWITCH_PREFERENCE:
-        ((SwitchPreferenceVH) holder).bind(item, position);
+        ((SwitchPreferenceVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_SLIDER_PREFERENCE:
-        ((SliderPreferenceVH) holder).bind(item, position);
+        ((SliderPreferenceVH) holder).bind(item);
         break;
       default:
         break;
@@ -151,10 +146,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   private static final int CARD_MARGIN_BOTTOM_DP = 12;
 
   private void applyCardStyle(View itemView, SettingsItem item) {
-    if (item.type == SettingsItem.TYPE_HEADER) {
-      itemView.setBackground(null);
-      return;
-    }
     Context ctx = itemView.getContext();
     float density = ctx.getResources().getDisplayMetrics().density;
     int horizontal = Math.round(CARD_MARGIN_HORIZONTAL_DP * density);
@@ -195,20 +186,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     return items.size();
   }
 
-  static class HeaderVH extends RecyclerView.ViewHolder {
-    private final ItemHeaderBinding binding;
-
-    HeaderVH(ItemHeaderBinding binding) {
-      super(binding.getRoot());
-      this.binding = binding;
-    }
-
-    void bind(SettingsItem item) {
-      binding.headerTitle.setText(item.titleRes);
-      binding.headerSubtitle.setText(item.supportingRes);
-    }
-  }
-
   static class SectionHeaderVH extends RecyclerView.ViewHolder {
     private final ItemSectionHeaderBinding binding;
 
@@ -237,17 +214,14 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
   class UrlPreferenceVH extends RecyclerView.ViewHolder {
     private final ItemPreferenceUrlBinding binding;
-    private int boundPosition = -1;
+    private int boundTitleRes;
 
     UrlPreferenceVH(ItemPreferenceUrlBinding binding) {
       super(binding.getRoot());
       this.binding = binding;
     }
 
-    private int boundTitleRes;
-
-    void bind(SettingsItem item, int position) {
-      boundPosition = position;
+    void bind(SettingsItem item) {
       boundTitleRes = item.titleRes;
       binding.preferenceIcon.setImageResource(item.iconRes);
       binding.urlInputLayout.setHint(item.titleRes);
@@ -291,7 +265,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       this.binding = binding;
     }
 
-    void bind(SettingsItem item, int position) {
+    void bind(SettingsItem item) {
       binding.actionIcon.setImageResource(item.iconRes);
       binding.actionTitle.setText(item.titleRes);
       binding.actionRow.setOnClickListener(v -> {
@@ -346,7 +320,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       this.binding = binding;
     }
 
-    void bind(SettingsItem item, int position) {
+    void bind(SettingsItem item) {
       binding.switchTitle.setText(item.titleRes);
       if (item.supportingRes != 0) {
         binding.switchSupporting.setText(item.supportingRes);
@@ -382,7 +356,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       this.binding = binding;
     }
 
-    void bind(SettingsItem item, int position) {
+    void bind(SettingsItem item) {
       binding.sliderTitle.setText(item.titleRes);
       binding.sliderValue.setText(item.value);
       binding.sliderSeekBar.setProgress(item.progress);

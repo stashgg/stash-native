@@ -7,7 +7,6 @@ import androidx.annotation.StringRes;
  */
 public final class SettingsItem {
 
-  public static final int TYPE_HEADER = -1;
   public static final int TYPE_SECTION_HEADER = 0;
   public static final int TYPE_SECTION_FOOTER = 1;
   public static final int TYPE_URL_PREFERENCE = 2;
@@ -45,13 +44,6 @@ public final class SettingsItem {
     this.lastInCard = lastInCard;
   }
 
-  /** Main header row (app title + subtitle). */
-  public static SettingsItem header() {
-    return new SettingsItem(
-        TYPE_HEADER, R.string.header_title, R.string.header_subtitle,
-        null, false, 0, false, 0, false, false);
-  }
-
   /** Section header with card grouping. */
   public static SettingsItem sectionHeader(
       @StringRes int titleRes, boolean firstInCard, boolean lastInCard) {
@@ -67,12 +59,6 @@ public final class SettingsItem {
   }
 
   /** URL/edit preference row. */
-  public static SettingsItem urlPreference(@StringRes int titleRes, String value, int iconRes) {
-    return new SettingsItem(
-        TYPE_URL_PREFERENCE, titleRes, 0, value, false, 0, false, iconRes, false, false);
-  }
-
-  /** URL preference with card grouping. */
   public static SettingsItem urlPreference(
       @StringRes int titleRes, String value, int iconRes,
       boolean firstInCard, boolean lastInCard) {
@@ -81,12 +67,6 @@ public final class SettingsItem {
   }
 
   /** Action/tappable preference row. */
-  public static SettingsItem actionPreference(@StringRes int titleRes, int iconRes) {
-    return new SettingsItem(
-        TYPE_ACTION_PREFERENCE, titleRes, 0, null, false, 0, false, iconRes, false, false);
-  }
-
-  /** Action preference with card grouping. */
   public static SettingsItem actionPreference(
       @StringRes int titleRes, int iconRes, boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
@@ -95,13 +75,6 @@ public final class SettingsItem {
   }
 
   /** Expandable section header. */
-  public static SettingsItem expandableHeader(
-      @StringRes int titleRes, boolean expanded, int iconRes) {
-    return new SettingsItem(
-        TYPE_EXPANDABLE_HEADER, titleRes, 0, null, false, 0, expanded, iconRes, false, false);
-  }
-
-  /** Expandable header with card grouping. */
   public static SettingsItem expandableHeader(
       @StringRes int titleRes, boolean expanded, int iconRes,
       boolean firstInCard, boolean lastInCard) {
@@ -112,13 +85,6 @@ public final class SettingsItem {
 
   /** Switch/toggle preference row. */
   public static SettingsItem switchPreference(
-      @StringRes int titleRes, @StringRes int supportingRes, boolean checked) {
-    return new SettingsItem(
-        TYPE_SWITCH_PREFERENCE, titleRes, supportingRes, null, checked, 0, false, 0, false, false);
-  }
-
-  /** Switch preference with card grouping. */
-  public static SettingsItem switchPreference(
       @StringRes int titleRes, @StringRes int supportingRes, boolean checked,
       boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
@@ -126,14 +92,7 @@ public final class SettingsItem {
         firstInCard, lastInCard);
   }
 
-  /** Slider row (single; no card grouping). */
-  public static SettingsItem sliderPreference(@StringRes int titleRes, int progress) {
-    int pct = progress + 10;
-    return new SettingsItem(
-        TYPE_SLIDER_PREFERENCE, titleRes, 0, pct + "%", false, progress, false, 0, false, false);
-  }
-
-  /** Slider row with card grouping. */
+  /** Slider row; displays (progress + 10)%. */
   public static SettingsItem sliderPreference(
       @StringRes int titleRes, int progress, boolean firstInCard, boolean lastInCard) {
     int pct = progress + 10;

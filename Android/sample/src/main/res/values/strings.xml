@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">Stash Native</string>
     <string name="header_title">Stash Android</string>
-    <string name="header_subtitle"></string>
     <string name="app_company">Stash Interactive Inc.</string>
     <string name="app_description">Sample app for Stash Native libraries.</string>
     <string name="section_card">Card</string>
