@@ -63,8 +63,7 @@ void stash_updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth
         dragTray.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
         UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
         if (handle) {
-            CGFloat handleX = (cardWidth / 2.0) - kHandleBarHalfWidth;
-            handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
+            handle.frame = CGRectMake((cardWidth / 2.0) - kHandleBarHalfWidth, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
         }
     }
 }
