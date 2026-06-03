@@ -5,8 +5,7 @@ import org.junit.Test;
 
 /**
  * Tests for StashWebViewUtils.normalizeExternalPaymentUrl().
- * Tests that depend on android.net.Uri.parse() returning real values
- * require instrumentation tests (androidTest) since Uri is stubbed in local JVM.
+ * Cases here cover inputs that do not call android.net.Uri.parse().
  */
 public class UrlNormalizationTest {
 
@@ -37,6 +36,5 @@ public class UrlNormalizationTest {
     assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("file:///etc/passwd"));
   }
 
-  // NOTE: Tests for valid http/https URLs require android.net.Uri.parse() which
-  // returns null in local JVM tests. Those belong in androidTest/ (instrumented).
+  // Valid http/https URL cases live in androidTest/ (instrumented).
 }

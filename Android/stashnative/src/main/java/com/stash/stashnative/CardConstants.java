@@ -2,10 +2,9 @@ package com.stash.stashnative;
 
 /**
 * Shared constants for card presentation, animations, and gestures.
-* Aligned with iOS for consistent cross-platform behavior.
 */
 public final class CardConstants {
-  private CardConstants() {} // Prevent instantiation
+  private CardConstants() {}
   
   // ============================================================================
   // Animation Durations (milliseconds)
@@ -23,16 +22,10 @@ public final class CardConstants {
   /** Popup fade animation duration. */
   public static final int ANIMATION_DURATION_POPUP = 200;
 
-  /**
-   * Phone bottom-sheet entry: backdrop fade-in duration (matches iOS {@code kOverlayFadeInDuration}
-   * 0.25s and {@link #ANIMATION_DURATION_FAST}).
-   */
+  /** Phone bottom-sheet entry backdrop fade-in duration. */
   public static final int OVERLAY_FADE_IN_DURATION_MS = ANIMATION_DURATION_FAST;
 
-  /**
-   * After overlay fade completes, hold before sheet slide so WebView can advance load (matches iOS
-   * {@code kCardEntryHoldAfterOverlayFadeIn} 0.2s).
-   */
+  /** Hold after overlay fade completes, before the sheet slide, in milliseconds. */
   public static final long CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS = 200L;
 
   /** Card collapse animation duration. */
@@ -44,14 +37,11 @@ public final class CardConstants {
   /** Snap back animation duration. */
   public static final int ANIMATION_DURATION_SNAP_BACK = 450;
 
-  /**
-   * When a host backdrop is used with force-portrait phone checkout, {@code finish()} is delayed
-   * until landscape configuration is applied; this caps wait if the device never reports it.
-   */
+  /** Cap on the wait for landscape configuration before {@code finish()} with a host backdrop, in milliseconds. */
   public static final int LANDSCAPE_FINISH_FALLBACK_MS = 900;
   
   // ============================================================================
-  // Gesture Thresholds (Velocity-based, aligned across platforms)
+  // Gesture Thresholds (velocity-based)
   // ============================================================================
   
   /** Upward velocity threshold to expand (pixels/second). */
@@ -100,30 +90,24 @@ public final class CardConstants {
   public static final float DRAG_HANDLE_HEIGHT_DP = 5f;
   
 
-  /**
-   * Top inset from card top to the handle bar (matches iOS {@code kHandleBarTopInset} = 8pt).
-   */
+  /** Top inset from card top to the handle bar, in dp. */
   public static final float DRAG_HANDLE_TOP_INSET_DP = 8f;
 
-  /**
-   * Padding below the handle within the tray (44 - 8 - 5 = 31; matches iOS drag tray layout).
-   */
+  /** Padding below the handle within the tray, in dp. */
   public static final float DRAG_TRAY_PADDING_BOTTOM_DP = 31f;
 
-  /**
-   * Handle pill corner radius (matches iOS {@code kHandleBarCornerRadius} = 3pt).
-   */
+  /** Handle pill corner radius, in dp. */
   public static final float DRAG_HANDLE_CORNER_RADIUS_DP = 3f;
   
   
   // ============================================================================
-  // Overlay Opacity (unified across all modes and platforms: 40%)
+  // Overlay Opacity (40%)
   // ============================================================================
-  
-  /** Overlay dim alpha 0-1 (used consistently everywhere). */
+
+  /** Overlay dim alpha, 0-1. */
   public static final float OVERLAY_ALPHA = 0.4f;
 
-  /** Overlay dim color 40% black - use for all overlay/dim backgrounds. */
+  /** Overlay dim color, 40% black. */
   public static final String COLOR_OVERLAY_DIM = "#66000000";
   
   // ============================================================================
@@ -143,7 +127,7 @@ public final class CardConstants {
   /** Expanded phone card height ratio. */
   public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
 
-  /** Tablet SDK expand: height multiplier from base card height (+50%; clamped to screen via {@link #EXPANDED_CARD_HEIGHT_RATIO}). */
+  /** Tablet SDK expand height multiplier from base card height (+50%); clamped by {@link #EXPANDED_CARD_HEIGHT_RATIO}. */
   public static final float TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER = 1.5f;
 
   /** Minimum phone popup/card width in dp . */
@@ -171,7 +155,7 @@ public final class CardConstants {
   // Modal Default Size Ratios (openModal always shows centered modal)
   // ============================================================================
   
-  /** Default modal phone width ratio for portrait (matches iOS default 0.80). */
+  /** Default modal phone width ratio for portrait. */
   public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.80f;
   
   /** Default modal phone height ratio for portrait . */
@@ -244,21 +228,13 @@ public final class CardConstants {
   // Timing Constants
   // ============================================================================
   
-  /**
-   * If no main-frame response/progress within this window, reload once with a fresh request
-   * (bypass cache). Matches iOS {@code kRetryTimeoutInterval} (1.25s).
-   */
+  /** Window with no main-frame response/progress after which the request reloads once bypassing cache, in milliseconds. */
   public static final long WEBVIEW_RETRY_TIMEOUT_MS = 1250L;
 
-  /**
-   * Hard deadline from first load: if the main frame never commits, report network error.
-   * Matches iOS {@code kNetworkTimeoutInterval}.
-   */
+  /** Hard deadline from first load before reporting a network error if the main frame never commits, in milliseconds. */
   public static final long WEBVIEW_NETWORK_DEADLINE_MS = 15000L;
 
-  /**
-   * Loading overlay crossfade duration (matches iOS {@code kLoadingRevealAnimationDuration} 0.35s).
-   */
+  /** Loading overlay crossfade duration, in milliseconds. */
   public static final long LOADING_REVEAL_DURATION_MS = 350L;
   
   // ============================================================================
@@ -297,8 +273,7 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_BACKGROUND_COLOR = "stashNative.backgroundColor";
   /**
    * {@link android.view.Display#getRotation()} from the host activity when checkout was opened
-   * (0/90/180/270). Used with host backdrop so portrait mapping matches landscape-left vs
-   * landscape-right.
+   * (0/90/180/270).
    */
   public static final String INTENT_EXTRA_HOST_DISPLAY_ROTATION = "stashNative.hostDisplayRotation";
 
@@ -326,8 +301,7 @@ public final class CardConstants {
   public static final String INTENT_EXTRA_AUTO_CLOSE = "stashNative.autoClose";
 
   // ============================================================================
-  // Checkout bridge: PortraitActivity sends package-local broadcasts consumed by StashNativeCardPlugin
-  // (same app process by default; still used when activity and listener share one process).
+  // Checkout bridge: PortraitActivity sends package-local broadcasts consumed by StashNativeCardPlugin.
   // ============================================================================
 
   public static final String BROADCAST_CHECKOUT_PAYMENT_SUCCESS =
@@ -353,12 +327,12 @@ public final class CardConstants {
   // Colors
   // ============================================================================
   
-  /** Background dim color (40% alpha). Same as COLOR_OVERLAY_DIM for consistency. */
+  /** Background dim color, 40% alpha; equals {@link #COLOR_OVERLAY_DIM}. */
   public static final String COLOR_BACKGROUND_DIM = COLOR_OVERLAY_DIM;
   
   public static final String COLOR_LIGHT_BG = "#F2F2F7";
   public static final String COLOR_DARK_BG = "#1e1e1e";
-  /** Home button background in dark theme (iOS-style system gray). */
+  /** Home button background in dark theme. */
   public static final String COLOR_HOME_BUTTON_DARK_BG = "#2C2C2E";
   public static final String COLOR_DARK_STROKE = "#38383A";
   public static final String COLOR_LIGHT_STROKE = "#E5E5EA";

@@ -53,7 +53,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
   private FrameLayout rootLayout;
   private View backdropView;
-  /** Drag handle strip; faded out while {@link #isPurchaseProcessing} so the sheet looks non-dismissable. */
+  /** Drag handle strip; faded out while {@link #isPurchaseProcessing}. */
   private View dragHandleArea;
   private FrameLayout cardContainer;
   private WebView webView;
@@ -66,41 +66,40 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean useModal;
   private boolean isExpanded;
   private boolean isDismissing;
-  /** True after the sheet was hidden for external browser; dim overlay stays until browser closes. */
+  /** True while the sheet is hidden for an external browser and the dim overlay remains. */
   private boolean awaitingExternalBrowserDimOverlay;
   private boolean pendingCreateUIAfterRotation;
   private boolean callbackSent;
-  // Dedup latch for duplicate terminal payment events; only used while autoClose is on (matches iOS).
+  // Dedup latch for duplicate terminal payment events; active while autoClose is on.
   private boolean paymentEventHandled;
   private boolean googlePayRedirectHandled;
-  // Set from the JS bridge thread (onPurchaseProcessing), read on the main thread for drag/dismiss gating.
+  // Set from the JS bridge thread (onPurchaseProcessing), read on the main thread.
   private volatile boolean isPurchaseProcessing;
   private boolean initialPageLoadComplete;
   private boolean networkErrorHandled;
   private boolean mainFrameErrorReceived;
-  /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
+  /** Main-thread handler for the stall retry and network deadline timers. */
   private android.os.Handler loadTimersHandler;
   private Runnable retryAfterStallRunnable;
   private Runnable networkDeadlineRunnable;
-  /** URL with theme used for the initial load; retry uses this with a cache-busting query param. */
+  /** URL with theme used for the initial load; the stall retry appends a cache-busting query param. */
   private String webViewCommittedReloadUrl;
-  /** 0 = first load; 1 = one stall retry issued (no further automatic retries). */
+  /** 0 = first load; 1 = one stall retry issued. */
   private int webViewRetryCount;
   /** True once the main frame has committed visible content (or progress fallback on older API). */
   private boolean mainFrameNavigationCommitted;
   /**
-   * After the first loading-overlay crossfade, skip full-screen loading on later navigations
-   * (matches iOS WebView staying visible once revealed). Reset on stall retry.
+   * True after the first loading-overlay crossfade. Skips full-screen loading on later navigations.
+   * Reset on stall retry.
    */
   private boolean webViewLoadingRevealComplete;
-  /** True while the loading/WebView crossfade is running (ignore duplicate onPageFinished). */
+  /** True while the loading/WebView crossfade is running. */
   private boolean webViewRevealAnimationRunning;
-  /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
+  /** Monotonic token used to ignore stale crossfade callbacks from older loads/retries. */
   private int webViewRevealAnimationToken;
   /**
    * Pixel height to restore when collapsing the phone sheet. Set at creation, updated on
-   * orientation change, and snapshotted from layout params immediately before each expand so the
-   * collapse animation matches the actual initial/collapsed card height.
+   * orientation change, and snapshotted from layout params immediately before each expand.
    */
   private int collapsedCardTargetHeightPx = -1;
   /** Tablet: configured base card height for SDK collapse (updated on rotation). */
@@ -109,15 +108,15 @@ public class StashNativeCardPortraitActivity extends Activity {
   private ValueAnimator cardHeightAnimator;
   /** Soft-keyboard overlap currently applied, px; 0 when the keyboard is hidden. */
   private int currentImeOverlapPx = 0;
-  /** Pre-API-30: last keyboard-free bottom system-window inset (nav bar), used to keep the card static. */
+  /** Pre-API-30: last keyboard-free bottom system-window inset (nav bar), in px. */
   private int navBottomInsetPx = 0;
   /** Pre-API-30 keyboard detector (Type.ime() is 30+); null on API 30+. */
   private android.view.ViewTreeObserver.OnGlobalLayoutListener imeGlobalLayoutListener;
-  /** True while the keyboard is open (suppresses page-driven expand/collapse during that time). */
+  /** True while the keyboard is open; suppresses page-driven expand/collapse. */
   private boolean keyboardActive = false;
-  /** True when the keyboard-show triggered the card expand, so we collapse it again on keyboard hide. */
+  /** True when the keyboard-show triggered the card expand; the card collapses again on keyboard hide. */
   private boolean keyboardExpandedCard = false;
-  
+
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
   private boolean forcePortraitOnCheckout = false;
@@ -126,7 +125,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   // Modal configuration
   private boolean modalAllowDismiss = true;
-  /** When false, dialog stays open after payment success/failure (callback still fires). */
+  /** When false, the dialog stays open after payment success/failure; the callback still fires. */
   private boolean autoCloseOnPaymentEvent = true;
   private float modalPhoneWidthRatioPortrait =
       CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT;
@@ -151,15 +150,15 @@ public class StashNativeCardPortraitActivity extends Activity {
   private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
   private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
 
-  /** Cached at activity start to avoid repeated theme/device lookups. */
+  /** Dark theme state cached at activity start. */
   private boolean cachedIsDarkTheme;
   private boolean cachedIsTablet;
 
-  /** Custom sheet chrome from intent (#hex); when false, {@link #sheetChromeBackgroundArgb} is still set from system theme. */
+  /** True when sheet chrome color came from the intent (#hex); false means {@link #sheetChromeBackgroundArgb} is system-theme derived. */
   private boolean chromeColorOverrideActive;
   /** Card/modal container + WebView chrome background (custom or system-derived). */
   private int sheetChromeBackgroundArgb;
-  /** WebView force-dark, URL theme=, home/error styling. */
+  /** Dark flag applied to WebView force-dark, URL theme=, and home/error styling. */
   private boolean effectiveIsDarkForContent;
   private OnBackInvokedCallback onBackInvokedCallback;
 
@@ -169,8 +168,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   /** {@link android.view.Display#getRotation()} when checkout opened; drives backdrop ±90° mapping. */
   private int hostBackdropSourceDisplayRotation = Surface.ROTATION_90;
   /**
-   * After card dismiss, wait for landscape {@link Configuration} before {@link #finish()} so the
-   * host backdrop can cover the system rotation (force-portrait phone checkout only).
+   * True while card dismiss waits for a landscape {@link Configuration} before {@link #finish()}
+   * (force-portrait phone checkout only).
    */
   private boolean pendingFinishAfterLandscape;
   private final Runnable pendingLandscapeFinishFallback = this::completeDeferredFinishFromLandscape;
@@ -297,10 +296,10 @@ public class StashNativeCardPortraitActivity extends Activity {
       
       try {
         if (useModal) {
-          // Modal follows the underlying app rotation rules; no orientation lock.
+          // Modal: no orientation lock.
           setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
         } else if (usePopup) {
-          // Popup locks to current orientation.
+          // Popup: lock to current orientation.
           int currentOrientation = getResources().getConfiguration().orientation;
           if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -308,16 +307,15 @@ public class StashNativeCardPortraitActivity extends Activity {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
           }
         } else if (!cachedIsTablet && forcePortraitOnCheckout) {
-          // Checkout on phone: force portrait only when enabled
+          // Phone checkout: force portrait.
           int currentOrientation = getResources().getConfiguration().orientation;
           if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
-            // Defer card creation until onConfigurationChanged delivers portrait metrics so
-            // animateSlideUp starts from the correct (portrait) screen dimensions.
+            // Defer card creation until onConfigurationChanged delivers portrait metrics.
             pendingCreateUIAfterRotation = true;
           }
           setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         } else if (!cachedIsTablet && !forcePortraitOnCheckout) {
-          // Checkout on phone without force portrait: lock to current orientation
+          // Phone checkout without force portrait: lock to current orientation.
           int currentOrientation = getResources().getConfiguration().orientation;
           if (currentOrientation == Configuration.ORIENTATION_LANDSCAPE) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -332,16 +330,13 @@ public class StashNativeCardPortraitActivity extends Activity {
       Window window = getWindow();
       if (window != null) {
         try {
-          // When a host backdrop is present, start with an opaque window so the
-          // compositor never shows the paused host surface during rotation.
-          // Without backdrop, stay transparent so the host app shows through.
+          // Opaque black window when a host backdrop is present, transparent otherwise.
           window.setBackgroundDrawable(new ColorDrawable(
               hostBackdropBitmap != null ? Color.BLACK : Color.TRANSPARENT));
-          
+
           requestWindowFeature(Window.FEATURE_NO_TITLE);
           window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          // Edge-to-edge disabled; we apply system bar insets as padding on rootLayout so the
-          // bottom sheet and modal sit above nav bars (3-button, gesture, etc.).
+          // Edge-to-edge disabled; system bar insets are applied as padding on rootLayout.
           StashWindowCompat.setDecorFitsSystemWindows(window, false);
           if (chromeColorOverrideActive) {
             StashWebViewUtils.applySystemBarAppearanceForSheet(
@@ -387,7 +382,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       rootLayout = new FrameLayout(this);
       rootLayout.setBackgroundColor(Color.TRANSPARENT);
       
-      // Optional host screenshot backdrop (behind the dim layer)
+      // Optional host screenshot backdrop, behind the dim layer.
       if (hostBackdropBitmap != null && !hostBackdropBitmap.isRecycled()) {
         hostBackdropImageView = new ImageView(this);
         hostBackdropImageView.setLayoutParams(new FrameLayout.LayoutParams(
@@ -395,22 +390,21 @@ public class StashNativeCardPortraitActivity extends Activity {
             FrameLayout.LayoutParams.MATCH_PARENT));
         hostBackdropImageView.setScaleType(ImageView.ScaleType.MATRIX);
         hostBackdropImageView.setImageBitmap(hostBackdropBitmap);
-        // Bitmap buffer is in physical order; avoid RTL mirroring the matrix result.
+        // LTR layout direction; the bitmap buffer is in physical order.
         hostBackdropImageView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
         hostBackdropImageView.post(this::applyHostBackdropMatrixForPortraitCheckout);
 
         rootLayout.addView(hostBackdropImageView);
 
-        // Now that the backdrop image covers the screen, switch window to transparent
-        // so dismissal fades cleanly.
+        // Backdrop image covers the screen; switch the window to transparent.
         Window w = getWindow();
         if (w != null) {
           w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
         }
       }
 
-      // Create separate backdrop view for independent fade animation (dim layer)
+      // Dim layer; a separate view from the host backdrop for independent fade animation.
       backdropView = new View(this);
       backdropView.setLayoutParams(new FrameLayout.LayoutParams(
           FrameLayout.LayoutParams.MATCH_PARENT,
@@ -459,8 +453,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       ViewCompat.setOnApplyWindowInsetsListener(rootLayout, this::onWindowInsets);
       ViewCompat.requestApplyInsets(rootLayout);
       registerImeGlobalLayoutListenerIfNeeded();
-      // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
-      // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
+      // Re-apply phone sheet sizing after the first layout pass, once insets (e.g. nav bar height)
+      // are present.
       if (!usePopup && !useModal && !cachedIsTablet) {
         rootLayout.post(
             () -> {
@@ -480,7 +474,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (isTablet) {
       cardContainer = new FrameLayout(this);
     } else {
-      // Phone: canvas clip (TopRoundedFrameLayout); Outline path cannot clip WebView pre-API 33.
+      // Phone: TopRoundedFrameLayout clips the WebView via canvas.
       cardContainer = new TopRoundedFrameLayout(this, radius);
     }
     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(cardWidth, cardHeight);
@@ -524,9 +518,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Phone checkout in portrait (including force-portrait while configuration is still landscape):
-   * height is {@code cardHeightRatioPortrait} of the physical portrait screen height, capped so
-   * the sheet stays below the status bar and above the navigation bar (aligned with iOS clamping).
+   * Phone checkout portrait sheet height in px (including force-portrait while configuration is
+   * still landscape): {@code cardHeightRatioPortrait} of the physical portrait screen height, capped
+   * to stay below the status bar and above the navigation bar.
    */
   private int computePhonePortraitSheetHeightPx(DisplayMetrics metrics) {
     boolean isLandscape = getResources().getConfiguration().orientation
@@ -547,9 +541,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
   /**
    * Applies system-bar padding (excluding the IME) and tracks the soft-keyboard overlap. The window
-   * is edge-to-edge, so the IME arrives as an inset rather than a window pan; the legacy
-   * system-window inset includes the keyboard height, which without this would inflate the bottom
-   * padding and push the bottom-pinned card off the top of the screen.
+   * is edge-to-edge; the IME arrives as an inset.
    */
   private WindowInsetsCompat onWindowInsets(View v, WindowInsetsCompat insets) {
     try {
@@ -560,10 +552,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     } catch (Throwable t) {
       Log.w(TAG, "IME-aware inset handling unavailable: " + t.getMessage());
     }
-    // Pre-API-30 (Type.ime() is 30+): keep the card exactly sized and positioned and let the
-    // keyboard simply slide over it. The legacy system-window bottom inset includes the keyboard
-    // height, so we clamp it back to the keyboard-free (navigation-bar) value; otherwise the inflated
-    // padding would lift the bottom-pinned card and make it jump. No resize/cap here.
+    // Pre-API-30 (Type.ime() is 30+): card stays sized and positioned; the keyboard slides over it.
+    // The legacy system-window bottom inset is clamped back to the keyboard-free (nav-bar) value.
     return applyPreApi30StaticPadding(v, insets);
   }
 
@@ -577,8 +567,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       boolean imeInflated =
           navRef > 0 && sysBottom > navRef + StashWebViewUtils.dpToPx(this, 80);
       if (!imeInflated) {
-        // Remember the exact keyboard-free bottom inset so the card does not shift when the keyboard
-        // later appears (reusing this value avoids a few-pixel jump from dimension rounding).
+        // Store the keyboard-free bottom inset.
         navBottomInsetPx = sysBottom;
       }
       int bottom = imeInflated ? navBottomInsetPx : sysBottom;
@@ -590,10 +579,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Pre-API-30 keyboard detection. {@code WindowInsets.Type.ime()} is API 30+, so on older devices
-   * the keyboard height is derived from the visible display frame and fed into the same
-   * {@link #applyImeOverlap} card expand used on API 30+. No-op on API 30+, where the inset listener
-   * drives it.
+   * Registers pre-API-30 keyboard detection. {@code WindowInsets.Type.ime()} is API 30+; on older
+   * devices the keyboard height is derived from the visible display frame and fed into the same
+   * {@link #applyImeOverlap} card expand used on API 30+. No-op on API 30+.
    */
   private void registerImeGlobalLayoutListenerIfNeeded() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || rootLayout == null) {
@@ -622,9 +610,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       // Keyboard height above the navigation bar (r.bottom is the keyboard top in screen coords).
       int overlap = keyboardShown ? Math.max(0, (fullHeight - nav) - r.bottom) : 0;
       applyImeOverlap(overlap);
-      // Pre-30 WebView does not scroll the focused input for content padding, so shrink the WebView's
-      // HEIGHT so its bottom sits at the keyboard top -- Chromium then scrolls the input into view.
-      // Recomputed every layout pass, so it tracks the card's expand animation. -1 restores full.
+      // Pre-30: shrink the WebView HEIGHT so its bottom sits at the keyboard top. Recomputed every
+      // layout pass. -1 restores full height.
       applyPreApi30WebViewHeight(keyboardShown ? r.bottom : -1);
     } catch (Throwable t) {
       Log.w(TAG, "IME<30 overlap failed: " + t.getMessage());
@@ -653,7 +640,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     int[] loc = new int[2];
     webView.getLocationOnScreen(loc);
     int target = Math.max(1, keyboardTopScreenY - loc[1]);
-    // Tolerance avoids a relayout loop once it settles (setLayoutParams re-triggers global layout).
+    // 2px tolerance before re-setting the layout params.
     if (Math.abs(lp.height - target) > 2) {
       lp.height = target;
       webView.setLayoutParams(lp);
@@ -670,12 +657,11 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Matches the iOS behaviour: when the keyboard opens the card expands to the STANDARD expanded size
-   * (the same {@link #animateExpand} used by drag / the {@code expand()} bridge), and collapses again
-   * on hide. The focused input is kept visible by insetting the WebView content from the bottom by
-   * the keyboard height (so the card geometry is untouched -- only the web viewport shrinks, and the
-   * page scrolls the input into it). Centered card / modal slide up instead. {@code overlapPx} is the
-   * keyboard height above the navigation bar (0 = hidden).
+   * On keyboard open the card expands to the standard expanded size (the same {@link #animateExpand}
+   * used by drag / the {@code expand()} bridge) and collapses again on hide. The WebView content is
+   * inset from the bottom by the keyboard height to keep the focused input visible. Centered card /
+   * modal slide up instead. {@code overlapPx} is the keyboard height above the navigation bar
+   * (0 = hidden).
    */
   private void applyImeOverlap(int overlapPx) {
     if (cardContainer == null || usePopup) {
@@ -693,8 +679,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
 
     if (cachedIsTablet || useModal) {
-      // Centered card: slide up by the amount the keyboard intrudes past the gap below the card;
-      // clamp the shift to that same gap so the top never crosses the status bar.
+      // Centered card: slide up by the keyboard intrusion past the gap below the card, clamped to
+      // that gap.
       int cardHeight = params.height > 0 ? params.height : cardContainer.getHeight();
       int gapBelow = Math.max(0, (rootContentHeightPx() - cardHeight) / 2);
       int shift = Math.min(gapBelow, Math.max(0, overlapPx - gapBelow));
@@ -711,17 +697,15 @@ public class StashNativeCardPortraitActivity extends Activity {
 
     if (showing) {
       keyboardActive = true;
-      // Expand to the standard expanded size (same as drag / expand()); skip if already expanded.
+      // Expand to the standard expanded size; skip if already expanded.
       if (!isExpanded && !isLandscapeMode()) {
         animateExpand();
         keyboardExpandedCard = true;
       }
     }
 
-    // Keep the focused input visible above the keyboard. API 30+: inset the WebView content (padding)
-    // -- modern WebView scrolls the focused element into the reduced viewport. Pre-30 WebView ignores
-    // content padding for scroll-into-view, so there the WebView HEIGHT is shrunk instead (handled by
-    // the global-layout listener, which has the keyboard top).
+    // API 30+: inset the WebView content (padding). Pre-30 shrinks the WebView HEIGHT instead,
+    // handled by the global-layout listener.
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
       applyWebViewBottomInset(overlapPx);
     }
@@ -737,8 +721,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Insets the WebView content from the bottom by {@code bottomPx} so the page lays out / scrolls the
-   * focused input above the keyboard, without changing the card size. 0 clears it.
+   * Insets the WebView content from the bottom by {@code bottomPx}, leaving the card size unchanged.
+   * 0 clears it.
    */
   private void applyWebViewBottomInset(int bottomPx) {
     if (webView == null) {
@@ -785,13 +769,13 @@ public class StashNativeCardPortraitActivity extends Activity {
     } else {
       boolean isLandscape = getResources().getConfiguration().orientation
           == Configuration.ORIENTATION_LANDSCAPE;
-      // Cap card height so it never extends behind the status bar / notch.
+      // Card-height cap: stays clear of the status bar / notch.
       int maxCardHeight = metrics.heightPixels
           - StashWindowCompat.getSystemTopInsetPx(getWindow());
       if (maxCardHeight <= 0) maxCardHeight = metrics.heightPixels;
 
       if (isLandscape && !forcePortraitOnCheckout) {
-        // Phone checkout in landscape without forcing portrait: use landscape ratios
+        // Phone checkout in landscape without forced portrait: landscape ratios.
         int w = (int) (metrics.widthPixels * cardWidthRatioLandscape);
         int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
         int minPx = StashWebViewUtils.dpToPx(
@@ -804,7 +788,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         }
         cardWidth = w;
         cardHeight = Math.min(h, maxCardHeight);
-        // Landscape phone card is fixed to configured size (dismiss-only gesture behavior).
+        // Landscape phone card is fixed to configured size; drag is dismiss-only.
         isExpanded = false;
       } else {
         isExpanded = false;
@@ -855,11 +839,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     addWebView();
     addHomeButton();
     rootLayout.addView(cardContainer);
-    
-    // Same as tablet checkout: backdrop visible; card fades in while WebView loads underneath.
+
+    // Backdrop visible; card fades in while the WebView loads underneath.
     animateFadeIn();
-    
-    // Modal is always considered expanded
+
+    // Modal is always considered expanded.
     isExpanded = true;
   }
   
@@ -929,8 +913,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   /**
-  * Touch listener for drag handle with velocity-based gesture recognition.
-  * Uses CardConstants for consistent threshold values.
+  * Touch listener for the drag handle with velocity-based gesture recognition.
+  * Threshold values come from CardConstants.
   */
   private class DragHandleTouchListener implements View.OnTouchListener {
     private float initialY;
@@ -939,7 +923,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     private long lastMoveTime;
     private float lastMoveY;
     private float velocity;
-    /** Cached for the current touch sequence to avoid repeated getDisplayMetrics() calls. */
+    /** Display metrics for the current touch sequence. */
     private DisplayMetrics displayMetrics;
     
     /** Applies drag-down feedback: translation and alpha fade. Shared by tablet and phone. */
@@ -963,7 +947,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         return false;
       }
       
-      // Modal mode never supports drag gestures (only visual drag bar)
+      // Modal: no drag gestures; the drag bar is visual only.
       if (useModal) {
         return false;
       }
@@ -994,15 +978,14 @@ public class StashNativeCardPortraitActivity extends Activity {
           float deltaY = event.getRawY() - initialY;
 
           if (Math.abs(deltaY) > StashWebViewUtils.dpToPx(StashNativeCardPortraitActivity.this, 10)) {
-            // Landscape phone behaves like a fixed-size sheet: dismiss-only drag (downward).
-            // Tablet and modal are also dismiss-only.
+            // Landscape phone, tablet, and modal: dismiss-only drag (downward).
             isDragging = (isTablet || useModal || isLandscape) ? (deltaY > 0) : true;
-            
+
             if (deltaY > 0) {
-              // Drag down: same feedback for tablet, modal, and phone
+              // Drag down: same feedback for tablet, modal, and phone.
               applyDragDownFeedback(deltaY);
             } else if (!isTablet && !useModal && !isExpanded && !isLandscape) {
-              // Phone only (not modal, not landscape): drag up to expand
+              // Phone only (not modal, not landscape): drag up to expand.
               float cardHeight = cardContainer.getHeight();
               float expandThreshold = cardHeight * CardConstants.EXPAND_DISTANCE_THRESHOLD;
               float dragProgress = Math.min(Math.abs(deltaY) / expandThreshold, 1.0f);
@@ -1036,7 +1019,7 @@ public class StashNativeCardPortraitActivity extends Activity {
                 animateSnapBack();
               }
             } else {
-              // Phone: landscape is dismiss-only; portrait keeps expand/collapse behavior.
+              // Phone: landscape is dismiss-only; portrait has expand/collapse.
               if (isLandscape) {
                 if (finalDeltaY > 0) {
                   float dismissThreshold =
@@ -1160,7 +1143,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           .start();
     }
     
-    // Scale down and fade out the card for a seamless tablet dismiss
+    // Scale down and fade out the card.
     cardContainer.animate()
         .alpha(0f)
         .scaleX(0.9f)
@@ -1364,9 +1347,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         ? collapsedCardTargetHeightPx
         : computeCollapsedPhoneCardHeight(metrics);
 
-    // Capture drag feedback before cancelling (release position). One ValueAnimator updates height,
-    // translationY, and alpha each frame so we do not desync two animators (wrong perceived height)
-    // or snap TY to 0 first (jump back to expanded).
+    // Capture the drag-release position before cancelling. A single ValueAnimator drives height,
+    // translationY, and alpha each frame.
     float startTranslationY = cardContainer.getTranslationY();
     float startAlpha = cardContainer.getAlpha();
     FrameLayout.LayoutParams layoutParams =
@@ -1489,9 +1471,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       try {
         webView = new WebView(this);
       } catch (Throwable t) {
-        // WebView creation can fail if running in a separate process (data directory lock),
-        // on devices with broken WebView installs, or when Chromium init fails. Report as
-        // network error and bail -- do not crash the host app.
+        // WebView creation failure (separate-process data-directory lock, broken WebView install,
+        // or Chromium init failure): report a network error and return.
         Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
         handleNetworkError();
         return;
@@ -1609,7 +1590,7 @@ public class StashNativeCardPortraitActivity extends Activity {
           @Override
           public void onProgressChanged(WebView view, int newProgress) {
             super.onProgressChanged(view, newProgress);
-            // Below API 29 there is no onPageCommitVisible; first progress means bytes are arriving.
+            // Below API 29 onPageCommitVisible is unavailable; first progress signals arriving bytes.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 0) {
               markMainFrameNavigationCommittedIfNeeded();
               maybeRevealWhenReady();
@@ -1627,9 +1608,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         webView.setAlpha(0f);
         cardContainer.addView(webView);
 
-        // Show loading immediately before loadUrl() so there is never a blank-card window
-        // between addView() and the first onPageStarted callback. showLoading() is idempotent:
-        // if the overlay already exists it will not remove/recreate it.
+        // Loading overlay shown before loadUrl(). showLoading() is idempotent: an existing overlay
+        // is reused, not removed/recreated.
         loadingView = StashWebViewUtils.createAndShowLoadingView(
             getApplicationContext(), cardContainer,
             sheetChromeBackgroundArgb,
@@ -1677,8 +1657,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         return;
       }
       webViewRetryCount = 1;
-      // Cancel any in-flight reveal crossfade; otherwise onAnimationEnd can still remove the
-      // loading overlay after we start the retry load.
+      // Cancel any in-flight reveal crossfade before starting the retry load.
       cancelLoadingRevealAnimation();
       webViewLoadingRevealComplete = false;
       webView.setAlpha(0f);
@@ -1723,10 +1702,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Reveals WebView only when both conditions are true:
+   * Reveals the WebView only when both conditions are true:
    * - document lifecycle finished (onPageFinished)
    * - first frame committed/visible (onPageCommitVisible or progress fallback)
-   * This avoids a dark/blank intermediate frame in some WebView implementations.
    */
   private void maybeRevealWhenReady() {
     if (networkErrorHandled || mainFrameErrorReceived || isDismissing) {
@@ -1765,7 +1743,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
-  /** Phone force-portrait checkout with host backdrop: hold static plate through return rotation. */
+  /** True for phone force-portrait checkout with a host backdrop. */
   private boolean shouldDeferFinishForHostBackdrop() {
     return hostBackdropImageView != null
         && forcePortraitOnCheckout
@@ -1788,8 +1766,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       return;
     }
     hostBackdropImageView.setScaleType(ImageView.ScaleType.MATRIX);
-    // Landscape-left vs landscape-right: opposite ±90° (swap vs earlier build fixes horizontal
-    // mirror from game buffer vs Display rotation convention).
+    // Landscape-left vs landscape-right: opposite +/-90 degrees.
     float rotateDeg;
     switch (hostBackdropSourceDisplayRotation) {
       case Surface.ROTATION_270:
@@ -1874,9 +1851,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     cancelLoadTimers();
     
     StashCheckoutBridge.emitNetworkError(this);
-    
-    // Dismiss immediately without callback for dialog dismissed
-    callbackSent = true;  // Prevent onDialogDismissed from being called
+
+    // Dismiss without the dialog-dismissed callback.
+    callbackSent = true;  // suppresses onDialogDismissed
     finishActivityWithNoAnimation();
   }
   
@@ -1973,11 +1950,11 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   /**
-   * Stops the loading/WebView crossfade and resets alpha so a new load can show the spinner until
-   * {@link #revealWebViewAndRemoveLoading()} runs again.
+   * Stops the loading/WebView crossfade and resets alpha to the pre-reveal state (loading visible,
+   * WebView transparent).
    */
   private void cancelLoadingRevealAnimation() {
-    // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
+    // Cleared before cancel(); the crossfade's onAnimationEnd then treats this as cancelled.
     webViewRevealAnimationRunning = false;
     webViewRevealAnimationToken++;
     if (loadingView != null) {
@@ -1998,9 +1975,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (webView != null) {
         webView.setAlpha(0f);
       }
-      // Idempotent: if a loading view is already attached to the container (e.g. created eagerly
-      // in addWebView before loadUrl), just ensure it is visible rather than removing+recreating
-      // (which would cause the brief "loading flash" the user sees).
+      // Idempotent: an already-attached loading view is made visible rather than removed/recreated.
       if (loadingView != null && loadingView.getParent() != null) {
         loadingView.setAlpha(1f);
         loadingView.setVisibility(View.VISIBLE);
@@ -2022,8 +1997,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * First load: crossfade loading overlay out and WebView in (aligned with iOS
-   * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
+   * First load: crossfades the loading overlay out and the WebView in. Later navigations: no-op if
+   * the overlay is already gone.
    */
   private void revealWebViewAndRemoveLoading() {
     runOnUiThread(() -> {
@@ -2051,8 +2026,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         crossfade.addListener(new AnimatorListenerAdapter() {
           @Override
           public void onAnimationEnd(Animator animation) {
-            // If cancelLoadingRevealAnimation() ran (e.g. stall retry), running was cleared first;
-            // do not strip the overlay or mark the WebView revealed.
+            // Skip when the crossfade was cancelled (running cleared) or superseded (stale token).
             if (!webViewRevealAnimationRunning || revealToken != webViewRevealAnimationToken) {
               return;
             }
@@ -2080,7 +2054,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     cardContainer.setTranslationY(metrics.heightPixels);
 
-    // Match iOS: fade dim first, brief hold, then sheet slide (extra time for WebView load).
+    // Fade dim first, brief hold, then sheet slide.
     if (backdropView != null) {
       backdropView.setAlpha(0f);
       backdropView.animate()
@@ -2260,7 +2234,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         return;
       }
       
-      // Fade dim only; host backdrop stays opaque until landscape (see shouldDeferFinishForHostBackdrop).
+      // Fade the dim layer; the host backdrop stays opaque until landscape.
       if (backdropView != null) {
         backdropView.animate()
             .alpha(0f)
@@ -2351,9 +2325,8 @@ public class StashNativeCardPortraitActivity extends Activity {
               CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
                   || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
 
-          // Dedup duplicate terminal payment events only while autoClose is on (matches iOS and the
-          // plugin popup path). With autoClose off the page may legitimately emit follow-up events
-          // (e.g. failure -> retry -> success), so duplicates are allowed through.
+          // Dedup terminal payment events only while autoClose is on. With autoClose off, follow-up
+          // events (e.g. failure -> retry -> success) pass through.
           if (isPaymentEvent && autoCloseOnPaymentEvent) {
             if (paymentEventHandled) {
               return;
@@ -2362,11 +2335,11 @@ public class StashNativeCardPortraitActivity extends Activity {
           }
 
           if (success) {
-            // Always re-enable interaction so the user can dismiss the card after the result.
+            // Re-enable interaction; the card is dismissable after the result.
             isPurchaseProcessing = false;
-            // Only latch callbackSent (which suppresses the onDestroy dismiss callback) when the
-            // card actually auto-closes as part of this payment event. With autoClose = false the
-            // card stays open and the later, user-initiated close must still emit onDialogDismissed.
+            // Latch callbackSent (suppresses the onDestroy dismiss callback) only when the card
+            // auto-closes for this payment event. With autoClose = false the later user-initiated
+            // close still emits onDialogDismissed.
             if (autoCloseOnPaymentEvent) {
               callbackSent = true;
             }
@@ -2462,15 +2435,15 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     @JavascriptInterface
     public void expand() {
-      // Modal does not support expand/collapse
+      // Modal has no expand/collapse.
       if (useModal) {
         return;
       }
-      
+
       try {
         runOnUiThread(() -> {
           try {
-            // While the keyboard owns the card geometry, ignore page-driven expand.
+            // Page-driven expand is ignored while the keyboard owns the card geometry.
             if (!usePopup && !keyboardActive && !isExpanded && !isLandscapeMode()) {
               animateExpand();
             }
@@ -2485,15 +2458,15 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     @JavascriptInterface
     public void collapse() {
-      // Modal does not support expand/collapse
+      // Modal has no expand/collapse.
       if (useModal) {
         return;
       }
-      
+
       try {
         runOnUiThread(() -> {
           try {
-            // While the keyboard owns the card geometry, ignore page-driven collapse.
+            // Page-driven collapse is ignored while the keyboard owns the card geometry.
             if (!usePopup && !keyboardActive && isExpanded && !isLandscapeMode()) {
               animateCollapse();
             }
@@ -2533,7 +2506,7 @@ public class StashNativeCardPortraitActivity extends Activity {
             if (normalized == null) {
               return;
             }
-            // Theme is applied only to in-card content, never to URLs handed to an external browser.
+            // No theme parameter is applied to external-browser URLs.
             callbackSent = true;
             isPurchaseProcessing = false;
             StashNativeCardPlugin.getInstance()
@@ -2630,7 +2603,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   @Override
-  @SuppressWarnings("deprecation") // minSdk 21; use OnBackPressedDispatcher for API 33+
+  @SuppressWarnings("deprecation") // deprecated at API 33; OnBackInvokedCallback handles API 33+
   public void onBackPressed() {
     if (isPurchaseProcessing) {
       return;
@@ -2657,8 +2630,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       return;
     }
 
-    // forcePortrait from landscape: card creation was deferred until rotation completes so that
-    // animateSlideUp uses the correct portrait screen dimensions from the very first frame.
+    // forcePortrait from landscape: deferred card creation runs once rotation reaches portrait.
     if (pendingCreateUIAfterRotation
         && newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
       pendingCreateUIAfterRotation = false;
@@ -2681,11 +2653,11 @@ public class StashNativeCardPortraitActivity extends Activity {
       boolean isTablet = cachedIsTablet;
       resetImeOverlap();
       if (isTablet) {
-        // Seamless animation for tablet rotation
+        // Tablet rotation resize.
         animateTabletRotation();
       } else {
-        // Phone: keep card sized to config (portrait ratios + insets) after rotation, insets,
-        // multi-window, etc. — same path for force-portrait and current-orientation checkout.
+        // Phone: re-size the card to config (portrait ratios + insets) for both force-portrait and
+        // current-orientation checkout.
         animatePhoneCheckoutRotation();
       }
       reapplyImeOverlapAfterRotation();
@@ -2783,8 +2755,8 @@ public class StashNativeCardPortraitActivity extends Activity {
     int cardWidth;
     int cardHeight;
     if (isLandscape) {
-      // Use rootLayout content height (after inset padding) when available; this is the
-      // actual drawable area. Fall back to screen height minus insets before first layout.
+      // rootLayout content height (after inset padding) when available; otherwise screen height
+      // minus insets before the first layout.
       int contentHeight = screenHeight;
       if (rootLayout != null && rootLayout.getHeight() > 0) {
         contentHeight = rootLayout.getHeight() - rootLayout.getPaddingTop() - rootLayout.getPaddingBottom();

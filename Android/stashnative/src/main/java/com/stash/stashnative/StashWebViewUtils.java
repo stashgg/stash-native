@@ -39,7 +39,7 @@ public class StashWebViewUtils {
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
   public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
-  // Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on iOS (StashNativeCard.m).
+  // window.stash_sdk bridge JavaScript injected into the checkout WebView.
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
@@ -135,8 +135,9 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Keeps status/navigation bar icon contrast aligned with app night mode. Without this, a
-   * translucent Stash window can reset the nav bar to light (light icons / wrong background).
+   * Sets status/navigation bar colors and icon contrast for the given night mode. Dark theme uses a
+   * transparent status bar, {@code COLOR_DARK_BG} nav bar, and dark-mode icons; light theme uses a
+   * transparent status bar, white nav bar, and light-mode icons.
    */
   public static void applySystemBarAppearance(Window window, View decorView, boolean darkTheme) {
     if (window == null || decorView == null) {
@@ -232,8 +233,7 @@ public class StashWebViewUtils {
     WebSettings settings = webView.getSettings();
     settings.setAllowFileAccess(false);
     settings.setAllowContentAccess(false);
-    // Pin the secure default explicitly (already the KitKat+ default) so the payment surface is not
-    // weakened by an OEM or future platform default change.
+    // Disallow mixed (http) content on the https checkout page.
     settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
     
     settings.setJavaScriptEnabled(true);
@@ -255,7 +255,7 @@ public class StashWebViewUtils {
           algorithmicDarkeningApplied = true;
         }
       } catch (NoClassDefFoundError unused) {
-        // androidx.webkit not packaged (e.g. AAR-only Unity); fall back to WebSettings#setForceDark.
+        // androidx.webkit not packaged; algorithmic darkening unapplied.
       }
     }
     if (!algorithmicDarkeningApplied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -297,7 +297,7 @@ public class StashWebViewUtils {
       if (uri.getHost() == null || uri.getHost().isEmpty()) {
         return null;
       }
-      // Upgrade cleartext http to https for the external payment URL (rather than rejecting it).
+      // Upgrade cleartext http to https.
       if ("http".equals(scheme)) {
         uri = uri.buildUpon().scheme("https").build();
       }
@@ -437,10 +437,7 @@ public class StashWebViewUtils {
 
   /**
    * Opens the URL using Custom Tabs when possible, else system browser.
-   * Uses request code 0 (no {@code startActivityForResult}). The in-SDK Custom Tabs flow that needs
-   * a result is launched by {@link StashNativeBrowserProxyActivity} via {@link
-   * StashUrlLauncher#openExternalUrl} with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB}; the
-   * proxy owns that result lifecycle, so the host does not forward anything.
+   * Uses request code 0 (no {@code startActivityForResult}).
    */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {

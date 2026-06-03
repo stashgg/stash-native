@@ -12,9 +12,8 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import java.lang.reflect.Method;
 
 /**
- * Avoids hard links to {@code WindowCompat} APIs that require newer AndroidX Core (e.g. Unity and
- * other hosts that still resolve {@code androidx.core:core:1.2.x}). Uses platform APIs on API 30+ and
- * reflection where possible, with no-op or null fallbacks.
+ * Window and inset helpers that use platform APIs on API 30+ and reflection elsewhere, with no-op or
+ * null fallbacks. Does not hard-link {@code WindowCompat} APIs that require newer AndroidX Core.
  */
 final class StashWindowCompat {
 
@@ -65,8 +64,7 @@ final class StashWindowCompat {
   }
 
   /**
-   * Mirrors {@code WindowCompat.getInsetsController} via reflection so missing methods on old Core
-   * do not cause {@link NoSuchMethodError} at load time.
+   * Mirrors {@code WindowCompat.getInsetsController} via reflection. Returns null on failure.
    */
   @Nullable
   static WindowInsetsControllerCompat getInsetsController(
@@ -89,12 +87,9 @@ final class StashWindowCompat {
 
   /**
    * Returns the status-bar (top) system inset in pixels for the given window; 0 if unavailable.
-   * Used to cap card heights so they never extend behind the notch / status bar.
    *
-   * <p>Uses only platform {@link android.view.WindowInsets} — never {@link
-   * WindowInsetsCompat#toWindowInsetsCompat(android.view.WindowInsets, View)}, so hosts (e.g.
-   * Unity) that ship an old {@code androidx.core} on the classpath do not crash with {@link
-   * NoSuchMethodError}.
+   * <p>Uses only platform {@link android.view.WindowInsets}, never {@link
+   * WindowInsetsCompat#toWindowInsetsCompat(android.view.WindowInsets, View)}.
    */
   static int getSystemTopInsetPx(Window window) {
     if (window == null) {
@@ -119,10 +114,9 @@ final class StashWindowCompat {
 
   /**
    * Returns the navigation-bar (bottom) system inset in pixels; 0 if unavailable.
-   * Used with {@link #getSystemTopInsetPx} to cap sheet height so the card does not draw into
-   * gesture or 3-button navigation areas.
    *
-   * <p>Same host-compat constraints as {@link #getSystemTopInsetPx}.
+   * <p>Uses only platform {@link android.view.WindowInsets}, never {@link
+   * WindowInsetsCompat#toWindowInsetsCompat(android.view.WindowInsets, View)}.
    */
   static int getSystemBottomInsetPx(Window window) {
     if (window == null) {
@@ -149,9 +143,8 @@ final class StashWindowCompat {
    * Applies system bar insets as padding and returns insets with system bars cleared for children.
    *
    * <p>Uses only legacy {@link WindowInsetsCompat#getSystemWindowInsetLeft()} (etc.) and {@link
-   * WindowInsetsCompat#replaceSystemWindowInsets(int, int, int, int)} — no {@link
-   * WindowInsetsCompat.Type} or {@link WindowInsetsCompat.Builder}, so Unity and other hosts that
-   * ship an older {@code androidx.core} do not hit {@link NoSuchMethodError} / missing {@code Type}.
+   * WindowInsetsCompat#replaceSystemWindowInsets(int, int, int, int)}; no {@link
+   * WindowInsetsCompat.Type} or {@link WindowInsetsCompat.Builder}.
    */
   static WindowInsetsCompat onApplySystemBarInsetsPadding(
       View target, WindowInsetsCompat windowInsets) {
@@ -164,15 +157,11 @@ final class StashWindowCompat {
   }
 
   /**
-   * Applies system-bar padding using only the status + navigation bars, EXCLUDING the IME, so a
-   * visible soft keyboard does not push a bottom-pinned card off the top of the screen. The legacy
-   * {@link WindowInsetsCompat#getSystemWindowInsetBottom()} includes the keyboard height; on this
-   * edge-to-edge window that would inflate the bottom padding and slide the sheet up off-screen.
+   * Applies system-bar padding using only the status and navigation bars, excluding the IME.
    *
-   * <p>Platform API 30+ only ({@code WindowInsets.Type.systemBars()}); returns {@code false} when
-   * unavailable so callers fall back to {@link #onApplySystemBarInsetsPadding}. Uses framework
-   * types only (no {@code WindowInsetsCompat.Type}), so old host cores never hit {@link
-   * NoSuchMethodError}.
+   * <p>Platform API 30+ only ({@code WindowInsets.Type.systemBars()}). Returns {@code true} when
+   * padding was applied, {@code false} when unavailable. Uses framework types only (no {@code
+   * WindowInsetsCompat.Type}).
    */
   static boolean applySystemBarsPaddingExcludingIme(View target, WindowInsetsCompat windowInsets) {
     if (target == null || windowInsets == null) {
@@ -196,7 +185,7 @@ final class StashWindowCompat {
   /**
    * Height in px by which a visible soft keyboard overlaps the content sitting above the navigation
    * bar (IME bottom minus system-bars bottom); 0 if hidden/unavailable. Platform API 30+ only; 0
-   * otherwise so older devices keep current behaviour.
+   * otherwise.
    */
   static int getImeOverlapPx(WindowInsetsCompat windowInsets) {
     if (windowInsets == null) {
@@ -217,10 +206,8 @@ final class StashWindowCompat {
   }
 
   /**
-   * Navigation-bar (bottom) reference height in px that EXCLUDES the IME: the stable bottom inset if
-   * available, otherwise the framework {@code navigation_bar_height}. Pre-API-30 callers compare the
-   * (IME-inflated) system-window bottom inset against this to detect and strip the keyboard, so a
-   * visible keyboard does not lift the bottom-pinned card.
+   * Navigation-bar (bottom) reference height in px that excludes the IME: the stable bottom inset if
+   * available, otherwise the framework {@code navigation_bar_height}.
    */
   static int getStableOrNavBottomPx(View view) {
     if (view == null) {

@@ -5,7 +5,7 @@ import android.content.Intent;
 
 /**
  * Sends checkout lifecycle events from {@link StashNativeCardPortraitActivity} to
- * {@link StashNativeCardPlugin}'s receiver (same app process by default; package-local broadcasts).
+ * {@link StashNativeCardPlugin}'s receiver as package-local broadcasts.
  */
 final class StashCheckoutBridge {
 

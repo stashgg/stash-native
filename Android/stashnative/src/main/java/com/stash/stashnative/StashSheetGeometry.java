@@ -4,14 +4,11 @@ import android.content.Context;
 import android.util.DisplayMetrics;
 
 /**
- * Pure sheet-size math for the tablet checkout card and the modal dialog. Extracted from
- * {@link StashNativeCardPortraitActivity} so the ratio-to-pixels logic can be unit tested and is
- * not buried in the activity. The activity keeps the live ratio state and passes it in; these
- * methods read nothing else, so their output depends only on their arguments (and the context's
- * display density, used by {@link StashWebViewUtils#dpToPx}).
+ * Sheet-size math for the tablet checkout card and the modal dialog. Output depends only on the
+ * arguments and the context's display density ({@link StashWebViewUtils#dpToPx}).
  *
- * <p>Orientation here is derived from the metrics (width > height), exactly as the originals did --
- * the caller passes the current {@link DisplayMetrics}.
+ * <p>Orientation is derived from the metrics (width > height). The caller passes the current
+ * {@link DisplayMetrics}.
  */
 final class StashSheetGeometry {
 
@@ -58,8 +55,7 @@ final class StashSheetGeometry {
 
   /**
    * Modal dialog size. Picks the tablet-or-phone ratio set for the current orientation, then
-   * enforces minimum dp sizes. The phone minHeight intentionally reuses MIN_PHONE_CARD_WIDTH_DP,
-   * matching the plugin path.
+   * enforces minimum dp sizes. The phone minHeight uses MIN_PHONE_CARD_WIDTH_DP.
    */
   static int[] modalCardSize(
       Context context,

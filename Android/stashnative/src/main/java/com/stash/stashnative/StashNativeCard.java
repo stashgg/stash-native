@@ -61,7 +61,7 @@ import android.graphics.BitmapFactory;
 public class StashNativeCard {
   private static StashNativeCard instance;
   private StashNativeCardPlugin plugin;
-  /** Strong reference so callbacks keep working after Custom Tabs / background (WeakRef would allow GC). */
+  /** Strong reference to the registered listener. */
   private StashNativeCardListener listener;
   
   /**
@@ -114,8 +114,8 @@ public class StashNativeCard {
     /**
      * Called when the checkout page calls {@code window.stash_sdk.openExternalBrowser(url)}. The SDK closes
      * the card/modal without invoking {@link #onDialogDismissed()}, then opens the URL in Chrome
-     * Custom Tabs (or the system browser as fallback). The {@code url} is the page-supplied URL as-is;
-     * the theme query parameter is applied only to in-card content, not to external URLs.
+     * Custom Tabs (or the system browser as fallback). The {@code url} is the page-supplied URL as-is,
+     * with no theme query parameter.
      *
      * @param url Validated {@code http} or {@code https} URL
      */
@@ -429,7 +429,7 @@ public class StashNativeCard {
    *
    * <p>Unlike openCard which uses different presentations on phones vs tablets,
    * openModal always shows a centered modal on all devices. The modal resizes
-   * seamlessly when the device rotates.
+   * when the device rotates.
    *
    * <p>Uses default sizing ratios with dismiss enabled.
    *
@@ -444,7 +444,7 @@ public class StashNativeCard {
    *
    * <p>Unlike openCard which uses different presentations on phones vs tablets,
    * openModal always shows a centered modal on all devices. The modal resizes
-   * seamlessly when the device rotates.
+   * when the device rotates.
    *
    * @param url The URL to load in the modal
    * @param config Configuration for sizing and dismiss behavior (null for defaults)
@@ -492,7 +492,7 @@ public class StashNativeCard {
   /**
    * Attempts to close the Chrome Custom Tabs browser.
    * Chrome Custom Tabs cannot be programmatically dismissed on Android.
-   * This method exists for API consistency with iOS but has no effect on Android.
+   * This method has no effect on Android.
    */
   public void closeBrowser() {
     // No-op on Android
@@ -544,11 +544,9 @@ public class StashNativeCard {
 
   /**
    * Holds an optional host-captured screenshot shown behind the dim overlay when
-   * force-portrait checkout rotates the display. Stored as a static field so same-process
-   * Activities can read it without serialising through Intent extras.
+   * force-portrait checkout rotates the display.
    *
-   * <p>The bitmap is consumed (and recycled) by the checkout Activity; callers do not need
-   * to manage its lifecycle after passing it here.
+   * <p>The bitmap is consumed and recycled by the checkout Activity.
    */
   private static volatile Bitmap pendingBackdropBitmap;
 
@@ -558,7 +556,7 @@ public class StashNativeCard {
    * {@link CardConfig#forcePortrait} is true and the host is in landscape.
    *
    * <p>The bitmap is consumed once by the next checkout presentation and automatically
-   * recycled; do not reuse the reference after calling this method.
+   * recycled. The reference is invalid after this method returns.
    *
    * @param bitmap screenshot of the host screen, or {@code null} to clear
    */
@@ -571,8 +569,7 @@ public class StashNativeCard {
   }
 
   /**
-   * Convenience: decodes a PNG/JPEG byte array into a {@link Bitmap} and stores it.
-   * Useful from Unity JNI where passing {@code byte[]} is simpler than constructing a Bitmap.
+   * Decodes a PNG/JPEG byte array into a {@link Bitmap} and stores it.
    *
    * @param pngOrJpeg encoded image bytes, or {@code null} to clear
    */

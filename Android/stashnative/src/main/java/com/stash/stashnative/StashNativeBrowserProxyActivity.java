@@ -8,13 +8,13 @@ import android.util.Log;
 
 /**
  * Invisible activity that owns the Chrome Custom Tabs launch and its
- * {@code startActivityForResult} lifecycle. Removes the host-side requirement
- * to forward {@code onActivityResult} for {@link
- * com.stash.stashnative.StashNativeCard.StashNativeCardListener#onBrowserClosed()}.
+ * {@code startActivityForResult} lifecycle. Dispatches {@link
+ * com.stash.stashnative.StashNativeCard.StashNativeCardListener#onBrowserClosed()}
+ * when the Custom Tab closes.
  *
- * <p>The plugin's existing close-tracking flag ({@code browserCloseAwaitingCctResult})
- * is set before this activity is started, so dispatches from this activity and from
- * the engagement-session-ended path dedupe via the same gate.
+ * <p>The plugin sets its close-tracking flag ({@code browserCloseAwaitingCctResult})
+ * before this activity starts. Dispatches from this activity and from the
+ * engagement-session-ended path dedupe via that gate.
  */
 public final class StashNativeBrowserProxyActivity extends Activity {
 
@@ -30,10 +30,9 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     super.onCreate(savedInstanceState);
 
     if (savedInstanceState != null) {
-      // Recreated after process death or a configuration change while CCT was on top: the
-      // activity-result is lost and we must not relaunch CCT. Notify browser-closed (the plugin
-      // gate no-ops if no close was pending, e.g. after full process death) so a waiting host
-      // listener and any pending checkout dismiss are not left stuck, then finish.
+      // Recreated after process death or a configuration change while CCT was on top.
+      // Dispatches browser-closed (the plugin gate no-ops if no close was pending) and finishes
+      // without relaunching CCT.
       StashNativeCard.notifyBrowserClosedFromProxyInternal();
       finish();
       return;
@@ -48,9 +47,8 @@ public final class StashNativeBrowserProxyActivity extends Activity {
 
     Uri uri = parseUri(url);
     if (uri == null) {
-      // Plugin already set browserCloseAwaitingCctResult before starting us, so we
-      // dispatch (a no-op for the listener if it wasn't expecting one) to clear that
-      // flag and run any pending checkout dismiss. Browser never actually opened.
+      // URL did not parse to an http/https URI with a host; browser never opened.
+      // Dispatches browser-closed to clear the plugin gate and run any pending checkout dismiss.
       Log.w(TAG, "Invalid URL; finishing");
       StashNativeCard.notifyBrowserClosedFromProxyInternal();
       finish();
@@ -76,8 +74,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
       return;
     }
 
-    // Engagement bind is async (up to ~2.5s). Arm awaitingResult now so a very-early
-    // onResume isn't misread as the close fallback.
+    // Engagement bind is async (up to ~2.5s). Arms awaitingResult before bind completes.
     awaitingResult = true;
   }
 
@@ -104,8 +101,8 @@ public final class StashNativeBrowserProxyActivity extends Activity {
       initialResumeConsumed = true;
       return;
     }
-    // Second onResume without a delivered result: CCT closed without onActivityResult
-    // (OEM Chrome quirk, ACTION_VIEW fallback, etc.). Treat as closed.
+    // Second onResume while awaitingResult is set: CCT closed without delivering
+    // onActivityResult. Treated as closed.
     if (awaitingResult) {
       awaitingResult = false;
       StashNativeCard.notifyBrowserClosedFromProxyInternal();

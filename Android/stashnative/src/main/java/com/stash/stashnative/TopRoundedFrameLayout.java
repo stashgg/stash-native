@@ -14,10 +14,8 @@ import android.widget.FrameLayout;
 /**
  * Bottom sheet container: clips children to a round-rect with only the top corners rounded.
  * <p>
- * Prior to API 33, {@link Outline} from a {@link Path} often cannot be used for
- * {@link View#setClipToOutline(boolean)} ({@link Outline#canClip()} is false), so a full-bleed
- * {@link android.webkit.WebView} draws a square and hides the top radius. Canvas clipping
- * works on all supported API levels.
+ * Clipping is applied via {@link Canvas#clipPath(Path)} in {@link #dispatchDraw}, which works on
+ * all supported API levels.
  */
 public class TopRoundedFrameLayout extends FrameLayout {
 
@@ -36,7 +34,7 @@ public class TopRoundedFrameLayout extends FrameLayout {
     super(context, attrs, defStyleAttr);
   }
 
-  /** Shared with {@link ViewOutlineProvider} so elevation shadow matches the visible shape. */
+  /** Builds the top-rounded round-rect {@link Path} for the given dimensions and corner radius. */
   public static Path buildTopRoundedClipPath(float width, float height, float radiusPx) {
     Path path = new Path();
     if (width <= 0f || height <= 0f) {
@@ -74,7 +72,7 @@ public class TopRoundedFrameLayout extends FrameLayout {
   }
 
   /**
-   * Outline for {@link #setElevation(float)} only; clipping is done in {@link #dispatchDraw}.
+   * Returns a {@link ViewOutlineProvider} that sets a top-rounded outline for elevation shadows.
    */
   public static ViewOutlineProvider outlineProviderForElevation(final float radiusPx) {
     return new ViewOutlineProvider() {

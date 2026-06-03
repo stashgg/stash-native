@@ -36,10 +36,9 @@ import androidx.annotation.RequiresApi;
 import java.lang.ref.WeakReference;
 
 /**
- * Internal plugin class that handles the WebView and dialog management.
- * Use {@link StashNativeCard} for the public API.
+ * Internal plugin that manages the WebView and dialog. {@link StashNativeCard} is the public API.
  *
- * <p>Memory optimization: Uses WeakReference for Activity to prevent leaks.
+ * <p>Holds the Activity through a WeakReference.
  */
 public class StashNativeCardPlugin {
   private static final String TAG = "StashNativeCard";
@@ -49,9 +48,8 @@ public class StashNativeCardPlugin {
     static final StashNativeCardPlugin INSTANCE = new StashNativeCardPlugin();
   }
   
-  // Use WeakReference to prevent Activity memory leaks
   private WeakReference<Activity> activityRef;
-  /** Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in background. */
+  /** Strong reference to the listener. */
   private volatile StashNativeCard.StashNativeCardListener listener;
 
   private Dialog currentDialog;
@@ -60,11 +58,10 @@ public class StashNativeCardPlugin {
   private View loadingOverlayView;
   private ViewTreeObserver.OnGlobalLayoutListener orientationChangeListener;
   
-  // Phone card: only height is configurable in portrait (full width);
-  // landscape ratios when not forcing portrait
+  // Phone card: portrait height ratio (full width in portrait), plus landscape width and height ratios.
   private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
   private boolean forcePortraitOnCheckout = false;
-  /** Card-presentation autoClose; modal uses {@link #currentModalConfig}.autoClose. */
+  /** Card-presentation autoClose. Modal uses {@link #currentModalConfig}.autoClose. */
   private boolean cardAutoCloseOnPaymentEvent = true;
   private float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
   private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
@@ -79,9 +76,8 @@ public class StashNativeCardPlugin {
   private volatile boolean isCurrentlyPresented;
   /**
    * True only when checkout used a separate WebView OS process. With the default manifest,
-   * {@link StashNativeCardPortraitActivity} runs in the host app process (required for Unity and
-   * similar engines), so this stays false and {@link #clearPresentationIfCheckoutProcessDied} is a
-   * no-op.
+   * {@link StashNativeCardPortraitActivity} runs in the host app process, this stays false, and
+   * {@link #clearPresentationIfCheckoutProcessDied} is a no-op.
    */
   private volatile boolean presentationUsesIsolatedWebviewProcess;
   /** Accessed from UI and JS threads; volatile for visibility. */
@@ -96,7 +92,7 @@ public class StashNativeCardPlugin {
   // Modal configuration (used when useModalPresentation is true)
   private StashNativeCard.ModalConfig currentModalConfig;
 
-  /** Normalized #hex from last {@code openCard} config; modal uses {@link #currentModalConfig}. */
+  /** Normalized #hex from the last {@code openCard} config. Modal uses {@link #currentModalConfig}. */
   private String presentationBackgroundColorHex;
   
   private boolean useCustomSize;
@@ -109,7 +105,7 @@ public class StashNativeCardPlugin {
 
   private BroadcastReceiver checkoutBridgeReceiver;
   private boolean checkoutBridgeReceiverRegistered;
-  /** Stashed at registration time so cleanup() can unregister even if the Activity has been GC'd. */
+  /** Application context captured at receiver registration; used by cleanup() to unregister. */
   private Context registeredAppContext;
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
@@ -119,35 +115,31 @@ public class StashNativeCardPlugin {
   private volatile boolean keepAliveEnabled;
   private StashNativeCard.KeepAliveConfig keepAliveConfig;
 
-  /** When true, host {@code onResume} should fire {@link StashNativeCardListener#onBrowserClosed()}. */
+  /** When true, host {@code onResume} fires {@link StashNativeCardListener#onBrowserClosed()}. */
   private boolean isBrowserSessionActive;
   /**
-   * After launching Custom Tabs / browser we defer arming until the host is paused by that UI or a
-   * short timeout. Otherwise the host can resume when portrait checkout or a dialog dismisses
-   * before the tab is shown, which incorrectly fired {@code onBrowserClosed}.
+   * True while close-tracking is deferred after launching Custom Tabs / browser until the host is
+   * paused by that UI or a short timeout elapses.
    */
   private boolean browserCloseTrackingPendingArm;
   private Runnable browserCloseTrackingArmRunnable;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private static final long BROWSER_CLOSE_TRACK_ARM_DELAY_MS = 400L;
   /**
-   * Custom Tabs can deliver a transient host {@code onResume} right after the tab opens. Only invoke
-   * {@link StashNativeCardListener#onBrowserClosed()} after the host stays resumed past this delay;
-   * cancel if the host pauses again (browser UI still on top).
+   * Posted on host {@code onResume}. Invokes {@link StashNativeCardListener#onBrowserClosed()} only
+   * after the host stays resumed past this delay; cancelled if the host pauses again.
    */
   private Runnable browserClosedDebounceRunnable;
   private static final long BROWSER_CLOSED_RESUME_DEBOUNCE_MS = 500L;
   /**
    * True while {@link StashNativeBrowserProxyActivity} is awaiting a Custom Tabs result.
-   * Acts as the dedup gate between proxy {@code onActivityResult} and the
-   * engagement-session-ended path.
+   * Dedup gate between proxy {@code onActivityResult} and the engagement-session-ended path.
    */
   private boolean browserCloseAwaitingCctResult;
 
   /**
-   * When set (portrait checkout), run on the main thread after {@code onBrowserClosed} so checkout
-   * can dismiss only after the tab was started and closed. Avoids finishing portrait before {@code
-   * startActivityForResult} runs and losing / deferring the result.
+   * Set for portrait checkout. Run on the main thread after {@code onBrowserClosed} to dismiss
+   * checkout once the tab was started and closed.
    */
   private Runnable pendingCheckoutDismissAfterExternalBrowser;
 
@@ -170,10 +162,9 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * If checkout used an isolated WebView process and that process died without sending a broadcast
-   * (e.g. native Chromium abort), clear state and surface {@link
-   * StashNativeCard.StashNativeCardListener#onNetworkError()} once the host activity resumes.
-   * No-op when {@link #presentationUsesIsolatedWebviewProcess} is false (default: same process as host).
+   * If checkout used an isolated WebView process and that process died without sending a broadcast,
+   * clears state and calls {@link StashNativeCard.StashNativeCardListener#onNetworkError()} once the
+   * host activity resumes. No-op when {@link #presentationUsesIsolatedWebviewProcess} is false.
    */
   private void clearPresentationIfCheckoutProcessDied(Context context) {
     if (!presentationUsesIsolatedWebviewProcess || !isCurrentlyPresented || context == null) {
@@ -250,9 +241,9 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Registers a package-local receiver so events from {@link StashNativeCardPortraitActivity}
-   * reach {@link StashNativeCard.StashNativeCardListener} on the main thread (same-process default;
-   * broadcasts remain the activity-to-plugin contract).
+   * Registers a package-local receiver that delivers events from
+   * {@link StashNativeCardPortraitActivity} to {@link StashNativeCard.StashNativeCardListener} on
+   * the main thread.
    */
   private void ensureCheckoutBridgeReceiver(Context context) {
     if (checkoutBridgeReceiverRegistered || context == null) {
@@ -277,9 +268,7 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     try {
-      // Use platform API directly to avoid requiring androidx.core >= 1.9 (4-arg
-      // ContextCompat.registerReceiver). Hosts with old androidx.core (e.g. Unity
-      // EDM-resolved 1.2.x) would crash with NoSuchMethodError otherwise.
+      // Registers via the platform API. RECEIVER_NOT_EXPORTED on API 33+, no flag below.
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
       } else {
@@ -338,8 +327,7 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Runs the given runnable on the main thread and then dismisses the current dialog.
-   * Used by JS interface handlers to avoid duplicating post + listener + dismiss logic.
+   * Runs the given runnable on the main thread, then dismisses the current dialog.
    */
   private void runOnMainAndDismiss(Runnable beforeDismiss) {
     mainHandler.post(() -> {
@@ -446,7 +434,7 @@ public class StashNativeCardPlugin {
           if (activity == null) {
             return;
           }
-          // Theme is applied only to in-card content, never to URLs handed to an external browser.
+          // URLs handed to an external browser carry no theme query parameter.
           paymentSuccessHandled = true;
           isPurchaseProcessing = false;
           StashNativeCard.StashNativeCardListener listener = getListener();
@@ -481,7 +469,7 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Sets the Activity reference using WeakReference to prevent memory leaks.
+   * Stores the Activity in a WeakReference and registers the checkout bridge receiver.
    *
    * @param activity The activity to use for UI operations
    */
@@ -524,7 +512,6 @@ public class StashNativeCardPlugin {
 
   /**
    * Starts the optional keep-alive foreground service before opening Custom Tabs / browser.
-   * Package-private for {@link StashNativeCardPortraitActivity}.
    */
   void startKeepAliveBeforeBrowser(Context context) {
     if (!keepAliveEnabled || context == null) {
@@ -565,8 +552,8 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Drops portrait external-browser teardown without running the pending runnable (e.g. user
-   * dismissed the dim overlay while Custom Tabs callbacks are missing).
+   * Clears the pending external-browser checkout dismiss without running it, and cancels
+   * browser-close tracking.
    */
   void abandonPendingExternalBrowserCheckoutDismiss() {
     pendingCheckoutDismissAfterExternalBrowser = null;
@@ -588,9 +575,8 @@ public class StashNativeCardPlugin {
   /**
    * Opens Custom Tabs from portrait checkout using {@code checkoutActivity} for {@code
    * startActivityForResult}. {@code hideCheckoutChromeWhileBrowserOpen} runs on the main thread
-   * after the URL launcher returns (e.g. hide the sheet while keeping the dim overlay).
-   * {@code dismissAfterBrowserClosed} runs after {@link StashNativeCardListener#onBrowserClosed()},
-   * or immediately if the URL cannot be opened.
+   * after the URL launcher returns. {@code dismissAfterBrowserClosed} runs after
+   * {@link StashNativeCardListener#onBrowserClosed()}, or immediately if the URL cannot be opened.
    */
   void openExternalBrowserFromCheckout(
       Activity checkoutActivity,
@@ -648,9 +634,8 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Call after {@link StashUrlLauncher#openExternalUrl(Context, String, int)} when Custom Tabs did
-   * not use {@code startActivityForResult}, so {@link StashNativeCardListener#onBrowserClosed()}
-   * is not tied to checkout teardown (portrait / dialog).
+   * Arms host-resume close tracking after {@link StashUrlLauncher#openExternalUrl(Context, String,
+   * int)} when Custom Tabs did not use {@code startActivityForResult}.
    */
   void beginBrowserCloseTrackingAfterExternalUrlLaunched() {
     cancelBrowserCloseTrackingLaunch();
@@ -667,9 +652,9 @@ public class StashNativeCardPlugin {
   }
 
   /**
-   * Marks the plugin as awaiting a Custom Tabs close. Set before starting {@link
-   * StashNativeBrowserProxyActivity} so dispatches from the proxy's {@code
-   * onActivityResult} and the engagement-session-ended path dedupe via the same gate.
+   * Marks the plugin as awaiting a Custom Tabs close. Called before starting {@link
+   * StashNativeBrowserProxyActivity}. The proxy's {@code onActivityResult} and the
+   * engagement-session-ended path dedupe through this gate.
    */
   void beginBrowserCloseTrackingActivityResult() {
     cancelBrowserCloseTrackingLaunch();
@@ -815,7 +800,7 @@ public class StashNativeCardPlugin {
       if (!url.startsWith("http://") && !url.startsWith("https://")) {
         url = "https://" + url;
       }
-      // External browser URLs are opened as-is; theme is applied only to in-card content.
+      // External browser URLs are opened as-is, with no theme query parameter.
       final String finalUrl = url;
       final Activity finalActivity = activity;
       activity.runOnUiThread(() -> {
@@ -984,12 +969,12 @@ public class StashNativeCardPlugin {
   // Orientation-Specific Phone Card Size Configuration
   // ============================================================================
 
-  // Package-private static so the [0.1,1.0] clamp invariant is unit-testable on the JVM.
+  // Clamps a ratio to [0.1, 1.0].
   static float clampRatio(float ratio) {
     return Math.max(0.1f, Math.min(1.0f, ratio));
   }
 
-  /** Popup multipliers may exceed 1.0; only reject degenerate (<=0 or NaN) values, falling back to the default. */
+  /** Returns {@code value}, or {@code fallback} when {@code value} is NaN or <= 0. */
   static float sanitizePopupMultiplier(float value, float fallback) {
     return (Float.isNaN(value) || value <= 0f) ? fallback : value;
   }
@@ -1041,10 +1026,8 @@ public class StashNativeCardPlugin {
           if (usePopupPresentation) {
             createAndShowPopupDialog(finalUrl, finalActivity);
           } else {
-            // Both card and modal use PortraitActivity in the host app process (avoids a second
-            // process taking foreground, which breaks Unity and similar engines). Modal shares the
-            // same retry/timeout/loading behaviour as card. The Activity reads the useModal flag
-            // from the Intent and calls createModal() instead of createCard().
+            // Card and modal both launch PortraitActivity in the host app process. The Activity
+            // reads the useModal flag from the Intent and calls createModal() or createCard().
             launchPortraitActivity(finalUrl, finalActivity);
           }
         } catch (Exception e) {
@@ -1126,7 +1109,7 @@ public class StashNativeCardPlugin {
             currentModalConfig.tabletHeightRatioLandscape);
       }
       
-      // Same task as host app (no NEW_TASK / MULTIPLE_TASK): avoids a second entry in Recents.
+      // Launched in the host app's task (no NEW_TASK / MULTIPLE_TASK flag).
       intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
 
       activity.startActivity(intent);
@@ -1134,8 +1117,7 @@ public class StashNativeCardPlugin {
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
-      // No checkout will appear (e.g. activity missing from the host manifest merge, or a
-      // background-launch restriction). Signal the host so it is not left waiting with no callback.
+      // Checkout did not start. Notify the host via onNetworkError().
       StashNativeCard.StashNativeCardListener l = getListener();
       if (l != null) {
         try {
@@ -1302,7 +1284,7 @@ public class StashNativeCardPlugin {
         try {
           webView = new WebView(activity);
         } catch (Throwable t) {
-          // WebView init can fail in separate processes or broken Chromium installs.
+          // WebView constructor can throw in separate processes or broken Chromium installs.
           Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
           StashNativeCard.StashNativeCardListener l = listener;
           if (l != null) l.onNetworkError();
@@ -1331,8 +1313,7 @@ public class StashNativeCardPlugin {
               ViewGroup.LayoutParams.MATCH_PARENT);
           window.setFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
               WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
-          // Resize the centered popup when the soft keyboard appears so the focused field stays
-          // visible. This Dialog is a normal (non edge-to-edge) window, so adjustResize works.
+          // Resizes the popup window when the soft keyboard appears.
           window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
           window.setBackgroundDrawableResource(android.R.color.transparent);
           window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -1434,9 +1415,9 @@ public class StashNativeCardPlugin {
   }
   
   /**
-   * Chromium/WebView renderer crashed or was killed. Remove UI and notify the host; returning
-   * {@code true} from {@link WebViewClient#onRenderProcessGone} prevents the default behavior of
-   * tearing down the app process (API 26+).
+   * Handles a crashed or killed WebView renderer: removes the UI and calls
+   * {@link StashNativeCard.StashNativeCardListener#onNetworkError()}. Caller returns {@code true}
+   * from {@link WebViewClient#onRenderProcessGone} (API 26+).
    */
   @RequiresApi(Build.VERSION_CODES.O)
   private void handleWebViewRenderProcessGone(RenderProcessGoneDetail detail) {
@@ -1575,8 +1556,7 @@ public class StashNativeCardPlugin {
       webView.setVerticalScrollBarEnabled(false);
       webView.setHorizontalScrollBarEnabled(false);
       webView.setBackgroundColor(sheetBg);
-      // Show loading immediately before loadUrl() so there is never a blank-container window
-      // between addView() and the first onPageStarted callback.
+      // Shows the loading overlay before loadUrl(), ahead of the first onPageStarted callback.
       if (currentContainer != null && loadingOverlayView == null) {
         loadingOverlayView = StashWebViewUtils.createAndShowLoadingView(activity, currentContainer,
             sheetBg, StashBackgroundColorUtils.spinnerAccentFor(sheetBg));
@@ -1613,7 +1593,7 @@ public class StashNativeCardPlugin {
     try {
       activity.runOnUiThread(() -> {
         try {
-          // Idempotent: if already attached (pre-created before loadUrl) just bring to front.
+          // If the overlay is already attached, brings it to front instead of recreating it.
           if (loadingOverlayView != null && loadingOverlayView.getParent() != null) {
             loadingOverlayView.setVisibility(View.VISIBLE);
             loadingOverlayView.bringToFront();

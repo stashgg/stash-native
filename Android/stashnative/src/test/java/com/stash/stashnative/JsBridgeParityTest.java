@@ -5,8 +5,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 /**
- * Guards the window.stash_sdk surface in the injected bridge script. The same surface must be
- * mirrored on iOS (stashSDKScript in StashNativeCard.m) and in docs/stash-sdk-js.md.
+ * Asserts the window.stash_sdk surface in the injected bridge script.
  */
 public class JsBridgeParityTest {
 

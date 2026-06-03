@@ -17,9 +17,8 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 /**
- * Optional foreground service that raises process priority while an external browser or Chrome
- * Custom Tabs session is open, reducing the chance of the host app being killed on low-RAM
- * devices. Opt in via {@link StashNativeCard#setKeepAliveEnabled(boolean)}.
+ * Foreground service that raises process priority while an external browser or Chrome Custom Tabs
+ * session is open. Enabled via {@link StashNativeCard#setKeepAliveEnabled(boolean)}.
  */
 public class StashKeepAliveService extends Service {
 
@@ -35,8 +34,8 @@ public class StashKeepAliveService extends Service {
   public static final String EXTRA_ICON_RES_ID = "com.stash.stashnative.keepalive.ICON_RES_ID";
 
   /**
-   * Starts the foreground keep-alive service. Safe to call from any app context; the service runs
-   * in the app's default process.
+   * Starts the foreground keep-alive service. Runs in the app's default process. Accepts any app
+   * context.
    */
   public static void start(
       Context appContext,
@@ -142,10 +141,8 @@ public class StashKeepAliveService extends Service {
   }
 
   /**
-   * Android 14 (API 34) short-service timeout (~3 minutes). The system requires the service to stop
-   * here; not stopping triggers a ForegroundServiceDidNotStopInTimeException that crashes the host
-   * process (e.g. during a slow PSP / 3DS step-up in the external browser). stopSelf drives
-   * onDestroy, which removes the foreground notification.
+   * Android 14 (API 34) short-service timeout callback (~3 minutes). Calls stopSelf, which drives
+   * onDestroy and removes the foreground notification.
    */
   @RequiresApi(api = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
   @Override

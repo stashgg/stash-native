@@ -11,10 +11,9 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
 /**
- * Pins StashSheetGeometry outputs so a later refactor of the size math is caught. Pinned at mdpi
- * (density 1.0), so dpToPx(context, dp) == dp and the dp minimum floors equal their dp values.
- * Unused ratio arguments are set to obviously-wrong sentinels (0.99f) so a wiring bug that reads
- * the wrong ratio would change the output.
+ * Pins StashSheetGeometry size outputs. Runs at mdpi (density 1.0), where dpToPx(context, dp) == dp
+ * and the dp minimum floors equal their dp values. Unused ratio arguments are set to the 0.99f
+ * sentinel.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE, qualifiers = "mdpi")
@@ -79,7 +78,7 @@ public class StashSheetGeometryTest {
 
   @Test
   public void modalTabletLandscapeAppliesTabletLandscapeRatiosAndHeightFloor() {
-    // 1500x1000 landscape, tablet 0.3x0.4 -> 450x400; tablet floors are 400x500 so height -> 500.
+    // 1500x1000 landscape, tablet 0.3x0.4 -> 450x400; tablet floors 400x500 raise height to 500.
     int[] out = StashSheetGeometry.modalCardSize(
         context(), metrics(1500, 1000), true,
         0.99f, 0.99f, 0.3f, 0.4f,   // tablet landscape used

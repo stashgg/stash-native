@@ -15,8 +15,7 @@ import java.lang.reflect.Method;
 /**
  * Opens http(s) URLs in Chrome Custom Tabs when {@code androidx.browser} is on the classpath and
  * reflection succeeds; otherwise falls back to {@link Intent#ACTION_VIEW}. No compile-time
- * references to {@code androidx.browser.*} so hosts (Unity, minimal Gradle) are not forced to add
- * that dependency.
+ * references to {@code androidx.browser.*}.
  */
 public final class StashUrlLauncher {
 
@@ -58,8 +57,8 @@ public final class StashUrlLauncher {
 
   /**
    * Opens URL with Chrome Custom Tabs when possible. When {@code context} is an {@link Activity}
-   * and {@code activityRequestCode} is non-zero, CCT uses {@code startActivityForResult} so {@link
-   * StashNativeBrowserProxyActivity} receives the result internally; otherwise CCT
+   * and {@code activityRequestCode} is non-zero, CCT uses {@code startActivityForResult} and {@link
+   * StashNativeBrowserProxyActivity} receives the result; otherwise CCT
    * uses {@code startActivity}. Falls back to {@link Intent#ACTION_VIEW}.
    *
    * @param activityRequestCode 0 for no result contract; else pass {@link
@@ -97,10 +96,9 @@ public final class StashUrlLauncher {
 
   /**
    * Like {@link #openExternalUrl(Context, String, int)} for an {@link Activity}, but may bind Custom
-   * Tabs first so engagement signals ({@code EngagementSignalsCallback}) deliver {@code
-   * onSessionEnded} when the tab is closed from floating/minimized UI (where {@code
-   * onActivityResult} can be delayed). Pass a runnable that forwards to {@code
-   * StashNativeCardPlugin.onCustomTabsEngagementSessionEnded}.
+   * Tabs first. Engagement signals ({@code EngagementSignalsCallback}) deliver {@code
+   * onSessionEnded} when the tab is closed from floating/minimized UI. Pass a runnable that forwards
+   * to {@code StashNativeCardPlugin.onCustomTabsEngagementSessionEnded}.
    */
   public static void openExternalUrl(
       @Nullable Activity activity,

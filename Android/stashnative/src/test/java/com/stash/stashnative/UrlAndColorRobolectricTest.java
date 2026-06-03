@@ -11,9 +11,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 /**
- * Exercises the real android.net.Uri and android.graphics.Color code paths that the plain-JUnit
- * tests cannot reach (the module sets unitTests.returnDefaultValues = true, which stubs them to
- * null/0). Robolectric supplies real implementations.
+ * Exercises the real android.net.Uri and android.graphics.Color code paths under Robolectric.
  */
 @RunWith(RobolectricTestRunner.class)
 @Config(manifest = Config.NONE)

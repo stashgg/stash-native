@@ -20,15 +20,14 @@ import androidx.browser.customtabs.EngagementSignalsCallback;
 import java.lang.ref.WeakReference;
 
 /**
- * Binds Custom Tabs, attaches a {@link CustomTabsSession} (so navigation / engagement callbacks
- * work), and launches with {@link Activity#startActivityForResult}. Uses {@link
- * EngagementSignalsCallback} when Chrome exposes it, and {@link CustomTabsCallback} {@code
- * NAVIGATION_ABORTED} as a fallback when {@code onActivityResult} is delayed (e.g. floating tab).
+ * Binds Custom Tabs, attaches a {@link CustomTabsSession}, and launches with {@link
+ * Activity#startActivityForResult}. Uses {@link EngagementSignalsCallback} when Chrome exposes it,
+ * and {@link CustomTabsCallback} {@code NAVIGATION_ABORTED} otherwise.
  */
 final class StashCustomTabsEngagement {
 
   private static final String TAG = "StashCustomTabsEngagement";
-  /** Slow devices / OEM Chrome can connect late; short timeouts caused session-less fallback. */
+  /** Custom Tabs service bind timeout, milliseconds. */
   private static final long BIND_TIMEOUT_MS = 2500L;
   private static final long NAV_ABORT_NOTIFY_DELAY_MS = 400L;
 
@@ -117,10 +116,9 @@ final class StashCustomTabsEngagement {
   }
 
   /**
-   * Chrome does not always deliver {@link EngagementSignalsCallback#onSessionEnded} (e.g. some OEM
-   * builds). {@link CustomTabsCallback#onNavigationEvent} can still report {@code
-   * NAVIGATION_ABORTED} after a successful load when the user dismisses the tab, including from
-   * floating UI.
+   * Builds a {@link CustomTabsCallback} that runs {@code engagementSessionEnded} when {@link
+   * CustomTabsCallback#onNavigationEvent} reports {@code NAVIGATION_ABORTED} after a navigation has
+   * started or finished.
    */
   private static CustomTabsCallback newSessionNavigationCallback(
       Activity activity, Runnable engagementSessionEnded, Handler main) {

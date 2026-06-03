@@ -4,7 +4,7 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
-/** Pins the [0.1,1.0] ratio clamp and the popup-multiplier degenerate-input guard. */
+/** Tests StashNativeCardPlugin.clampRatio to [0.1,1.0] and sanitizePopupMultiplier fallback. */
 public class ClampTest {
 
   @Test

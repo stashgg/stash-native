@@ -3,9 +3,8 @@ package com.stash.stashnative;
 import android.view.animation.Interpolator;
 
 /**
- * Spring-like interpolator that closely matches iOS spring animations with damping 0.85.
- * This creates fluid, natural motion similar to iOS UIView spring animations.
- * Uses a damped harmonic oscillator model to simulate spring physics.
+ * Spring interpolator matching iOS spring animations with damping 0.85.
+ * Uses a damped harmonic oscillator model.
  */
 public class SpringInterpolator implements Interpolator {
   private static final float DAMPING = 0.85f;

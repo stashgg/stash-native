@@ -21,7 +21,7 @@ public class ThemeParameterTest {
 
   @Test
   public void fallbackPathAppendsThemeWithQuestionMark() {
-    // Uri.parse returns null in JVM, so the catch block runs the string fallback path.
+    // Uri.parse returns null in the JVM; this exercises the catch-block string fallback path.
     String result = StashWebViewUtils.appendThemeQueryParameter("https://pay.stash.gg", true);
     assertNotNull(result);
     assertTrue(result.contains("theme=dark"));
