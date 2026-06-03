@@ -5,7 +5,7 @@ This document describes the JavaScript API injected into checkout and webshop pa
 The `window.stash_sdk` surface (function names and arguments) is kept identical on Android and iOS. Source of truth:
 
 - Android: [`StashWebViewUtils.JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (constant `JS_SDK_SCRIPT`).
-- iOS: `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (assembled `NSString` passed to `WKUserScript` at `WKUserScriptInjectionTimeAtDocumentStart`).
+- iOS: `stash_bridgeUserScriptSource()` in [`StashNativeCardScripts.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardScripts.m) (assembled `NSString` passed to `WKUserScript` at `WKUserScriptInjectionTimeAtDocumentStart`).
 
 > **Frame origin (platform difference):** On iOS the privileged action handlers (`openExternalBrowser`, `window.close`, `setPaymentChannel`, `expand`, `collapse`) are accepted only from the main frame (`WKScriptMessage.frameInfo.isMainFrame`); payment-result handlers are not gated. Android does not yet enforce an equivalent main-frame check on its `StashAndroid` bridge (a robust Android gate requires a per-load token handshake, tracked as a follow-up). Treat the checkout page as the trusted top frame on both platforms and do not embed untrusted third-party iframes in it.
 
@@ -101,12 +101,12 @@ The injected script replaces `window.close` with a function that requests closin
 
 ## Page Load Signaling (Not Part of `stash_sdk`)
 
-iOS injects a separate script that posts `stashNativePageReady` for load metrics and UI reveal. Checkout pages do not call this; it is internal. See [`StashNativeCardWebBridge.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebBridge.m) (`kMessageHandlerPageReady`, the handler); the `pageReadyHook` is injected by `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+iOS injects a separate script that posts `stashNativePageReady` for load metrics and UI reveal. Checkout pages do not call this; it is internal. See [`StashNativeCardWebBridge.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebBridge.m) (`kMessageHandlerPageReady`, the handler); the hook is a separate document-end script built by `stash_pageReadyUserScriptSource()` in [`StashNativeCardScripts.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardScripts.m).
 
 ## Platform Parity Notes
 
 - **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` Java methods. Pages should not rely on native interpretation of complex objects for those two calls on Android unless the Android implementation is extended.
-- **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- **Naming:** Use `openExternalBrowser`, not legacy names. The script is defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCardScripts.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardScripts.m).
 
 ## Diagram
 

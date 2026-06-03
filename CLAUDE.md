@@ -56,7 +56,7 @@ cd iOS/Sample/StashNativeSample && xcodebuild -scheme StashNativeSample -destina
 ### JS Bridge
 Changes to `window.stash_sdk` MUST be mirrored on both platforms and `docs/stash-sdk-js.md` updated. Source locations:
 - Android: `StashWebViewUtils.JS_SDK_SCRIPT`
-- iOS: `stashSDKScript` in `StashNativeCard.m`
+- iOS: `stash_bridgeUserScriptSource()` in `StashNativeCardScripts.m`
 
 ### Config Ratios
 All sizing ratios (card, modal, popup) must be clamped to [0.1, 1.0] on both platforms. Android clamps in `StashNativeCardPlugin.openCard/openModal`. iOS clamps implicitly through the init defaults.
