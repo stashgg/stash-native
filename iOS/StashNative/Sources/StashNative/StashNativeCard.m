@@ -2,10 +2,12 @@
 //  StashNativeCard.m
 //  StashNative
 //
-//  Core implementation. File-scope statics and functions here are extern'd by:
-//  - StashNativeCardViewControllers.m (presentation state, layout constants, helper functions)
-//  - StashNativeCardWebViewDelegates.m (presentation mode flags, theme helpers, scroll config)
-//  Declarations for extern'd symbols live in StashNativeCardPrivate.h.
+//  Core implementation: the StashNativeCard public facade plus the StashNativeCardInternal
+//  presentation/lifecycle singleton. Cohesive responsibilities live in sibling translation units --
+//  Support (pure helpers), Layout (view-utils), WebBridge (JS message dispatch), Orientation
+//  (forced-portrait swizzle + keyboard lock), Safari (external browser), Configs (public value
+//  types) -- which read this file's stash_/k-prefixed externs. Declarations are split across
+//  StashNativeCardPrivate.h, StashNativeCardInternal.h, the per-cluster *.h, and StashNativeCardLogging.h.
 //
 
 #import "StashNativeCard.h"
@@ -32,7 +34,8 @@
 #endif
 
 #pragma mark - Default Popup Size Multipliers
-// Defined early so StashNativePopupSizeConfig can use them; non-static for StashNativeCardViewControllers.m
+// Defined early so StashNativePopupSizeConfig (now in StashNativeCardConfigs.m) can use them; non-static
+// so StashNativeCardConfigs.m and StashNativeCardViewControllers.m reference them via extern
 const CGFloat kPopupPortraitWidthMultiplier = 1.0285;
 const CGFloat kPopupPortraitHeightMultiplier = 1.485;
 const CGFloat kPopupLandscapeWidthMultiplier = 1.2275445;
@@ -2042,8 +2045,6 @@ void stash_resetCardExpandedStateAfterRotation(void) {
 }
 
 
-/// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
-/// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
 
 
 

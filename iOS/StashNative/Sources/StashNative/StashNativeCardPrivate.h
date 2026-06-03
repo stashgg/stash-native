@@ -12,7 +12,6 @@
 #import "StashNativeCardSupport.h"
 #import "StashNativeCardLayout.h"
 
-/// Returns the top-most presented view controller (key window root, then walking presentedViewController chain).
 
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
 CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
@@ -35,18 +34,13 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 /// measured progress (use 0 after rotation). Pass a value outside [0,1] (e.g. -1) to use automatic progress.
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
 
-/// Updates drag tray and handle bar frame inside cardView (used by iPad transition and expand/collapse).
-/// Lays out the card's WebView (and tray) to fill cardView.bounds; call after rotation or any card frame change so WebView resizes correctly.
-/// Switches the card's WebView from Auto Layout to frame-based layout; call before animating card frame (e.g. rotation) so WebView resizes with the card.
 
-/// Applies bounce/overscroll limits to the WKWebView's scroll view; call after creation and on navigation (WebKit may reset scroll properties).
 
 /// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
 BOOL StashNativeSheetUsesDarkWebTheme(void);
 /// Injects document meta + html/body background for dark sheet (BG matches configured background color).
 NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
-/// Dark-surface color (#1e1e1e) for the loading overlay and the dark system-background fallback.
 
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
 // extern declarations the sibling .m files (view controllers, delegates) rely on.

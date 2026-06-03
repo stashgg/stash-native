@@ -31,6 +31,7 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+/** When YES, the current SFSafariViewController was opened via openBrowser (card-dismiss callbacks differ). */
 static BOOL _safariOpenedViaOpenBrowser = NO;
 /** Pending deliver-once for stashNativeCardDidCloseBrowser (delegate vs dismiss completion order). */
 static BOOL _safariBrowserCloseDelegatePending = NO;

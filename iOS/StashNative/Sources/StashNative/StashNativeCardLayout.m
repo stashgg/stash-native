@@ -35,6 +35,8 @@ WKWebView* stash_switchWebViewToFrameLayoutInCardView(UIView *cardView) {
     return nil;
 }
 
+// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
+// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
 void stash_layoutCardContentToBounds(UIView *cardView) {
     if (!cardView) return;
     CGRect bounds = cardView.bounds;

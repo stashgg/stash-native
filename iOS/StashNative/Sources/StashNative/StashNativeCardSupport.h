@@ -10,7 +10,7 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
 
-/// YES when running on iPad (idiom or, on Mac/Catalyst, a regular-width display).
+/// YES when running on iPad (UIUserInterfaceIdiomPad).
 BOOL stash_isRunningOniPad(void);
 
 /// Dark-surface color (#1e1e1e) for the loading overlay and the dark system-background fallback.

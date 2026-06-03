@@ -26,7 +26,7 @@ Manual testing: [`.github/test/index.html`](../.github/test/index.html).
 | Platform | Mechanism | Bridge name |
 |----------|-----------|-------------|
 | Android | `WebView.evaluateJavascript(JS_SDK_SCRIPT, ...)` after WebView setup; see `injectStashSDKFunctions` in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and portrait activity in [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) | JavaScript interface object `StashAndroid` (`JS_INTERFACE_NAME` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)) |
-| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess`, `stashExternalPayment` (constants `kMessageHandler*` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)) |
+| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess`, `stashExternalPayment` (constants `kMessageHandler*` in [`StashNativeCardWebBridge.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebBridge.m)) |
 
 From the page’s perspective the API is identical: only `window.stash_sdk` and `window.close` (see below).
 
@@ -89,7 +89,7 @@ Requests native collapse of the card chrome.
 
 Opens the URL in the system browser flow (Chrome Custom Tabs on Android, `SFSafariViewController` on iOS per SDK behavior). The SDK validates and normalizes the URL, closes the embedded checkout without a normal dismiss callback in the external-payment path, and notifies the host. The `theme` query parameter is applied only to in-card content; URLs handed to an external browser are passed through as-is.
 
-- **Argument:** Coerced with `(url !== undefined && url !== null) ? String(url) : ''`. Invalid or disallowed URLs are rejected by native code (see `normalizeExternalPaymentUrl` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and `NormalizeExternalPaymentURL` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
+- **Argument:** Coerced with `(url !== undefined && url !== null) ? String(url) : ''`. Invalid or disallowed URLs are rejected by native code (see `normalizeExternalPaymentUrl` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and `NormalizeExternalPaymentURL` in [`StashNativeCardWebBridge.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebBridge.m)).
 
 Host-facing semantics: [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) documents `stashNativeCardDidRequestExternalPaymentWithURL:` for iOS.
 
@@ -101,7 +101,7 @@ The injected script replaces `window.close` with a function that requests closin
 
 ## Page Load Signaling (Not Part of `stash_sdk`)
 
-iOS injects a separate script that posts `stashNativePageReady` for load metrics and UI reveal. Checkout pages do not call this; it is internal. See [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (`pageReadyHook`, `kMessageHandlerPageReady`).
+iOS injects a separate script that posts `stashNativePageReady` for load metrics and UI reveal. Checkout pages do not call this; it is internal. See [`StashNativeCardWebBridge.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebBridge.m) (`kMessageHandlerPageReady`, the handler); the `pageReadyHook` is injected by `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Platform Parity Notes
 
