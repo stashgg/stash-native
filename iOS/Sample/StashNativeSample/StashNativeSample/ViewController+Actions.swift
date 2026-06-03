@@ -126,23 +126,7 @@ extension ViewController {
         }
     }
 
-    // swiftlint:disable:next function_body_length
     private func performGenerateQuickPayCheckout(onSuccess: @escaping (String) -> Void) {
-        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
-        let urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url"
-        guard let url = URL(string: urlString) else {
-            showAlert(title: "Error", message: "Failed to generate checkout URL")
-            return
-        }
-        let apiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? ViewController.defaultStashApiKey
-        if !apiKey.isEmpty {
-            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
         // Test fixture user and product data.
         let body: [String: Any] = [
             "user": [
@@ -174,46 +158,15 @@ extension ViewController {
                 ]
             ]
         ]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            showAlert(title: "Error", message: "Failed to generate checkout URL")
-            return
-        }
-        request.httpBody = bodyData
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let self = self else { return }
-            let isSuccessResponse = (response as? HTTPURLResponse)?.statusCode ?? 0 >= 200
-                && (response as? HTTPURLResponse)?.statusCode ?? 0 < 300
-            guard isSuccessResponse, let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let checkoutUrl = json["url"] as? String, !checkoutUrl.isEmpty else {
-                DispatchQueue.main.async {
-                    self.showAlert(title: "Error", message: "Failed to generate checkout URL")
-                }
-                return
-            }
-            DispatchQueue.main.async {
-                onSuccess(checkoutUrl)
-            }
-        }.resume()
+        performStashPost(
+            path: "/sdk/server/checkout_links/generate_quick_pay_url",
+            body: body,
+            errorMessage: "Failed to generate checkout URL",
+            onSuccess: onSuccess
+        )
     }
 
     private func performGenerateAuthenticatedWebshopUrl(onSuccess: @escaping (String) -> Void) {
-        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
-        let urlString = baseUrl + "/sdk/server/generate_url"
-        guard let url = URL(string: urlString) else {
-            showAlert(title: "Error", message: "Failed to generate webshop URL")
-            return
-        }
-        let trimmedApiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let apiKey = trimmedApiKey.isEmpty ? ViewController.defaultStashApiKey : trimmedApiKey
-        if !apiKey.isEmpty {
-            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
         // Test fixture user data.
         let body: [String: Any] = [
             "user": [
@@ -224,27 +177,50 @@ extension ViewController {
             ],
             "target": "STORE"
         ]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            showAlert(title: "Error", message: "Failed to generate webshop URL")
+        performStashPost(
+            path: "/sdk/server/generate_url",
+            body: body,
+            errorMessage: "Failed to generate webshop URL",
+            onSuccess: onSuccess
+        )
+    }
+
+    /// POSTs JSON to the Stash API with the effective key and calls onSuccess with the returned `url`.
+    private func performStashPost(
+        path: String, body: [String: Any], errorMessage: String,
+        onSuccess: @escaping (String) -> Void
+    ) {
+        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
+        guard let url = URL(string: baseUrl + path),
+              let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
+            showAlert(title: "Error", message: errorMessage)
             return
         }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(effectiveApiKey, forHTTPHeaderField: "x-stash-api-key")
         request.httpBody = bodyData
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
             guard let self = self else { return }
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-            let isSuccessResponse = statusCode >= 200 && statusCode < 300
-            guard isSuccessResponse, let data = data,
+            guard self.isSuccessStatus(response), let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let webshopUrl = json["url"] as? String, !webshopUrl.isEmpty else {
+                  let resultUrl = json["url"] as? String, !resultUrl.isEmpty else {
                 DispatchQueue.main.async {
-                    self.showAlert(title: "Error", message: "Failed to generate webshop URL")
+                    self.showAlert(title: "Error", message: errorMessage)
                 }
                 return
             }
             DispatchQueue.main.async {
-                onSuccess(webshopUrl)
+                onSuccess(resultUrl)
             }
         }.resume()
+    }
+
+    /// True for a 2xx HTTP response.
+    private func isSuccessStatus(_ response: URLResponse?) -> Bool {
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        return code >= 200 && code < 300
     }
 }

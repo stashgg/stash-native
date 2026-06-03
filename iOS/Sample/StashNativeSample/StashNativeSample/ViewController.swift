@@ -7,7 +7,6 @@
 
 import UIKit
 import StashNative
-// StashNative is imported as a Swift module (line above).
 
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
@@ -111,8 +110,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     // Checkout Generation Settings
-    // Demo API key for the public test card. Not a production credential.
-    static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
+    // Demo test-API key for the sample. A real integration generates checkout links on its own
+    // backend; the API key never ships in the client.
+    private static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
     static let userDefaultsApiKeyKey = "StashApiKey"
     static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
     static let userDefaultsModalBackgroundHexKey = "ModalBackgroundColorHex"
@@ -220,6 +220,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     @objc func apiKeyEditingDidEnd() {
         let key = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         UserDefaults.standard.set(key.isEmpty ? nil : key, forKey: ViewController.userDefaultsApiKeyKey)
+    }
+
+    /// The trimmed key from the field, or the demo key when the field is empty.
+    var effectiveApiKey: String {
+        let key = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return key.isEmpty ? ViewController.defaultStashApiKey : key
     }
 
     @objc func cardBackgroundColorEditingDidEnd() {
