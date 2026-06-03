@@ -55,23 +55,23 @@ BOOL stash_paymentSuccessHandled = NO;          // Ensures payment result callba
 // --- User-configurable sizing (persists across presentations) ---
 BOOL stash_forcePortraitOnCheckout = NO;
 // Phone card: portrait = full width + height ratio; landscape = width/height ratios when not forcing portrait
-static CGFloat _cardHeightRatioPortrait = 0.68;
-static CGFloat _cardWidthRatioLandscape = 0.7f;
-static CGFloat _cardHeightRatioLandscape = 0.9f;
+CGFloat stash_cardHeightRatioPortrait = 0.68;
+CGFloat stash_cardWidthRatioLandscape = 0.7f;
+CGFloat stash_cardHeightRatioLandscape = 0.9f;
 
 // Orientation-specific tablet (iPad) card configuration
-static CGFloat _tabletWidthRatioPortrait = 0.4;
-static CGFloat _tabletHeightRatioPortrait = 0.5;
-static CGFloat _tabletWidthRatioLandscape = 0.3;
-static CGFloat _tabletHeightRatioLandscape = 0.6;
+CGFloat stash_tabletWidthRatioPortrait = 0.4;
+CGFloat stash_tabletHeightRatioPortrait = 0.5;
+CGFloat stash_tabletWidthRatioLandscape = 0.3;
+CGFloat stash_tabletHeightRatioLandscape = 0.6;
 
 // --- Popup size configuration (reset on cleanup) ---
 // File-local: read only inside stash_computePopupFrameForScreenBounds (defined in this TU).
-static BOOL _useCustomPopupSize = NO;
-static CGFloat _customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
-static CGFloat _customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
-static CGFloat _customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape is wider
-static CGFloat _customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
+BOOL stash_useCustomPopupSize = NO;
+CGFloat stash_customPortraitWidthMultiplier = kPopupPortraitWidthMultiplier;
+CGFloat stash_customPortraitHeightMultiplier = kPopupPortraitHeightMultiplier;
+CGFloat stash_customLandscapeWidthMultiplier = 1.753635;  // Default custom landscape is wider
+CGFloat stash_customLandscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
 
 // --- Presentation mode flags (reset on cleanup) ---
 
@@ -84,7 +84,7 @@ BOOL stash_isCardExpanded = NO;
 BOOL stash_cardIsInLandscape = NO;
 /// Safe-area top inset (notch / Dynamic Island) of the active card window, in points.
 /// Used to clamp card height so the card never overlaps the notch. Reset to 0 on cleanup.
-static CGFloat _cardSafeAreaTop = 0.0f;
+CGFloat stash_cardSafeAreaTop = 0.0f;
 
 // --- Modal configuration (reset on cleanup) ---
 // stash_useModalPresentation is non-static (read by StashNativeCardWebViewDelegates.m); the ratios and
@@ -93,14 +93,14 @@ BOOL stash_useModalPresentation = NO;
 static BOOL _modalAllowDismiss = YES;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
 BOOL stash_autoCloseOnPaymentEvent = YES;
-static CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
-static CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
-static CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
-static CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
-static CGFloat _modalTabletWidthRatioPortrait = 0.40f;
-static CGFloat _modalTabletHeightRatioPortrait = 0.30f;
-static CGFloat _modalTabletWidthRatioLandscape = 0.30f;
-static CGFloat _modalTabletHeightRatioLandscape = 0.40f;
+CGFloat stash_modalPhoneWidthRatioPortrait = 0.9f;
+CGFloat stash_modalPhoneHeightRatioPortrait = 0.7f;
+CGFloat stash_modalPhoneWidthRatioLandscape = 0.7f;
+CGFloat stash_modalPhoneHeightRatioLandscape = 0.85f;
+CGFloat stash_modalTabletWidthRatioPortrait = 0.40f;
+CGFloat stash_modalTabletHeightRatioPortrait = 0.30f;
+CGFloat stash_modalTabletWidthRatioLandscape = 0.30f;
+CGFloat stash_modalTabletHeightRatioLandscape = 0.40f;
 
 /** Optional #hex for card/modal chrome; cleared on cleanup. */
 NSString *stash_presentationBackgroundColorHex = nil;
@@ -244,9 +244,9 @@ static const CGFloat kSpringVelocityCollapse = 0.3f;
 #pragma mark - iPad SDK expand/collapse (height only, clamped)
 
 /** Base height × this value when expanded via JS (50% growth); clamped by max card height. */
-static const CGFloat kTabletSdkExpandHeightMultiplier = 1.5f;
+const CGFloat kTabletSdkExpandHeightMultiplier = 1.5f;
 /** Matches Android CardConstants.EXPANDED_CARD_HEIGHT_RATIO — max card height when expanding via SDK. */
-static const CGFloat kExpandedCardHeightScreenRatio = 0.95f;
+const CGFloat kExpandedCardHeightScreenRatio = 0.95f;
 
 #pragma mark - Progress Thresholds (corner radius)
 
@@ -289,9 +289,9 @@ const CGFloat kPopupBaseSizePercentagePhone = 0.75f;
 const CGFloat kPopupBaseSizeMinIPad = 400.0f;
 const CGFloat kPopupBaseSizeMinPhone = 300.0f;
 const CGFloat kPopupBaseSizeMax = 500.0f;
-static const CGFloat kFallbackTabletCardWidth = 600.0f;
-static const CGFloat kFallbackTabletCardHeight = 700.0f;
-static const CGFloat kTabletMinHeight = 500.0f;
+const CGFloat kFallbackTabletCardWidth = 600.0f;
+const CGFloat kFallbackTabletCardHeight = 700.0f;
+const CGFloat kTabletMinHeight = 500.0f;
 const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 
 #pragma mark - Message Handler Names (WKScriptMessageHandler)
@@ -318,21 +318,13 @@ static NSString * const kAssociatedKeyInitialCardHeight = @"initialCardHeight";
 #pragma mark - Helper Function Prototypes
 
 
-CGSize stash_calculateiPadCardSize(CGRect screenBounds);
-CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView);
-CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView);
-CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
-CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
 UIColor* stash_sheetBackgroundUIColor(void);
-CGFloat stash_getSafeAreaTopForView(UIView *view);
 static UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);
 static NSString* appendThemeQueryParameter(NSString* url);
 static void runWithoutImplicitAnimations(void (^block)(void));
 static UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc);
 static void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle);
 static void setOverlayToDismissAppearance(UIView *overlayView);
-CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 
 #pragma mark - StashNativeCardInternal
@@ -575,13 +567,13 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     stash_isCardCurrentlyPresented = NO;
     stash_usePopupPresentation = NO;
     stash_useModalPresentation = NO;
-    _useCustomPopupSize = NO;
+    stash_useCustomPopupSize = NO;
     _callbackWasCalled = NO;
     stash_paymentSuccessHandled = NO;
     stash_autoCloseOnPaymentEvent = YES;
     stash_presentationBackgroundColorHex = nil;
     stash_cardIsInLandscape = NO;
-    _cardSafeAreaTop = 0.0f;
+    stash_cardSafeAreaTop = 0.0f;
 }
 
 
@@ -1363,14 +1355,14 @@ initialSpringVelocity:kSpringVelocityCollapse
             r = stash_computePhoneCardFrameForBoundsAndOrientation(actualBounds, NO);
         } else {
             CGFloat cardWidth = apw;
-            CGFloat cardHeight = aph * _cardHeightRatioPortrait;
+            CGFloat cardHeight = aph * stash_cardHeightRatioPortrait;
             CGFloat cardX = (actualBounds.size.width - cardWidth) / 2.0;
             CGFloat cardFinalY = actualBounds.size.height - cardHeight;
             r = CGRectMake(cardX, cardFinalY, cardWidth, cardHeight);
         }
-        if (r.origin.y < _cardSafeAreaTop) {
-            CGFloat cardH = actualBounds.size.height - _cardSafeAreaTop;
-            r = CGRectMake(r.origin.x, _cardSafeAreaTop, r.size.width, cardH);
+        if (r.origin.y < stash_cardSafeAreaTop) {
+            CGFloat cardH = actualBounds.size.height - stash_cardSafeAreaTop;
+            r = CGRectMake(r.origin.x, stash_cardSafeAreaTop, r.size.width, cardH);
         }
         if (r.origin.y < 0) {
             r = CGRectMake(r.origin.x, 0, r.size.width, r.size.height);
@@ -1409,8 +1401,8 @@ initialSpringVelocity:kSpringVelocityCollapse
         // attemptRotationToDeviceOrientation (keyboard dismiss + rotation).
         // A device with a notch/Dynamic Island cannot genuinely have 0 safe
         // area while the card is presented portrait, so keep the last known value.
-        if (fresh > 0 || _cardSafeAreaTop == 0) {
-            _cardSafeAreaTop = fresh;
+        if (fresh > 0 || stash_cardSafeAreaTop == 0) {
+            stash_cardSafeAreaTop = fresh;
         }
     }
     UIView *overlay = objc_getAssociatedObject(vc, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
@@ -1722,194 +1714,6 @@ void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBound
 // Maps a UIInterfaceOrientation to the corresponding single-orientation mask for restore.
 
 
-CGSize stash_calculateiPadCardSize(CGRect screenBounds) {
-    if (screenBounds.size.width <= 0 || screenBounds.size.height <= 0) {
-        return CGSizeMake(kFallbackTabletCardWidth, kFallbackTabletCardHeight);
-    }
-    
-    // Use actual current screen dimensions
-    CGFloat screenWidth = screenBounds.size.width;
-    CGFloat screenHeight = screenBounds.size.height;
-    
-    // Determine orientation and use appropriate ratios
-    BOOL isLandscape = screenWidth > screenHeight;
-    
-    CGFloat widthRatio, heightRatio;
-    if (isLandscape) {
-        widthRatio = _tabletWidthRatioLandscape;
-        heightRatio = _tabletHeightRatioLandscape;
-    } else {
-        widthRatio = _tabletWidthRatioPortrait;
-        heightRatio = _tabletHeightRatioPortrait;
-    }
-    
-    // Apply orientation-specific tablet ratios to actual screen dimensions
-    CGFloat cardWidth = screenWidth * widthRatio;
-    CGFloat cardHeight = screenHeight * heightRatio;
-    
-    if (cardWidth <= 0 || cardHeight <= 0) {
-        return CGSizeMake(kFallbackTabletCardWidth, kFallbackTabletCardHeight);
-    }
-    
-    // Enforce minimum sizes for usability
-    CGFloat minWidth = kPopupBaseSizeMinIPad;
-    CGFloat minHeight = kTabletMinHeight;
-    if (cardWidth < minWidth) {
-        cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-        cardHeight = minHeight;
-    }
-    
-    return CGSizeMake(cardWidth, cardHeight);
-}
-
-CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds) {
-    BOOL isLandscape = UIInterfaceOrientationIsLandscape(stash_getInterfaceOrientation());
-    CGFloat smallerDimension = fmin(screenBounds.size.width, screenBounds.size.height);
-    CGFloat percentage = stash_isRunningOniPad() ? kPopupBaseSizePercentageIPad : kPopupBaseSizePercentagePhone;
-    CGFloat baseSize = fmax(
-        stash_isRunningOniPad() ? kPopupBaseSizeMinIPad : kPopupBaseSizeMinPhone,
-        fmin(kPopupBaseSizeMax, smallerDimension * percentage)
-    );
-    CGFloat portraitWidthMultiplier = _useCustomPopupSize ? _customPortraitWidthMultiplier : kPopupPortraitWidthMultiplier;
-    CGFloat portraitHeightMultiplier = _useCustomPopupSize ? _customPortraitHeightMultiplier : kPopupPortraitHeightMultiplier;
-    CGFloat landscapeWidthMultiplier = _useCustomPopupSize ? _customLandscapeWidthMultiplier : kPopupLandscapeWidthMultiplier;
-    CGFloat landscapeHeightMultiplier = _useCustomPopupSize ? _customLandscapeHeightMultiplier : kPopupLandscapeHeightMultiplier;
-    CGFloat width = baseSize * (isLandscape ? landscapeWidthMultiplier : portraitWidthMultiplier);
-    CGFloat height = baseSize * (isLandscape ? landscapeHeightMultiplier : portraitHeightMultiplier);
-    CGFloat x = (screenBounds.size.width - width) / 2.0;
-    CGFloat y = (screenBounds.size.height - height) / 2.0;
-    return CGRectMake(x, y, width, height);
-}
-
-CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds) {
-    BOOL isLandscape = screenBounds.size.width > screenBounds.size.height;
-    BOOL isTablet = stash_isRunningOniPad();
-    
-    CGFloat widthRatio, heightRatio;
-    if (isTablet) {
-        if (isLandscape) {
-            widthRatio = _modalTabletWidthRatioLandscape;
-            heightRatio = _modalTabletHeightRatioLandscape;
-        } else {
-            widthRatio = _modalTabletWidthRatioPortrait;
-            heightRatio = _modalTabletHeightRatioPortrait;
-        }
-    } else {
-        if (isLandscape) {
-            widthRatio = _modalPhoneWidthRatioLandscape;
-            heightRatio = _modalPhoneHeightRatioLandscape;
-        } else {
-            widthRatio = _modalPhoneWidthRatioPortrait;
-            heightRatio = _modalPhoneHeightRatioPortrait;
-        }
-    }
-    
-    CGFloat width = screenBounds.size.width * widthRatio;
-    CGFloat height = screenBounds.size.height * heightRatio;
-    
-    // Apply minimum sizes
-    CGFloat minWidth = isTablet ? 400.0f : 300.0f;
-    CGFloat minHeight = isTablet ? 500.0f : 300.0f;
-    if (width < minWidth) width = minWidth;
-    if (height < minHeight) height = minHeight;
-    
-    // Center the modal
-    CGFloat x = (screenBounds.size.width - width) / 2.0;
-    CGFloat y = (screenBounds.size.height - height) / 2.0;
-    
-    return CGRectMake(x, y, width, height);
-}
-
-
-
-CGFloat stash_getSafeAreaTopForView(UIView *view) {
-    if (!view) return _cardSafeAreaTop;
-    if (@available(iOS 11.0, *)) {
-        UIView *parentView = view.superview;
-        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-            CGFloat live = parentView.safeAreaInsets.top;
-            // On iOS 15, safeAreaInsets can transiently read 0 during rotation
-            // transitions. Fall back to the last known card safe area value.
-            if (live > 0) return live;
-        }
-    }
-    return _cardSafeAreaTop;
-}
-
-CGFloat stash_getSafeAreaBottomForView(UIView *view) {
-    if (!view) return 0;
-    if (@available(iOS 11.0, *)) {
-        UIView *parentView = view.superview;
-        if (parentView && [parentView respondsToSelector:@selector(safeAreaInsets)]) {
-            return parentView.safeAreaInsets.bottom;
-        }
-    }
-    return 0;
-}
-
-CGFloat stashTabletSdkMaxCardHeight(CGRect screenBounds, UIView *cardView) {
-    CGFloat ratioCap = screenBounds.size.height * kExpandedCardHeightScreenRatio;
-    CGFloat safeTop = stash_getSafeAreaTopForView(cardView);
-    CGFloat safeBottom = stash_getSafeAreaBottomForView(cardView);
-    CGFloat insetsCap = screenBounds.size.height - safeTop - safeBottom;
-    if (insetsCap < 1.0f) {
-        insetsCap = screenBounds.size.height;
-    }
-    return MIN(ratioCap, insetsCap);
-}
-
-CGFloat stashTabletSdkExpandedHeightFromBase(CGFloat baseHeight, CGRect screenBounds, UIView *cardView) {
-    CGFloat maxH = stashTabletSdkMaxCardHeight(screenBounds, cardView);
-    return MIN(baseHeight * kTabletSdkExpandHeightMultiplier, maxH);
-}
-
-CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView) {
-    CGSize base = stash_calculateiPadCardSize(screenBounds);
-    CGFloat w = base.width;
-    CGFloat h = base.height;
-    if (stash_isCardExpanded) {
-        h = stashTabletSdkExpandedHeightFromBase(base.height, screenBounds, cardView);
-    }
-    CGFloat x = (screenBounds.size.width - w) / 2.0;
-    CGFloat y = (screenBounds.size.height - h) / 2.0;
-    return CGRectMake(x, y, w, h);
-}
-
-CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape) {
-    CGFloat cardWidth, cardHeight, cardX, cardY;
-    const CGFloat minPhone = 300.0f;
-    if (isLandscape) {
-        cardWidth = bounds.size.width * _cardWidthRatioLandscape;
-        cardHeight = bounds.size.height * _cardHeightRatioLandscape;
-        if (cardWidth < minPhone) cardWidth = minPhone;
-        if (cardHeight < minPhone) cardHeight = minPhone;
-        cardX = (bounds.size.width - cardWidth) / 2.0f;
-        cardY = bounds.size.height - cardHeight;
-    } else {
-        cardWidth = bounds.size.width;
-        cardHeight = bounds.size.height * _cardHeightRatioPortrait;
-        cardX = 0;
-        cardY = bounds.size.height - cardHeight;
-    }
-    // In landscape, safeAreaInsets.top can be 0 (notch on the side). Enforce a minimum
-    // buffer so the card doesn't collide with the notification pull-down gesture.
-    CGFloat effectiveSafeTop = _cardSafeAreaTop;
-    if (isLandscape && effectiveSafeTop < 8.0f) {
-        effectiveSafeTop = 8.0f;
-    }
-    if (cardY < effectiveSafeTop) {
-        cardY = effectiveSafeTop;
-        cardHeight = bounds.size.height - effectiveSafeTop;
-    }
-    if (cardY < 0) cardY = 0;
-    return CGRectMake(cardX, cardY, cardWidth, cardHeight);
-}
-
-void stash_resetCardExpandedStateAfterRotation(void) {
-    stash_isCardExpanded = NO;
-}
 
 
 
@@ -2076,13 +1880,13 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
     if (config) {
         stash_forcePortraitOnCheckout = config.forcePortrait;
-        _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
-        _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
-        _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
-        _tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
-        _tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
-        _tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
-        _tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
+        stash_cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
+        stash_cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
+        stash_cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
+        stash_tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        stash_tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        stash_tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        stash_tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         stash_presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
@@ -2117,13 +1921,13 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     stash_usePopupPresentation = YES;
     
     if (sizeConfig) {
-        _useCustomPopupSize = YES;
-        _customPortraitWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitWidthMultiplier, kPopupPortraitWidthMultiplier);
-        _customPortraitHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitHeightMultiplier, kPopupPortraitHeightMultiplier);
-        _customLandscapeWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeWidthMultiplier, kPopupLandscapeWidthMultiplier);
-        _customLandscapeHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeHeightMultiplier, kPopupLandscapeHeightMultiplier);
+        stash_useCustomPopupSize = YES;
+        stash_customPortraitWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitWidthMultiplier, kPopupPortraitWidthMultiplier);
+        stash_customPortraitHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.portraitHeightMultiplier, kPopupPortraitHeightMultiplier);
+        stash_customLandscapeWidthMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeWidthMultiplier, kPopupLandscapeWidthMultiplier);
+        stash_customLandscapeHeightMultiplier = stashSanitizePopupMultiplier(sizeConfig.landscapeHeightMultiplier, kPopupLandscapeHeightMultiplier);
     } else {
-        _useCustomPopupSize = NO;
+        stash_useCustomPopupSize = NO;
     }
     
     [self openURLInternal:url];
@@ -2152,28 +1956,28 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
 
     if (config) {
         _modalAllowDismiss = config.allowDismiss;
-        _modalPhoneWidthRatioPortrait = stashClampRatio(config.phoneWidthRatioPortrait);
-        _modalPhoneHeightRatioPortrait = stashClampRatio(config.phoneHeightRatioPortrait);
-        _modalPhoneWidthRatioLandscape = stashClampRatio(config.phoneWidthRatioLandscape);
-        _modalPhoneHeightRatioLandscape = stashClampRatio(config.phoneHeightRatioLandscape);
-        _modalTabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
-        _modalTabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
-        _modalTabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
-        _modalTabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
+        stash_modalPhoneWidthRatioPortrait = stashClampRatio(config.phoneWidthRatioPortrait);
+        stash_modalPhoneHeightRatioPortrait = stashClampRatio(config.phoneHeightRatioPortrait);
+        stash_modalPhoneWidthRatioLandscape = stashClampRatio(config.phoneWidthRatioLandscape);
+        stash_modalPhoneHeightRatioLandscape = stashClampRatio(config.phoneHeightRatioLandscape);
+        stash_modalTabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        stash_modalTabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        stash_modalTabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        stash_modalTabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         stash_presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
     } else {
         // Match StashNativeModalConfig -init defaults exactly.
         _modalAllowDismiss = YES;
-        _modalPhoneWidthRatioPortrait = 0.80f;
-        _modalPhoneHeightRatioPortrait = 0.50f;
-        _modalPhoneWidthRatioLandscape = 0.50f;
-        _modalPhoneHeightRatioLandscape = 0.80f;
-        _modalTabletWidthRatioPortrait = 0.40f;
-        _modalTabletHeightRatioPortrait = 0.30f;
-        _modalTabletWidthRatioLandscape = 0.30f;
-        _modalTabletHeightRatioLandscape = 0.40f;
+        stash_modalPhoneWidthRatioPortrait = 0.80f;
+        stash_modalPhoneHeightRatioPortrait = 0.50f;
+        stash_modalPhoneWidthRatioLandscape = 0.50f;
+        stash_modalPhoneHeightRatioLandscape = 0.80f;
+        stash_modalTabletWidthRatioPortrait = 0.40f;
+        stash_modalTabletHeightRatioPortrait = 0.30f;
+        stash_modalTabletWidthRatioLandscape = 0.30f;
+        stash_modalTabletHeightRatioLandscape = 0.40f;
         stash_presentationBackgroundColorHex = nil;
     }
 
@@ -2327,7 +2131,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     WebViewLoadDelegate *delegate = stashAttachCheckoutDelegates(webView, loadingView, containerVC, internal);
     
     // Preload: attach WebView off-screen so networking begins before the card slides in.
-    CGFloat preloadH = portraitBounds.size.height * _cardHeightRatioPortrait;
+    CGFloat preloadH = portraitBounds.size.height * stash_cardHeightRatioPortrait;
     CGFloat preloadW = portraitBounds.size.width;
     UIView *preloadHost = [[UIView alloc] initWithFrame:CGRectMake(0, -10000, preloadW, preloadH)];
     preloadHost.userInteractionEnabled = NO;
@@ -2409,14 +2213,14 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         if (rotationSucceeded) {
             // Portrait bounds - use directly (phone card is always full width)
             cardWidth = actualBounds.size.width;
-            cardHeight = actualBounds.size.height * _cardHeightRatioPortrait;
+            cardHeight = actualBounds.size.height * stash_cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
             cardFinalY = actualBounds.size.height - cardHeight;
             startY = actualBounds.size.height + cardHeight;
         } else {
             // Rotation failed (iOS 16+ only path now) - present in portrait within landscape
             cardWidth = actualPortraitWidth;
-            cardHeight = actualPortraitHeight * _cardHeightRatioPortrait;
+            cardHeight = actualPortraitHeight * stash_cardHeightRatioPortrait;
             cardX = (actualBounds.size.width - cardWidth) / 2.0;
             cardFinalY = actualBounds.size.height - cardHeight;
             startY = actualBounds.size.height + cardHeight;
@@ -2427,7 +2231,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         if (@available(iOS 11.0, *)) {
             safeTop = cardWindow.safeAreaInsets.top;
         }
-        _cardSafeAreaTop = safeTop;
+        stash_cardSafeAreaTop = safeTop;
 
         // Cap the card so its top edge never overlaps the notch / Dynamic Island.
         if (cardFinalY < safeTop) {
@@ -2581,9 +2385,9 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     [containerVC.view layoutIfNeeded];
 
     // Cache safe-area top so stash_computePhoneCardFrameForBoundsAndOrientation uses the same clamp.
-    _cardSafeAreaTop = 0;
+    stash_cardSafeAreaTop = 0;
     if (@available(iOS 11.0, *)) {
-        _cardSafeAreaTop = cardWindow.safeAreaInsets.top;
+        stash_cardSafeAreaTop = cardWindow.safeAreaInsets.top;
     }
 
     CGRect actualBounds = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
@@ -2593,8 +2397,8 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     CGFloat cardWidth, cardHeight, cardX, cardFinalY, startY;
     
     if (isLandscapeLayout) {
-        cardWidth = actualBounds.size.width * _cardWidthRatioLandscape;
-        cardHeight = actualBounds.size.height * _cardHeightRatioLandscape;
+        cardWidth = actualBounds.size.width * stash_cardWidthRatioLandscape;
+        cardHeight = actualBounds.size.height * stash_cardHeightRatioLandscape;
         CGFloat minPhone = 300.0f;
         if (cardWidth < minPhone) cardWidth = minPhone;
         if (cardHeight < minPhone) cardHeight = minPhone;
@@ -2603,7 +2407,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
         startY = actualBounds.size.height + cardHeight;
     } else {
         cardWidth = actualBounds.size.width;
-        cardHeight = actualBounds.size.height * _cardHeightRatioPortrait;
+        cardHeight = actualBounds.size.height * stash_cardHeightRatioPortrait;
         cardX = 0;
         cardFinalY = actualBounds.size.height - cardHeight;
         startY = actualBounds.size.height + cardHeight;
@@ -2612,7 +2416,7 @@ static inline CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) 
     // Cap so the card top never overlaps the notch / Dynamic Island.
     // In landscape, safeAreaInsets.top can be 0 (notch is on the side). Enforce a minimum
     // buffer so the card does not collide with the notification/control center pull-down gesture.
-    CGFloat effectiveSafeTop = _cardSafeAreaTop;
+    CGFloat effectiveSafeTop = stash_cardSafeAreaTop;
     if (isLandscapeLayout && effectiveSafeTop < 8.0f) {
         effectiveSafeTop = 8.0f;
     }

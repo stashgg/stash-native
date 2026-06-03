@@ -12,21 +12,18 @@
 #import "StashNativeCardSupport.h"
 #import "StashNativeCardLayout.h"
 #import "StashNativeCardTheme.h"
+#import "StashNativeCardGeometry.h"
 
 
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
-CGRect stash_computePopupFrameForScreenBounds(CGRect screenBounds);
 
 /// Modal frame (x, y, width, height) for given screen bounds; uses current orientation and modal ratios.
-CGRect stash_computeModalFrameForScreenBounds(CGRect screenBounds);
 
 /// Phone card frame (x, y, width, height) for given bounds and orientation; used by current-orientation presentation and rotation.
-CGRect stash_computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
 
 /// Monotonic token bumped on each card open and at dismiss teardown; WebViewLoadDelegate matches against the value captured at init.
 NSUInteger StashNativeCurrentPresentationSessionToken(void);
 /// Resets expand/collapse state to collapsed after rotation so the card always shows initial size.
-void stash_resetCardExpandedStateAfterRotation(void);
 
 /// Preferred full-screen bounds for a window's scene (rotation-safe vs UIScreen.main).
 CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
@@ -52,6 +49,27 @@ extern BOOL stash_isCardExpanded;
 extern BOOL stash_forcePortraitOnCheckout;
 extern BOOL stash_isCardCurrentlyPresented;
 extern NSString *stash_presentationBackgroundColorHex;
+extern CGFloat stash_cardHeightRatioPortrait;
+extern CGFloat stash_cardHeightRatioLandscape;
+extern CGFloat stash_cardWidthRatioLandscape;
+extern CGFloat stash_cardSafeAreaTop;
+extern CGFloat stash_tabletWidthRatioPortrait;
+extern CGFloat stash_tabletHeightRatioPortrait;
+extern CGFloat stash_tabletWidthRatioLandscape;
+extern CGFloat stash_tabletHeightRatioLandscape;
+extern CGFloat stash_modalPhoneWidthRatioPortrait;
+extern CGFloat stash_modalPhoneHeightRatioPortrait;
+extern CGFloat stash_modalPhoneWidthRatioLandscape;
+extern CGFloat stash_modalPhoneHeightRatioLandscape;
+extern CGFloat stash_modalTabletWidthRatioPortrait;
+extern CGFloat stash_modalTabletHeightRatioPortrait;
+extern CGFloat stash_modalTabletWidthRatioLandscape;
+extern CGFloat stash_modalTabletHeightRatioLandscape;
+extern CGFloat stash_customPortraitWidthMultiplier;
+extern CGFloat stash_customPortraitHeightMultiplier;
+extern CGFloat stash_customLandscapeWidthMultiplier;
+extern CGFloat stash_customLandscapeHeightMultiplier;
+extern BOOL stash_useCustomPopupSize;
 extern const CGFloat kPopupPortraitWidthMultiplier;
 extern const CGFloat kPopupPortraitHeightMultiplier;
 extern const CGFloat kPopupLandscapeWidthMultiplier;
@@ -67,6 +85,11 @@ extern const CGFloat kDragTrayHeight;
 extern const CGFloat kHandleBarWidth;
 extern const CGFloat kHandleBarHalfWidth;
 extern const CGFloat kAnimationDurationDefault;
+extern const CGFloat kExpandedCardHeightScreenRatio;
+extern const CGFloat kFallbackTabletCardHeight;
+extern const CGFloat kFallbackTabletCardWidth;
+extern const CGFloat kTabletMinHeight;
+extern const CGFloat kTabletSdkExpandHeightMultiplier;
 extern const CGFloat kHandleBarHeight;
 extern const CGFloat kHandleBarTopInset;
 extern const CGFloat kHandleHitAreaInset;
@@ -74,8 +97,6 @@ extern const NSInteger kCardViewTag;
 extern const NSInteger kDragTrayViewTag;
 extern const NSInteger kDragHandleViewTag;
 extern NSString * const StashNativeAssociatedKeyOverlayView;
-CGSize stash_calculateiPadCardSize(CGRect screenBounds);
-CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
 
 @interface DragTrayView : UIView
 @end
