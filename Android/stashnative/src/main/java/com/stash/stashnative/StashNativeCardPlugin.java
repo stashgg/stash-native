@@ -350,11 +350,10 @@ public class StashNativeCardPlugin {
       }
       paymentSuccessHandled = true;
       isPurchaseProcessing = false;
-      final String orderPayload = order;
       runOnMainAndDismiss(() -> {
         StashNativeCard.StashNativeCardListener l = getListener();
         if (l != null) {
-          l.onPaymentSuccess(orderPayload);
+          l.onPaymentSuccess(order);
         }
       });
     }

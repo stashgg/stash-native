@@ -314,8 +314,7 @@ public class StashWebViewUtils {
     }
     
     try {
-      Uri uri = Uri.parse(url);
-      Uri.Builder builder = uri.buildUpon();
+      Uri.Builder builder = Uri.parse(url).buildUpon();
       
       String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
       builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
