@@ -2,8 +2,10 @@
 //  StashNativeCardWebViewDelegates.m
 //  StashNative
 //
-//  WKNavigationDelegate and WKUIDelegate implementations for the card WebView.
-//  Shared state via extern declarations; see StashNativeCard.m for definitions.
+//  WebViewLoadDelegate: the card WebView's WKNavigationDelegate + WKUIDelegate. Owns the load-recovery
+//  machinery -- the stall-retry timer chain (up to two aggressive reloads), the hard network-error
+//  deadline, and the session-token gate (StashNativeCurrentPresentationSessionToken) that drops
+//  callbacks from a closed card. Shared file-scope state via the externs in StashNativeCardPrivate.h.
 //
 
 #import "StashNativeCard.h"

@@ -2,8 +2,11 @@
 //  StashNativeCardViewControllers.m
 //  StashNative
 //
-//  View controller and view classes for card presentation.
-//  Shared state via extern declarations; see StashNativeCard.m for definitions.
+//  The UIView and UIViewController subclasses that host each presentation: DragTrayView (the card's
+//  draggable tray), the iPhone card controllers (fixed and current-orientation), the iPad/phone modal
+//  controllers, the orientation-locked container, and the SafariPortrait container for the external-
+//  payment handoff. Presentation logic and the file-scope state these read live in StashNativeCard.m
+//  (shared via the extern declarations in StashNativeCardPrivate.h).
 //
 
 #import "StashNativeCard.h"
