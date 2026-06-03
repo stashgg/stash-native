@@ -13,6 +13,7 @@
 		STN025 /* StashNativeCardSupport.m in Sources */ = {isa = PBXBuildFile; fileRef = STN026 /* StashNativeCardSupport.m */; };
 		STN027 /* StashNativeCardLayout.m in Sources */ = {isa = PBXBuildFile; fileRef = STN028 /* StashNativeCardLayout.m */; };
 		STN029 /* StashNativeCardWebBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = STN030 /* StashNativeCardWebBridge.m */; };
+		STN033 /* StashNativeCardOrientation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN034 /* StashNativeCardOrientation.m */; };
 		STN007 /* StashNative.h in Headers */ = {isa = PBXBuildFile; fileRef = STN008 /* StashNative.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		STN009 /* StashNativeCard.h in Headers */ = {isa = PBXBuildFile; fileRef = STN00A /* StashNativeCard.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		STN00B /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00C /* SafariServices.framework */; };
@@ -28,6 +29,7 @@
 		STN026 /* StashNativeCardSupport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardSupport.m; sourceTree = "<group>"; };
 		STN028 /* StashNativeCardLayout.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardLayout.m; sourceTree = "<group>"; };
 		STN030 /* StashNativeCardWebBridge.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardWebBridge.m; sourceTree = "<group>"; };
+		STN034 /* StashNativeCardOrientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardOrientation.m; sourceTree = "<group>"; };
 		STN008 /* StashNative.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StashNative.h; sourceTree = "<group>"; };
 		STN00A /* StashNativeCard.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StashNativeCard.h; sourceTree = "<group>"; };
 		STN00C /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
@@ -70,6 +72,7 @@
 				STN026 /* StashNativeCardSupport.m */,
 				STN028 /* StashNativeCardLayout.m */,
 				STN030 /* StashNativeCardWebBridge.m */,
+				STN034 /* StashNativeCardOrientation.m */,
 				STN023 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Sources/StashNative;
@@ -189,6 +192,7 @@
 				STN025 /* StashNativeCardSupport.m in Sources */,
 				STN027 /* StashNativeCardLayout.m in Sources */,
 				STN029 /* StashNativeCardWebBridge.m in Sources */,
+				STN033 /* StashNativeCardOrientation.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
