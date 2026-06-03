@@ -244,7 +244,7 @@ public class MainActivity extends AppCompatActivity {
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
 
-        // Test fixtures -- replace with real user/product data in production.
+        // Test user and product fixtures.
         JSONObject user = new JSONObject();
         user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
         user.put("validatedEmail", "test@stash.gg");
@@ -337,7 +337,7 @@ public class MainActivity extends AppCompatActivity {
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
 
-        // Test fixtures -- replace with real user data in production.
+        // Test user fixtures.
         JSONObject user = new JSONObject();
         user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
         user.put("validatedEmail", "test@stash.gg");

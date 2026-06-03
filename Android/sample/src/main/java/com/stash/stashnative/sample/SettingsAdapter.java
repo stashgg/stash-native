@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * RecyclerView adapter for the settings-style list (Google Settings pattern).
+ * RecyclerView adapter for the settings-style list.
  * Uses ViewBinding and multiple view types.
  */
 public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
@@ -126,7 +126,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     configureRowInteraction(holder, item);
   }
 
-  /** URL rows stay non-clickable so the text field receives focus; action rows use card ripple. */
+  /** Sets URL rows non-clickable and non-focusable; action and expandable-header rows clickable. */
   private void configureRowInteraction(RecyclerView.ViewHolder holder, SettingsItem item) {
     View v = holder.itemView;
     switch (item.type) {

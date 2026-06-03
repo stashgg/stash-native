@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * ViewModel for the main screen. Holds all UI state and survives configuration changes.
- * Single source of truth for the settings-style list (Google architecture best practice).
+ * Holds the settings-style list.
  */
 public class MainViewModel extends AndroidViewModel {
 
@@ -19,15 +19,15 @@ public class MainViewModel extends AndroidViewModel {
   private static final String PREF_CARD_BACKGROUND_HEX = "CardBackgroundColorHex";
   private static final String PREF_MODAL_BACKGROUND_HEX = "ModalBackgroundColorHex";
 
-  /** Default URL for the Card section (manual open + baseline testing). */
+  /** Default URL for the Card section. */
   private static final String DEFAULT_CARD_URL = "https://test.stashpreview.com/";
-  /** Default URL for the Browser section (htmlpreview wrapper for legacy popup test page). */
+  /** Default URL for the Browser section. htmlpreview wrapper for the popup test page. */
   private static final String DEFAULT_BROWSER_URL =
       "https://htmlpreview.github.io/?https://raw.githubusercontent.com/stashgg/stash-unity/"
       + "refs/heads/main/.github/Stash.Popup.Test/index.html";
   private static final String DEFAULT_MODAL_URL =
       "https://checkout.stash.gg/pay/channel-selection";
-  // Shared throwaway demo key for the public test card. Not a production credential - replace it.
+  // Shared demo key for the public test card.
   public static final String DEFAULT_STASH_API_KEY =
       "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg";
 
@@ -103,12 +103,10 @@ public class MainViewModel extends AndroidViewModel {
 
   public void setCheckoutUrl(String url) {
     this.checkoutUrl = url != null ? url : "";
-    // Don't refresh list on every keystroke
   }
 
   public void setModalUrl(String url) {
     this.modalUrl = url != null ? url : "";
-    // Don't refresh list on every keystroke
   }
 
   public void setBrowserUrl(String url) {
@@ -363,7 +361,7 @@ public class MainViewModel extends AndroidViewModel {
     return modalTabletLandscapeH;
   }
 
-  /** Builds the full list from current state (single source of truth). */
+  /** Builds the full list from current state. */
   public void refreshList() {
     List<SettingsItem> list = new ArrayList<>();
 

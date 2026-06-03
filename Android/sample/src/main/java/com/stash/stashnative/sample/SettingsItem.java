@@ -3,8 +3,7 @@ package com.stash.stashnative.sample;
 import androidx.annotation.StringRes;
 
 /**
- * Represents a single row in the settings-style list.
- * Follows Android Settings / preference list pattern.
+ * A single row in the settings-style list.
  */
 public final class SettingsItem {
 
@@ -25,12 +24,12 @@ public final class SettingsItem {
   public final int progress; // for slider (0-90, display as progress+10 %)
   public final boolean expanded; // for expandable header
   public final int iconRes; // 0 if none
-  /** True if this row is the first in a card container (iOS-style bubble). */
+  /** True if this row is the first in a card container. */
   public final boolean firstInCard;
   /** True if this row is the last in a card container. */
   public final boolean lastInCard;
 
-  /** Internal constructor; use static factory methods. */
+  /** Private constructor; instances are built by the static factory methods. */
   private SettingsItem(int type, int titleRes, int supportingRes, String value,
       boolean checked, int progress, boolean expanded, int iconRes,
       boolean firstInCard, boolean lastInCard) {
