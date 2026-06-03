@@ -11,6 +11,7 @@
 #import <WebKit/WebKit.h>
 #import "StashNativeCardSupport.h"
 #import "StashNativeCardLayout.h"
+#import "StashNativeCardTheme.h"
 
 
 /// Popup frame (x, y, width, height) for given screen bounds; uses current orientation and custom/default multipliers.
@@ -37,9 +38,7 @@ void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBound
 
 
 /// True when checkout WebView should use dark `theme=` / color-scheme (system or custom background luminance).
-BOOL StashNativeSheetUsesDarkWebTheme(void);
 /// Injects document meta + html/body background for dark sheet (BG matches configured background color).
-NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 
 
 // Shared file-scope state and constants defined in StashNativeCard.m. Single source of truth for the
@@ -52,6 +51,7 @@ extern BOOL stash_cardIsInLandscape;
 extern BOOL stash_isCardExpanded;
 extern BOOL stash_forcePortraitOnCheckout;
 extern BOOL stash_isCardCurrentlyPresented;
+extern NSString *stash_presentationBackgroundColorHex;
 extern const CGFloat kPopupPortraitWidthMultiplier;
 extern const CGFloat kPopupPortraitHeightMultiplier;
 extern const CGFloat kPopupLandscapeWidthMultiplier;
@@ -76,7 +76,6 @@ extern const NSInteger kDragHandleViewTag;
 extern NSString * const StashNativeAssociatedKeyOverlayView;
 CGSize stash_calculateiPadCardSize(CGRect screenBounds);
 CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-UIColor* stash_sheetBackgroundUIColor(void);
 
 @interface DragTrayView : UIView
 @end
