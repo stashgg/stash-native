@@ -12,11 +12,6 @@
 #import <WebKit/WebKit.h>
 
 
-#ifdef DEBUG
-#define STASH_DEBUG_LOG(...) NSLog(__VA_ARGS__)
-#else
-#define STASH_DEBUG_LOG(...)
-#endif
 
 #pragma mark - Loading / Reveal Constants (aligned with card animation timing)
 

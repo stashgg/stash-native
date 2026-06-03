@@ -7,6 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "StashNativeCardLogging.h"
 #import <WebKit/WebKit.h>
 #import "StashNativeCardSupport.h"
 #import "StashNativeCardLayout.h"

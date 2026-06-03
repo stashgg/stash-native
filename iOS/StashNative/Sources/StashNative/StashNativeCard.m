@@ -19,11 +19,6 @@
 #import <math.h>
 #import <stdlib.h>
 
-#ifdef DEBUG
-#define STASH_DEBUG_LOG(...) NSLog(__VA_ARGS__)
-#else
-#define STASH_DEBUG_LOG(...)
-#endif
 
 // Non-ARC compatibility: These warnings are suppressed when compiling without ARC
 // (e.g., in game engines like Unreal Engine that manage memory manually).
