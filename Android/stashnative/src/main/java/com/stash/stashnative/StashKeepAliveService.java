@@ -110,14 +110,12 @@ public class StashKeepAliveService extends Service {
       iconResId = R.drawable.ic_stash_keep_alive;
     }
 
-    PendingIntent tap =
-        buildLaunchAppPendingIntent();
     Notification notification =
         new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(iconResId)
-            .setContentIntent(tap)
+            .setContentIntent(buildLaunchAppPendingIntent())
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)

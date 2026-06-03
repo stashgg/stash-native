@@ -1462,11 +1462,6 @@ public class StashNativeCardPlugin {
     return StashWebViewUtils.isDarkTheme(activity);
   }
 
-  private boolean dialogBackgroundColorOverrideActive() {
-    return useModalPresentation && currentModalConfig != null
-        && StashBackgroundColorUtils.parseSolidColorOrNull(currentModalConfig.backgroundColor) != null;
-  }
-
   private void setupPopupWebView(WebView webView, String url, final Activity activity) {
     if (webView == null || activity == null || url == null || url.isEmpty()) {
       Log.e(TAG, "Invalid parameters in setupPopupWebView");
