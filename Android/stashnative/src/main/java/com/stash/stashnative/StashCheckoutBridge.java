@@ -46,4 +46,10 @@ final class StashCheckoutBridge {
     context.getApplicationContext().sendBroadcast(
         baseIntent(context, CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
   }
+
+  static void emitPageLoaded(Context context, long loadTimeMs) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_PAGE_LOAD_MS, loadTimeMs);
+    context.getApplicationContext().sendBroadcast(intent);
+  }
 }
