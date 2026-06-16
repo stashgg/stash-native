@@ -113,4 +113,28 @@ final class StashNativeTests: XCTestCase {
     func testOpenBrowserEmptyUrlDoesNotCrash() {
         StashNativeCard.sharedInstance().openBrowser(withURL: "")
     }
+
+    // -- Browser dismiss state (regression: programmatic close must not leave the SDK presented) --
+
+    // Full deadlock repro (OpenBrowser -> CloseBrowser -> OpenCard) needs a webview host and is
+    // covered by on-device QA. These guard the no-browser code paths the fix touches.
+
+    func testCloseBrowserWithoutBrowserIsSafe() {
+        let card = StashNativeCard.sharedInstance()
+        card.closeBrowser()
+        XCTAssertFalse(card.isCurrentlyPresented)
+    }
+
+    func testDismissSafariWithResultWithoutBrowserIsSafe() {
+        let card = StashNativeCard.sharedInstance()
+        card.dismissSafariViewController(withResult: true)
+        card.dismissSafariViewController(withResult: false)
+        XCTAssertFalse(card.isCurrentlyPresented)
+    }
+
+    func testResetPresentationStateLeavesNotPresented() {
+        let card = StashNativeCard.sharedInstance()
+        card.resetPresentationState()
+        XCTAssertFalse(card.isCurrentlyPresented)
+    }
 }

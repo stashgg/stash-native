@@ -524,6 +524,7 @@ CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
 - (void)dismissWithAnimation:(void (^)(void))completion;
 - (void)cleanupCardInstance;
 - (void)callDelegateCallbackOnce;
+- (void)tearDownSafariPresentationState;  // Resets Safari/portrait presentation state; fires no callbacks
 - (UIView *)cardViewForCurrentPresentation;  // Returns cardView (kCardViewTag) for iPhone/iPad; nil if none
 - (void)updateDragTrayVisibilityForPurchaseProcessing:(BOOL)isProcessing;
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc;
@@ -917,7 +918,11 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }];
 }
 
-- (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
+// Resets Safari/portrait presentation state and tears down any dedicated Safari/portrait window,
+// restoring the host key window and orientation. Called by both safariViewControllerDidFinish:
+// (user "Done") and the programmatic dismiss paths (closeBrowser / dismissSafariViewControllerWithResult:);
+// Apple does not invoke the delegate on a programmatic dismiss. Fires no callbacks. Idempotent.
+- (void)tearDownSafariPresentationState {
     // Unlock portrait before any window teardown so the scene can freely rotate
     // back to landscape as we restore the game window.
     self.isSafariPortraitLocked = NO;
@@ -934,23 +939,30 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         self.safariPresentationWindow = nil;
     }
 
-    if (_safariOpenedViaOpenBrowser) {
-        _safariOpenedViaOpenBrowser = NO;
-        _isCardCurrentlyPresented = NO;
-        self.currentSafariViewController = nil;
+    _safariOpenedViaOpenBrowser = NO;
+    _isCardCurrentlyPresented = NO;
+    self.currentSafariViewController = nil;
 
-        // External-payment handoff OR openBrowserWithURL:forcePortrait:YES — the portrait
-        // window was kept/created so Safari ran in portrait. Tear it down and restore landscape.
-        if (self.portraitWindow) {
-            self.portraitWindow.hidden = YES;
-            self.portraitWindow.rootViewController = nil;
-            if (self.previousKeyWindow) {
-                [self restorePrePortraitOrientation];
-                [self.previousKeyWindow makeKeyAndVisible];
-                self.previousKeyWindow = nil;
-            }
-            self.portraitWindow = nil;
+    // External-payment handoff OR forcePortrait browser -- the portrait window was kept/created so
+    // Safari ran in portrait. Tear it down and restore landscape.
+    if (self.portraitWindow) {
+        self.portraitWindow.hidden = YES;
+        self.portraitWindow.rootViewController = nil;
+        if (self.previousKeyWindow) {
+            [self restorePrePortraitOrientation];
+            [self.previousKeyWindow makeKeyAndVisible];
+            self.previousKeyWindow = nil;
         }
+        self.portraitWindow = nil;
+    }
+}
+
+- (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
+    BOOL openedViaOpenBrowser = _safariOpenedViaOpenBrowser;
+
+    [self tearDownSafariPresentationState];
+
+    if (openedViaOpenBrowser) {
         if (_safariBrowserCloseDelegatePending) {
             _safariBrowserCloseDelegatePending = NO;
             id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
@@ -960,6 +972,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             }
         }
     } else {
+        // Unreachable today: openInSafariViewController is only called from openBrowserWithURL:,
+        // which sets _safariOpenedViaOpenBrowser=YES. Kept for a non-openBrowser Safari path.
         [self cleanupCardInstance];
         [self callDelegateCallbackOnce];
     }
@@ -3139,7 +3153,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.2.1";
+    return @"2.2.2";
 }
 
 - (instancetype)init {
@@ -3281,9 +3295,21 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         return;
     }
     if (_isCardCurrentlyPresented) {
-        return;
+        // Block only when a presentation is live. A stale flag with nothing on screen is cleared
+        // and the open proceeds, rather than returning silently with no callback to the host.
+        StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+        BOOL hasLivePresentation = internal.currentPresentedVC != nil
+            || internal.currentSafariViewController != nil
+            || internal.portraitWindow != nil
+            || internal.safariPresentationWindow != nil;
+        if (hasLivePresentation) {
+            return;
+        }
+        STASH_DEBUG_LOG(@"StashNative: clearing stale presentation guard before opening card");
+        _isCardCurrentlyPresented = NO;
+        resetSafariOpenBrowserTrackingFlags();
     }
-    
+
     NSString *urlWithTheme = appendThemeQueryParameter(url);
     [self openInCardUI:urlWithTheme];
 }
@@ -3359,8 +3385,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     BOOL lockPortrait = (internal.portraitWindow != nil || internal.safariPresentationWindow != nil);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
-        // Guard: if the window was torn down during the delay, abort.
-        if (rotationDelay > 0 && internal.currentSafariViewController != safariVC) {
+        // Guard: if this Safari was superseded before the present fired -- torn down during a
+        // rotation delay, or closed synchronously in the same runloop turn at zero delay -- abort.
+        if (internal.currentSafariViewController != safariVC) {
             resetSafariOpenBrowserTrackingFlags();
             internal.currentSafariViewController = nil;
             return;
@@ -4630,7 +4657,11 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 
 - (void)didFinishSafariDismiss {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    internal.currentSafariViewController = nil;
+
+    // Programmatic dismissal does not invoke safariViewControllerDidFinish:; run the shared
+    // teardown here so the presentation state and any portrait window/orientation lock are reset.
+    [internal tearDownSafariPresentationState];
+
     if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidDismiss)]) {
         [self.delegate stashNativeCardDidDismiss];
     }
