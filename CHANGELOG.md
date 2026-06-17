@@ -2,9 +2,12 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [2.2.3] - 2026-06-16
+## [2.2.3] - 2026-06-17
 
 ### Fixed
+- iOS: programmatic `closeBrowser` and `dismissSafariViewControllerWithResult:` now fully reset presentation state. `SFSafariViewController` dismissed programmatically did not clear the internal "presented" guard (only the user-initiated Done path did), so a following `openCard`/`openPopup`/`openModal` silently did nothing — no card UI and no callback. The guard now also self-heals if left stale with no presentation on screen. iOS only; Android keeps browser and card state on separate flags.
+- Android: pre-API-30 devices no longer push the card off-screen when the soft keyboard opens; a keyboard detector keeps the focused input visible above the keyboard.
+- Android: `onDialogDismissed` now fires when `autoClose` is `false`.
 - Android: Open Card and Open Modal now emit `onPageLoaded` via the checkout bridge (`StashNativeCardPortraitActivity` → `StashCheckoutBridge` → `StashNativeCardPlugin`). Previously only the legacy popup WebView path invoked `StashNativeCardListener.onPageLoaded()`.
 
 ## [2.2.1] - 2026-05-29

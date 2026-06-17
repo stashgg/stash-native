@@ -3153,7 +3153,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.2.2";
+    return @"2.2.3";
 }
 
 - (instancetype)init {
