@@ -275,6 +275,7 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_OPT_IN);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
+    filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
     try {
       // Use platform API directly to avoid requiring androidx.core >= 1.9 (4-arg
       // ContextCompat.registerReceiver). Hosts with old androidx.core (e.g. Unity
@@ -299,6 +300,13 @@ public class StashNativeCardPlugin {
         if (l != null) {
           String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
           l.onOptInResponse(type != null ? type : "");
+        }
+        return;
+      }
+      if (CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED.equals(action)) {
+        if (l != null) {
+          long loadTimeMs = intent.getLongExtra(CardConstants.BROADCAST_EXTRA_PAGE_LOAD_MS, 0L);
+          l.onPageLoaded(loadTimeMs);
         }
         return;
       }

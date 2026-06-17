@@ -94,6 +94,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean webViewRevealAnimationRunning;
   /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
   private int webViewRevealAnimationToken;
+  private long pageLoadStartTime;
+  private boolean pageLoadedCallbackSent;
   /**
    * Pixel height to restore when collapsing the phone sheet. Set at creation, updated on
    * orientation change, and snapshotted from layout params immediately before each expand so the
@@ -1562,6 +1564,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
           try {
             super.onPageStarted(view, url, favicon);
+            pageLoadStartTime = System.currentTimeMillis();
             showLoading();
             injectSDK(view);
             checkProvider(url);
@@ -1703,6 +1706,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         }
         webViewCommittedReloadUrl = urlWithTheme;
         webViewRetryCount = 0;
+        pageLoadStartTime = 0;
+        pageLoadedCallbackSent = false;
         mainFrameNavigationCommitted = false;
         webView.loadUrl(urlWithTheme);
         scheduleInitialLoadTimers();
@@ -2075,6 +2080,16 @@ public class StashNativeCardPortraitActivity extends Activity {
     });
   }
 
+  private void emitPageLoadedIfNeeded() {
+    if (pageLoadedCallbackSent || pageLoadStartTime <= 0) {
+      return;
+    }
+    pageLoadedCallbackSent = true;
+    long loadTimeMs = System.currentTimeMillis() - pageLoadStartTime;
+    pageLoadStartTime = 0;
+    StashCheckoutBridge.emitPageLoaded(this, loadTimeMs);
+  }
+
   /**
    * First load: crossfade loading overlay out and WebView in (aligned with iOS
    * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
@@ -2113,12 +2128,14 @@ public class StashNativeCardPortraitActivity extends Activity {
             webViewRevealAnimationRunning = false;
             webViewLoadingRevealComplete = true;
             removeLoadingViewFromParent();
+            emitPageLoadedIfNeeded();
           }
         });
         crossfade.start();
       } else {
         webViewLoadingRevealComplete = true;
         webView.setAlpha(1f);
+        emitPageLoadedIfNeeded();
       }
     });
   }

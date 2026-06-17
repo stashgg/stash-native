@@ -348,7 +348,10 @@ public final class CardConstants {
       "com.stash.stashnative.internal.CHECKOUT_DIALOG_DISMISSED";
   public static final String BROADCAST_CHECKOUT_EXTERNAL_PAYMENT =
       "com.stash.stashnative.internal.CHECKOUT_EXTERNAL_PAYMENT";
+  public static final String BROADCAST_CHECKOUT_PAGE_LOADED =
+      "com.stash.stashnative.internal.CHECKOUT_PAGE_LOADED";
   public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
+  public static final String BROADCAST_EXTRA_PAGE_LOAD_MS = "stashPageLoadMs";
   /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
   /** URL for {@code window.stash_sdk.openExternalBrowser(url)} (includes theme query when applicable). */
