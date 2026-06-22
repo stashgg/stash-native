@@ -418,6 +418,7 @@ const NSTimeInterval kPopupFrameAnimationDuration = 0.5;
 static NSString * const kMessageHandlerPaymentSuccess = @"stashNativementSuccess";
 static NSString * const kMessageHandlerPaymentFailure = @"stashNativementFailure";
 static NSString * const kMessageHandlerPurchaseProcessing = @"stashPurchaseProcessing";
+static NSString * const kMessageHandlerProcessingCompleted = @"stashProcessingCompleted";
 static NSString * const kMessageHandlerOptin = @"stashOptin";
 static NSString * const kMessageHandlerExpand = @"stashExpand";
 static NSString * const kMessageHandlerCollapse = @"stashCollapse";
@@ -753,6 +754,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentSuccess];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPaymentFailure];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerPurchaseProcessing];
+            [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerProcessingCompleted];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerOptin];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerExpand];
             [webView.configuration.userContentController removeScriptMessageHandlerForName:kMessageHandlerCollapse];
@@ -1792,6 +1794,9 @@ initialSpringVelocity:kSpringVelocityCollapse
     } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
         self.isPurchaseProcessing = YES;
         [self updateDragTrayVisibilityForPurchaseProcessing:YES];
+    } else if ([name isEqualToString:kMessageHandlerProcessingCompleted]) {
+        self.isPurchaseProcessing = NO;
+        [self updateDragTrayVisibilityForPurchaseProcessing:NO];
     } else if ([name isEqualToString:kMessageHandlerOptin]) {
         NSString *optinType = [message.body isKindOfClass:[NSString class]] ? message.body : @"";
 
@@ -3153,7 +3158,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.2.3";
+    return @"2.2.4";
 }
 
 - (instancetype)init {
@@ -4474,6 +4479,9 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
         "window.stash_sdk.onPurchaseProcessing = function(data) {"
             "window.webkit.messageHandlers.%@.postMessage(data || {});"
         "};"
+        "window.stash_sdk.onProcessingCompleted = function(data) {"
+            "window.webkit.messageHandlers.%@.postMessage(data || {});"
+        "};"
         "window.stash_sdk.setPaymentChannel = function(optinType) {"
             "window.webkit.messageHandlers.%@.postMessage(optinType || '');"
         "};"
@@ -4492,8 +4500,8 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
         "}; } catch(e) {}"
     "})();",
         kMessageHandlerPaymentSuccess, kMessageHandlerPaymentFailure, kMessageHandlerPurchaseProcessing,
-        kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse, kMessageHandlerExternalPayment,
-        kMessageHandlerWindowClose];
+        kMessageHandlerProcessingCompleted, kMessageHandlerOptin, kMessageHandlerExpand, kMessageHandlerCollapse,
+        kMessageHandlerExternalPayment, kMessageHandlerWindowClose];
     WKUserScript *stashSDKInjection = [[WKUserScript alloc] initWithSource:stashSDKScript
                                                              injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                           forMainFrameOnly:YES];
@@ -4537,6 +4545,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentSuccess];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPaymentFailure];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerPurchaseProcessing];
+    [userContentController addScriptMessageHandler:internal name:kMessageHandlerProcessingCompleted];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerOptin];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerExpand];
     [userContentController addScriptMessageHandler:internal name:kMessageHandlerCollapse];

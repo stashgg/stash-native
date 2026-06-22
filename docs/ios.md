@@ -49,6 +49,7 @@ Message handler name constants (examples — verify in source): defined as `stat
 | `onPaymentSuccess` | `stashNativementSuccess` (typo preserved in codebase) |
 | `onPaymentFailure` | `stashNativementFailure` |
 | `onPurchaseProcessing` | `stashPurchaseProcessing` |
+| `onProcessingCompleted` | `stashProcessingCompleted` |
 | `setPaymentChannel` | `stashOptin` |
 | `expand` | `stashExpand` |
 | `collapse` | `stashCollapse` |

@@ -60,6 +60,11 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".onPurchaseProcessing(); } catch(e) {}"
       + "  };"
+      + "  window.stash_sdk.onProcessingCompleted = function(data) {"
+      + "    try { "
+      + JS_INTERFACE_NAME
+      + ".onProcessingCompleted(); } catch(e) {}"
+      + "  };"
       + "  window.stash_sdk.setPaymentChannel = function(optinType) {"
       + "    try { "
       + JS_INTERFACE_NAME

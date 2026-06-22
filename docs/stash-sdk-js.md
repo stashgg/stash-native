@@ -57,10 +57,17 @@ Signals payment failure.
 
 ### `window.stash_sdk.onPurchaseProcessing(data?)`
 
-Signals that a purchase is still processing.
+Signals that a purchase is still processing. While processing, the SDK locks the card against dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades out the drag handle so the sheet looks non-dismissable.
 
 - **Argument:** iOS posts `data || {}`. Android calls `onPurchaseProcessing()` without forwarding the JS argument.
 - **Native result:** Purchase-processing callback where implemented.
+
+### `window.stash_sdk.onProcessingCompleted(data?)`
+
+Reverses `onPurchaseProcessing`. Signals that the purchase is no longer processing: the SDK re-enables dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades the drag handle back in. Call it when a purchase that previously called `onPurchaseProcessing` finishes or is cancelled without auto-closing the card.
+
+- **Argument:** iOS posts `data || {}`. Android calls `onProcessingCompleted()` without forwarding the JS argument.
+- **Native result:** Restores the dismissable card state set up before `onPurchaseProcessing`. No-op if no processing state was active.
 
 ### `window.stash_sdk.setPaymentChannel(optinType?)`
 
@@ -101,7 +108,7 @@ iOS injects a separate script that posts `stashNativePageReady` for load metrics
 
 ## Platform Parity Notes
 
-- **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` Java methods. Pages should not rely on native interpretation of complex objects for those two calls on Android unless the Android implementation is extended.
+- **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` / `onProcessingCompleted` Java methods. Pages should not rely on native interpretation of complex objects for those calls on Android unless the Android implementation is extended.
 - **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Diagram

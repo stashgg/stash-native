@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.4] - 2026-06-23
+
+### Added
+- iOS/Android: `window.stash_sdk.onProcessingCompleted()` reverses `onPurchaseProcessing()`. It re-enables card dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades the drag handle back in. Use it when a purchase that called `onPurchaseProcessing()` finishes or is cancelled without auto-closing the card. iOS posts the JS argument as `data || {}`; Android calls `onProcessingCompleted()` with no serialized payload. No-op when no processing state is active.
+
 ## [2.2.3] - 2026-06-17
 
 ### Fixed

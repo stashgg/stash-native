@@ -2510,7 +2510,23 @@ public class StashNativeCardPortraitActivity extends Activity {
         Log.w(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
       }
     }
-    
+
+    @JavascriptInterface
+    public void onProcessingCompleted() {
+      try {
+        runOnUiThread(() -> {
+          try {
+            isPurchaseProcessing = false;
+            applyDragHandlePurchaseProcessingFade(false);
+          } catch (Exception e) {
+            Log.w(TAG, "Error clearing purchase processing: " + e.getMessage(), e);
+          }
+        });
+      } catch (Exception e) {
+        Log.w(TAG, "Error in onProcessingCompleted: " + e.getMessage(), e);
+      }
+    }
+
     @JavascriptInterface
     public void setPaymentChannel(String optinType) {
       try {

@@ -56,6 +56,7 @@ For checkout page authors, see the consolidated web API reference: [JavaScript `
 | `onPaymentSuccess(order)` | `StashAndroid.onPaymentSuccess` |
 | `onPaymentFailure(data)` | `StashAndroid.onPaymentFailure` |
 | `onPurchaseProcessing(data)` | `StashAndroid.onPurchaseProcessing` |
+| `onProcessingCompleted(data)` | `StashAndroid.onProcessingCompleted` |
 | `setPaymentChannel(optinType)` | `StashAndroid.setPaymentChannel` |
 | `expand()` | `StashAndroid.expand` |
 | `collapse()` | `StashAndroid.collapse` |

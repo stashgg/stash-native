@@ -408,7 +408,22 @@ public class StashNativeCardPlugin {
         }
       });
     }
-    
+
+    @JavascriptInterface
+    public void onProcessingCompleted() {
+      isPurchaseProcessing = false;
+      new Handler(Looper.getMainLooper()).post(() -> {
+        try {
+          if (currentDialog != null && currentDialog.isShowing()) {
+            currentDialog.setCanceledOnTouchOutside(true);
+            currentDialog.setCancelable(true);
+          }
+        } catch (Exception e) {
+          Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
+        }
+      });
+    }
+
     @JavascriptInterface
     public void setPaymentChannel(String optinType) {
       runOnMainAndDismiss(() -> {
