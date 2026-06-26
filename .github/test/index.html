@@ -288,9 +288,11 @@
             /* Checkout mobile: Tailwind rounded-full on payment row controls */
             border-radius: 9999px;
             cursor: pointer;
-            border-width: 1px;
-            border-style: solid;
-            transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
+            /* Outline drawn via inset box-shadow, not a visible border: a rounded 1px border-stroke
+               corrupts GPU tile raster in Chrome on some Android (Mali) devices. Transparent border
+               keeps the box model; the variants paint the 1px line with box-shadow instead. */
+            border: 1px solid transparent;
+            transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -319,7 +321,7 @@
         button.btn-primary {
             background: var(--pay-ui-theme-neutral-button-bg);
             color: var(--pay-ui-theme-fg-primary-color);
-            border-color: var(--pay-ui-theme-neutral-button-border);
+            box-shadow: inset 0 0 0 1px var(--pay-ui-theme-neutral-button-border);
         }
 
         button.btn-primary:hover {
@@ -329,11 +331,11 @@
         button.btn-danger {
             background: transparent;
             color: var(--pay-ui-theme-fg-red-color);
-            border-color: rgba(223, 28, 65, 0.45);
+            box-shadow: inset 0 0 0 1px rgba(223, 28, 65, 0.45);
         }
 
         :root[data-color-scheme="light"] button.btn-danger {
-            border-color: rgba(223, 28, 65, 0.35);
+            box-shadow: inset 0 0 0 1px rgba(223, 28, 65, 0.35);
         }
 
         .legal {
