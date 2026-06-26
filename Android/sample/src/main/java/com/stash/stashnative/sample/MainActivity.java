@@ -1,6 +1,8 @@
 package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.Toast;
@@ -145,6 +147,39 @@ public class MainActivity extends AppCompatActivity {
     });
 
     viewModel.refreshList();
+
+    // Handle a stashdemo:// deeplink that cold-started the app.
+    handleDeepLink(getIntent());
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    // singleTask delivers deeplinks here while the app (and in-app browser) is already running.
+    setIntent(intent);
+    handleDeepLink(intent);
+  }
+
+  // Listens for stashdemo:// deeplinks fired from the test card to simulate a payment redirect.
+  private void handleDeepLink(Intent intent) {
+    if (intent == null) {
+      return;
+    }
+    Uri data = intent.getData();
+    if (data == null || !"stashdemo".equalsIgnoreCase(data.getScheme())) {
+      return;
+    }
+    String url = data.toString();
+    Log.i(TAG, "Deeplink received: " + url);
+    // singleTask already cleared the Custom Tab above us; closeBrowser keeps parity with iOS.
+    StashNativeCard.getInstance().closeBrowser();
+    if (url.contains("stash-pay/success")) {
+      showOutcomeDialog("Success", "Deeplink payment success\n" + url);
+    } else if (url.contains("stash-pay/failed")) {
+      showOutcomeDialog("Payment Failed", "Deeplink payment failed\n" + url);
+    } else {
+      showOutcomeDialog("Deeplink", url);
+    }
   }
 
   // Slider range is 0-90; +10 maps to 10-100%, /100 converts to 0.1-1.0 ratio.

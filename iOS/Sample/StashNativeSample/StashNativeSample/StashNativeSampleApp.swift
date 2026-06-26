@@ -42,11 +42,11 @@ enum StashSampleDeepLink {
     static func handle(_ url: URL) -> Bool {
         let urlString = url.absoluteString
 
-        if urlString.contains("stash/purchaseSuccess") {
+        if urlString.contains("stash-pay/success") {
             StashNativeCard.sharedInstance().dismissSafariViewController(withResult: true)
             return true
         }
-        if urlString.contains("stash/purchaseFailure") {
+        if urlString.contains("stash-pay/failed") {
             StashNativeCard.sharedInstance().dismissSafariViewController(withResult: false)
             return true
         }
