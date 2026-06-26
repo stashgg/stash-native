@@ -506,6 +506,22 @@
                 <hr class="divider" />
 
                 <div class="stack-gap-md">
+                    <span class="section-title-sm">Deeplink tests</span>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://stash/purchaseSuccess')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: stash/purchaseSuccess</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://stash-pay/success')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: stash-pay/success</span>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="divider" />
+
+                <div class="stack-gap-md">
                     <span class="section-title-sm">External payment</span>
                     <div class="input-wrap">
                         <label class="field-label" for="externalUrl">URL</label>
@@ -709,6 +725,15 @@
                 }
             } else {
                 updateStatus('stash_sdk.openExternalBrowser not available (requires native Stash SDK)');
+            }
+        }
+
+        function triggerDeeplink(url) {
+            updateStatus('Navigating to deeplink: ' + url);
+            try {
+                window.location.href = url;
+            } catch (e) {
+                updateStatus('Deeplink error: ' + (e && e.message ? e.message : e));
             }
         }
 
