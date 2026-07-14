@@ -455,6 +455,473 @@
         .input-focus-shell:focus-within input {
             border-color: transparent;
         }
+
+        /* ---------- Rendering test (WebView compositing stress) ----------
+           Heavy continuously-compositing layers: animated gradients, backdrop
+           blur, shadows, promoted (will-change) layers, WebP carousels and a
+           clip-path slider. Exercises the native rounded-corner clip that
+           re-composites the WebView every frame -- the path that flickers on
+           scroll on some Android GPUs. */
+        .rt-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .rt-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .rt-chip {
+            flex: 1 1 auto;
+            min-height: 2rem;
+            padding: 0 0.875rem;
+            font-family: var(--font-factor-a);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--pay-ui-theme-fg-primary-color);
+            background: var(--pay-ui-theme-neutral-button-bg);
+            box-shadow: inset 0 0 0 1px var(--pay-ui-theme-neutral-button-border);
+            border: 1px solid transparent;
+            border-radius: 9999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+        }
+
+        .rt-chip > svg {
+            display: block;
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+        }
+
+        .rt-chip:active {
+            transform: scale(0.98);
+        }
+
+        .rt-block-label {
+            font-family: var(--font-work-sans);
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--pay-ui-theme-fg-muted-color);
+        }
+
+        /* Animated gradient hero with a moving sheen and floating blurred blobs */
+        .rt-hero {
+            position: relative;
+            height: 8.5rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: linear-gradient(101deg, #e5ff11, #48ff17 45%, #11ffcc 80%, #6a5cff);
+            background-size: 300% 300%;
+            animation: rt-gradient 6s ease infinite;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            will-change: background-position;
+        }
+
+        .rt-hero__sheen {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(75deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+            transform: translateX(-120%);
+            animation: rt-sheen 2.4s linear infinite;
+            will-change: transform;
+        }
+
+        .rt-hero__blob {
+            position: absolute;
+            width: 7rem;
+            height: 7rem;
+            border-radius: 50%;
+            filter: blur(18px);
+            opacity: 0.7;
+            will-change: transform;
+        }
+
+        .rt-hero__blob--a {
+            left: -1rem;
+            top: -1.5rem;
+            background: rgba(255, 255, 255, 0.85);
+            animation: rt-float 5s ease-in-out infinite;
+        }
+
+        .rt-hero__blob--b {
+            right: -1.5rem;
+            bottom: -2rem;
+            background: rgba(106, 92, 255, 0.85);
+            animation: rt-float 7s ease-in-out infinite reverse;
+        }
+
+        .rt-hero__title {
+            position: absolute;
+            left: 1rem;
+            bottom: 0.875rem;
+            font-family: "Factor A Extrabold", var(--font-factor-a);
+            font-weight: 800;
+            font-size: 1.5rem;
+            line-height: 1;
+            color: #101010;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+        }
+
+        /* Swipeable WebP carousel with scroll-snap */
+        .rt-carousel {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 0.25rem;
+            scrollbar-width: none;
+        }
+
+        .rt-carousel::-webkit-scrollbar {
+            display: none;
+        }
+
+        .rt-slide {
+            position: relative;
+            flex: 0 0 62%;
+            scroll-snap-align: center;
+            aspect-ratio: 4 / 3;
+            min-height: 8rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: var(--pay-ui-theme-paper-color);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+            will-change: transform;
+        }
+
+        .rt-slide__img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .rt-slide__shine {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
+            transform: translateX(-120%);
+            animation: rt-sheen 3s linear infinite;
+            pointer-events: none;
+        }
+
+        /* Diagonal corner ribbon -- same shape as the shop "Club Bonus!" banner */
+        .rt-ribbon {
+            position: absolute;
+            top: 0.7rem;
+            left: -2.2rem;
+            width: 8rem;
+            transform: rotate(-45deg);
+            background: linear-gradient(101deg, #e5ff11, #48ff17);
+            color: #101010;
+            font-family: "Factor A Extrabold", var(--font-factor-a);
+            font-weight: 800;
+            font-size: 0.6875rem;
+            text-align: center;
+            padding: 0.25rem 0;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        /* Auto-scrolling marquee strip (continuous transform) */
+        .rt-marquee {
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+
+        .rt-marquee__track {
+            display: flex;
+            gap: 0.5rem;
+            width: max-content;
+            animation: rt-marquee 16s linear infinite;
+            will-change: transform;
+        }
+
+        .rt-marquee__item {
+            width: 6rem;
+            height: 4rem;
+            flex: 0 0 auto;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
+        }
+
+        .rt-marquee__item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Before/after compare slider (clip-path on a moving layer) */
+        .rt-compare {
+            position: relative;
+            aspect-ratio: 16 / 10;
+            min-height: 9rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+            background: var(--pay-ui-theme-paper-color);
+            --rt-pos: 50%;
+        }
+
+        .rt-compare img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .rt-compare__after {
+            clip-path: inset(0 calc(100% - var(--rt-pos)) 0 0);
+        }
+
+        .rt-compare__handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: var(--rt-pos);
+            width: 2px;
+            margin-left: -1px;
+            background: #fff;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
+
+        .rt-compare__grip {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            color: #101010;
+        }
+
+        /* Range-driven live transform */
+        .rt-knob {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: center;
+            padding: 0.5rem 0;
+            --rt-knob: 50;
+        }
+
+        .rt-knob__stage {
+            height: 5.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .rt-knob__box {
+            width: 4rem;
+            height: 4rem;
+            border-radius: 0.9rem;
+            background: var(--pay-ui-theme-primary-gradient);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+            transform: rotate(calc((var(--rt-knob) - 50) * 3.6deg)) scale(calc(0.7 + var(--rt-knob) / 100));
+            filter: hue-rotate(calc(var(--rt-knob) * 3.6deg));
+        }
+
+        input.rt-range {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 0.375rem;
+            border-radius: 9999px;
+            background: var(--pay-ui-theme-border-color);
+            outline: none;
+        }
+
+        input.rt-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 50%;
+            background: var(--pay-ui-theme-fg-primary-color);
+            cursor: pointer;
+        }
+
+        input.rt-range::-moz-range-thumb {
+            width: 1.25rem;
+            height: 1.25rem;
+            border: none;
+            border-radius: 50%;
+            background: var(--pay-ui-theme-fg-primary-color);
+            cursor: pointer;
+        }
+
+        /* Backdrop-filter glass over a rotating background (expensive composite) */
+        .rt-blur {
+            position: relative;
+            height: 7rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+
+        .rt-blur__bg {
+            position: absolute;
+            inset: -25%;
+            background: conic-gradient(from 0deg, #e5ff11, #48ff17, #11ffcc, #6a5cff, #e5ff11);
+            filter: saturate(1.2);
+            animation: rt-spin 8s linear infinite;
+            will-change: transform;
+        }
+
+        .rt-blur__glass {
+            position: absolute;
+            inset: 1rem;
+            border-radius: 0.6rem;
+            background: rgba(255, 255, 255, 0.12);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Factor A Extrabold", var(--font-factor-a);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: #fff;
+        }
+
+        /* Spinners + skeleton shimmer */
+        .rt-spinners {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .rt-spinner {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            background: conic-gradient(from 0deg, var(--pay-ui-theme-fg-primary-color), transparent 70%);
+            animation: rt-spin 0.9s linear infinite;
+            will-change: transform;
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
+            mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
+        }
+
+        .rt-shimmer {
+            flex: 1;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            background: linear-gradient(90deg, var(--pay-ui-theme-paper-color) 25%, var(--pay-ui-theme-border-color) 37%, var(--pay-ui-theme-paper-color) 63%);
+            background-size: 400% 100%;
+            animation: rt-shimmer 1.4s ease infinite;
+        }
+
+        /* Animated WebP card wall */
+        .rt-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .rt-tile {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            min-height: 6rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: var(--pay-ui-theme-paper-color);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+            animation: rt-pulse 3.2s ease-in-out infinite;
+            will-change: transform;
+        }
+
+        .rt-tile:nth-child(3n) {
+            animation-duration: 4.1s;
+        }
+
+        .rt-tile:nth-child(3n + 1) {
+            animation-duration: 2.7s;
+        }
+
+        .rt-tile img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .rt-tile__glow {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.35), transparent 60%);
+            mix-blend-mode: screen;
+            pointer-events: none;
+            animation: rt-hue 5s linear infinite;
+        }
+
+        /* Pause switch for A/B comparison while scrolling */
+        .rt-paused,
+        .rt-paused * {
+            animation-play-state: paused !important;
+        }
+
+        @keyframes rt-gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes rt-sheen {
+            0% { transform: translateX(-120%); }
+            100% { transform: translateX(120%); }
+        }
+
+        @keyframes rt-float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(1.2rem, 0.8rem) scale(1.15); }
+        }
+
+        @keyframes rt-marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes rt-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes rt-shimmer {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+
+        @keyframes rt-pulse {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-3px) scale(1.015); }
+        }
+
+        @keyframes rt-hue {
+            to { filter: hue-rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -580,6 +1047,120 @@
                     </div>
                 </div>
 
+                <hr class="divider" />
+
+                <div id="rendering-test-section" class="stack-gap-sm collapsible-section">
+                    <button type="button" class="collapsible-section-toggle" id="rendering-test-heading" aria-expanded="false" aria-controls="rendering-test-panel">
+                        <span class="section-title-sm">Rendering test</span>
+                        <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                    </button>
+                    <div id="rendering-test-panel" class="collapsible-section-panel" role="region" aria-labelledby="rendering-test-heading">
+                        <div id="rt-panel" class="rt-panel">
+                            <p class="meta-hint" style="text-align: left;">Complex animations, WebP carousels and a clip-path slider. Expand, then scroll the card to stress the WebView compositor and surface flicker.</p>
+
+                            <div class="rt-controls">
+                                <button type="button" class="rt-chip" id="rt-pause">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                                    <span class="rt-chip-label">Pause animations</span>
+                                </button>
+                                <button type="button" class="rt-chip" id="rt-amplify">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                    <span class="rt-chip-label">Add cards</span>
+                                </button>
+                            </div>
+
+                            <div class="rt-hero">
+                                <div class="rt-hero__blob rt-hero__blob--a"></div>
+                                <div class="rt-hero__blob rt-hero__blob--b"></div>
+                                <div class="rt-hero__sheen"></div>
+                                <div class="rt-hero__title">Rendering</div>
+                            </div>
+
+                            <span class="rt-block-label">Carousel (swipe)</span>
+                            <div class="rt-carousel">
+                                <div class="rt-slide">
+                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar1/480/360.webp" alt="" decoding="async" />
+                                    <span class="rt-ribbon">-50%</span>
+                                    <div class="rt-slide__shine"></div>
+                                </div>
+                                <div class="rt-slide">
+                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar2/480/360.webp" alt="" decoding="async" />
+                                    <span class="rt-ribbon">NEW</span>
+                                    <div class="rt-slide__shine"></div>
+                                </div>
+                                <div class="rt-slide">
+                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar3/480/360.webp" alt="" decoding="async" />
+                                    <span class="rt-ribbon">HOT</span>
+                                    <div class="rt-slide__shine"></div>
+                                </div>
+                                <div class="rt-slide">
+                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar4/480/360.webp" alt="" decoding="async" />
+                                    <span class="rt-ribbon">SALE</span>
+                                    <div class="rt-slide__shine"></div>
+                                </div>
+                            </div>
+
+                            <span class="rt-block-label">Auto marquee</span>
+                            <div class="rt-marquee">
+                                <div class="rt-marquee__track">
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq1/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq2/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq3/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq4/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq5/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq6/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq1/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq2/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq3/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq4/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq5/192/128.webp" alt="" decoding="async" /></div>
+                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq6/192/128.webp" alt="" decoding="async" /></div>
+                                </div>
+                            </div>
+
+                            <span class="rt-block-label">Compare slider (drag)</span>
+                            <div class="rt-compare" id="rt-compare">
+                                <img class="rt-compare__before" src="https://picsum.photos/seed/rtcmp1/640/400.webp" alt="" decoding="async" />
+                                <img class="rt-compare__after" src="https://picsum.photos/seed/rtcmp2/640/400.webp" alt="" decoding="async" />
+                                <div class="rt-compare__handle">
+                                    <div class="rt-compare__grip">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l-4 6 4 6M15 6l4 6-4 6"/></svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <span class="rt-block-label">Range slider</span>
+                            <div class="rt-knob">
+                                <div class="rt-knob__stage"><div class="rt-knob__box"></div></div>
+                                <input type="range" min="0" max="100" value="50" class="rt-range" id="rt-range" aria-label="Transform amount" />
+                            </div>
+
+                            <span class="rt-block-label">Backdrop blur</span>
+                            <div class="rt-blur">
+                                <div class="rt-blur__bg"></div>
+                                <div class="rt-blur__glass">GLASS</div>
+                            </div>
+
+                            <div class="rt-spinners">
+                                <div class="rt-spinner"></div>
+                                <div class="rt-shimmer"></div>
+                            </div>
+
+                            <span class="rt-block-label">Animated WebP grid</span>
+                            <div class="rt-grid" id="rt-grid">
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg1/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg2/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg3/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg4/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg5/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg6/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg7/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg8/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="powered">
                     <span class="powered-label">Powered by</span>
                     <div aria-hidden="true">
@@ -662,6 +1243,78 @@
                 var open = section.classList.toggle('collapsible-section--open');
                 toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
             });
+        })();
+
+        (function initRenderingTest() {
+            var section = document.getElementById('rendering-test-section');
+            var toggle = document.getElementById('rendering-test-heading');
+            if (section && toggle) {
+                toggle.addEventListener('click', function () {
+                    var open = section.classList.toggle('collapsible-section--open');
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                });
+            }
+
+            // Pause/resume every animation in the panel (A/B while scrolling).
+            var panel = document.getElementById('rt-panel');
+            var pauseBtn = document.getElementById('rt-pause');
+            if (panel && pauseBtn) {
+                pauseBtn.addEventListener('click', function () {
+                    var paused = panel.classList.toggle('rt-paused');
+                    var label = pauseBtn.querySelector('.rt-chip-label');
+                    if (label) {
+                        label.textContent = paused ? 'Resume animations' : 'Pause animations';
+                    }
+                });
+            }
+
+            // Clone the grid tiles to crank up the compositing load on demand.
+            var grid = document.getElementById('rt-grid');
+            var amplify = document.getElementById('rt-amplify');
+            if (grid && amplify) {
+                amplify.addEventListener('click', function () {
+                    var tiles = grid.querySelectorAll('.rt-tile');
+                    var count = Math.min(8, tiles.length);
+                    for (var i = 0; i < count; i++) {
+                        grid.appendChild(tiles[i].cloneNode(true));
+                    }
+                    updateStatus('Rendering grid: ' + grid.querySelectorAll('.rt-tile').length + ' tiles');
+                });
+            }
+
+            // Before/after compare: drag moves a clip-path edge (a moving GPU layer).
+            var compare = document.getElementById('rt-compare');
+            if (compare) {
+                var dragging = false;
+                var setPos = function (clientX) {
+                    var rect = compare.getBoundingClientRect();
+                    if (rect.width <= 0) return;
+                    var pct = ((clientX - rect.left) / rect.width) * 100;
+                    pct = Math.max(0, Math.min(100, pct));
+                    compare.style.setProperty('--rt-pos', pct + '%');
+                };
+                compare.addEventListener('pointerdown', function (e) {
+                    dragging = true;
+                    setPos(e.clientX);
+                    try { compare.setPointerCapture(e.pointerId); } catch (err) {}
+                });
+                compare.addEventListener('pointermove', function (e) {
+                    if (dragging) setPos(e.clientX);
+                });
+                compare.addEventListener('pointerup', function () { dragging = false; });
+                compare.addEventListener('pointercancel', function () { dragging = false; });
+            }
+
+            // Range slider drives a live transform/hue on the box.
+            var knob = document.querySelector('.rt-knob');
+            var range = document.getElementById('rt-range');
+            if (knob && range) {
+                var applyKnob = function () {
+                    knob.style.setProperty('--rt-knob', range.value);
+                };
+                range.addEventListener('input', applyKnob);
+                applyKnob();
+            }
         })();
 
         if (window.matchMedia) {
