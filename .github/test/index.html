@@ -125,7 +125,7 @@
             margin-left: 1rem;
             margin-right: 1rem;
             padding-top: 1.5rem;
-            padding-bottom: 2rem;
+            padding-bottom: calc(7rem + env(safe-area-inset-bottom, 0px));
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
@@ -407,49 +407,64 @@
             gap: 0.75rem;
         }
 
-        .collapsible-section-toggle {
-            width: 100%;
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.is-active {
             display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .tab-dock {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 50;
+            background: var(--pay-ui-theme-sheet-bg);
+            border-top: 1px solid var(--pay-ui-theme-border-color);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        .tab-dock .status-panel {
+            margin: 0.5rem 1rem 0.35rem;
+            padding: 0.35rem 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tab-bar {
+            display: flex;
+            align-items: stretch;
+        }
+
+        .tab-btn {
+            flex: 1 1 0;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: space-between;
-            gap: 0.5rem;
-            margin: 0;
-            padding: 0;
-            border: none;
+            gap: 0.2rem;
+            padding: 0.35rem 0.25rem 0.6rem;
             background: none;
+            border: none;
             cursor: pointer;
-            color: inherit;
-            text-align: left;
+            color: var(--pay-ui-theme-fg-muted-color);
+            font-family: var(--font-factor-a);
+            font-size: 0.6875rem;
+            line-height: 1;
             -webkit-tap-highlight-color: transparent;
         }
 
-        .collapsible-section-toggle:hover {
-            opacity: 0.85;
-        }
-
-        .collapsible-section-toggle .section-title-sm {
-            margin: 0;
-        }
-
-        .collapsible-chevron {
-            display: block;
+        .tab-btn svg {
             width: 1.25rem;
             height: 1.25rem;
-            flex-shrink: 0;
-            color: var(--pay-ui-theme-fg-muted-color);
-            transition: transform 0.2s ease;
         }
 
-        .collapsible-section:not(.collapsible-section--open) .collapsible-chevron {
-            transform: rotate(-90deg);
-        }
-
-        .collapsible-section-panel {
-            margin-top: 0.5rem;
-        }
-
-        .collapsible-section:not(.collapsible-section--open) .collapsible-section-panel {
-            display: none;
+        .tab-btn[aria-selected="true"] {
+            color: var(--pay-ui-theme-fg-primary-color);
         }
 
         .input-focus-shell:focus-within input {
@@ -937,6 +952,7 @@
                     </button>
                 </div>
 
+                <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-label="Callbacks">
                 <div class="stack-gap-md">
                     <div class="input-wrap">
                         <label class="field-label" for="sample-input">Keyboard Input Test</label>
@@ -972,8 +988,9 @@
                     </div>
                 </div>
 
-                <hr class="divider" />
+                </section>
 
+                <section class="tab-panel" id="tab-links" role="tabpanel" aria-label="Links">
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Deeplink tests</span>
                     <div class="btn-stack">
@@ -1024,14 +1041,11 @@
                     </div>
                 </div>
 
-                <hr class="divider" />
+                </section>
 
-                <div id="exception-tests-section" class="stack-gap-sm collapsible-section">
-                    <button type="button" class="collapsible-section-toggle" id="exception-tests-heading" aria-expanded="false" aria-controls="exception-tests-panel">
-                        <span class="section-title-sm">Exception tests</span>
-                        <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-                    </button>
-                    <div id="exception-tests-panel" class="collapsible-section-panel" role="region" aria-labelledby="exception-tests-heading">
+                <section class="tab-panel" id="tab-errors" role="tabpanel" aria-label="Errors">
+                <div class="stack-gap-md">
+                    <span class="section-title-sm">Exception tests</span>
                     <div class="btn-stack">
                     <button type="button" class="btn btn-danger" onclick="triggerJSError()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
@@ -1062,17 +1076,12 @@
                             <span class="btn-label">Recursive Error</span>
                         </button>
                     </div>
-                    </div>
                 </div>
+                </section>
 
-                <hr class="divider" />
-
-                <div id="rendering-test-section" class="stack-gap-sm collapsible-section">
-                    <button type="button" class="collapsible-section-toggle" id="rendering-test-heading" aria-expanded="false" aria-controls="rendering-test-panel">
-                        <span class="section-title-sm">Rendering test</span>
-                        <svg class="collapsible-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-                    </button>
-                    <div id="rendering-test-panel" class="collapsible-section-panel" role="region" aria-labelledby="rendering-test-heading">
+                <section class="tab-panel" id="tab-render" role="tabpanel" aria-label="Render">
+                <div class="stack-gap-md">
+                    <span class="section-title-sm">Rendering test</span>
                         <div id="rt-panel" class="rt-panel">
                             <p class="meta-hint" style="text-align: left;">Complex animations, WebP carousels and a clip-path slider. Expand, then scroll the card to stress the WebView compositor and surface flicker.</p>
 
@@ -1176,8 +1185,8 @@
                                 <div class="rt-tile"><img src="https://picsum.photos/seed/rtg8/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
                             </div>
                         </div>
-                    </div>
                 </div>
+                </section>
 
                 <div class="powered">
                     <span class="powered-label">Powered by</span>
@@ -1192,11 +1201,32 @@
                     </div>
                 </div>
 
-                <div id="status" class="status-panel">Ready</div>
                 <div id="theme-info" class="meta-hint"></div>
                 <div id="user-agent-info" class="meta-hint"></div>
             </div>
         </div>
+    </div>
+
+    <div class="tab-dock">
+        <div id="status" class="status-panel">Ready</div>
+        <nav class="tab-bar" role="tablist" aria-label="Test sections">
+            <button type="button" class="tab-btn" role="tab" data-tab="callbacks" aria-selected="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Callbacks</span>
+            </button>
+            <button type="button" class="tab-btn" role="tab" data-tab="links" aria-selected="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                <span>Links</span>
+            </button>
+            <button type="button" class="tab-btn" role="tab" data-tab="errors" aria-selected="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+                <span>Errors</span>
+            </button>
+            <button type="button" class="tab-btn" role="tab" data-tab="render" aria-selected="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                <span>Render</span>
+            </button>
+        </nav>
     </div>
 
     <script>
@@ -1253,26 +1283,28 @@
         updateThemeInfo();
         updateUserAgentInfo();
 
-        (function initExceptionTestsCollapsible() {
-            var section = document.getElementById('exception-tests-section');
-            var toggle = document.getElementById('exception-tests-heading');
-            if (!section || !toggle) return;
-            toggle.addEventListener('click', function () {
-                var open = section.classList.toggle('collapsible-section--open');
-                toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-            });
+        (function initTabs() {
+            var buttons = document.querySelectorAll('.tab-btn');
+            var panels = document.querySelectorAll('.tab-panel');
+            function activate(name) {
+                for (var i = 0; i < buttons.length; i++) {
+                    var on = buttons[i].getAttribute('data-tab') === name;
+                    buttons[i].setAttribute('aria-selected', on ? 'true' : 'false');
+                }
+                for (var j = 0; j < panels.length; j++) {
+                    panels[j].classList.toggle('is-active', panels[j].id === 'tab-' + name);
+                }
+                window.scrollTo(0, 0);
+            }
+            for (var i = 0; i < buttons.length; i++) {
+                buttons[i].addEventListener('click', function () {
+                    activate(this.getAttribute('data-tab'));
+                });
+            }
         })();
 
         (function initRenderingTest() {
-            var section = document.getElementById('rendering-test-section');
-            var toggle = document.getElementById('rendering-test-heading');
-            if (section && toggle) {
-                toggle.addEventListener('click', function () {
-                    var open = section.classList.toggle('collapsible-section--open');
-                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-                });
-            }
-
+            // Animations only cost while the Render tab is active (inactive panels are display:none).
             // Pause/resume every animation in the panel (A/B while scrolling).
             var panel = document.getElementById('rt-panel');
             var pauseBtn = document.getElementById('rt-pause');
