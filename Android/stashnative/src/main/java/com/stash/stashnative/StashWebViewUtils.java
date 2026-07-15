@@ -85,6 +85,11 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
       + "  };"
+      + "  window.stash_sdk.openLink = function(url) {"
+      + "    try { "
+      + JS_INTERFACE_NAME
+      + ".openLink((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + "  };"
       + "  try { window.close = function() { try { "
       + JS_INTERFACE_NAME
       + ".requestCloseFromPage(); } catch(e2) {} }; } catch(e) {}"

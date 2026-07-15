@@ -104,9 +104,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL forcePortrait;
 /** Phone card height ratio in portrait (0.1-1.0). Default 0.68. */
 @property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
-/** Phone card width ratio in landscape (0.1-1.0). Default 0.9. */
+/** Phone card width ratio in landscape (0.1-1.0). Default 0.7. */
 @property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
-/** Phone card height ratio in landscape (0.1-1.0). Default 0.6. */
+/** Phone card height ratio in landscape (0.1-1.0). Default 0.9. */
 @property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
 /** Tablet width ratio in portrait (0.1-1.0). Default 0.4. */
 @property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;

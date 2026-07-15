@@ -1008,6 +1008,24 @@
 
                 <hr class="divider" />
 
+                <div class="stack-gap-md">
+                    <span class="section-title-sm">Open link (terms, misc)</span>
+                    <div class="input-wrap">
+                        <label class="field-label" for="openLinkUrl">URL</label>
+                        <div class="input-focus-shell">
+                            <input type="text" id="openLinkUrl" class="input-focus-ring" placeholder="https://example.com/terms" value="https://example.com/terms" />
+                        </div>
+                    </div>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerOpenLink()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Open link</span>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="divider" />
+
                 <div id="exception-tests-section" class="stack-gap-sm collapsible-section">
                     <button type="button" class="collapsible-section-toggle" id="exception-tests-heading" aria-expanded="false" aria-controls="exception-tests-panel">
                         <span class="section-title-sm">Exception tests</span>
@@ -1365,6 +1383,21 @@
             updateStatus('Called: collapse()');
             if (window.stash_sdk && window.stash_sdk.collapse) {
                 window.stash_sdk.collapse();
+            }
+        }
+
+        function triggerOpenLink() {
+            var el = document.getElementById('openLinkUrl');
+            var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com/terms';
+            if (window.stash_sdk && typeof window.stash_sdk.openLink === 'function') {
+                updateStatus('Called: openLink("' + url + '")');
+                try {
+                    window.stash_sdk.openLink(url);
+                } catch (e) {
+                    updateStatus('openLink() error: ' + (e && e.message ? e.message : e));
+                }
+            } else {
+                updateStatus('stash_sdk.openLink not available');
             }
         }
 

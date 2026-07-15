@@ -4,8 +4,8 @@ Checkout SDK embedding webviews in native containers (card/modal/browser) for in
 
 ## Architecture
 
-- iOS: Objective-C singleton (`StashNativeCard`), 3 source files sharing state via file-scope statics + extern. SPM + xcframework distribution.
-- Android: Java singleton facade (`StashNativeCard`) -> internal plugin (`StashNativeCardPlugin`) -> portrait activity. AAR distribution.
+- iOS: Objective-C singleton (`StashNativeCard`) plus focused units (Configs, Geometry, Theme, ViewUtils, Internal, ViewControllers, WebViewDelegates). Shared state is defined in `StashNativeCard.m` and extern'd via `StashNativeCardPrivate.h`. SPM + xcframework distribution.
+- Android: Java singleton facade (`StashNativeCard`) -> internal plugin (`StashNativeCardPlugin`) -> portrait activity. Extracted logic lives in package-private `Stash*Support`/`StashCheckoutSizing` helpers; mutable state stays on the owning activity/plugin. AAR distribution.
 - JS bridge: `window.stash_sdk` injected into webview on both platforms. Spec in `docs/stash-sdk-js.md`.
 
 ## Critical Constraints
@@ -62,8 +62,8 @@ All reflection calls MUST catch `Throwable` and degrade gracefully. No missing d
 ### Custom Tabs result (Android)
 Chrome Custom Tabs use `startActivityForResult` from the host `Activity` (`setActivity`). Integrators must override `onActivityResult` and call `StashNativeCard.getInstance().onActivityResult(...)`. `StashNativeCardPortraitActivity` forwards automatically for in-SDK launches from portrait.
 
-### iOS File-Scope Statics
-`StashNativeCard.m` has ~40 file-scope statics extern'd by `StashNativeCardViewControllers.m` and `StashNativeCardWebViewDelegates.m`. Do not refactor these without understanding the coupling. Declarations in `StashNativeCardPrivate.h`.
+### iOS Shared State
+All shared mutable state and cross-file constants are DEFINED in `StashNativeCard.m` (single home) and DECLARED extern in `StashNativeCardPrivate.h`, which also holds the internal class interfaces (view controllers, webview delegates, `StashNativeCardInternal`). The other `.m` files import Private.h and never define shared state. Constants used by only one file stay `static` in that file. Do not duplicate definitions or re-scope state without understanding this coupling. New `.m` files must also be added to `StashNative.xcodeproj` (SPM globs automatically; the pbxproj does not).
 
 ## Version Management
 Version string is hardcoded in both platforms. When tagging a release, update:

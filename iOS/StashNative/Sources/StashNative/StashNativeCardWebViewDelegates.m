@@ -3,13 +3,24 @@
 //  StashNative
 //
 //  WKNavigationDelegate and WKUIDelegate implementations for the card WebView.
-//  Shared state via extern declarations; see StashNativeCard.m for definitions.
+//  Shared state comes from StashNativeCardPrivate.h; definitions live in StashNativeCard.m.
 //
 
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
+
+// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
+// (e.g., in game engines like Unreal Engine that manage memory manually).
+// ARC builds do not need these suppressions.
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshadow"
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 
 
 #ifdef DEBUG
@@ -39,17 +50,6 @@ static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
-#pragma mark - Extern declarations (defined in StashNativeCard.m)
-
-extern BOOL _usePopupPresentation;
-extern BOOL _useModalPresentation;
-extern BOOL isRunningOniPad(void);
-extern UIColor* stash_sheetBackgroundUIColor(void);
-extern UIViewController *getTopPresentedViewController(void);
-extern void configureScrollViewForWebView(UIScrollView *scrollView);
-extern void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
-extern const NSInteger kDragTrayViewTag;
-
 #pragma mark - WebViewLoadDelegate
 
 @implementation WebViewLoadDelegate {
@@ -770,3 +770,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 @end
+
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic pop
+#endif

@@ -2,8 +2,6 @@ package com.stash.stashnative;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.window.OnBackInvokedCallback;
@@ -16,7 +14,6 @@ import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
@@ -29,21 +26,13 @@ import android.view.ViewGroup;
 import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.RenderProcessGoneDetail;
-import android.webkit.WebChromeClient;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.graphics.Bitmap;
-import android.graphics.Matrix;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import androidx.annotation.RequiresApi;
 import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 /**
  * Activity that displays the Stash Pay checkout as a card or popup overlay.
@@ -51,51 +40,51 @@ import androidx.core.view.WindowInsetsCompat;
 public class StashNativeCardPortraitActivity extends Activity {
   private static final String TAG = "StashNativeCard";
 
-  private FrameLayout rootLayout;
+  FrameLayout rootLayout;
   private View backdropView;
   /** Drag handle strip; faded out while {@link #isPurchaseProcessing} so the sheet looks non-dismissable. */
   private View dragHandleArea;
-  private FrameLayout cardContainer;
-  private WebView webView;
-  private View loadingView;
-  private Button homeButton;
+  FrameLayout cardContainer;
+  WebView webView;
+  View loadingView;
+  Button homeButton;
   
-  private String url;
-  private String initialURL;
-  private boolean usePopup;
-  private boolean useModal;
-  private boolean isExpanded;
-  private boolean isDismissing;
+  String url;
+  String initialURL;
+  boolean usePopup;
+  boolean useModal;
+  boolean isExpanded;
+  boolean isDismissing;
   /** True after the sheet was hidden for external browser; dim overlay stays until browser closes. */
   private boolean awaitingExternalBrowserDimOverlay;
   private boolean pendingCreateUIAfterRotation;
-  private boolean callbackSent;
-  private boolean googlePayRedirectHandled;
-  private boolean isPurchaseProcessing;
-  private boolean initialPageLoadComplete;
-  private boolean networkErrorHandled;
-  private boolean mainFrameErrorReceived;
+  boolean callbackSent;
+  boolean googlePayRedirectHandled;
+  boolean isPurchaseProcessing;
+  boolean initialPageLoadComplete;
+  boolean networkErrorHandled;
+  boolean mainFrameErrorReceived;
   /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
-  private android.os.Handler loadTimersHandler;
-  private Runnable retryAfterStallRunnable;
-  private Runnable networkDeadlineRunnable;
+  android.os.Handler loadTimersHandler;
+  Runnable retryAfterStallRunnable;
+  Runnable networkDeadlineRunnable;
   /** URL with theme used for the initial load; retry uses this with a cache-busting query param. */
-  private String webViewCommittedReloadUrl;
+  String webViewCommittedReloadUrl;
   /** 0 = first load; 1 = one stall retry issued (no further automatic retries). */
-  private int webViewRetryCount;
+  int webViewRetryCount;
   /** True once the main frame has committed visible content (or progress fallback on older API). */
-  private boolean mainFrameNavigationCommitted;
+  boolean mainFrameNavigationCommitted;
   /**
    * After the first loading-overlay crossfade, skip full-screen loading on later navigations
    * (matches iOS WebView staying visible once revealed). Reset on stall retry.
    */
-  private boolean webViewLoadingRevealComplete;
+  boolean webViewLoadingRevealComplete;
   /** True while the loading/WebView crossfade is running (ignore duplicate onPageFinished). */
-  private boolean webViewRevealAnimationRunning;
+  boolean webViewRevealAnimationRunning;
   /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
-  private int webViewRevealAnimationToken;
-  private long pageLoadStartTime;
-  private boolean pageLoadedCallbackSent;
+  int webViewRevealAnimationToken;
+  long pageLoadStartTime;
+  boolean pageLoadedCallbackSent;
   /**
    * Pixel height to restore when collapsing the phone sheet. Set at creation, updated on
    * orientation change, and snapshotted from layout params immediately before each expand so the
@@ -107,59 +96,59 @@ public class StashNativeCardPortraitActivity extends Activity {
   /** Running {@link #animateCardHeight} animator; cancelled before starting a new height change. */
   private ValueAnimator cardHeightAnimator;
   /** Soft-keyboard overlap currently applied, px; 0 when the keyboard is hidden. */
-  private int currentImeOverlapPx = 0;
+  int currentImeOverlapPx = 0;
   /** Pre-API-30: last keyboard-free bottom system-window inset (nav bar), used to keep the card static. */
-  private int navBottomInsetPx = 0;
+  int navBottomInsetPx = 0;
   /** Pre-API-30 keyboard detector (Type.ime() is 30+); null on API 30+. */
-  private android.view.ViewTreeObserver.OnGlobalLayoutListener imeGlobalLayoutListener;
+  android.view.ViewTreeObserver.OnGlobalLayoutListener imeGlobalLayoutListener;
   /** True while the keyboard is open (suppresses page-driven expand/collapse during that time). */
-  private boolean keyboardActive = false;
+  boolean keyboardActive = false;
   /** True when the keyboard-show triggered the card expand, so we collapse it again on keyboard hide. */
-  private boolean keyboardExpandedCard = false;
+  boolean keyboardExpandedCard = false;
   
   // Phone card: portrait = full width + height ratio; landscape = width/height ratios
-  private float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
-  private boolean forcePortraitOnCheckout = false;
-  private float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
-  private float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
+  float cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
+  boolean forcePortraitOnCheckout = false;
+  float cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
+  float cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
   
   // Modal configuration
   private boolean modalAllowDismiss = true;
   /** When false, dialog stays open after payment success/failure (callback still fires). */
   private boolean autoCloseOnPaymentEvent = true;
-  private float modalPhoneWidthRatioPortrait =
+  float modalPhoneWidthRatioPortrait =
       CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT;
-  private float modalPhoneHeightRatioPortrait =
+  float modalPhoneHeightRatioPortrait =
       CardConstants.DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT;
-  private float modalPhoneWidthRatioLandscape =
+  float modalPhoneWidthRatioLandscape =
       CardConstants.DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE;
-  private float modalPhoneHeightRatioLandscape =
+  float modalPhoneHeightRatioLandscape =
       CardConstants.DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE;
-  private float modalTabletWidthRatioPortrait =
+  float modalTabletWidthRatioPortrait =
       CardConstants.DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT;
-  private float modalTabletHeightRatioPortrait =
+  float modalTabletHeightRatioPortrait =
       CardConstants.DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT;
-  private float modalTabletWidthRatioLandscape =
+  float modalTabletWidthRatioLandscape =
       CardConstants.DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE;
-  private float modalTabletHeightRatioLandscape =
+  float modalTabletHeightRatioLandscape =
       CardConstants.DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE;
   
   // Orientation-specific tablet card configuration
-  private float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
-  private float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
-  private float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
-  private float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
+  float tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+  float tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+  float tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+  float tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
 
   /** Cached at activity start to avoid repeated theme/device lookups. */
   private boolean cachedIsDarkTheme;
-  private boolean cachedIsTablet;
+  boolean cachedIsTablet;
 
   /** Custom sheet chrome from intent (#hex); when false, {@link #sheetChromeBackgroundArgb} is still set from system theme. */
   private boolean chromeColorOverrideActive;
   /** Card/modal container + WebView chrome background (custom or system-derived). */
-  private int sheetChromeBackgroundArgb;
+  int sheetChromeBackgroundArgb;
   /** WebView force-dark, URL theme=, home/error styling. */
-  private boolean effectiveIsDarkForContent;
+  boolean effectiveIsDarkForContent;
   private OnBackInvokedCallback onBackInvokedCallback;
 
   /** Optional host-supplied screenshot used as background behind the dim overlay. */
@@ -172,7 +161,7 @@ public class StashNativeCardPortraitActivity extends Activity {
    * host backdrop can cover the system rotation (force-portrait phone checkout only).
    */
   private boolean pendingFinishAfterLandscape;
-  private final Runnable pendingLandscapeFinishFallback = this::completeDeferredFinishFromLandscape;
+  final Runnable pendingLandscapeFinishFallback = this::completeDeferredFinishFromLandscape;
 
   @Override
   protected void attachBaseContext(Context newBase) {
@@ -397,7 +386,8 @@ public class StashNativeCardPortraitActivity extends Activity {
         // Bitmap buffer is in physical order; avoid RTL mirroring the matrix result.
         hostBackdropImageView.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
 
-        hostBackdropImageView.post(this::applyHostBackdropMatrixForPortraitCheckout);
+        hostBackdropImageView.post(() -> StashHostBackdropSupport.applyPortraitCheckoutMatrix(
+            hostBackdropImageView, hostBackdropBitmap, hostBackdropSourceDisplayRotation));
 
         rootLayout.addView(hostBackdropImageView);
 
@@ -455,9 +445,10 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
       
       setContentView(rootLayout);
-      ViewCompat.setOnApplyWindowInsetsListener(rootLayout, this::onWindowInsets);
+      ViewCompat.setOnApplyWindowInsetsListener(
+          rootLayout, (v, insets) -> StashCheckoutImeSupport.onWindowInsets(this, v, insets));
       ViewCompat.requestApplyInsets(rootLayout);
-      registerImeGlobalLayoutListenerIfNeeded();
+      StashCheckoutImeSupport.registerImeGlobalLayoutListenerIfNeeded(this);
       // Insets (e.g. nav bar height) may not be present until after the first layout pass; re-apply
       // phone sheet sizing so portrait + force-portrait checkout match config, not full display.
       if (!usePopup && !useModal && !cachedIsTablet) {
@@ -512,293 +503,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
-  private int[] calculateTabletCardSize(DisplayMetrics metrics) {
-    // Use actual current screen dimensions
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    
-    // Determine orientation and use appropriate ratios
-    boolean isLandscape = screenWidth > screenHeight;
-
-    float widthRatio;
-    float heightRatio;
-    if (isLandscape) {
-      widthRatio = tabletWidthRatioLandscape;
-      heightRatio = tabletHeightRatioLandscape;
-    } else {
-      widthRatio = tabletWidthRatioPortrait;
-      heightRatio = tabletHeightRatioPortrait;
-    }
-    
-    // Apply orientation-specific tablet ratios to actual screen dimensions
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-    
-    if (cardWidth <= 0 || cardHeight <= 0) {
-      return new int[]{
-          CardConstants.FALLBACK_TABLET_CARD_WIDTH, CardConstants.FALLBACK_TABLET_CARD_HEIGHT};
-    }
-
-    // Enforce minimum sizes for usability
-    int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
-    int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
-    
-    return new int[]{cardWidth, cardHeight};
-  }
-
-  /**
-   * Phone checkout in portrait (including force-portrait while configuration is still landscape):
-   * height is {@code cardHeightRatioPortrait} of the physical portrait screen height, capped so
-   * the sheet stays below the status bar and above the navigation bar (aligned with iOS clamping).
-   */
-  private int computePhonePortraitSheetHeightPx(DisplayMetrics metrics) {
-    boolean isLandscape = getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    int portraitHeight = (forcePortraitOnCheckout && isLandscape)
-        ? metrics.widthPixels : metrics.heightPixels;
-    int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
-    int bottom = StashWindowCompat.getSystemBottomInsetPx(getWindow());
-    int maxH = portraitHeight - top - bottom;
-    if (maxH <= 0) {
-      maxH = portraitHeight - top;
-    }
-    if (maxH <= 0) {
-      maxH = portraitHeight;
-    }
-    return Math.min((int) (portraitHeight * cardHeightRatioPortrait), maxH);
-  }
-
-  /**
-   * Applies system-bar padding (excluding the IME) and tracks the soft-keyboard overlap. The window
-   * is edge-to-edge, so the IME arrives as an inset rather than a window pan; the legacy
-   * system-window inset includes the keyboard height, which without this would inflate the bottom
-   * padding and push the bottom-pinned card off the top of the screen.
-   */
-  private WindowInsetsCompat onWindowInsets(View v, WindowInsetsCompat insets) {
-    try {
-      if (StashWindowCompat.applySystemBarsPaddingExcludingIme(v, insets)) {
-        applyImeOverlap(StashWindowCompat.getImeOverlapPx(insets));
-        return insets.replaceSystemWindowInsets(0, 0, 0, 0);
-      }
-    } catch (Throwable t) {
-      Log.w(TAG, "IME-aware inset handling unavailable: " + t.getMessage());
-    }
-    // Pre-API-30 (Type.ime() is 30+): keep the card exactly sized and positioned and let the
-    // keyboard simply slide over it. The legacy system-window bottom inset includes the keyboard
-    // height, so we clamp it back to the keyboard-free (navigation-bar) value; otherwise the inflated
-    // padding would lift the bottom-pinned card and make it jump. No resize/cap here.
-    return applyPreApi30StaticPadding(v, insets);
-  }
-
-  private WindowInsetsCompat applyPreApi30StaticPadding(View v, WindowInsetsCompat insets) {
-    try {
-      int left = insets.getSystemWindowInsetLeft();
-      int top = insets.getSystemWindowInsetTop();
-      int right = insets.getSystemWindowInsetRight();
-      int sysBottom = insets.getSystemWindowInsetBottom();
-      int navRef = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
-      boolean imeInflated =
-          navRef > 0 && sysBottom > navRef + (int) StashWebViewUtils.dpToPx(this, 80);
-      if (!imeInflated) {
-        // Remember the exact keyboard-free bottom inset so the card does not shift when the keyboard
-        // later appears (reusing this value avoids a few-pixel jump from dimension rounding).
-        navBottomInsetPx = sysBottom;
-      }
-      int bottom = imeInflated ? navBottomInsetPx : sysBottom;
-      v.setPadding(left, top, right, bottom);
-      return insets.replaceSystemWindowInsets(0, 0, 0, 0);
-    } catch (Throwable t) {
-      return StashWindowCompat.onApplySystemBarInsetsPadding(v, insets);
-    }
-  }
-
-  /**
-   * Pre-API-30 keyboard detection. {@code WindowInsets.Type.ime()} is API 30+, so on older devices
-   * the keyboard height is derived from the visible display frame and fed into the same
-   * {@link #applyImeOverlap} card expand used on API 30+. No-op on API 30+, where the inset listener
-   * drives it.
-   */
-  private void registerImeGlobalLayoutListenerIfNeeded() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R || rootLayout == null) {
-      return;
-    }
-    if (imeGlobalLayoutListener != null) {
-      return;
-    }
-    imeGlobalLayoutListener = this::updateKeyboardOverlapPreApi30;
-    rootLayout.getViewTreeObserver().addOnGlobalLayoutListener(imeGlobalLayoutListener);
-  }
-
-  private void updateKeyboardOverlapPreApi30() {
-    if (cardContainer == null || rootLayout == null || usePopup) {
-      return;
-    }
-    try {
-      android.graphics.Rect r = new android.graphics.Rect();
-      rootLayout.getWindowVisibleDisplayFrame(r);
-      int fullHeight = rootLayout.getRootView().getHeight();
-      if (fullHeight <= 0) {
-        return;
-      }
-      int nav = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
-      boolean keyboardShown = (fullHeight - r.bottom) > (int) StashWebViewUtils.dpToPx(this, 80);
-      // Keyboard height above the navigation bar (r.bottom is the keyboard top in screen coords).
-      int overlap = keyboardShown ? Math.max(0, (fullHeight - nav) - r.bottom) : 0;
-      applyImeOverlap(overlap);
-      // Pre-30 WebView does not scroll the focused input for content padding, so shrink the WebView's
-      // HEIGHT so its bottom sits at the keyboard top -- Chromium then scrolls the input into view.
-      // Recomputed every layout pass, so it tracks the card's expand animation. -1 restores full.
-      applyPreApi30WebViewHeight(keyboardShown ? r.bottom : -1);
-    } catch (Throwable t) {
-      Log.w(TAG, "IME<30 overlap failed: " + t.getMessage());
-    }
-  }
-
-  /**
-   * Pre-API-30: sizes the WebView so its bottom sits at {@code keyboardTopScreenY}, leaving the card
-   * geometry untouched. {@code keyboardTopScreenY} {@literal <} 0 restores MATCH_PARENT.
-   */
-  private void applyPreApi30WebViewHeight(int keyboardTopScreenY) {
-    if (webView == null) {
-      return;
-    }
-    ViewGroup.LayoutParams lp = webView.getLayoutParams();
-    if (lp == null) {
-      return;
-    }
-    if (keyboardTopScreenY < 0) {
-      if (lp.height != ViewGroup.LayoutParams.MATCH_PARENT) {
-        lp.height = ViewGroup.LayoutParams.MATCH_PARENT;
-        webView.setLayoutParams(lp);
-      }
-      return;
-    }
-    int[] loc = new int[2];
-    webView.getLocationOnScreen(loc);
-    int target = Math.max(1, keyboardTopScreenY - loc[1]);
-    // Tolerance avoids a relayout loop once it settles (setLayoutParams re-triggers global layout).
-    if (Math.abs(lp.height - target) > 2) {
-      lp.height = target;
-      webView.setLayoutParams(lp);
-    }
-  }
-
-  /** Content height available to gravity-positioned children (root height minus inset padding). */
-  private int rootContentHeightPx() {
-    if (rootLayout == null) {
-      return 0;
-    }
-    return Math.max(0,
-        rootLayout.getHeight() - rootLayout.getPaddingTop() - rootLayout.getPaddingBottom());
-  }
-
-  /**
-   * Matches the iOS behaviour: when the keyboard opens the card expands to the STANDARD expanded size
-   * (the same {@link #animateExpand} used by drag / the {@code expand()} bridge), and collapses again
-   * on hide. The focused input is kept visible by insetting the WebView content from the bottom by
-   * the keyboard height (so the card geometry is untouched -- only the web viewport shrinks, and the
-   * page scrolls the input into it). Centered card / modal slide up instead. {@code overlapPx} is the
-   * keyboard height above the navigation bar (0 = hidden).
-   */
-  private void applyImeOverlap(int overlapPx) {
-    if (cardContainer == null || usePopup) {
-      return;
-    }
-    if (isPurchaseProcessing && overlapPx > 0) {
-      return;
-    }
-    if (overlapPx == currentImeOverlapPx) {
-      return;
-    }
-    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();
-    if (params == null) {
-      return;
-    }
-
-    if (cachedIsTablet || useModal) {
-      // Centered card: slide up by the amount the keyboard intrudes past the gap below the card;
-      // clamp the shift to that same gap so the top never crosses the status bar.
-      int cardHeight = params.height > 0 ? params.height : cardContainer.getHeight();
-      int gapBelow = Math.max(0, (rootContentHeightPx() - cardHeight) / 2);
-      int shift = Math.min(gapBelow, Math.max(0, overlapPx - gapBelow));
-      cardContainer.setTranslationY(-shift);
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        applyWebViewBottomInset(overlapPx);
-      }
-      currentImeOverlapPx = overlapPx;
-      return;
-    }
-
-    boolean showing = currentImeOverlapPx == 0 && overlapPx > 0;
-    boolean hiding = overlapPx == 0;
-
-    if (showing) {
-      keyboardActive = true;
-      // Expand to the standard expanded size (same as drag / expand()); skip if already expanded.
-      if (!isExpanded && !isLandscapeMode()) {
-        animateExpand();
-        keyboardExpandedCard = true;
-      }
-    }
-
-    // Keep the focused input visible above the keyboard. API 30+: inset the WebView content (padding)
-    // -- modern WebView scrolls the focused element into the reduced viewport. Pre-30 WebView ignores
-    // content padding for scroll-into-view, so there the WebView HEIGHT is shrunk instead (handled by
-    // the global-layout listener, which has the keyboard top).
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      applyWebViewBottomInset(overlapPx);
-    }
-    currentImeOverlapPx = overlapPx;
-
-    if (hiding) {
-      keyboardActive = false;
-      if (keyboardExpandedCard) {
-        animateCollapse();
-        keyboardExpandedCard = false;
-      }
-    }
-  }
-
-  /**
-   * Insets the WebView content from the bottom by {@code bottomPx} so the page lays out / scrolls the
-   * focused input above the keyboard, without changing the card size. 0 clears it.
-   */
-  private void applyWebViewBottomInset(int bottomPx) {
-    if (webView == null) {
-      return;
-    }
-    int target = Math.max(0, bottomPx);
-    if (webView.getPaddingBottom() != target) {
-      webView.setPadding(
-          webView.getPaddingLeft(), webView.getPaddingTop(), webView.getPaddingRight(), target);
-    }
-  }
-
-  /** Clears IME state before a rotation re-layout; the next inset pass re-applies it. */
-  private void resetImeOverlap() {
-    if (cardContainer != null) {
-      try {
-        cardContainer.setTranslationY(0f);
-      } catch (Throwable ignored) {
-      }
-    }
-    applyWebViewBottomInset(0);
-    applyPreApi30WebViewHeight(-1);
-    if (keyboardExpandedCard) {
-      // The rotation resize recomputes the card height from the collapsed base.
-      isExpanded = false;
-      keyboardExpandedCard = false;
-    }
-    keyboardActive = false;
-    currentImeOverlapPx = 0;
-  }
-
   private void createCard() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     boolean isTablet = cachedIsTablet;
@@ -806,7 +510,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     int cardWidth;
     int cardHeight;
     if (isTablet) {
-      int[] cardSize = calculateTabletCardSize(metrics);
+      int[] cardSize = StashCheckoutSizing.calculateTabletCardSize(this, metrics);
       cardWidth = cardSize[0];
       cardHeight = cardSize[1];
       tabletSdkBaseHeightPx = cardHeight;
@@ -837,7 +541,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         isExpanded = false;
       } else {
         isExpanded = false;
-        cardHeight = computePhonePortraitSheetHeightPx(metrics);
+        cardHeight = StashCheckoutSizing.computePhonePortraitSheetHeightPx(this, metrics);
         cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
       }
     }
@@ -845,10 +549,10 @@ public class StashNativeCardPortraitActivity extends Activity {
     configureCardContainer(isTablet, cardWidth, cardHeight);
     
     if (!isTablet && !usePopup && !useModal) {
-      collapsedCardTargetHeightPx = computeCollapsedPhoneCardHeight(metrics);
+      collapsedCardTargetHeightPx = StashCheckoutSizing.computeCollapsedPhoneCardHeight(this, metrics);
     }
     
-    addWebView();
+    StashCheckoutWebViewSupport.addWebView(this);
     addDragHandle();
     addHomeButton();
     rootLayout.addView(cardContainer);
@@ -866,21 +570,21 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     configureCardContainer(true, size, size);
     
-    addWebView();
+    StashCheckoutWebViewSupport.addWebView(this);
     rootLayout.addView(cardContainer);
     animateFadeIn();
   }
   
   private void createModal() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int[] cardSize = calculateModalCardSize(metrics);
+    int[] cardSize = StashCheckoutSizing.calculateModalCardSize(this, metrics);
     int cardWidth = cardSize[0];
     int cardHeight = cardSize[1];
     
     // Modal is always centered (like tablet mode)
     configureCardContainer(true, cardWidth, cardHeight);
     
-    addWebView();
+    StashCheckoutWebViewSupport.addWebView(this);
     addHomeButton();
     rootLayout.addView(cardContainer);
     
@@ -889,53 +593,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     
     // Modal is always considered expanded
     isExpanded = true;
-  }
-  
-  private int[] calculateModalCardSize(DisplayMetrics metrics) {
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    boolean isLandscape = screenWidth > screenHeight;
-    boolean isTablet = cachedIsTablet;
-
-    float widthRatio;
-    float heightRatio;
-    if (isTablet) {
-      if (isLandscape) {
-        widthRatio = modalTabletWidthRatioLandscape;
-        heightRatio = modalTabletHeightRatioLandscape;
-      } else {
-        widthRatio = modalTabletWidthRatioPortrait;
-        heightRatio = modalTabletHeightRatioPortrait;
-      }
-    } else {
-      if (isLandscape) {
-        widthRatio = modalPhoneWidthRatioLandscape;
-        heightRatio = modalPhoneHeightRatioLandscape;
-      } else {
-        widthRatio = modalPhoneWidthRatioPortrait;
-        heightRatio = modalPhoneHeightRatioPortrait;
-      }
-    }
-    
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-    
-    // Apply minimum sizes
-    int minWidth = isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
-    int minHeight = isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
-    
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
-
-    return new int[]{cardWidth, cardHeight};
   }
 
   private void addDragHandle() {
@@ -972,7 +629,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /** Fades the drag strip out during purchase processing (dismiss is blocked) or back in. */
-  private void applyDragHandlePurchaseProcessingFade(boolean hide) {
+  void applyDragHandlePurchaseProcessingFade(boolean hide) {
     if (dragHandleArea == null) {
       return;
     }
@@ -1227,27 +884,6 @@ public class StashNativeCardPortraitActivity extends Activity {
         .withEndAction(this::finishActivityWithNoAnimation)
         .start();
   }
-  
-  /**
-   * Collapsed phone card height for the current orientation and config (matches {@link #createCard}
-   * logic). Used as a fallback when {@link #collapsedCardTargetHeightPx} is unset.
-   */
-  private int computeCollapsedPhoneCardHeight(DisplayMetrics metrics) {
-    boolean isLandscape = getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    if (isLandscape && !forcePortraitOnCheckout) {
-      int maxH = metrics.heightPixels - StashWindowCompat.getSystemTopInsetPx(getWindow());
-      if (maxH <= 0) maxH = metrics.heightPixels;
-      int h = (int) (metrics.heightPixels * cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
-          this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-      if (h < minPx) {
-        h = minPx;
-      }
-      return Math.min(h, maxH);
-    }
-    return computePhonePortraitSheetHeightPx(metrics);
-  }
 
   private void animateCardHeight(int targetHeight, int duration) {
     if (cardContainer == null) {
@@ -1307,7 +943,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     cardHeightAnimator.start();
   }
 
-  private void animateExpand() {
+  void animateExpand() {
     if (cardContainer == null) {
       return;
     }
@@ -1372,7 +1008,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     isExpanded = true;
   }
   
-  private void animateCollapse() {
+  void animateCollapse() {
     if (cardContainer == null || !isExpanded) {
       return;
     }
@@ -1382,7 +1018,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       DisplayMetrics metrics = getResources().getDisplayMetrics();
       int collapsedHeight = tabletSdkBaseHeightPx;
       if (collapsedHeight <= 0) {
-        collapsedHeight = calculateTabletCardSize(metrics)[1];
+        collapsedHeight = StashCheckoutSizing.calculateTabletCardSize(this, metrics)[1];
         tabletSdkBaseHeightPx = collapsedHeight;
       }
       FrameLayout.LayoutParams layoutParams =
@@ -1419,7 +1055,7 @@ public class StashNativeCardPortraitActivity extends Activity {
 
     int collapsedHeight = collapsedCardTargetHeightPx > 0
         ? collapsedCardTargetHeightPx
-        : computeCollapsedPhoneCardHeight(metrics);
+        : StashCheckoutSizing.computeCollapsedPhoneCardHeight(this, metrics);
 
     // Capture drag feedback before cancelling (release position). One ValueAnimator updates height,
     // translationY, and alpha each frame so we do not desync two animators (wrong perceived height)
@@ -1519,7 +1155,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     } else {
       targetHeight = collapsedCardTargetHeightPx > 0
           ? collapsedCardTargetHeightPx
-          : computeCollapsedPhoneCardHeight(metrics);
+          : StashCheckoutSizing.computeCollapsedPhoneCardHeight(this, metrics);
     }
     
     if (params.height != targetHeight) {
@@ -1534,289 +1170,6 @@ public class StashNativeCardPortraitActivity extends Activity {
         .setDuration(CardConstants.ANIMATION_DURATION_SNAP_BACK)
         .setInterpolator(new SpringInterpolator())
         .start();
-  }
-
-  private void addWebView() {
-    if (url == null || url.isEmpty() || cardContainer == null) {
-      Log.e(TAG, "Invalid parameters in addWebView");
-      return;
-    }
-    
-    try {
-      try {
-        webView = new WebView(this);
-      } catch (Throwable t) {
-        // WebView creation can fail if running in a separate process (data directory lock),
-        // on devices with broken WebView installs, or when Chromium init fails. Report as
-        // network error and bail -- do not crash the host app.
-        Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
-        handleNetworkError();
-        return;
-      }
-      try {
-        StashWebViewUtils.configureWebViewSettings(webView, effectiveIsDarkForContent);
-      } catch (Exception e) {
-        Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
-      }
-    
-      webView.setWebViewClient(new WebViewClient() {
-        @Override
-        public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-          try {
-            super.onPageStarted(view, url, favicon);
-            pageLoadStartTime = System.currentTimeMillis();
-            showLoading();
-            injectSDK(view);
-            checkProvider(url);
-            checkGooglePayRedirect(url);
-          } catch (Exception e) {
-            Log.w(TAG, "Error in onPageStarted: " + e.getMessage(), e);
-          }
-        }
-        
-        @Override
-        public void onPageFinished(WebView view, String url) {
-          try {
-            super.onPageFinished(view, url);
-            
-            // Don't mark as complete if network error already handled or main frame error received
-            if (networkErrorHandled || mainFrameErrorReceived) {
-              return;
-            }
-
-            // Mark initial load as complete
-            if (!initialPageLoadComplete) {
-              initialPageLoadComplete = true;
-            }
-
-            maybeRevealWhenReady();
-            injectSDK(view);
-            checkProvider(url);
-            checkGooglePayRedirect(url);
-          } catch (Exception e) {
-            Log.w(TAG, "Error in onPageFinished: " + e.getMessage(), e);
-          }
-          }
-          
-        @Override
-        public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
-            android.webkit.WebResourceError error) {
-          try {
-            super.onReceivedError(view, request, error);
-            if (error != null) {
-              Log.e(TAG, "WebView error: " + error.getDescription());
-            }
-            
-            // Check if this is the main frame and initial load hasn't completed
-            if (request != null && request.isForMainFrame() && !initialPageLoadComplete) {
-              Log.e(TAG, "Network error on main frame during initial load");
-              mainFrameErrorReceived = true;
-              handleNetworkError();
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error in onReceivedError: " + e.getMessage(), e);
-          }
-          }
-          
-        @Override
-        public void onReceivedHttpError(WebView view, android.webkit.WebResourceRequest request,
-            android.webkit.WebResourceResponse errorResponse) {
-          try {
-            super.onReceivedHttpError(view, request, errorResponse);
-            
-            // Check if this is the main frame and initial load hasn't completed
-            if (request != null && request.isForMainFrame() && !initialPageLoadComplete) {
-              int statusCode = errorResponse != null ? errorResponse.getStatusCode() : 0;
-              Log.e(TAG, "HTTP error on main frame during initial load: " + statusCode);
-              mainFrameErrorReceived = true;
-              handleNetworkError();
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
-          }
-          }
-
-        @Override
-        @RequiresApi(Build.VERSION_CODES.Q)
-        public void onPageCommitVisible(WebView view, String pageUrl) {
-          super.onPageCommitVisible(view, pageUrl);
-          markMainFrameNavigationCommittedIfNeeded();
-          maybeRevealWhenReady();
-        }
-
-        @Override
-        @RequiresApi(Build.VERSION_CODES.O)
-        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-          Log.e(TAG, "WebView render process gone (didCrash=" + detail.didCrash() + ")");
-          try {
-            if (view.getParent() != null) {
-              ((ViewGroup) view.getParent()).removeView(view);
-            }
-            view.destroy();
-          } catch (Exception e) {
-            Log.w(TAG, "Error removing dead WebView: " + e.getMessage(), e);
-          }
-          webView = null;
-          handleNetworkError();
-          return true;
-        }
-        });
-    
-      try {
-        webView.setWebChromeClient(new WebChromeClient() {
-          @Override
-          public void onProgressChanged(WebView view, int newProgress) {
-            super.onProgressChanged(view, newProgress);
-            // Below API 29 there is no onPageCommitVisible; first progress means bytes are arriving.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 0) {
-              markMainFrameNavigationCommittedIfNeeded();
-              maybeRevealWhenReady();
-            }
-          }
-        });
-        webView.addJavascriptInterface(new JSInterface(), StashWebViewUtils.JS_INTERFACE_NAME);
-        webView.setBackgroundColor(sheetChromeBackgroundArgb);
-        
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT);
-        webView.setLayoutParams(params);
-        webViewLoadingRevealComplete = false;
-        webViewRevealAnimationRunning = false;
-        webView.setAlpha(0f);
-        cardContainer.addView(webView);
-
-        // Show loading immediately before loadUrl() so there is never a blank-card window
-        // between addView() and the first onPageStarted callback. showLoading() is idempotent:
-        // if the overlay already exists it will not remove/recreate it.
-        loadingView = StashWebViewUtils.createAndShowLoadingView(
-            getApplicationContext(), cardContainer,
-            sheetChromeBackgroundArgb,
-            StashBackgroundColorUtils.spinnerAccentFor(sheetChromeBackgroundArgb));
-        if (loadingView != null) {
-          loadingView.setAlpha(1f);
-          loadingView.setVisibility(View.VISIBLE);
-        }
-
-        String urlWithTheme;
-        try {
-          urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(url, effectiveIsDarkForContent);
-        } catch (Exception e) {
-          Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
-          urlWithTheme = url;
-        }
-        webViewCommittedReloadUrl = urlWithTheme;
-        webViewRetryCount = 0;
-        pageLoadStartTime = 0;
-        pageLoadedCallbackSent = false;
-        mainFrameNavigationCommitted = false;
-        webView.loadUrl(urlWithTheme);
-        scheduleInitialLoadTimers();
-      } catch (Exception e) {
-        Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
-        finish();
-      }
-    } catch (Exception e) {
-      Log.w(TAG, "Error creating WebView: " + e.getMessage(), e);
-      finish();
-    }
-  }
-  
-  private void scheduleInitialLoadTimers() {
-    if (loadTimersHandler == null) {
-      loadTimersHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    }
-    cancelLoadTimers();
-    retryAfterStallRunnable = () -> {
-      if (networkErrorHandled || isDismissing || webView == null) {
-        return;
-      }
-      if (mainFrameNavigationCommitted) {
-        return;
-      }
-      if (webViewRetryCount >= 1) {
-        return;
-      }
-      webViewRetryCount = 1;
-      // Cancel any in-flight reveal crossfade; otherwise onAnimationEnd can still remove the
-      // loading overlay after we start the retry load.
-      cancelLoadingRevealAnimation();
-      webViewLoadingRevealComplete = false;
-      webView.setAlpha(0f);
-      showLoading();
-      Log.w(TAG, "StashNative: no HTTP response in "
-          + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000.0)
-          + "s — retrying " + webViewCommittedReloadUrl);
-      int prevMode = webView.getSettings().getCacheMode();
-      try {
-        webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
-        webView.loadUrl(appendCacheBuster(webViewCommittedReloadUrl));
-      } finally {
-        webView.getSettings().setCacheMode(prevMode);
-      }
-    };
-    networkDeadlineRunnable = () -> {
-      if (networkErrorHandled || isDismissing) {
-        return;
-      }
-      if (mainFrameNavigationCommitted) {
-        return;
-      }
-      Log.e(TAG, "StashNative: TIMEOUT "
-          + (CardConstants.WEBVIEW_NETWORK_DEADLINE_MS / 1000)
-          + "s — main frame did not commit after "
-          + (webViewRetryCount + 1)
-          + " attempt(s)");
-      handleNetworkError();
-    };
-    loadTimersHandler.postDelayed(
-        retryAfterStallRunnable, CardConstants.WEBVIEW_RETRY_TIMEOUT_MS);
-    loadTimersHandler.postDelayed(
-        networkDeadlineRunnable, CardConstants.WEBVIEW_NETWORK_DEADLINE_MS);
-  }
-
-  private void markMainFrameNavigationCommittedIfNeeded() {
-    if (mainFrameNavigationCommitted || networkErrorHandled) {
-      return;
-    }
-    mainFrameNavigationCommitted = true;
-    cancelLoadTimers();
-  }
-
-  /**
-   * Reveals WebView only when both conditions are true:
-   * - document lifecycle finished (onPageFinished)
-   * - first frame committed/visible (onPageCommitVisible or progress fallback)
-   * This avoids a dark/blank intermediate frame in some WebView implementations.
-   */
-  private void maybeRevealWhenReady() {
-    if (networkErrorHandled || mainFrameErrorReceived || isDismissing) {
-      return;
-    }
-    if (!initialPageLoadComplete || !mainFrameNavigationCommitted) {
-      return;
-    }
-    revealWebViewAndRemoveLoading();
-  }
-
-  private static String appendCacheBuster(String url) {
-    if (url == null || url.isEmpty()) {
-      return url;
-    }
-    String sep = url.contains("?") ? "&" : "?";
-    return url + sep + "_stash_nc=" + System.currentTimeMillis();
-  }
-
-  private void cancelLoadTimers() {
-    if (loadTimersHandler == null) {
-      return;
-    }
-    loadTimersHandler.removeCallbacks(pendingLandscapeFinishFallback);
-    if (retryAfterStallRunnable != null) {
-      loadTimersHandler.removeCallbacks(retryAfterStallRunnable);
-    }
-    if (networkDeadlineRunnable != null) {
-      loadTimersHandler.removeCallbacks(networkDeadlineRunnable);
-    }
   }
 
   private void removePendingLandscapeFinishCallback() {
@@ -1834,62 +1187,12 @@ public class StashNativeCardPortraitActivity extends Activity {
         && !useModal;
   }
 
-  private void applyHostBackdropMatrixForPortraitCheckout() {
-    if (hostBackdropImageView == null
-        || hostBackdropBitmap == null
-        || hostBackdropBitmap.isRecycled()) {
-      return;
-    }
-    int viewW = hostBackdropImageView.getWidth();
-    int viewH = hostBackdropImageView.getHeight();
-    int bmpW = hostBackdropBitmap.getWidth();
-    int bmpH = hostBackdropBitmap.getHeight();
-    if (viewW == 0 || viewH == 0 || bmpW == 0 || bmpH == 0) {
-      return;
-    }
-    hostBackdropImageView.setScaleType(ImageView.ScaleType.MATRIX);
-    // Landscape-left vs landscape-right: opposite ±90° (swap vs earlier build fixes horizontal
-    // mirror from game buffer vs Display rotation convention).
-    float rotateDeg;
-    switch (hostBackdropSourceDisplayRotation) {
-      case Surface.ROTATION_270:
-        rotateDeg = -90f;
-        break;
-      case Surface.ROTATION_90:
-        rotateDeg = 90f;
-        break;
-      default:
-        rotateDeg = -90f;
-        break;
-    }
-    float cx = bmpW / 2f;
-    float cy = bmpH / 2f;
-    // Cover scale for ±90°: rotated bounds are bmpH × bmpW
-    float scale = Math.max((float) viewW / bmpH, (float) viewH / bmpW);
-    Matrix m = new Matrix();
-    m.postTranslate(-cx, -cy);
-    m.postRotate(rotateDeg);
-    m.postScale(scale, scale);
-    m.postTranslate(viewW / 2f, viewH / 2f);
-    hostBackdropImageView.setImageMatrix(m);
-  }
-
-  private void prepareHostBackdropForLandscapeDisplay() {
-    if (hostBackdropImageView == null) {
-      return;
-    }
-    hostBackdropImageView.setScaleX(1f);
-    hostBackdropImageView.setScaleY(1f);
-    hostBackdropImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-    hostBackdropImageView.setImageMatrix(new Matrix());
-  }
-
   /** Called when landscape is ready or fallback timer fires; idempotent if already completed. */
   private void completeDeferredFinishFromLandscape() {
     if (!pendingFinishAfterLandscape) {
       return;
     }
-    prepareHostBackdropForLandscapeDisplay();
+    StashHostBackdropSupport.prepareForLandscapeDisplay(hostBackdropImageView);
     pendingFinishAfterLandscape = false;
     removePendingLandscapeFinishCallback();
     finishActivityWithNoAnimation();
@@ -1925,13 +1228,13 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
   
-  private void handleNetworkError() {
+  void handleNetworkError() {
     if (networkErrorHandled || isDismissing) {
       return;
     }
     networkErrorHandled = true;
     
-    cancelLoadTimers();
+    StashCheckoutWebViewSupport.cancelLoadTimers(this);
     
     StashCheckoutBridge.emitNetworkError(this);
     
@@ -1977,174 +1280,6 @@ public class StashNativeCardPortraitActivity extends Activity {
     });
     
     cardContainer.addView(homeButton);
-  }
-  
-  private void injectSDK(WebView view) {
-    view.evaluateJavascript(StashWebViewUtils.JS_SDK_SCRIPT, null);
-  }
-  
-  private void checkProvider(String url) {
-    if (homeButton == null || url == null) {
-      return;
-    }
-    String lower = url.toLowerCase();
-    boolean show = lower.contains("klarna") || lower.contains("paypal") || lower.contains("stripe");
-    runOnUiThread(() -> homeButton.setVisibility(show ? View.VISIBLE : View.GONE));
-  }
-  
-  private void checkGooglePayRedirect(String url) {
-    if (url == null || googlePayRedirectHandled || initialURL == null || initialURL.isEmpty()) {
-      return;
-    }
-    
-    String lower = url.toLowerCase();
-    if (lower.contains(CardConstants.GOOGLE_PAY_DOMAIN)) {
-      googlePayRedirectHandled = true;
-      openGooglePayInBrowser(initialURL);
-    }
-  }
-  
-  private void openGooglePayInBrowser(String url) {
-    try {
-      String urlWithParam = url;
-      if (url != null && !url.isEmpty()) {
-        Uri uri = Uri.parse(url);
-        String existingQuery = uri.getQuery();
-        if (existingQuery != null && !existingQuery.isEmpty()) {
-          urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_AMP;
-        } else {
-          urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_QUERY;
-        }
-      }
-      
-      StashNativeCardPlugin.getInstance()
-          .openExternalBrowserFromCheckout(
-              this,
-              urlWithParam,
-              false,
-              this::hideCardSheetLeavingDimOverlay,
-              this::finishAfterExternalBrowserClose);
-    } catch (Exception e) {
-      Log.e(TAG, "Failed to open Google Pay URL: " + e.getMessage());
-      StashNativeCardPlugin.getInstance().cancelBrowserCloseTrackingLaunch();
-      dismissWithAnimation();
-    }
-  }
-  
-  /**
-   * Stops the loading/WebView crossfade and resets alpha so a new load can show the spinner until
-   * {@link #revealWebViewAndRemoveLoading()} runs again.
-   */
-  private void cancelLoadingRevealAnimation() {
-    // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
-    webViewRevealAnimationRunning = false;
-    webViewRevealAnimationToken++;
-    if (loadingView != null) {
-      loadingView.animate().cancel();
-      loadingView.setAlpha(1f);
-    }
-    if (webView != null) {
-      webView.animate().cancel();
-      webView.setAlpha(0f);
-    }
-  }
-
-  private void showLoading() {
-    runOnUiThread(() -> {
-      if (webViewLoadingRevealComplete || webViewRevealAnimationRunning) {
-        return;
-      }
-      if (webView != null) {
-        webView.setAlpha(0f);
-      }
-      // Idempotent: if a loading view is already attached to the container (e.g. created eagerly
-      // in addWebView before loadUrl), just ensure it is visible rather than removing+recreating
-      // (which would cause the brief "loading flash" the user sees).
-      if (loadingView != null && loadingView.getParent() != null) {
-        loadingView.setAlpha(1f);
-        loadingView.setVisibility(View.VISIBLE);
-        loadingView.bringToFront();
-        return;
-      }
-
-      if (cardContainer != null) {
-        loadingView = StashWebViewUtils.createAndShowLoadingView(
-            getApplicationContext(), cardContainer,
-            sheetChromeBackgroundArgb,
-            StashBackgroundColorUtils.spinnerAccentFor(sheetChromeBackgroundArgb));
-        if (loadingView != null) {
-          loadingView.setAlpha(1f);
-          loadingView.setVisibility(View.VISIBLE);
-        }
-      }
-    });
-  }
-
-  private void emitPageLoadedIfNeeded() {
-    if (pageLoadedCallbackSent || pageLoadStartTime <= 0) {
-      return;
-    }
-    pageLoadedCallbackSent = true;
-    long loadTimeMs = System.currentTimeMillis() - pageLoadStartTime;
-    pageLoadStartTime = 0;
-    StashCheckoutBridge.emitPageLoaded(this, loadTimeMs);
-  }
-
-  /**
-   * First load: crossfade loading overlay out and WebView in (aligned with iOS
-   * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
-   */
-  private void revealWebViewAndRemoveLoading() {
-    runOnUiThread(() -> {
-      if (webView == null || webViewRevealAnimationRunning) {
-        return;
-      }
-      if (webViewLoadingRevealComplete) {
-        removeLoadingViewFromParent();
-        return;
-      }
-      if (loadingView != null) {
-        webViewRevealAnimationRunning = true;
-        final int revealToken = ++webViewRevealAnimationToken;
-        loadingView.animate().cancel();
-        webView.animate().cancel();
-        loadingView.setAlpha(1f);
-        webView.setAlpha(0f);
-        AnimatorSet crossfade = new AnimatorSet();
-        crossfade.playTogether(
-            ObjectAnimator.ofFloat(webView, View.ALPHA, 0f, 1f),
-            ObjectAnimator.ofFloat(loadingView, View.ALPHA, 1f, 0f));
-        crossfade.setDuration(CardConstants.LOADING_REVEAL_DURATION_MS);
-        crossfade.setInterpolator(
-            new android.view.animation.AccelerateDecelerateInterpolator());
-        crossfade.addListener(new AnimatorListenerAdapter() {
-          @Override
-          public void onAnimationEnd(Animator animation) {
-            // If cancelLoadingRevealAnimation() ran (e.g. stall retry), running was cleared first;
-            // do not strip the overlay or mark the WebView revealed.
-            if (!webViewRevealAnimationRunning || revealToken != webViewRevealAnimationToken) {
-              return;
-            }
-            webViewRevealAnimationRunning = false;
-            webViewLoadingRevealComplete = true;
-            removeLoadingViewFromParent();
-            emitPageLoadedIfNeeded();
-          }
-        });
-        crossfade.start();
-      } else {
-        webViewLoadingRevealComplete = true;
-        webView.setAlpha(1f);
-        emitPageLoadedIfNeeded();
-      }
-    });
-  }
-
-  private void removeLoadingViewFromParent() {
-    if (loadingView != null && loadingView.getParent() != null) {
-      ((ViewGroup) loadingView.getParent()).removeView(loadingView);
-    }
-    loadingView = null;
   }
   
   private void animateSlideUp() {
@@ -2313,7 +1448,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
-  private void dismissWithAnimation() {
+  void dismissWithAnimation() {
     if (isDismissing) {
       return;
     }
@@ -2414,7 +1549,7 @@ public class StashNativeCardPortraitActivity extends Activity {
     finish();
   }
   
-  private void notifyListenerAndDismiss(String messageType, String messageBody, boolean success) {
+  void notifyListenerAndDismiss(String messageType, String messageBody, boolean success) {
     try {
       runOnUiThread(() -> {
         try {
@@ -2471,167 +1606,10 @@ public class StashNativeCardPortraitActivity extends Activity {
    * In landscape the card is fixed to its configured size; expand/collapse gestures and
    * JS API calls have no effect.
    */
-  private boolean isLandscapeMode() {
+  boolean isLandscapeMode() {
     return getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE;
   }
 
-  private class JSInterface {
-    @JavascriptInterface
-    public void onPaymentSuccess(String order) {
-      try {
-        notifyListenerAndDismiss(
-            CardConstants.MESSAGE_TYPE_SUCCESS, order != null ? order : "", true);
-      } catch (Exception e) {
-        Log.w(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
-      }
-    }
-    
-    @JavascriptInterface
-    public void onPaymentFailure() {
-      try {
-        notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_FAILURE, "", true);
-      } catch (Exception e) {
-        Log.w(TAG, "Error in onPaymentFailure: " + e.getMessage(), e);
-      }
-    }
-    
-    @JavascriptInterface
-    public void onPurchaseProcessing() {
-      try {
-        runOnUiThread(() -> {
-          try {
-            isPurchaseProcessing = true;
-            applyDragHandlePurchaseProcessingFade(true);
-          } catch (Exception e) {
-            Log.w(TAG, "Error setting purchase processing: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
-      }
-    }
-
-    @JavascriptInterface
-    public void onProcessingCompleted() {
-      try {
-        runOnUiThread(() -> {
-          try {
-            isPurchaseProcessing = false;
-            applyDragHandlePurchaseProcessingFade(false);
-          } catch (Exception e) {
-            Log.w(TAG, "Error clearing purchase processing: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error in onProcessingCompleted: " + e.getMessage(), e);
-      }
-    }
-
-    @JavascriptInterface
-    public void setPaymentChannel(String optinType) {
-      try {
-        notifyListenerAndDismiss(
-            CardConstants.MESSAGE_TYPE_OPTIN, optinType != null ? optinType : "", false);
-      } catch (Exception e) {
-        Log.w(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
-      }
-    }
-    
-    @JavascriptInterface
-    public void expand() {
-      // Modal does not support expand/collapse
-      if (useModal) {
-        return;
-      }
-      
-      try {
-        runOnUiThread(() -> {
-          try {
-            // While the keyboard owns the card geometry, ignore page-driven expand.
-            if (!usePopup && !keyboardActive && !isExpanded && !isLandscapeMode()) {
-              animateExpand();
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error in expand UI thread: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error in expand: " + e.getMessage(), e);
-      }
-    }
-    
-    @JavascriptInterface
-    public void collapse() {
-      // Modal does not support expand/collapse
-      if (useModal) {
-        return;
-      }
-      
-      try {
-        runOnUiThread(() -> {
-          try {
-            // While the keyboard owns the card geometry, ignore page-driven collapse.
-            if (!usePopup && !keyboardActive && isExpanded && !isLandscapeMode()) {
-              animateCollapse();
-            }
-          } catch (Exception e) {
-            Log.w(TAG, "Error in collapse UI thread: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error in collapse: " + e.getMessage(), e);
-      }
-    }
-
-    @JavascriptInterface
-    public void requestCloseFromPage() {
-      if (isPurchaseProcessing) {
-        return;
-      }
-      try {
-        runOnUiThread(() -> {
-          try {
-            dismissWithAnimation();
-          } catch (Exception e) {
-            Log.w(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
-      }
-    }
-
-    @JavascriptInterface
-    public void openExternalBrowser(String url) {
-      try {
-        runOnUiThread(() -> {
-          try {
-            String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
-            if (normalized == null) {
-              return;
-            }
-            String themed =
-                StashWebViewUtils.appendThemeQueryParameter(
-                    normalized, effectiveIsDarkForContent);
-            callbackSent = true;
-            isPurchaseProcessing = false;
-            StashNativeCardPlugin.getInstance()
-                .openExternalBrowserFromCheckout(
-                    StashNativeCardPortraitActivity.this,
-                    themed,
-                    true,
-                    StashNativeCardPortraitActivity.this::hideCardSheetLeavingDimOverlay,
-                    StashNativeCardPortraitActivity.this::finishAfterExternalBrowserClose);
-          } catch (Exception e) {
-            Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
-          }
-        });
-      } catch (Exception e) {
-        Log.w(TAG, "Error scheduling openExternalBrowser: " + e.getMessage(), e);
-      }
-    }
-  }
-  
   @Override
   protected void onPause() {
     super.onPause();
@@ -2653,7 +1631,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   protected void onDestroy() {
     try {
       super.onDestroy();
-      cancelLoadTimers();
+      StashCheckoutWebViewSupport.cancelLoadTimers(this);
 
       if (imeGlobalLayoutListener != null && rootLayout != null) {
         try {
@@ -2753,12 +1731,12 @@ public class StashNativeCardPortraitActivity extends Activity {
 
     if (useModal && cardContainer != null && rootLayout != null) {
       // Modal mode: always animate resize on rotation
-      resetImeOverlap();
+      StashCheckoutImeSupport.resetImeOverlap(this);
       animateModalRotation();
-      reapplyImeOverlapAfterRotation();
+      StashCheckoutImeSupport.reapplyImeOverlapAfterRotation(this);
     } else if (!usePopup && cardContainer != null && rootLayout != null) {
       boolean isTablet = cachedIsTablet;
-      resetImeOverlap();
+      StashCheckoutImeSupport.resetImeOverlap(this);
       if (isTablet) {
         // Seamless animation for tablet rotation
         animateTabletRotation();
@@ -2767,29 +1745,13 @@ public class StashNativeCardPortraitActivity extends Activity {
         // multi-window, etc. — same path for force-portrait and current-orientation checkout.
         animatePhoneCheckoutRotation();
       }
-      reapplyImeOverlapAfterRotation();
+      StashCheckoutImeSupport.reapplyImeOverlapAfterRotation(this);
     }
-  }
-
-  /** Recomputes the keyboard overlap against the new orientation once the rotation layout settles. */
-  private void reapplyImeOverlapAfterRotation() {
-    if (rootLayout == null) {
-      return;
-    }
-    rootLayout.post(() -> {
-      try {
-        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(rootLayout);
-        if (insets != null) {
-          applyImeOverlap(StashWindowCompat.getImeOverlapPx(insets));
-        }
-      } catch (Throwable ignored) {
-      }
-    });
   }
   
   private void animateTabletRotation() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int[] newSize = calculateTabletCardSize(metrics);
+    int[] newSize = StashCheckoutSizing.calculateTabletCardSize(this, metrics);
     int newWidth = newSize[0];
     int newBaseHeight = newSize[1];
     tabletSdkBaseHeightPx = newBaseHeight;
@@ -2839,7 +1801,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   
   private void animateModalRotation() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int[] newSize = calculateModalCardSize(metrics);
+    int[] newSize = StashCheckoutSizing.calculateModalCardSize(this, metrics);
     int newWidth = newSize[0];
     int newHeight = newSize[1];
     
@@ -2878,54 +1840,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
   
-  /**
-  * Computes phone checkout card dimensions for current orientation (portrait or landscape).
-  * Used by createCard() and animatePhoneCheckoutRotation().
-  */
-  private int[] calculatePhoneCheckoutCardSize(DisplayMetrics metrics) {
-    boolean isLandscape = getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    int cardWidth;
-    int cardHeight;
-    if (isLandscape) {
-      // Use rootLayout content height (after inset padding) when available; this is the
-      // actual drawable area. Fall back to screen height minus insets before first layout.
-      int contentHeight = screenHeight;
-      if (rootLayout != null && rootLayout.getHeight() > 0) {
-        contentHeight = rootLayout.getHeight() - rootLayout.getPaddingTop() - rootLayout.getPaddingBottom();
-      } else {
-        int topInset = StashWindowCompat.getSystemTopInsetPx(getWindow());
-        int bottomInset = StashWindowCompat.getSystemBottomInsetPx(getWindow());
-        if (topInset + bottomInset > 0) {
-          contentHeight = screenHeight - topInset - bottomInset;
-        }
-      }
-      if (contentHeight <= 0) contentHeight = screenHeight;
-
-      int w = (int) (screenWidth * cardWidthRatioLandscape);
-      int h = (int) (contentHeight * cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
-          this, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-      if (w < minPx) {
-        w = minPx;
-      }
-      if (h < minPx) {
-        h = minPx;
-      }
-      cardWidth = w;
-      cardHeight = h;
-    } else {
-      cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
-      cardHeight = computePhonePortraitSheetHeightPx(metrics);
-    }
-    return new int[]{cardWidth, cardHeight};
-  }
-  
   private void animatePhoneCheckoutRotation() {
     DisplayMetrics metrics = getResources().getDisplayMetrics();
-    int[] newSize = calculatePhoneCheckoutCardSize(metrics);
+    int[] newSize = StashCheckoutSizing.calculatePhoneCheckoutCardSize(this, metrics);
     int newWidth = newSize[0];
     
     FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) cardContainer.getLayoutParams();

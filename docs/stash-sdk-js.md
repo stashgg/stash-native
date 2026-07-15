@@ -96,6 +96,14 @@ Opens the URL in the system browser flow (Chrome Custom Tabs on Android, `SFSafa
 
 Host-facing semantics: [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) documents `stashNativeCardDidRequestExternalPaymentWithURL:` for iOS.
 
+### `window.stash_sdk.openLink(url)`
+
+Opens the URL in the external browser and nothing else: the checkout stays presented, no host callbacks fire, no dismissal, no `theme` parameter is appended, and browser-close tracking is not armed. Intended for terms and conditions and other miscellaneous links. Use `openExternalBrowser` for the external-payment flow.
+
+- **Argument:** Coerced with `(url !== undefined && url !== null) ? String(url) : ''`. Validated and normalized natively (http/https only, `https://` default scheme; `javascript:`/`file:`/`data:` rejected) via `normalizeExternalPaymentUrl` on Android and `NormalizeExternalPaymentURL` on iOS; invalid URLs are silently ignored.
+- **Android:** `openLink` on the JS interface; opens via the system browser flow (Custom Tabs when available, otherwise `ACTION_VIEW`) without result tracking.
+- **iOS:** posts `stashOpenLink`; opens via `UIApplication openURL:` (Safari app). The card remains presented and untouched.
+
 ### `window.close()`
 
 The injected script replaces `window.close` with a function that requests closing the checkout from the native side (`requestCloseFromPage` on Android, `stashWindowClose` message on iOS).
