@@ -38,6 +38,8 @@ public class StashNativeCardPlugin {
   
   // Use WeakReference to prevent Activity memory leaks
   private WeakReference<Activity> activityRef;
+  /** Live portrait checkout activity (card/modal path); set in its onCreate, cleared in onDestroy. */
+  private volatile WeakReference<StashNativeCardPortraitActivity> portraitActivityRef;
   /** Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in background. */
   StashNativeCard.StashNativeCardListener listener;
 
@@ -100,6 +102,11 @@ public class StashNativeCardPlugin {
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
   Runnable pendingHideLoadingRunnable;
+  /** Popup dialog path only: initial-load network deadline (card path uses activity timers). */
+  boolean popupInitialLoadComplete;
+  boolean popupNetworkErrorHandled;
+  Runnable popupNetworkDeadlineRunnable;
+  final Handler popupLoadHandler = new Handler(Looper.getMainLooper());
 
   /** When true, a short foreground service may run while an external browser / Custom Tabs is open. */
   private volatile boolean keepAliveEnabled;
@@ -297,8 +304,15 @@ public class StashNativeCardPlugin {
         }
         return;
       }
-      presentationUsesIsolatedWebviewProcess = false;
-      isCurrentlyPresented = false;
+      // Payment events with autoClose off leave the card visible; do not clear presented then.
+      boolean isPaymentEvent =
+          CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS.equals(action)
+              || CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE.equals(action);
+      boolean willClose = intent.getBooleanExtra(CardConstants.BROADCAST_EXTRA_WILL_CLOSE, true);
+      if (!isPaymentEvent || willClose) {
+        presentationUsesIsolatedWebviewProcess = false;
+        isCurrentlyPresented = false;
+      }
       if (l == null) {
         return;
       }
@@ -503,6 +517,7 @@ public class StashNativeCardPlugin {
       }
     } catch (Exception e) {
       cancelBrowserCloseTrackingLaunch();
+      stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
       executePendingCheckoutDismiss();
       Log.w(TAG, "Error opening external browser from checkout: " + e.getMessage(), e);
     }
@@ -668,6 +683,15 @@ public class StashNativeCardPlugin {
         this.presentationBackgroundColorHex =
             StashBackgroundColorUtils.normalizeHexOrNull(config.backgroundColor);
       } else {
+        // null config means defaults: reset any values a previous openCard left on the singleton.
+        this.forcePortraitOnCheckout = false;
+        this.cardHeightRatioPortrait = CardConstants.DEFAULT_CARD_HEIGHT_RATIO;
+        this.cardWidthRatioLandscape = CardConstants.DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE;
+        this.cardHeightRatioLandscape = CardConstants.DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE;
+        this.tabletWidthRatioPortrait = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT;
+        this.tabletHeightRatioPortrait = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT;
+        this.tabletWidthRatioLandscape = CardConstants.DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE;
+        this.tabletHeightRatioLandscape = CardConstants.DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE;
         this.cardAutoCloseOnPaymentEvent = true;
         this.presentationBackgroundColorHex = null;
       }
@@ -710,6 +734,7 @@ public class StashNativeCardPlugin {
           launchExternalBrowser(finalActivity, finalUrl);
         } catch (Exception e) {
           cancelBrowserCloseTrackingLaunch();
+          stopKeepAliveForegroundService(finalActivity.getApplicationContext());
           Log.w(TAG, "Error in openBrowser: " + e.getMessage(), e);
         }
       });
@@ -793,6 +818,14 @@ public class StashNativeCardPlugin {
    * Dismisses the current checkout dialog if showing.
    */
   public void dismissDialog() {
+    // Card/modal run in the portrait activity, which owns its own main-thread handle; dismiss it
+    // directly so teardown does not depend on the host activity still being reachable (it may be
+    // GC'd under memory pressure while the checkout is still up).
+    StashNativeCardPortraitActivity portrait =
+        portraitActivityRef != null ? portraitActivityRef.get() : null;
+    if (portrait != null) {
+      portrait.runOnUiThread(portrait::dismissWithAnimation);
+    }
     runOnMainSafely(() -> {
       try {
         dismissCurrentDialog();
@@ -803,11 +836,28 @@ public class StashNativeCardPlugin {
     });
   }
 
+  /** Package-private: the portrait activity registers/deregisters itself for programmatic dismiss. */
+  void setPortraitActivity(StashNativeCardPortraitActivity activity) {
+    portraitActivityRef = new WeakReference<>(activity);
+  }
+
+  void clearPortraitActivity(StashNativeCardPortraitActivity activity) {
+    if (portraitActivityRef != null && portraitActivityRef.get() == activity) {
+      portraitActivityRef = null;
+    }
+  }
+
   /**
    * Resets presentation state and dismisses any dialog.
    */
   public void resetPresentationState() {
     try {
+      // Card/modal: finish the activity WITHOUT emitting onDialogDismissed (reset is silent).
+      StashNativeCardPortraitActivity a =
+          portraitActivityRef != null ? portraitActivityRef.get() : null;
+      if (a != null) {
+        a.runOnUiThread(a::finishForPluginResetWithoutCallbacks);
+      }
       dismissDialog();
       paymentSuccessHandled = false;
       presentationUsesIsolatedWebviewProcess = false;
@@ -1023,6 +1073,7 @@ public class StashNativeCardPlugin {
   }
   
   void cleanupAllViews() {
+    StashPopupDialogSupport.cancelPopupNetworkDeadline(this);
     try {
       if (pendingHideLoadingRunnable != null && webView != null) {
         webView.removeCallbacks(pendingHideLoadingRunnable);
@@ -1090,6 +1141,10 @@ public class StashNativeCardPlugin {
     isPurchaseProcessing = false;
     usePopupPresentation = false;
     useModalPresentation = false;
+    try {
+      android.webkit.CookieManager.getInstance().flush();
+    } catch (Throwable ignored) {
+    }
   }
   
 }

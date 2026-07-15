@@ -26,7 +26,8 @@ class StashPopupJsInterface {
     }
     plugin.paymentSuccessHandled = true;
     plugin.isPurchaseProcessing = false;
-    final String orderPayload = order;
+    // Documented contract: no order argument surfaces as null (card path and iOS agree).
+    final String orderPayload = (order != null && !order.isEmpty()) ? order : null;
     plugin.runOnMainAndDismiss(() -> {
       StashNativeCard.StashNativeCardListener l = plugin.getListener();
       if (l != null) {
@@ -141,6 +142,10 @@ class StashPopupJsInterface {
         plugin.launchExternalBrowser(act, themed);
       } catch (Exception e) {
         plugin.cancelBrowserCloseTrackingLaunch();
+        Activity ka = plugin.getActivity();
+        if (ka != null) {
+          plugin.stopKeepAliveForegroundService(ka.getApplicationContext());
+        }
         Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
       }
     });

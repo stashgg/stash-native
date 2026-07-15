@@ -113,21 +113,21 @@ Drawer-style card: slides up from the bottom on phones and shows centered on tab
 
 ```java
 StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();  // or null for defaults
-StashNativeCard.getInstance().openCard("https://testcard.stashpreview.com", config);
+StashNativeCard.getInstance().openCard("https://test.stashpreview.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
 let config = StashNativeCardConfig()  // or nil for defaults
-StashNativeCard.sharedInstance().openCard(withURL: "https://testcard.stashpreview.com", config: config)
+StashNativeCard.sharedInstance().openCard(withURL: "https://test.stashpreview.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
 StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil for defaults
-[[StashNativeCard sharedInstance] openCardWithURL:@"https://testcard.stashpreview.com" config:config];
+[[StashNativeCard sharedInstance] openCardWithURL:@"https://test.stashpreview.com" config:config];
 ```
 
 ### Config
@@ -311,21 +311,21 @@ Centered modal on all devices. Same layout on phone and tablet; allows dynamic r
 
 ```java
 StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();  // or null for defaults
-StashNativeCard.getInstance().openModal("https://testcard.stashpreview.com", config);
+StashNativeCard.getInstance().openModal("https://test.stashpreview.com", config);
 ```
 
 **iOS (Swift)**
 
 ```swift
 let config = StashNativeModalConfig()  // or nil for defaults
-StashNativeCard.sharedInstance().openModal(withURL: "https://testcard.stashpreview.com", config: config)
+StashNativeCard.sharedInstance().openModal(withURL: "https://test.stashpreview.com", config: config)
 ```
 
 **iOS (Objective-C)**
 
 ```objc
 StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or nil for defaults
-[[StashNativeCard sharedInstance] openModalWithURL:@"https://testcard.stashpreview.com" config:config];
+[[StashNativeCard sharedInstance] openModalWithURL:@"https://test.stashpreview.com" config:config];
 ```
 
 ### Config
@@ -373,13 +373,13 @@ Opens the URL in the platform browser: on Android, Chrome Custom Tabs when `andr
 **Android**
 
 ```java
-StashNativeCard.getInstance().openBrowser("https://testcard.stashpreview.com");
+StashNativeCard.getInstance().openBrowser("https://test.stashpreview.com");
 ```
 
 **iOS (Swift)**
 
 ```swift
-StashNativeCard.sharedInstance().openBrowser(withURL: "https://testcard.stashpreview.com")
+StashNativeCard.sharedInstance().openBrowser(withURL: "https://test.stashpreview.com")
 // Optionally dismiss when handling a deeplink:
 StashNativeCard.sharedInstance().closeBrowser()
 ```
@@ -387,7 +387,7 @@ StashNativeCard.sharedInstance().closeBrowser()
 **iOS (Objective-C)**
 
 ```objc
-[[StashNativeCard sharedInstance] openBrowserWithURL:@"https://testcard.stashpreview.com"];
+[[StashNativeCard sharedInstance] openBrowserWithURL:@"https://test.stashpreview.com"];
 // Optionally dismiss when handling a deeplink:
 [[StashNativeCard sharedInstance] closeBrowser];
 ```

@@ -235,6 +235,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (void)cleanupCardInstance {
+    stashInvalidateRotationResizeArtifacts(self.currentPresentedVC);
     [self unregisterIPhoneCardWindowGeometryObservers];
     [self stopKeyboardObserving];
     
@@ -318,6 +319,11 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             // Give the window a solid background so nothing shows through during the
             // brief gap between card teardown and Safari sliding up.
             self.portraitWindow.backgroundColor = stash_sheetBackgroundUIColor();
+        } else if ([self.portraitWindow.rootViewController
+                       isKindOfClass:[SafariPortraitContainerViewController class]]) {
+            // Root already swapped to Safari's container: an openBrowser handoff superseded
+            // this cleanup (e.g. its dismiss animation was still in flight). The Safari
+            // session owns the window now; tearDownSafariPresentationState dismantles it.
         } else {
             if (self.portraitWindow.rootViewController) {
                 [self.portraitWindow.rootViewController dismissViewControllerAnimated:NO completion:nil];
@@ -348,7 +354,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _usePopupPresentation = NO;
     _useModalPresentation = NO;
     _useCustomPopupSize = NO;
-    _callbackWasCalled = NO;
+    // _callbackWasCalled intentionally NOT reset here; openInCardUI resets it per session
+    // so overlapping dismiss completions cannot double-fire didDismiss.
     _paymentSuccessHandled = NO;
     _autoCloseOnPaymentEvent = YES;
     _presentationBackgroundColorHex = nil;
@@ -510,8 +517,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     } else {
         // Unreachable today: openInSafariViewController is only called from openBrowserWithURL:,
         // which sets _safariOpenedViaOpenBrowser=YES. Kept for a non-openBrowser Safari path.
-        [self cleanupCardInstance];
         [self callDelegateCallbackOnce];
+        [self cleanupCardInstance];
     }
 }
 
@@ -1027,6 +1034,17 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 #pragma mark - Gesture Handling Methods (Matching Unity)
 
 - (void)handleDragGestureBegan:(UIPanGestureRecognizer *)gesture cardView:(UIView *)cardView {
+    // A new drag owns the frame; stop any running expand/collapse link so they do not fight.
+    if (self.expandDisplayLink) {
+        [self.expandDisplayLink invalidate];
+        self.expandDisplayLink = nil;
+        self.expandCompletion = nil;
+    }
+    if (self.collapseDisplayLink) {
+        [self.collapseDisplayLink invalidate];
+        self.collapseDisplayLink = nil;
+        self.collapseCompletion = nil;
+    }
     self.initialY = cardView.frame.origin.y;
     
     if (!isRunningOniPad()) {
@@ -1078,7 +1096,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             } else {
                 CGFloat dragAmount = fabs(currentTravel);
                 CGFloat heightRange = expandedHeight - collapsedHeight;
-                currentProgress = MIN(1.0, dragAmount / heightRange);
+                // Degenerate ratios can make the range 0; 0/0 is NaN and poisons the frame.
+                currentProgress = (heightRange > 0.0f) ? MIN(1.0, dragAmount / heightRange) : 0.0;
             }
         } else if (currentTravel > 0) {
             if (_isCardExpanded) {
@@ -1189,8 +1208,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             setOverlayToDismissAppearance(overlayView);
         } completion:^(BOOL finished) {
             if (!self.currentPresentedVC) {
-                [self cleanupCardInstance];
                 [self callDelegateCallbackOnce];
+                [self cleanupCardInstance];
                 return;
             }
             
@@ -1199,8 +1218,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             UIViewController *vcToDismiss = self.currentPresentedVC;
             [vcToDismiss dismissViewControllerAnimated:NO completion:^{
                 if (self.currentPresentedVC == vcToDismiss) {
-                    [self cleanupCardInstance];
                     [self callDelegateCallbackOnce];
+                    [self cleanupCardInstance];
                 }
             }];
         }];
@@ -1324,8 +1343,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }
     dispatch_async(dispatch_get_main_queue(), ^{
         [self dismissWithAnimation:^{
-            [self cleanupCardInstance];
             [self callDelegateCallbackOnce];
+            [self cleanupCardInstance];
         }];
     });
 }
@@ -1552,6 +1571,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     self.iPhoneCardWindowGeometryObserversRegistered = NO;
     NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
     [nc removeObserver:self name:UIDeviceOrientationDidChangeNotification object:nil];
+    // Balance beginGenerating from register; UIKit refcounts the orientation machinery.
+    [[UIDevice currentDevice] endGeneratingDeviceOrientationNotifications];
     if (self.pendingIPhoneCardGeometryRelayoutBlock) {
         dispatch_block_cancel(self.pendingIPhoneCardGeometryRelayoutBlock);
         self.pendingIPhoneCardGeometryRelayoutBlock = nil;

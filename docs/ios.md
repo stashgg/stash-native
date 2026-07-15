@@ -30,7 +30,7 @@ Declared in [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include
 - `-openBrowserWithURL:`, `-closeBrowser`, `-dismissSafariViewControllerWithResult:`
 - `-dismiss`, `-resetPresentationState`
 
-Delegate callbacks (same header): `stashNativeCardDidCompletePaymentWithOrder:`, `stashNativeCardDidFailPayment`, `stashNativeCardDidReceiveOptIn:`, `stashNativeCardDidDismiss`, `stashNativeCardDidLoadPage:`, `stashNativeCardDidRequestExternalPaymentWithURL:`, `stashNativeCardDidEncounterNetworkError`.
+Delegate callbacks (same header): `stashNativeCardDidCompletePaymentWithOrder:`, `stashNativeCardDidFailPayment`, `stashNativeCardDidReceiveOptIn:`, `stashNativeCardDidDismiss`, `stashNativeCardDidLoadPage:`, `stashNativeCardDidRequestExternalPaymentWithURL:`, `stashNativeCardDidCloseBrowser`, `stashNativeCardDidEncounterNetworkError`.
 
 Internal routing: search `openURLInternal:` and `openInCardUI:` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 

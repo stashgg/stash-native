@@ -157,6 +157,9 @@ CGRect stashIPhoneCardOverscanBackdropFrameForWindowBounds(CGRect windowBounds);
 
 #pragma mark - View / window utilities (StashNativeCardViewUtils.m)
 
+/// Invalidates a pending rotation-resize display link on the VC (defined in StashNativeCardViewControllers.m).
+void stashInvalidateRotationResizeArtifacts(UIViewController *vc);
+
 /// Recursively find the first WKWebView in a view subtree.
 WKWebView *findWebViewInView(UIView *view);
 UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad);

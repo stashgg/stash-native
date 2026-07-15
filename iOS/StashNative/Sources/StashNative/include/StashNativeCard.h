@@ -173,7 +173,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 /**
  * Called when a network error occurs during initial page load.
- * This includes: no network connection, page load failure, or timeout (5 seconds).
+ * This includes: no network connection, page load failure, or timeout (15 seconds).
  * The dialog is automatically dismissed before this callback is invoked.
  */
 - (void)stashNativeCardDidEncounterNetworkError;
@@ -240,7 +240,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)sharedInstance;
 
 /**
- * Returns the SDK version string (e.g. "2.1.4").
+ * Returns the SDK version string (e.g. "2.2.4").
  */
 + (NSString *)sdkVersion;
 

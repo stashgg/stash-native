@@ -28,6 +28,17 @@
 static const void *kRotationResizeCardViewKey = &kRotationResizeCardViewKey;
 static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKey;
 
+/// Invalidates a pending rotation-resize display link on the VC (dismiss during rotation).
+void stashInvalidateRotationResizeArtifacts(UIViewController *vc) {
+    if (!vc) return;
+    CADisplayLink *link = objc_getAssociatedObject(vc, kRotationResizeDisplayLinkKey);
+    if (link) {
+        [link invalidate];
+    }
+    objc_setAssociatedObject(vc, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(vc, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
 static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     return fabs(a.size.width - b.size.width) > 0.5 || fabs(a.size.height - b.size.height) > 0.5
         || fabs(a.origin.x - b.origin.x) > 0.5 || fabs(a.origin.y - b.origin.y) > 0.5;
@@ -155,15 +166,28 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     BOOL isLandscape = size.width > size.height;
     
+    __block CADisplayLink *createdLink = nil;
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         switchWebViewToFrameLayoutInCardView(cardView);
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
+        CADisplayLink *stale = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
+        if (stale) {
+            [stale invalidate];
+        }
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
+        createdLink = resizeLink;
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, resizeLink, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [resizeLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        // MRC-safe: a __block object var is non-owning under MRC, so createdLink can dangle if a
+        // newer rotation or teardown already invalidated+cleared the link. Only message the live
+        // object held by the association; use createdLink purely as a pointer-identity tag.
         CADisplayLink *resizeLink = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
+        if (resizeLink != createdLink) {
+            // A newer rotation replaced our link, or teardown cleared it; that path owns cleanup.
+            return;
+        }
         [resizeLink invalidate];
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);

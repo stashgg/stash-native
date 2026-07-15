@@ -326,18 +326,18 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     [_modalFallbackTimer invalidate];
     _modalFallbackTimer = nil;
     
-    // Call the network error callback
+    // Header contract: dialog is dismissed BEFORE the callback (same main queue, FIFO), so a
+    // retry openCard inside the callback is not swallowed by the presented guard.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[StashNativeCard sharedInstance] resetPresentationState];
+    });
+
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
     if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidEncounterNetworkError)]) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [delegate stashNativeCardDidEncounterNetworkError];
         });
     }
-    
-    // Dismiss the dialog without calling onDismiss
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[StashNativeCard sharedInstance] resetPresentationState];
-    });
 }
 
 - (void)cancelNetworkTimeout {
@@ -755,6 +755,15 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 
 - (void)webView:(WKWebView *)webView contextMenuConfigurationForElement:(WKContextMenuElementInfo *)elementInfo completionHandler:(void (^)(UIContextMenuConfiguration *))completionHandler API_AVAILABLE(ios(13.0)) {
     completionHandler(nil);
+}
+
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures {
+    // target=_blank / window.open: load in the same webview (matches Android single-window
+    // behavior). Deeplink schemes then route through decidePolicyForNavigationAction as usual.
+    if (!navigationAction.targetFrame || !navigationAction.targetFrame.isMainFrame) {
+        [webView loadRequest:navigationAction.request];
+    }
+    return nil;
 }
 
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {

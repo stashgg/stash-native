@@ -952,7 +952,7 @@
                     </button>
                 </div>
 
-                <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-label="Callbacks">
+                <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-labelledby="tab-btn-callbacks">
                 <div class="stack-gap-md">
                     <div class="input-wrap">
                         <label class="field-label" for="sample-input">Keyboard Input Test</label>
@@ -990,7 +990,7 @@
 
                 </section>
 
-                <section class="tab-panel" id="tab-links" role="tabpanel" aria-label="Links">
+                <section class="tab-panel" id="tab-links" role="tabpanel" aria-labelledby="tab-btn-links">
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Deeplink tests</span>
                     <div class="btn-stack">
@@ -1051,7 +1051,7 @@
 
                 </section>
 
-                <section class="tab-panel" id="tab-errors" role="tabpanel" aria-label="Errors">
+                <section class="tab-panel" id="tab-errors" role="tabpanel" aria-labelledby="tab-btn-errors">
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Exception tests</span>
                     <div class="btn-stack">
@@ -1087,7 +1087,7 @@
                 </div>
                 </section>
 
-                <section class="tab-panel" id="tab-render" role="tabpanel" aria-label="Render">
+                <section class="tab-panel" id="tab-render" role="tabpanel" aria-labelledby="tab-btn-render">
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Rendering test</span>
                         <div id="rt-panel" class="rt-panel">
@@ -1216,21 +1216,21 @@
     </div>
 
     <div class="tab-dock">
-        <div id="status" class="status-panel">Ready</div>
+        <div id="status" class="status-panel" role="status">Ready</div>
         <nav class="tab-bar" role="tablist" aria-label="Test sections">
-            <button type="button" class="tab-btn" role="tab" data-tab="callbacks" aria-selected="true">
+            <button type="button" class="tab-btn" role="tab" id="tab-btn-callbacks" aria-controls="tab-callbacks" data-tab="callbacks" aria-selected="true" tabindex="0">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
                 <span>Callbacks</span>
             </button>
-            <button type="button" class="tab-btn" role="tab" data-tab="links" aria-selected="false">
+            <button type="button" class="tab-btn" role="tab" id="tab-btn-links" aria-controls="tab-links" data-tab="links" aria-selected="false" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
                 <span>Links</span>
             </button>
-            <button type="button" class="tab-btn" role="tab" data-tab="errors" aria-selected="false">
+            <button type="button" class="tab-btn" role="tab" id="tab-btn-errors" aria-controls="tab-errors" data-tab="errors" aria-selected="false" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
                 <span>Errors</span>
             </button>
-            <button type="button" class="tab-btn" role="tab" data-tab="render" aria-selected="false">
+            <button type="button" class="tab-btn" role="tab" id="tab-btn-render" aria-controls="tab-render" data-tab="render" aria-selected="false" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
                 <span>Render</span>
             </button>
@@ -1298,6 +1298,7 @@
                 for (var i = 0; i < buttons.length; i++) {
                     var on = buttons[i].getAttribute('data-tab') === name;
                     buttons[i].setAttribute('aria-selected', on ? 'true' : 'false');
+                    buttons[i].setAttribute('tabindex', on ? '0' : '-1');
                 }
                 for (var j = 0; j < panels.length; j++) {
                     panels[j].classList.toggle('is-active', panels[j].id === 'tab-' + name);
@@ -1309,6 +1310,22 @@
                     activate(this.getAttribute('data-tab'));
                 });
             }
+            document.querySelector('.tab-bar').addEventListener('keydown', function (e) {
+                var idx = -1;
+                for (var i = 0; i < buttons.length; i++) {
+                    if (buttons[i] === document.activeElement) { idx = i; }
+                }
+                if (idx < 0) { return; }
+                var next = idx;
+                if (e.key === 'ArrowRight') { next = (idx + 1) % buttons.length; }
+                else if (e.key === 'ArrowLeft') { next = (idx - 1 + buttons.length) % buttons.length; }
+                else if (e.key === 'Home') { next = 0; }
+                else if (e.key === 'End') { next = buttons.length - 1; }
+                else { return; }
+                e.preventDefault();
+                buttons[next].focus();
+                activate(buttons[next].getAttribute('data-tab'));
+            });
         })();
 
         (function initRenderingTest() {

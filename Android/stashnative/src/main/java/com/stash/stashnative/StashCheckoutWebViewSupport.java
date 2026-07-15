@@ -47,6 +47,12 @@ final class StashCheckoutWebViewSupport {
         activity.handleNetworkError();
         return;
       }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        try {
+          activity.webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
+        } catch (Throwable ignored) {
+        }
+      }
       try {
         StashWebViewUtils.configureWebViewSettings(activity.webView, activity.effectiveIsDarkForContent);
       } catch (Exception e) {
@@ -121,6 +127,16 @@ final class StashCheckoutWebViewSupport {
               Log.e(TAG, "Network error on main frame during initial load");
               activity.mainFrameErrorReceived = true;
               activity.handleNetworkError();
+            } else if (request != null && request.isForMainFrame()
+                && activity.initialPageLoadComplete && !activity.isDismissing && error != null) {
+              // Connection lost AFTER load: dismiss instead of showing Chromium's error page
+              // (parity with iOS). Whitelist real network codes; ERROR_UNKNOWN maps net::ERR_ABORTED
+              // from superseded navigations and must not trigger a spurious dismiss.
+              int code = error.getErrorCode();
+              if (code == WebViewClient.ERROR_HOST_LOOKUP || code == WebViewClient.ERROR_CONNECT
+                  || code == WebViewClient.ERROR_TIMEOUT || code == WebViewClient.ERROR_IO) {
+                activity.runOnUiThread(activity::dismissWithAnimation);
+              }
             }
           } catch (Exception e) {
             Log.w(TAG, "Error in onReceivedError: " + e.getMessage(), e);
@@ -166,6 +182,24 @@ final class StashCheckoutWebViewSupport {
             Log.w(TAG, "Error removing dead WebView: " + e.getMessage(), e);
           }
           activity.webView = null;
+          // OS-killed (not a real crash) and not already retried: rebuild the checkout once
+          // rather than showing a network error (parity with iOS reload-on-terminate).
+          if (!detail.didCrash() && !activity.rendererGoneReloadAttempted && !activity.isDismissing) {
+            activity.rendererGoneReloadAttempted = true;
+            activity.initialPageLoadComplete = false;
+            activity.mainFrameErrorReceived = false;
+            activity.mainFrameNavigationCommitted = false;
+            // Fresh deadline and stall retry for the rebuilt load. OS kills usually happen
+            // long after the original 15s target; reusing it would fire the deadline (and
+            // dismiss the checkout) before the reload can commit.
+            activity.networkDeadlineTargetUptime = 0L;
+            activity.webViewRetryCount = 0;
+            // Detach the stale loading overlay from the dead layout before rebuilding, else
+            // addWebView creates a second overlay on top of the orphaned first one.
+            removeLoadingViewFromParent(activity);
+            StashCheckoutWebViewSupport.addWebView(activity);
+            return true;
+          }
           activity.handleNetworkError();
           return true;
         }
@@ -176,8 +210,9 @@ final class StashCheckoutWebViewSupport {
           @Override
           public void onProgressChanged(WebView view, int newProgress) {
             super.onProgressChanged(view, newProgress);
-            // Below API 29 there is no onPageCommitVisible; first progress means bytes are arriving.
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 0) {
+            // Below API 29 there is no onPageCommitVisible; Chromium reports a fixed 10 at
+            // navigation start before any bytes, so only >10 means the main resource committed.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && newProgress > 10) {
               markMainFrameNavigationCommittedIfNeeded(activity);
               maybeRevealWhenReady(activity);
             }
@@ -278,10 +313,16 @@ final class StashCheckoutWebViewSupport {
           + " attempt(s)");
       activity.handleNetworkError();
     };
+    // Absolute deadline: set once per presentation; pause/resume reschedules the remaining time
+    // rather than granting a fresh 15s each cycle. Fresh activity instance = fresh (0) target.
+    long now = android.os.SystemClock.uptimeMillis();
+    if (activity.networkDeadlineTargetUptime == 0L) {
+      activity.networkDeadlineTargetUptime = now + CardConstants.WEBVIEW_NETWORK_DEADLINE_MS;
+    }
+    long remaining = Math.max(0L, activity.networkDeadlineTargetUptime - now);
     activity.loadTimersHandler.postDelayed(
         activity.retryAfterStallRunnable, CardConstants.WEBVIEW_RETRY_TIMEOUT_MS);
-    activity.loadTimersHandler.postDelayed(
-        activity.networkDeadlineRunnable, CardConstants.WEBVIEW_NETWORK_DEADLINE_MS);
+    activity.loadTimersHandler.postDelayed(activity.networkDeadlineRunnable, remaining);
   }
 
   static void markMainFrameNavigationCommittedIfNeeded(StashNativeCardPortraitActivity activity) {
@@ -472,6 +513,10 @@ final class StashCheckoutWebViewSupport {
     long loadTimeMs = System.currentTimeMillis() - activity.pageLoadStartTime;
     activity.pageLoadStartTime = 0;
     StashCheckoutBridge.emitPageLoaded(activity, loadTimeMs);
+    try {
+      android.webkit.CookieManager.getInstance().flush();
+    } catch (Throwable ignored) {
+    }
   }
 
   /**

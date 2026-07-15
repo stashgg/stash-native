@@ -40,6 +40,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
 enum StashSampleDeepLink {
     static func handle(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "stashdemo" else { return false }
         let urlString = url.absoluteString
 
         if urlString.contains("stash-pay/success") {
@@ -50,7 +51,24 @@ enum StashSampleDeepLink {
             StashNativeCard.sharedInstance().dismissSafariViewController(withResult: false)
             return true
         }
+        if urlString.contains("stash-pay/cancel") {
+            StashNativeCard.sharedInstance().closeBrowser()
+            return true
+        }
 
-        return false
+        // Pass-through deeplink: close the in-app browser and surface the URL
+        // (parity with the Android sample's outcome dialog).
+        StashNativeCard.sharedInstance().closeBrowser()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            let alert = UIAlertController(title: "Deeplink", message: urlString, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            let scene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first { $0.activationState == .foregroundActive }
+            var top = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+            while let presented = top?.presentedViewController { top = presented }
+            top?.present(alert, animated: true)
+        }
+        return true
     }
 }

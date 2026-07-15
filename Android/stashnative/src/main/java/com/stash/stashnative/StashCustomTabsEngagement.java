@@ -147,9 +147,12 @@ final class StashCustomTabsEngagement {
         switch (navigationEvent) {
           case NAVIGATION_STARTED:
             sawNavigationStarted = true;
+            // A real navigation supersedes any pending abort-notify (e.g. JS/3DS redirect).
+            main.removeCallbacks(notify);
             return;
           case NAVIGATION_FINISHED:
             sawNavigationFinished = true;
+            main.removeCallbacks(notify);
             return;
           case NAVIGATION_ABORTED:
             if (!sawNavigationStarted && !sawNavigationFinished) {

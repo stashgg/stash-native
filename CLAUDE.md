@@ -60,7 +60,7 @@ All reflection calls MUST catch `Throwable` and degrade gracefully. No missing d
 `StashNativeCardPortraitActivity` communicates with `StashNativeCardPlugin` via package-local broadcasts in the same process. Receiver registered with `ContextCompat.registerReceiver()` and `RECEIVER_NOT_EXPORTED`.
 
 ### Custom Tabs result (Android)
-Chrome Custom Tabs use `startActivityForResult` from the host `Activity` (`setActivity`). Integrators must override `onActivityResult` and call `StashNativeCard.getInstance().onActivityResult(...)`. `StashNativeCardPortraitActivity` forwards automatically for in-SDK launches from portrait.
+Chrome Custom Tabs results are consumed internally by `StashNativeBrowserProxyActivity`; hosts do not override `onActivityResult` or forward anything. Browser-close detection combines the proxy result with the engagement-session fallback in `StashCustomTabsEngagement`.
 
 ### iOS Shared State
 All shared mutable state and cross-file constants are DEFINED in `StashNativeCard.m` (single home) and DECLARED extern in `StashNativeCardPrivate.h`, which also holds the internal class interfaces (view controllers, webview delegates, `StashNativeCardInternal`). The other `.m` files import Private.h and never define shared state. Constants used by only one file stay `static` in that file. Do not duplicate definitions or re-scope state without understanding this coupling. New `.m` files must also be added to `StashNative.xcodeproj` (SPM globs automatically; the pbxproj does not).

@@ -222,10 +222,6 @@ final class StashPopupDialogSupport {
           // visible. This Dialog is a normal (non edge-to-edge) window, so adjustResize works.
           window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
           window.setBackgroundDrawableResource(android.R.color.transparent);
-          window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-          WindowManager.LayoutParams windowParams = window.getAttributes();
-          windowParams.dimAmount = CardConstants.OVERLAY_ALPHA;
-          window.setAttributes(windowParams);
           StashWebViewUtils.applySystemBarAppearance(
               window, window.getDecorView(), StashWebViewUtils.isDarkTheme(activity));
         } catch (Exception e) {
@@ -288,6 +284,9 @@ final class StashPopupDialogSupport {
 
   static void dismissPopupDialog(StashNativeCardPlugin plugin) {
     try {
+      // A requested close must not be converted into onNetworkError by the load deadline
+      // firing during the 250ms dismiss animation.
+      cancelPopupNetworkDeadline(plugin);
       if (plugin.currentDialog != null && plugin.currentContainer != null) {
         plugin.currentContainer.animate()
             .alpha(0.0f)
@@ -415,6 +414,14 @@ final class StashPopupDialogSupport {
       public void onPageFinished(WebView view, String url) {
         try {
           super.onPageFinished(view, url);
+          plugin.popupInitialLoadComplete = true;
+          cancelPopupNetworkDeadline(plugin);
+          // Persist cookies as soon as the page lands (parity with the card path); a later
+          // process kill must not lose consent-banner or session cookies.
+          try {
+            android.webkit.CookieManager.getInstance().flush();
+          } catch (Throwable ignored) {
+          }
 
           if (plugin.pageLoadStartTime > 0) {
             long loadTimeMs = System.currentTimeMillis() - plugin.pageLoadStartTime;
@@ -430,6 +437,9 @@ final class StashPopupDialogSupport {
           }
 
           injectStashSDKFunctions(plugin);
+          if (plugin.pendingHideLoadingRunnable != null) {
+            view.removeCallbacks(plugin.pendingHideLoadingRunnable);
+          }
           plugin.pendingHideLoadingRunnable = () -> {
             try {
               hideLoadingIndicator(plugin, activity);
@@ -452,8 +462,34 @@ final class StashPopupDialogSupport {
           if (error != null) {
             Log.e(TAG, "WebView error: " + error.getDescription());
           }
+          // Fast-fail only on definitive connectivity codes (parity with the card path and
+          // iOS, which ignores NSURLErrorCancelled). ERROR_UNKNOWN maps net::ERR_ABORTED
+          // from superseded navigations; everything else falls through to the 15s deadline.
+          if (request != null && request.isForMainFrame() && !plugin.popupInitialLoadComplete
+              && error != null) {
+            int code = error.getErrorCode();
+            if (code == android.webkit.WebViewClient.ERROR_HOST_LOOKUP
+                || code == android.webkit.WebViewClient.ERROR_CONNECT
+                || code == android.webkit.WebViewClient.ERROR_TIMEOUT
+                || code == android.webkit.WebViewClient.ERROR_IO) {
+              firePopupNetworkError(plugin);
+            }
+          }
         } catch (Exception e) {
           Log.d(TAG, "Error in onReceivedError: " + e.getMessage(), e);
+        }
+      }
+
+      @Override
+      public void onReceivedHttpError(WebView view, android.webkit.WebResourceRequest request,
+          android.webkit.WebResourceResponse errorResponse) {
+        try {
+          super.onReceivedHttpError(view, request, errorResponse);
+          if (request != null && request.isForMainFrame() && !plugin.popupInitialLoadComplete) {
+            firePopupNetworkError(plugin);
+          }
+        } catch (Exception e) {
+          Log.d(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
         }
       }
 
@@ -485,9 +521,60 @@ final class StashPopupDialogSupport {
         Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
       }
       webView.loadUrl(urlThemed);
+      armPopupNetworkDeadline(plugin);
     } catch (Exception e) {
       Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
       plugin.cleanupAllViews();
+    }
+  }
+
+  /** Card path has retry+deadline timers; the popup dialog only needs an initial-load deadline. */
+  static void armPopupNetworkDeadline(StashNativeCardPlugin plugin) {
+    plugin.popupInitialLoadComplete = false;
+    plugin.popupNetworkErrorHandled = false;
+    if (plugin.popupNetworkDeadlineRunnable != null) {
+      plugin.popupLoadHandler.removeCallbacks(plugin.popupNetworkDeadlineRunnable);
+    }
+    plugin.popupNetworkDeadlineRunnable = () -> {
+      if (plugin.popupInitialLoadComplete || plugin.popupNetworkErrorHandled) {
+        return;
+      }
+      firePopupNetworkError(plugin);
+    };
+    plugin.popupLoadHandler.postDelayed(
+        plugin.popupNetworkDeadlineRunnable, CardConstants.WEBVIEW_NETWORK_DEADLINE_MS);
+  }
+
+  static void cancelPopupNetworkDeadline(StashNativeCardPlugin plugin) {
+    if (plugin.popupNetworkDeadlineRunnable != null) {
+      plugin.popupLoadHandler.removeCallbacks(plugin.popupNetworkDeadlineRunnable);
+      plugin.popupNetworkDeadlineRunnable = null;
+    }
+  }
+
+  /** Same teardown as handleWebViewRenderProcessGone: dismiss silently and report onNetworkError. */
+  static void firePopupNetworkError(StashNativeCardPlugin plugin) {
+    if (plugin.popupNetworkErrorHandled) {
+      return;
+    }
+    plugin.popupNetworkErrorHandled = true;
+    cancelPopupNetworkDeadline(plugin);
+    try {
+      if (plugin.currentDialog != null) {
+        try {
+          plugin.currentDialog.setOnDismissListener(null);
+        } catch (Exception ignored) {
+        }
+      }
+      plugin.cleanupAllViews();
+      plugin.presentationUsesIsolatedWebviewProcess = false;
+      plugin.isCurrentlyPresented = false;
+      StashNativeCard.StashNativeCardListener l = plugin.getListener();
+      if (l != null) {
+        l.onNetworkError();
+      }
+    } catch (Exception e) {
+      Log.w(TAG, "Error in popup network error: " + e.getMessage(), e);
     }
   }
 

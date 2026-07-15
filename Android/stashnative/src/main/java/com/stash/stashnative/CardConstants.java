@@ -178,7 +178,7 @@ public final class CardConstants {
   // ============================================================================
   
   /** Default modal phone width ratio for portrait . */
-  public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.9f;
+  public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.8f;
   
   /** Default modal phone height ratio for portrait . */
   public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.50f;
@@ -354,6 +354,7 @@ public final class CardConstants {
   public static final String BROADCAST_EXTRA_PAGE_LOAD_MS = "stashPageLoadMs";
   /** Optional order payload from {@code onPaymentSuccess(order)} (plain or JSON string). */
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
+  public static final String BROADCAST_EXTRA_WILL_CLOSE = "stashWillClose";
   /** URL for {@code window.stash_sdk.openExternalBrowser(url)} (includes theme query when applicable). */
   public static final String BROADCAST_EXTRA_EXTERNAL_PAYMENT_URL = "stashExternalPaymentUrl";
 

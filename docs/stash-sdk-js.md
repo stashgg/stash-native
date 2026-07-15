@@ -23,14 +23,14 @@ Manual testing: [`.github/test/index.html`](../.github/test/index.html).
 
 | Platform | Mechanism | Bridge name |
 |----------|-----------|-------------|
-| Android | `WebView.evaluateJavascript(JS_SDK_SCRIPT, ...)` after WebView setup; see `injectStashSDKFunctions` in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and portrait activity in [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) | JavaScript interface object `StashAndroid` (`JS_INTERFACE_NAME` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)) |
+| Android | `WebView.evaluateJavascript(JS_SDK_SCRIPT, ...)` after page load; script source is `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), evaluated by the card path in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and the popup path (`injectStashSDKFunctions`) in [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java) | JavaScript interface object `StashAndroid` (`JS_INTERFACE_NAME` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)) |
 | iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess`, `stashExternalPayment` (constants `kMessageHandler*` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)) |
 
 From the page’s perspective the API is identical: only `window.stash_sdk` and `window.close` (see below).
 
 ## API Reference
 
-All calls are wrapped in try/catch inside the injected script; exceptions in page code before the bridge call are not suppressed.
+On Android every bridge call in the injected script is wrapped in try/catch. On iOS the bridge functions post directly (only the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. Exceptions in page code before the bridge call are never suppressed on either platform.
 
 ### `window.stash_sdk.onPaymentSuccess(order?)`
 
@@ -106,12 +106,14 @@ Opens the URL in the external browser and nothing else: the checkout stays prese
 
 ### Deeplink navigation (stash-pay results)
 
-Main-frame navigations to any non-web scheme (anything other than http/https/about/blob/data/file) never load inside the checkout WebView:
+Main-frame navigations to any non-web scheme (anything other than http/https/about/blob/data/file/javascript) never load inside the checkout WebView:
 
 - URLs containing `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel` (any scheme) are consumed by the SDK and run the exact same native flows as `onPaymentSuccess` (no order payload), `onPaymentFailure`, and `window.close()` respectively - including the once-guards, `autoClose` handling, and the purchase-processing close guard.
 - Every other deeplink is handed to the OS (`UIApplication openURL:` on iOS, `ACTION_VIEW` on Android) and the checkout stays presented; if no app handles the scheme the navigation is dropped silently.
 
 Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
+
+Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information, so non-web-scheme navigations from iframes are intercepted there as well. From API 24 on (and always on iOS) interception is main-frame only.
 
 ### `window.close()`
 

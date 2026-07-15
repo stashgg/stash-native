@@ -40,6 +40,15 @@ const CGFloat kPopupPortraitHeightMultiplier = 1.485;
 const CGFloat kPopupLandscapeWidthMultiplier = 1.2275445;
 const CGFloat kPopupLandscapeHeightMultiplier = 1.1385;
 
+// CLAUDE.md contract: all card/modal sizing ratios clamp to [0.1, 1.0] (parity with Android clampRatio).
+// The inverted first comparison catches NaN (all ordered comparisons with NaN are false),
+// which would otherwise flow into CGRectMake and raise a CALayer NaN exception.
+static CGFloat stashClampRatio(CGFloat v) {
+    if (!(v >= 0.1f)) return 0.1f;
+    if (v > 1.0f) return 1.0f;
+    return v;
+}
+
 #pragma mark - Private State
 // Note: These statics are reset in [StashNativeCardInternal cleanupCardInstance].
 // They are file-scope to this translation unit and effectively private to the SDK.
@@ -408,8 +417,28 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 // openCardWithURL:config: (applies config to static sizing, then opens)
 // ============================================================================
 
+// Mirrors openURLInternal's rejection check. Entry points must run it BEFORE writing any
+// mode/config globals: a rejected open must not poison the live session's state.
+static BOOL stashLivePresentationBlocksOpen(void) {
+    if (!_isCardCurrentlyPresented) {
+        return NO;
+    }
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    return internal.currentPresentedVC != nil
+        || internal.currentSafariViewController != nil
+        || internal.portraitWindow != nil
+        || internal.safariPresentationWindow != nil;
+}
+
 - (void)openCardWithURL:(NSString *)url config:(StashNativeCardConfig *)config {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openCardWithURL:url config:config]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
+        return;
+    }
+    if (stashLivePresentationBlocksOpen()) {
         return;
     }
 
@@ -417,13 +446,13 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
     if (config) {
         _forcePortraitOnCheckout = config.forcePortrait;
-        _cardHeightRatioPortrait = config.cardHeightRatioPortrait;
-        _cardWidthRatioLandscape = config.cardWidthRatioLandscape;
-        _cardHeightRatioLandscape = config.cardHeightRatioLandscape;
-        _tabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
-        _tabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
-        _tabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
-        _tabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
+        _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
+        _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
+        _tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        _tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        _tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        _tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
@@ -437,6 +466,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 - (void)openBrowserWithURL:(NSString *)url {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openBrowserWithURL:url]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
         return;
     }
@@ -447,6 +480,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 - (void)closeBrowser {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self closeBrowser]; });
+        return;
+    }
     [self dismissSafariViewController];
 }
 
@@ -455,7 +492,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 - (void)openPopupWithURL:(NSString *)url sizeConfig:(StashNativePopupSizeConfig *)sizeConfig {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openPopupWithURL:url sizeConfig:sizeConfig]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
+        return;
+    }
+    if (stashLivePresentationBlocksOpen()) {
         return;
     }
 
@@ -481,7 +525,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 - (void)openModalWithURL:(NSString *)url config:(StashNativeModalConfig *)config {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openModalWithURL:url config:config]; });
+        return;
+    }
     if (url == nil || url.length == 0) {
+        return;
+    }
+    if (stashLivePresentationBlocksOpen()) {
         return;
     }
 
@@ -492,14 +543,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 
     if (config) {
         _modalAllowDismiss = config.allowDismiss;
-        _modalPhoneWidthRatioPortrait = config.phoneWidthRatioPortrait;
-        _modalPhoneHeightRatioPortrait = config.phoneHeightRatioPortrait;
-        _modalPhoneWidthRatioLandscape = config.phoneWidthRatioLandscape;
-        _modalPhoneHeightRatioLandscape = config.phoneHeightRatioLandscape;
-        _modalTabletWidthRatioPortrait = config.tabletWidthRatioPortrait;
-        _modalTabletHeightRatioPortrait = config.tabletHeightRatioPortrait;
-        _modalTabletWidthRatioLandscape = config.tabletWidthRatioLandscape;
-        _modalTabletHeightRatioLandscape = config.tabletHeightRatioLandscape;
+        _modalPhoneWidthRatioPortrait = stashClampRatio(config.phoneWidthRatioPortrait);
+        _modalPhoneHeightRatioPortrait = stashClampRatio(config.phoneHeightRatioPortrait);
+        _modalPhoneWidthRatioLandscape = stashClampRatio(config.phoneWidthRatioLandscape);
+        _modalPhoneHeightRatioLandscape = stashClampRatio(config.phoneHeightRatioLandscape);
+        _modalTabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+        _modalTabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+        _modalTabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+        _modalTabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
         NSString *ch = config.backgroundColor;
         ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
         _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
@@ -551,6 +602,11 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     NSURL *nsurl = [NSURL URLWithString:url];
     if (!nsurl) {
         resetSafariOpenBrowserTrackingFlags();
+        StashNativeCardInternal *staleInternal = [StashNativeCardInternal sharedInstance];
+        if (staleInternal.isHandingOffPortraitWindowToSafari || staleInternal.safariPresentationWindow) {
+            staleInternal.isHandingOffPortraitWindowToSafari = NO;
+            [staleInternal tearDownSafariPresentationState];
+        }
         return;
     }
 
@@ -559,6 +615,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     [StashNativeCardInternal sharedInstance].currentSafariViewController = safariVC;
 
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    // A live card must be torn down before Safari takes the window; keep the window alive for
+    // the swap (same handoff mechanism as the external-payment path).
+    if (internal.currentPresentedVC) {
+        if (internal.portraitWindow) {
+            internal.isHandingOffPortraitWindowToSafari = YES;
+        }
+        [internal cleanupCardInstance];
+    }
     UIViewController *presenter;
     // Delay before presenting Safari to let the scene settle after a rotation request.
     // Without this delay, Safari spawns in landscape then snaps to portrait (visible glitch).
@@ -572,6 +636,14 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         safariContainer.view.backgroundColor = stash_sheetBackgroundUIColor();
         internal.portraitWindow.rootViewController = safariContainer;
         presenter = safariContainer;
+
+        // Modal/popup windows start hidden behind a 50 ms token-guarded reveal; the token
+        // bump in cleanupCardInstance cancels that reveal, so a handoff inside that window
+        // would otherwise present Safari into a still-hidden UIWindow.
+        if (internal.portraitWindow.hidden) {
+            internal.portraitWindow.hidden = NO;
+            [internal.portraitWindow makeKeyAndVisible];
+        }
 
         // Handoff complete — flag cleared so safariViewControllerDidFinish: owns teardown.
         internal.isHandingOffPortraitWindowToSafari = NO;
@@ -619,15 +691,21 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(rotationDelay * NSEC_PER_SEC)),
                    dispatch_get_main_queue(), ^{
         // Guard: if this Safari was superseded before the present fired -- torn down during a
-        // rotation delay, or closed synchronously in the same runloop turn at zero delay -- abort.
+        // rotation delay, or replaced by a newer openBrowser call -- abort WITHOUT touching
+        // shared state. The successor (or the teardown path) owns the tracking flags and
+        // currentSafariViewController now; clobbering them here would abort its present too.
         if (internal.currentSafariViewController != safariVC) {
-            resetSafariOpenBrowserTrackingFlags();
-            internal.currentSafariViewController = nil;
             return;
         }
         if (presenter == nil) {
             resetSafariOpenBrowserTrackingFlags();
             internal.currentSafariViewController = nil;
+            // A card handoff may already have swapped the kept window to the Safari
+            // container; nothing will ever present into it, so dismantle it.
+            if (internal.currentPresentedVC == nil &&
+                (internal.portraitWindow || internal.safariPresentationWindow)) {
+                [internal tearDownSafariPresentationState];
+            }
             return;
         }
         // Lock the SDK window to portrait so the scene can't rotate to landscape while
@@ -1052,8 +1130,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             [overlayView addSubview:dismissButton];
             [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
             
-            [internal startKeyboardObserving];
-            [internal registerIPhoneCardWindowGeometryObservers];
+            if (internal.currentPresentedVC) {
+                [internal startKeyboardObserving];
+                [internal registerIPhoneCardWindowGeometryObservers];
+            }
             
             containerVC.skipLayoutDuringInitialSetup = NO;
         }];
@@ -1249,8 +1329,10 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
         dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [overlayView addSubview:dismissButton];
         [dismissButton addTarget:self action:@selector(handleOverlayTap) forControlEvents:UIControlEventTouchUpInside];
-        [internal startKeyboardObserving];
-        [internal registerIPhoneCardWindowGeometryObservers];
+        if (internal.currentPresentedVC) {
+            [internal startKeyboardObserving];
+            [internal registerIPhoneCardWindowGeometryObservers];
+        }
         containerVC.skipLayoutDuringInitialSetup = NO;
     }];
 }
@@ -1614,7 +1696,9 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
             loadingView.alpha = 1.0;
             overlayView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:kOverlayOpacity];
         } completion:^(BOOL finished) {
-            [internal startKeyboardObserving];
+            if (internal.currentPresentedVC) {
+                [internal startKeyboardObserving];
+            }
         }];
     });
 }
@@ -1657,7 +1741,8 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     }
     if (@available(iOS 11.0, *)) {
         config.websiteDataStore = [WKWebsiteDataStore defaultDataStore];
-        config.dataDetectorTypes = WKDataDetectorTypeAll;
+        // Checkout pages: phone numbers/addresses must not become tappable detector links.
+        config.dataDetectorTypes = WKDataDetectorTypeNone;
     }
     
     WKPreferences *preferences = [[WKPreferences alloc] init];
@@ -1880,14 +1965,31 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 - (void)dismiss {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self dismiss]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    if (internal.isDismissingCard) {
+        return;
+    }
+    if (!internal.currentPresentedVC) {
+        if (internal.currentSafariViewController) {
+            [self dismissSafariViewController];
+        }
+        return;
+    }
     [internal dismissWithAnimation:^{
-        [internal cleanupCardInstance];
         [internal callDelegateCallbackOnce];
+        [internal cleanupCardInstance];
     }];
 }
 
 - (void)resetPresentationState {
+    if (![NSThread isMainThread]) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self resetPresentationState]; });
+        return;
+    }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     [internal cleanupCardInstance];
     _isCardCurrentlyPresented = NO;

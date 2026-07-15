@@ -27,6 +27,13 @@ android {
         buildConfig true
     }
 
+    lint {
+        // Surface issues without failing the build; CI runs it as an informational step.
+        abortOnError false
+        checkReleaseBuilds false
+        warningsAsErrors false
+    }
+
     testOptions {
         unitTests.returnDefaultValues = true
     }

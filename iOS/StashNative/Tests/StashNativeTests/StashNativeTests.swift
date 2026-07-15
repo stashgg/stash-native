@@ -69,6 +69,11 @@ final class StashNativeTests: XCTestCase {
         XCTAssertFalse(cfg.allowDismiss)
         XCTAssertEqual(cfg.phoneWidthRatioPortrait, 0.5, accuracy: 0.001)
         XCTAssertEqual(cfg.phoneHeightRatioPortrait, 0.6, accuracy: 0.001)
+        XCTAssertEqual(cfg.phoneWidthRatioLandscape, 0.7, accuracy: 0.001)
+        XCTAssertEqual(cfg.phoneHeightRatioLandscape, 0.8, accuracy: 0.001)
+        XCTAssertEqual(cfg.tabletWidthRatioPortrait, 0.3, accuracy: 0.001)
+        XCTAssertEqual(cfg.tabletHeightRatioPortrait, 0.4, accuracy: 0.001)
+        XCTAssertEqual(cfg.tabletWidthRatioLandscape, 0.2, accuracy: 0.001)
         XCTAssertEqual(cfg.tabletHeightRatioLandscape, 0.9, accuracy: 0.001)
     }
 
@@ -76,10 +81,10 @@ final class StashNativeTests: XCTestCase {
 
     func testPopupSizeConfigDefaults() {
         let cfg = StashNativePopupSizeConfig()
-        XCTAssertGreaterThan(cfg.portraitWidthMultiplier, 0.0)
-        XCTAssertGreaterThan(cfg.portraitHeightMultiplier, 0.0)
-        XCTAssertGreaterThan(cfg.landscapeWidthMultiplier, 0.0)
-        XCTAssertGreaterThan(cfg.landscapeHeightMultiplier, 0.0)
+        XCTAssertEqual(cfg.portraitWidthMultiplier, 1.0285, accuracy: 0.0001)
+        XCTAssertEqual(cfg.portraitHeightMultiplier, 1.485, accuracy: 0.0001)
+        XCTAssertEqual(cfg.landscapeWidthMultiplier, 1.2275445, accuracy: 0.0001)
+        XCTAssertEqual(cfg.landscapeHeightMultiplier, 1.1385, accuracy: 0.0001)
     }
 
     func testPopupSizeConfigCustomInit() {

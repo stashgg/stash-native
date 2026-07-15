@@ -59,10 +59,18 @@ public class StashNativeCardPortraitActivity extends Activity {
   private boolean awaitingExternalBrowserDimOverlay;
   private boolean pendingCreateUIAfterRotation;
   boolean callbackSent;
+  /** Once-guard for terminal payment events when autoClose is on (parity with iOS). */
+  private boolean paymentResultHandled;
   boolean googlePayRedirectHandled;
-  boolean isPurchaseProcessing;
+  volatile boolean isPurchaseProcessing;
   boolean initialPageLoadComplete;
   boolean networkErrorHandled;
+  /** One-shot: rebuild the WebView after an OS renderer kill (not a crash) before giving up. */
+  boolean rendererGoneReloadAttempted;
+  /** Absolute uptime target for the network deadline so pause/resume does not extend it (0 = unset). */
+  long networkDeadlineTargetUptime;
+  /** Deadline budget frozen at onPause; -1 = nothing frozen. Paused time must not consume it. */
+  long networkDeadlineRemainingMs = -1L;
   boolean mainFrameErrorReceived;
   /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
   android.os.Handler loadTimersHandler;
@@ -182,6 +190,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+    StashNativeCardPlugin.getInstance().setPortraitActivity(this);
     
     try {
       Intent intent = getIntent();
@@ -261,6 +270,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       }
 
       hostBackdropBitmap = StashNativeCard.consumeBackdropBitmap();
+      hostBackdropBitmap = downscaleBackdropIfHeavy(hostBackdropBitmap);
       
       cachedIsDarkTheme = StashWebViewUtils.isDarkTheme(this);
       try {
@@ -676,7 +686,13 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (isPurchaseProcessing) {
         return false;
       }
-      
+
+      // A release mid-dismiss would start a competing translationY animator on the same
+      // view, cancelling the dismiss batch and dropping its withEndAction(finish).
+      if (isDismissing) {
+        return false;
+      }
+
       // Modal mode never supports drag gestures (only visual drag bar)
       if (useModal) {
         return false;
@@ -833,26 +849,11 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (isPurchaseProcessing) {
       return;
     }
-    int height = cardContainer.getHeight();
-    if (height == 0) {
-      height = (int) (getResources().getDisplayMetrics().heightPixels * cardHeightRatioPortrait);
-    }
-    
-    // Fade out the backdrop independently
-    if (backdropView != null) {
-      backdropView.animate()
-          .alpha(0f)
-          .setDuration(CardConstants.ANIMATION_DURATION_DISMISS)
-          .setInterpolator(new android.view.animation.AccelerateInterpolator())
-          .start();
-    }
-    
-    cardContainer.animate()
-        .translationY(height)
-        .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
-        .setInterpolator(new android.view.animation.AccelerateInterpolator())
-        .withEndAction(this::finish)
-        .start();
+    // Route through the shared dismiss path: it latches isDismissing (closing the load-timer,
+    // renderer-reload and backdrop-click guards for the animation window), locks orientation,
+    // and finishes via finishAfterDismissAnimations so force-portrait + host-backdrop
+    // checkouts get the deferred-finish sequencing a plain finish() would skip.
+    dismissWithAnimation();
   }
   
   private void animateTabletDismiss() {
@@ -921,7 +922,11 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (p == null) {
         return;
       }
-      p.height = (Integer) animation.getAnimatedValue();
+      int v = (Integer) animation.getAnimatedValue();
+      if (p.height == v) {
+        return;  // spring settles slowly; skip the WebView relayout on repeated int values
+      }
+      p.height = v;
       cardContainer.setLayoutParams(p);
     });
     cardHeightAnimator.addListener(new AnimatorListenerAdapter() {
@@ -944,7 +949,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   void animateExpand() {
-    if (cardContainer == null) {
+    if (cardContainer == null || isDismissing) {
       return;
     }
 
@@ -1009,7 +1014,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   void animateCollapse() {
-    if (cardContainer == null || !isExpanded) {
+    if (cardContainer == null || !isExpanded || isDismissing) {
       return;
     }
 
@@ -1139,7 +1144,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   private void animateSnapBack() {
-    if (cardContainer == null) {
+    if (cardContainer == null || isDismissing) {
       return;
     }
     DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -1298,17 +1303,19 @@ public class StashNativeCardPortraitActivity extends Activity {
     final long slideDelay = CardConstants.OVERLAY_FADE_IN_DURATION_MS
         + CardConstants.CARD_ENTRY_HOLD_AFTER_OVERLAY_FADE_MS;
 
-    cardContainer.post(() -> {
-      if (cardContainer == null) {
+    // Delay via postDelayed, NOT ViewPropertyAnimator.setStartDelay: the animator is cached
+    // per view and the delay is sticky, so it would silently defer every later dismiss,
+    // snap-back and expand animation on cardContainer by the same amount.
+    cardContainer.postDelayed(() -> {
+      if (cardContainer == null || isDismissing) {
         return;
       }
       cardContainer.animate()
-          .setStartDelay(slideDelay)
           .translationY(0)
           .setDuration(CardConstants.ANIMATION_DURATION_ENTRY)
           .setInterpolator(new android.view.animation.DecelerateInterpolator())
           .start();
-    });
+    }, slideDelay);
   }
   
   private void animateFadeIn() {
@@ -1537,6 +1544,33 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
   
+  /** Low-RAM / oversized host screenshot: shrink to a half-res plate (shown dimmed). */
+  private Bitmap downscaleBackdropIfHeavy(Bitmap src) {
+    if (src == null || src.isRecycled()) {
+      return src;
+    }
+    boolean lowRam = false;
+    try {
+      android.app.ActivityManager am = (android.app.ActivityManager) getSystemService(ACTIVITY_SERVICE);
+      lowRam = am != null && am.isLowRamDevice();
+    } catch (Throwable ignored) {
+    }
+    if (!lowRam && src.getByteCount() <= 8 * 1024 * 1024) {
+      return src;
+    }
+    try {
+      int w = Math.max(1, src.getWidth() / 2);
+      int h = Math.max(1, src.getHeight() / 2);
+      Bitmap scaled = Bitmap.createScaledBitmap(src, w, h, true);
+      if (scaled != src && !src.isRecycled()) {
+        src.recycle();
+      }
+      return scaled;
+    } catch (Throwable t) {
+      return src;
+    }
+  }
+
   private void finishActivityWithNoAnimation() {
     if (backdropView != null) {
       backdropView.setVisibility(View.INVISIBLE);
@@ -1549,6 +1583,13 @@ public class StashNativeCardPortraitActivity extends Activity {
     finish();
   }
   
+  /** Plugin resetPresentationState: finish now, no onDialogDismissed (mirrors handleNetworkError latch). */
+  void finishForPluginResetWithoutCallbacks() {
+    callbackSent = true;
+    isDismissing = true;
+    finishActivityWithNoAnimation();
+  }
+
   void notifyListenerAndDismiss(String messageType, String messageBody, boolean success) {
     try {
       runOnUiThread(() -> {
@@ -1568,14 +1609,25 @@ public class StashNativeCardPortraitActivity extends Activity {
               CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
                   || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
 
+          // Once-guard: with autoClose on, only the first payment result is delivered (parity with
+          // iOS handlePaymentSuccessSignal / handlePaymentFailureSignal). autoClose off never gates.
+          if (isPaymentEvent && autoCloseOnPaymentEvent) {
+            if (paymentResultHandled) {
+              return;
+            }
+            paymentResultHandled = true;
+          }
+
           switch (messageType) {
             case CardConstants.MESSAGE_TYPE_SUCCESS:
               StashCheckoutBridge.emitPaymentSuccess(
                   StashNativeCardPortraitActivity.this,
-                  messageBody != null && !messageBody.isEmpty() ? messageBody : null);
+                  messageBody != null && !messageBody.isEmpty() ? messageBody : null,
+                  autoCloseOnPaymentEvent);
               break;
             case CardConstants.MESSAGE_TYPE_FAILURE:
-              StashCheckoutBridge.emitPaymentFailure(StashNativeCardPortraitActivity.this);
+              StashCheckoutBridge.emitPaymentFailure(
+                  StashNativeCardPortraitActivity.this, autoCloseOnPaymentEvent);
               break;
             case CardConstants.MESSAGE_TYPE_OPTIN:
               StashCheckoutBridge.emitOptIn(StashNativeCardPortraitActivity.this, messageBody);
@@ -1616,6 +1668,16 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (webView != null) {
       webView.onPause();
     }
+    // A paused WebView cannot load; do not let the network deadline expire against a frozen load.
+    if (!mainFrameNavigationCommitted && !networkErrorHandled) {
+      // Freeze the remaining budget: uptime keeps ticking while paused, so the absolute
+      // target would otherwise be already expired on resume after any longer pause.
+      if (networkDeadlineTargetUptime != 0L) {
+        networkDeadlineRemainingMs =
+            Math.max(0L, networkDeadlineTargetUptime - android.os.SystemClock.uptimeMillis());
+      }
+      StashCheckoutWebViewSupport.cancelLoadTimers(this);
+    }
   }
 
   @Override
@@ -1625,13 +1687,28 @@ public class StashNativeCardPortraitActivity extends Activity {
     if (webView != null) {
       webView.onResume();
     }
+    // Restart the retry/deadline window if the initial load never committed, thawing the
+    // budget frozen in onPause (paused time does not count against the deadline).
+    if (!mainFrameNavigationCommitted && !networkErrorHandled && !isDismissing && webView != null) {
+      if (networkDeadlineRemainingMs >= 0L) {
+        networkDeadlineTargetUptime =
+            android.os.SystemClock.uptimeMillis() + networkDeadlineRemainingMs;
+        networkDeadlineRemainingMs = -1L;
+      }
+      StashCheckoutWebViewSupport.scheduleInitialLoadTimers(this);
+    }
   }
 
   @Override
   protected void onDestroy() {
     try {
       super.onDestroy();
+      StashNativeCardPlugin.getInstance().clearPortraitActivity(this);
       StashCheckoutWebViewSupport.cancelLoadTimers(this);
+      try {
+        android.webkit.CookieManager.getInstance().flush();
+      } catch (Throwable ignored) {
+      }
 
       if (imeGlobalLayoutListener != null && rootLayout != null) {
         try {
@@ -1841,6 +1918,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
   
   private void animatePhoneCheckoutRotation() {
+    // Phone rotation always resizes to the collapsed sheet; keep isExpanded in sync (parity with
+    // animateTabletRotation and iOS resetCardExpandedStateAfterRotation).
+    isExpanded = false;
     DisplayMetrics metrics = getResources().getDisplayMetrics();
     int[] newSize = StashCheckoutSizing.calculatePhoneCheckoutCardSize(this, metrics);
     int newWidth = newSize[0];

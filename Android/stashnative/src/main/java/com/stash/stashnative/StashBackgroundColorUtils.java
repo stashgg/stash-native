@@ -22,8 +22,8 @@ public final class StashBackgroundColorUtils {
   }
 
   /**
-   * Parses #RGB, #RRGGBB, or #AARRGGBB into opaque ARGB (alpha forced to 0xFF). Returns null if
-   * invalid.
+   * Parses #RGB, #RRGGBB, or #AARRGGBB into ARGB. #RGB and #RRGGBB are forced opaque; #AARRGGBB
+   * keeps its alpha (matches iOS stash_parseHTMLHexColor). Returns null if invalid.
    */
   public static Integer parseSolidColorOrNull(String hex) {
     String s = normalizeHexOrNull(hex);
