@@ -385,6 +385,21 @@ final class StashPopupDialogSupport {
 
     webView.setWebViewClient(new WebViewClient() {
       @Override
+      public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+        if (!request.isForMainFrame()) {
+          return false;
+        }
+        return handleDeeplinkNavigation(
+            plugin, activity, request.getUrl() != null ? request.getUrl().toString() : null);
+      }
+
+      @Override
+      @SuppressWarnings("deprecation")
+      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        return handleDeeplinkNavigation(plugin, activity, url);
+      }
+
+      @Override
       public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
         try {
           super.onPageStarted(view, url, favicon);
@@ -474,6 +489,26 @@ final class StashPopupDialogSupport {
       Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
       plugin.cleanupAllViews();
     }
+  }
+
+  /** Popup counterpart of StashCheckoutWebViewSupport.handleDeeplinkNavigation. */
+  static boolean handleDeeplinkNavigation(
+      StashNativeCardPlugin plugin, Activity activity, String url) {
+    if (url == null || StashWebViewUtils.isWebScheme(url)) {
+      return false;
+    }
+    int result = StashWebViewUtils.classifyDeeplinkResult(url);
+    StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
+    if (result == StashWebViewUtils.DEEPLINK_RESULT_SUCCESS) {
+      bridge.onPaymentSuccess(null);
+    } else if (result == StashWebViewUtils.DEEPLINK_RESULT_FAILURE) {
+      bridge.onPaymentFailure();
+    } else if (result == StashWebViewUtils.DEEPLINK_RESULT_CANCEL) {
+      bridge.requestCloseFromPage();
+    } else {
+      StashCheckoutWebViewSupport.openDeeplinkExternally(activity, url);
+    }
+    return true;
   }
 
   static void injectStashSDKFunctions(StashNativeCardPlugin plugin) {

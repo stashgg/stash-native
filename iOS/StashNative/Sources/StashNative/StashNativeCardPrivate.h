@@ -349,6 +349,10 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 - (void)tearDownSafariPresentationState;  // Resets Safari/portrait presentation state; fires no callbacks
 - (UIView *)cardViewForCurrentPresentation;  // Returns cardView (kCardViewTag) for iPhone/iPad; nil if none
 - (void)updateDragTrayVisibilityForPurchaseProcessing:(BOOL)isProcessing;
+/// Payment/close flows shared by the JS bridge messages and stash-pay result deeplinks.
+- (void)handlePaymentSuccessSignalWithOrder:(NSString *)orderString;
+- (void)handlePaymentFailureSignal;
+- (void)handleWindowCloseSignal;
 - (void)setSkipLayoutDuringInitialSetup:(BOOL)skip forViewController:(UIViewController *)vc;
 - (UIView *)createDragTray:(CGFloat)cardWidth;
 - (void)expandCardToFullScreen;

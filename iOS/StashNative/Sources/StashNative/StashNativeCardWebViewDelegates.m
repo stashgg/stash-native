@@ -449,7 +449,33 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
         return;
     }
-    
+
+    // Main-frame navigation to a non-web scheme is a deeplink: never load it in the card.
+    // stash-pay result paths run the same flows as the JS bridge; everything else is handed
+    // to the OS. The card stays presented either way (spec: docs/stash-sdk-js.md).
+    NSString *scheme = url.scheme.lowercaseString;
+    BOOL isWebScheme = scheme.length == 0 ||
+        [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] ||
+        [scheme isEqualToString:@"about"] || [scheme isEqualToString:@"blob"] ||
+        [scheme isEqualToString:@"data"] || [scheme isEqualToString:@"file"] ||
+        [scheme isEqualToString:@"javascript"];
+    BOOL isMainFrame = navigationAction.targetFrame == nil || navigationAction.targetFrame.isMainFrame;
+    if (!isWebScheme && isMainFrame) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+        NSString *lower = urlString.lowercaseString;
+        if ([lower containsString:@"stash-pay/success"]) {
+            [internal handlePaymentSuccessSignalWithOrder:nil];
+        } else if ([lower containsString:@"stash-pay/failure"]) {
+            [internal handlePaymentFailureSignal];
+        } else if ([lower containsString:@"stash-pay/cancel"]) {
+            [internal handleWindowCloseSignal];
+        } else {
+            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+        }
+        return;
+    }
+
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 

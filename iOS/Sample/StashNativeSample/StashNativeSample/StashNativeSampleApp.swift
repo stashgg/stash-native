@@ -46,7 +46,7 @@ enum StashSampleDeepLink {
             StashNativeCard.sharedInstance().dismissSafariViewController(withResult: true)
             return true
         }
-        if urlString.contains("stash-pay/failed") {
+        if urlString.contains("stash-pay/failure") {
             StashNativeCard.sharedInstance().dismissSafariViewController(withResult: false)
             return true
         }

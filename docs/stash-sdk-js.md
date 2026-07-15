@@ -104,6 +104,15 @@ Opens the URL in the external browser and nothing else: the checkout stays prese
 - **Android:** `openLink` on the JS interface; opens via the system browser flow (Custom Tabs when available, otherwise `ACTION_VIEW`) without result tracking.
 - **iOS:** posts `stashOpenLink`; opens via `UIApplication openURL:` (Safari app). The card remains presented and untouched.
 
+### Deeplink navigation (stash-pay results)
+
+Main-frame navigations to any non-web scheme (anything other than http/https/about/blob/data/file) never load inside the checkout WebView:
+
+- URLs containing `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel` (any scheme) are consumed by the SDK and run the exact same native flows as `onPaymentSuccess` (no order payload), `onPaymentFailure`, and `window.close()` respectively - including the once-guards, `autoClose` handling, and the purchase-processing close guard.
+- Every other deeplink is handed to the OS (`UIApplication openURL:` on iOS, `ACTION_VIEW` on Android) and the checkout stays presented; if no app handles the scheme the navigation is dropped silently.
+
+Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
+
 ### `window.close()`
 
 The injected script replaces `window.close` with a function that requests closing the checkout from the native side (`requestCloseFromPage` on Android, `stashWindowClose` message on iOS).

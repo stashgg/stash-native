@@ -30,6 +30,45 @@ public class StashWebViewUtils {
   /** JavaScript bridge name used by addJavascriptInterface and JS_SDK_SCRIPT. */
   public static final String JS_INTERFACE_NAME = "StashAndroid";
   
+  /** Deeplink result classification (stash-pay result paths, any scheme). */
+  public static final int DEEPLINK_RESULT_NONE = 0;
+  public static final int DEEPLINK_RESULT_SUCCESS = 1;
+  public static final int DEEPLINK_RESULT_FAILURE = 2;
+  public static final int DEEPLINK_RESULT_CANCEL = 3;
+
+  /** True when the URL loads inside the WebView (web schemes); false for deeplinks. */
+  public static boolean isWebScheme(String url) {
+    if (url == null) {
+      return false;
+    }
+    String lower = url.trim().toLowerCase(java.util.Locale.US);
+    return lower.startsWith("http://") || lower.startsWith("https://")
+        || lower.startsWith("about:") || lower.startsWith("data:")
+        || lower.startsWith("blob:") || lower.startsWith("file:")
+        || lower.startsWith("javascript:");
+  }
+
+  /**
+   * Classifies a deeplink as a stash-pay result. Matches the path anywhere in the URL so any
+   * scheme works (spec: stash-pay/success, stash-pay/failure, stash-pay/cancel).
+   */
+  public static int classifyDeeplinkResult(String url) {
+    if (url == null) {
+      return DEEPLINK_RESULT_NONE;
+    }
+    String lower = url.toLowerCase(java.util.Locale.US);
+    if (lower.contains("stash-pay/success")) {
+      return DEEPLINK_RESULT_SUCCESS;
+    }
+    if (lower.contains("stash-pay/failure")) {
+      return DEEPLINK_RESULT_FAILURE;
+    }
+    if (lower.contains("stash-pay/cancel")) {
+      return DEEPLINK_RESULT_CANCEL;
+    }
+    return DEEPLINK_RESULT_NONE;
+  }
+
   /** Query param name for theme. */
   public static final String QUERY_PARAM_THEME = "theme";
   public static final String THEME_DARK = "dark";

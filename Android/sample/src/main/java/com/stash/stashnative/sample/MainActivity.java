@@ -175,7 +175,7 @@ public class MainActivity extends AppCompatActivity {
     StashNativeCard.getInstance().closeBrowser();
     if (url.contains("stash-pay/success")) {
       showOutcomeDialog("Success", "Deeplink payment success\n" + url);
-    } else if (url.contains("stash-pay/failed")) {
+    } else if (url.contains("stash-pay/failure")) {
       showOutcomeDialog("Payment Failed", "Deeplink payment failed\n" + url);
     } else {
       showOutcomeDialog("Deeplink", url);

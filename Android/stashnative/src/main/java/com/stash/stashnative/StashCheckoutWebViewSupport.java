@@ -4,6 +4,8 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.app.Activity;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
@@ -52,6 +54,21 @@ final class StashCheckoutWebViewSupport {
       }
 
       activity.webView.setWebViewClient(new WebViewClient() {
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+          if (!request.isForMainFrame()) {
+            return false;
+          }
+          return handleDeeplinkNavigation(
+              activity, request.getUrl() != null ? request.getUrl().toString() : null);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+          return handleDeeplinkNavigation(activity, url);
+        }
+
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
           try {
@@ -309,6 +326,40 @@ final class StashCheckoutWebViewSupport {
     }
     if (activity.networkDeadlineRunnable != null) {
       activity.loadTimersHandler.removeCallbacks(activity.networkDeadlineRunnable);
+    }
+  }
+
+  /**
+   * Non-web schemes never load in the card. stash-pay result paths run the standard JS-bridge
+   * flows (success/failure/close); any other deeplink is handed to the OS with the card left
+   * open. Returns true when the navigation was consumed.
+   */
+  static boolean handleDeeplinkNavigation(StashNativeCardPortraitActivity activity, String url) {
+    if (url == null || StashWebViewUtils.isWebScheme(url)) {
+      return false;
+    }
+    int result = StashWebViewUtils.classifyDeeplinkResult(url);
+    StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
+    if (result == StashWebViewUtils.DEEPLINK_RESULT_SUCCESS) {
+      bridge.onPaymentSuccess(null);
+    } else if (result == StashWebViewUtils.DEEPLINK_RESULT_FAILURE) {
+      bridge.onPaymentFailure();
+    } else if (result == StashWebViewUtils.DEEPLINK_RESULT_CANCEL) {
+      bridge.requestCloseFromPage();
+    } else {
+      openDeeplinkExternally(activity, url);
+    }
+    return true;
+  }
+
+  /** ACTION_VIEW for a non-stash deeplink; no browser-close tracking, card stays open. */
+  static void openDeeplinkExternally(Activity activity, String url) {
+    try {
+      Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      activity.startActivity(intent);
+    } catch (Throwable t) {
+      Log.w(TAG, "No handler for deeplink: " + t.getMessage());
     }
   }
 

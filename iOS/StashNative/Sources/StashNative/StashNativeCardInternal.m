@@ -1269,6 +1269,67 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     }
 }
 
+#pragma mark - Payment / Close Signals (script messages and stash-pay deeplinks)
+
+- (void)handlePaymentSuccessSignalWithOrder:(NSString *)orderString {
+    // When autoClose is on, the dialog tears down after the first event, so guard against
+    // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
+    // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
+    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
+    self.isPurchaseProcessing = NO;
+
+    id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
+    if (delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
+            });
+        } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [delegate stashNativeCardDidCompletePayment];
+            });
+        }
+    }
+
+    if (_autoCloseOnPaymentEvent) {
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+        }];
+    }
+}
+
+- (void)handlePaymentFailureSignal {
+    if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
+    if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
+    self.isPurchaseProcessing = NO;
+
+    id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
+    if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [delegate stashNativeCardDidFailPayment];
+        });
+    }
+
+    if (_autoCloseOnPaymentEvent) {
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+        }];
+    }
+}
+
+- (void)handleWindowCloseSignal {
+    if (self.isPurchaseProcessing) {
+        return;
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self dismissWithAnimation:^{
+            [self cleanupCardInstance];
+            [self callDelegateCallbackOnce];
+        }];
+    });
+}
+
 #pragma mark - WKScriptMessageHandler
 
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
@@ -1276,13 +1337,6 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
     
     if ([name isEqualToString:kMessageHandlerPaymentSuccess]) {
-        // When autoClose is on, the dialog tears down after the first event, so guard against
-        // duplicate callbacks. When autoClose is off, the page stays alive and may legitimately
-        // emit follow-up events (e.g. failure -> retry -> success), so don't gate.
-        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-        self.isPurchaseProcessing = NO;
-        
         NSString *orderString = nil;
         id body = message.body;
         if ([body isKindOfClass:[NSString class]]) {
@@ -1291,40 +1345,9 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
                 orderString = s;
             }
         }
-        
-        if (delegate) {
-            if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [delegate stashNativeCardDidCompletePaymentWithOrder:orderString];
-                });
-            } else if ([delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [delegate stashNativeCardDidCompletePayment];
-                });
-            }
-        }
-
-        if (_autoCloseOnPaymentEvent) {
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-            }];
-        }
+        [self handlePaymentSuccessSignalWithOrder:orderString];
     } else if ([name isEqualToString:kMessageHandlerPaymentFailure]) {
-        if (_autoCloseOnPaymentEvent && _paymentSuccessHandled) return;
-        if (_autoCloseOnPaymentEvent) _paymentSuccessHandled = YES;
-        self.isPurchaseProcessing = NO;
-
-        if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                [delegate stashNativeCardDidFailPayment];
-            });
-        }
-
-        if (_autoCloseOnPaymentEvent) {
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-            }];
-        }
+        [self handlePaymentFailureSignal];
     } else if ([name isEqualToString:kMessageHandlerPurchaseProcessing]) {
         self.isPurchaseProcessing = YES;
         [self updateDragTrayVisibilityForPurchaseProcessing:YES];
@@ -1410,15 +1433,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             }];
         });
     } else if ([name isEqualToString:kMessageHandlerWindowClose]) {
-        if (self.isPurchaseProcessing) {
-            return;
-        }
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self dismissWithAnimation:^{
-                [self cleanupCardInstance];
-                [self callDelegateCallbackOnce];
-            }];
-        });
+        [self handleWindowCloseSignal];
     } else if ([name isEqualToString:kMessageHandlerPageReady]) {
         WebViewLoadDelegate *loadDelegate = self.activeWebViewLoadDelegate;
         if (loadDelegate) {
