@@ -1355,7 +1355,18 @@ public class StashNativeCardPortraitActivity extends Activity {
       collapsedCardTargetHeightPx = params.height;
     }
 
-    int expandedHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+    // Clamp to the inset-aware max (status + nav bars) like computePhonePortraitSheetHeightPx and
+    // iOS (screen height - safeTop); the card is bottom-pinned in an inset-padded root with
+    // clipToPadding, so a straight ratio of the full screen overflows the safe area and clips the
+    // header behind the status bar -- worse on smaller screens where the bars are a larger fraction.
+    int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
+    int bottom = StashWindowCompat.getSystemBottomInsetPx(getWindow());
+    int maxExpandedHeight = metrics.heightPixels - top - bottom;
+    if (maxExpandedHeight <= 0) {
+      maxExpandedHeight = metrics.heightPixels;
+    }
+    int expandedHeight = Math.min(
+        (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO), maxExpandedHeight);
 
     animateCardHeight(expandedHeight, 450);
 
