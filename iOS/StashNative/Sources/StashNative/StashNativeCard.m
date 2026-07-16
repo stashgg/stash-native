@@ -49,6 +49,14 @@ static CGFloat stashClampRatio(CGFloat v) {
     return v;
 }
 
+// Popup multipliers legitimately exceed 1.0, so they get the popup defaults as fallback
+// instead of the [0.1, 1.0] clamp. Inverted comparison catches NaN; isinf catches the rest
+// of what CGRectMake cannot digest.
+static CGFloat stashSanitizePopupMultiplier(CGFloat v, CGFloat fallback) {
+    if (!(v > 0.0f) || isinf(v)) return fallback;
+    return v;
+}
+
 #pragma mark - Private State
 // Note: These statics are reset in [StashNativeCardInternal cleanupCardInstance].
 // They are file-scope to this translation unit and effectively private to the SDK.
@@ -509,10 +517,14 @@ static BOOL stashLivePresentationBlocksOpen(void) {
     
     if (sizeConfig) {
         _useCustomPopupSize = YES;
-        _customPortraitWidthMultiplier = sizeConfig.portraitWidthMultiplier;
-        _customPortraitHeightMultiplier = sizeConfig.portraitHeightMultiplier;
-        _customLandscapeWidthMultiplier = sizeConfig.landscapeWidthMultiplier;
-        _customLandscapeHeightMultiplier = sizeConfig.landscapeHeightMultiplier;
+        _customPortraitWidthMultiplier =
+            stashSanitizePopupMultiplier(sizeConfig.portraitWidthMultiplier, kPopupPortraitWidthMultiplier);
+        _customPortraitHeightMultiplier =
+            stashSanitizePopupMultiplier(sizeConfig.portraitHeightMultiplier, kPopupPortraitHeightMultiplier);
+        _customLandscapeWidthMultiplier =
+            stashSanitizePopupMultiplier(sizeConfig.landscapeWidthMultiplier, kPopupLandscapeWidthMultiplier);
+        _customLandscapeHeightMultiplier =
+            stashSanitizePopupMultiplier(sizeConfig.landscapeHeightMultiplier, kPopupLandscapeHeightMultiplier);
     } else {
         _useCustomPopupSize = NO;
     }
@@ -1992,6 +2004,16 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     }
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     [internal cleanupCardInstance];
+    // cleanupCardInstance leaves a Safari-owned window alone (openBrowser handoff); reset
+    // means reset, so dismantle any live Safari session and its windows here too.
+    if (internal.currentSafariViewController || internal.safariPresentationWindow ||
+        internal.portraitWindow) {
+        UIViewController *presenting = internal.currentSafariViewController.presentingViewController;
+        if (presenting) {
+            [presenting dismissViewControllerAnimated:NO completion:nil];
+        }
+        [internal tearDownSafariPresentationState];
+    }
     _isCardCurrentlyPresented = NO;
 }
 

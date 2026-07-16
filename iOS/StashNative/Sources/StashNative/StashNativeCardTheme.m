@@ -180,18 +180,26 @@ NSString* appendThemeQueryParameter(NSString* url) {
         return [NSString stringWithFormat:@"%@%@%@=%@", url, separator, kThemeQueryParamName, theme];
     }
     
-    NSMutableArray *queryItems = [NSMutableArray arrayWithArray:components.queryItems ?: @[]];
-    
-    NSMutableArray *filteredItems = [NSMutableArray array];
-    for (NSURLQueryItem *item in queryItems) {
-        if (![item.name isEqualToString:kThemeQueryParamName]) {
-            [filteredItems addObject:item];
+    // Filter and append on percentEncodedQuery, never queryItems: the decode/re-encode
+    // round-trip turns %2B into a literal plus (read back as a space server-side),
+    // corrupting signed or base64 checkout parameters. Android does the same string-level
+    // filtering in stripThemeQueryParameter.
+    NSString *existingQuery = components.percentEncodedQuery;
+    NSMutableArray *keptPairs = [NSMutableArray array];
+    if (existingQuery.length > 0) {
+        for (NSString *pair in [existingQuery componentsSeparatedByString:@"&"]) {
+            if (pair.length == 0) {
+                continue;
+            }
+            NSString *name = [pair componentsSeparatedByString:@"="].firstObject;
+            if (![name isEqualToString:kThemeQueryParamName]) {
+                [keptPairs addObject:pair];
+            }
         }
     }
-    
-    [filteredItems addObject:[NSURLQueryItem queryItemWithName:kThemeQueryParamName value:theme]];
-    components.queryItems = filteredItems;
-    
+    [keptPairs addObject:[NSString stringWithFormat:@"%@=%@", kThemeQueryParamName, theme]];
+    components.percentEncodedQuery = [keptPairs componentsJoinedByString:@"&"];
+
     return components.URL.absoluteString;
 }
 

@@ -165,7 +165,12 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     self = [super init];
     if (self) {
         _webView = webView;
+        // dealloc releases this; plain assignment under MRC would be an over-release.
+#if !__has_feature(objc_arc)
+        _loadingView = [loadingView retain];
+#else
         _loadingView = loadingView;
+#endif
         _retryArmDelay = retryArmDelay;
         _expectedPresentationSessionToken = presentationSessionToken;
         _stallReloadCount = 0;
@@ -290,7 +295,12 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     if (!url || _checkoutURL || _initialLoadComplete || _networkErrorHandled) {
         return;
     }
+    // dealloc releases this; retain under MRC (the caller's NSURL is autoreleased).
+#if !__has_feature(objc_arc)
+    _checkoutURL = [url retain];
+#else
     _checkoutURL = url;
+#endif
     NSTimeInterval retryDelay = kRetryTimeoutInterval + MAX(0.0, _retryArmDelay);
     [self scheduleStallRetryTimerWithDelay:retryDelay reason:@"initial-main-frame-arm"];
 }
@@ -760,8 +770,14 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 - (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures {
     // target=_blank / window.open: load in the same webview (matches Android single-window
     // behavior). Deeplink schemes then route through decidePolicyForNavigationAction as usual.
+    // window.open('') / about:blank placeholder popups are dropped: loading them here would
+    // replace the live checkout document with a blank page.
     if (!navigationAction.targetFrame || !navigationAction.targetFrame.isMainFrame) {
-        [webView loadRequest:navigationAction.request];
+        NSURL *target = navigationAction.request.URL;
+        if (target && target.absoluteString.length > 0 &&
+            ![target.absoluteString isEqualToString:@"about:blank"]) {
+            [webView loadRequest:navigationAction.request];
+        }
     }
     return nil;
 }

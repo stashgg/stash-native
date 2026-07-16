@@ -193,11 +193,19 @@ final class StashCheckoutWebViewSupport {
             // long after the original 15s target; reusing it would fire the deadline (and
             // dismiss the checkout) before the reload can commit.
             activity.networkDeadlineTargetUptime = 0L;
+            activity.networkDeadlineRemainingMs = -1L;
             activity.webViewRetryCount = 0;
             // Detach the stale loading overlay from the dead layout before rebuilding, else
             // addWebView creates a second overlay on top of the orphaned first one.
             removeLoadingViewFromParent(activity);
             StashCheckoutWebViewSupport.addWebView(activity);
+            if (activity.isActivityPaused) {
+              // OS kills mostly happen backgrounded; the fresh deadline must not burn
+              // against background time. Freeze it; onResume thaws and re-arms.
+              cancelLoadTimers(activity);
+              activity.networkDeadlineTargetUptime = 0L;
+              activity.networkDeadlineRemainingMs = CardConstants.WEBVIEW_NETWORK_DEADLINE_MS;
+            }
             return true;
           }
           activity.handleNetworkError();

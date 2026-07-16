@@ -285,8 +285,9 @@ final class StashPopupDialogSupport {
   static void dismissPopupDialog(StashNativeCardPlugin plugin) {
     try {
       // A requested close must not be converted into onNetworkError by the load deadline
-      // firing during the 250ms dismiss animation.
+      // or a late error callback firing during the 250ms dismiss animation.
       cancelPopupNetworkDeadline(plugin);
+      plugin.popupNetworkErrorHandled = true;
       if (plugin.currentDialog != null && plugin.currentContainer != null) {
         plugin.currentContainer.animate()
             .alpha(0.0f)
@@ -414,6 +415,11 @@ final class StashPopupDialogSupport {
       public void onPageFinished(WebView view, String url) {
         try {
           super.onPageFinished(view, url);
+          // A failed main-frame load still delivers onPageFinished; keep the deadline armed
+          // and the spinner up so the error path (fast-fail or deadline) owns the outcome.
+          if (plugin.popupNetworkErrorHandled || plugin.popupMainFrameErrorReceived) {
+            return;
+          }
           plugin.popupInitialLoadComplete = true;
           cancelPopupNetworkDeadline(plugin);
           // Persist cookies as soon as the page lands (parity with the card path); a later
@@ -473,6 +479,10 @@ final class StashPopupDialogSupport {
                 || code == android.webkit.WebViewClient.ERROR_TIMEOUT
                 || code == android.webkit.WebViewClient.ERROR_IO) {
               firePopupNetworkError(plugin);
+            } else if (code != android.webkit.WebViewClient.ERROR_UNKNOWN) {
+              // Non-connectivity failure (SSL, redirect loop, proxy auth): the 15s deadline
+              // reports it; the latch keeps onPageFinished from declaring the load complete.
+              plugin.popupMainFrameErrorReceived = true;
             }
           }
         } catch (Exception e) {
@@ -532,6 +542,7 @@ final class StashPopupDialogSupport {
   static void armPopupNetworkDeadline(StashNativeCardPlugin plugin) {
     plugin.popupInitialLoadComplete = false;
     plugin.popupNetworkErrorHandled = false;
+    plugin.popupMainFrameErrorReceived = false;
     if (plugin.popupNetworkDeadlineRunnable != null) {
       plugin.popupLoadHandler.removeCallbacks(plugin.popupNetworkDeadlineRunnable);
     }

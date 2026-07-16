@@ -71,6 +71,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   long networkDeadlineTargetUptime;
   /** Deadline budget frozen at onPause; -1 = nothing frozen. Paused time must not consume it. */
   long networkDeadlineRemainingMs = -1L;
+  /** True between onPause and onResume; renderer-gone rebuilds must not arm timers while set. */
+  boolean isActivityPaused;
   boolean mainFrameErrorReceived;
   /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
   android.os.Handler loadTimersHandler;
@@ -992,7 +994,9 @@ public class StashNativeCardPortraitActivity extends Activity {
       return;
     }
 
-    if (params.height > 0) {
+    // Snapshot only a settled height: mid-collapse frames would permanently corrupt the
+    // collapsed target every later collapse and snap-back rests at.
+    if (params.height > 0 && (cardHeightAnimator == null || !cardHeightAnimator.isRunning())) {
       collapsedCardTargetHeightPx = params.height;
     }
 
@@ -1665,6 +1669,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onPause() {
     super.onPause();
+    isActivityPaused = true;
     if (webView != null) {
       webView.onPause();
     }
@@ -1683,6 +1688,7 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    isActivityPaused = false;
     StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();

@@ -150,6 +150,17 @@ public class StashKeepAliveService extends Service {
     super.onDestroy();
   }
 
+  // Android 14+ ends shortService after ~3 minutes via this callback; not stopping here
+  // crashes the host app with ForegroundServiceDidNotStopInTimeException.
+  @Override
+  public void onTimeout(int startId) {
+    try {
+      stopForeground(STOP_FOREGROUND_REMOVE);
+    } catch (Throwable ignored) {
+    }
+    stopSelf();
+  }
+
   private void createChannelIfNeeded() {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
       return;

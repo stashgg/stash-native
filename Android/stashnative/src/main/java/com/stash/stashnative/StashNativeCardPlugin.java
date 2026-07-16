@@ -105,6 +105,8 @@ public class StashNativeCardPlugin {
   /** Popup dialog path only: initial-load network deadline (card path uses activity timers). */
   boolean popupInitialLoadComplete;
   boolean popupNetworkErrorHandled;
+  /** Pre-load main-frame error latch (parity with the card's mainFrameErrorReceived). */
+  boolean popupMainFrameErrorReceived;
   Runnable popupNetworkDeadlineRunnable;
   final Handler popupLoadHandler = new Handler(Looper.getMainLooper());
 

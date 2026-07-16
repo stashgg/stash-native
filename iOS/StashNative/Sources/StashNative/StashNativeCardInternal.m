@@ -350,7 +350,10 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     self.isDismissingCard = NO;
     self.isPurchaseProcessing = NO;
     _isCardExpanded = NO;
-    _isCardCurrentlyPresented = NO;
+    // A live Safari session (openBrowser handoff, or external payment about to present)
+    // keeps the presented flag: a superseded dismiss completion running after Safari's
+    // present completion must not permanently clear it and reopen the entry guards.
+    _isCardCurrentlyPresented = (self.currentSafariViewController != nil);
     _usePopupPresentation = NO;
     _useModalPresentation = NO;
     _useCustomPopupSize = NO;
