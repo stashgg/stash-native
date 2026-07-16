@@ -306,10 +306,10 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.2.4";
+  private static final String SDK_VERSION = "2.3.0";
 
   /**
-   * Returns the SDK version string (e.g. "2.2.4").
+   * Returns the SDK version string (e.g. "2.3.0").
    */
   public static String getVersion() {
     return SDK_VERSION;

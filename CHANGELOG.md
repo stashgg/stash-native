@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [2.3.0] - Unreleased
+## [2.3.0] - 2026-07-16
 
 ### Added
 - iOS/Android: `window.stash_sdk.openLink(url)` opens a URL in the external browser with no callbacks and no dismissal (terms and misc links). Spec in `docs/stash-sdk-js.md`.
