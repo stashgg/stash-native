@@ -8,6 +8,8 @@
 
 The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application. Library is delivered as AAR for Android and xcframework for iOS.
 
+---
+
 ## Table of contents
 
 **Overview**
@@ -39,6 +41,7 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 - [Versioning](#versioning)
 - [Support](#support)
 
+---
 
 ## Game Engine Wrappers
 
@@ -51,12 +54,16 @@ If you're using one of the game engines listed below, we offer dedicated wrapper
 
 For building your own wrappers, see [docs/building-wrappers.md](./docs/building-wrappers.md) for integration patterns and a integration checklist.
 
+---
+
 ## Downloads
 
 Latest pre-built binaries are always available on [Releases Page](https://github.com/stashgg/stash-native/releases):
 
 - **Android**: `stashnative-release.aar` (or `StashNative-<tag>.aar` from releases)
 - **iOS**: `StashNative.xcframework.zip`
+
+---
 
 ## Sample apps & Testing
 
@@ -444,6 +451,8 @@ let version = StashNativeCard.sdkVersion()
 // iOS (Objective-C)
 NSString *version = [StashNativeCard sdkVersion];
 ```
+
+---
 
 ## Support
 
