@@ -3,13 +3,24 @@
 //  StashNative
 //
 //  WKNavigationDelegate and WKUIDelegate implementations for the card WebView.
-//  Shared state via extern declarations; see StashNativeCard.m for definitions.
+//  Shared state comes from StashNativeCardPrivate.h; definitions live in StashNativeCard.m.
 //
 
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
+
+// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
+// (e.g., in game engines like Unreal Engine that manage memory manually).
+// ARC builds do not need these suppressions.
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshadow"
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 
 
 #ifdef DEBUG
@@ -39,17 +50,6 @@ static const NSTimeInterval kRetryTimeoutInterval = 1.25;
 static const NSTimeInterval kNetworkTimeoutInterval = 15.0;
 /// Fallback: reveal modal after this delay if WebView callbacks never fire (e.g. in Unreal)
 static const NSTimeInterval kModalFallbackRevealInterval = 2.0;
-#pragma mark - Extern declarations (defined in StashNativeCard.m)
-
-extern BOOL _usePopupPresentation;
-extern BOOL _useModalPresentation;
-extern BOOL isRunningOniPad(void);
-extern UIColor* stash_sheetBackgroundUIColor(void);
-extern UIViewController *getTopPresentedViewController(void);
-extern void configureScrollViewForWebView(UIScrollView *scrollView);
-extern void setWebViewBackgroundColor(WKWebView *webView, UIColor *color);
-extern const NSInteger kDragTrayViewTag;
-
 #pragma mark - WebViewLoadDelegate
 
 @implementation WebViewLoadDelegate {
@@ -165,7 +165,12 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     self = [super init];
     if (self) {
         _webView = webView;
+        // dealloc releases this; plain assignment under MRC would be an over-release.
+#if !__has_feature(objc_arc)
+        _loadingView = [loadingView retain];
+#else
         _loadingView = loadingView;
+#endif
         _retryArmDelay = retryArmDelay;
         _expectedPresentationSessionToken = presentationSessionToken;
         _stallReloadCount = 0;
@@ -290,7 +295,12 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     if (!url || _checkoutURL || _initialLoadComplete || _networkErrorHandled) {
         return;
     }
+    // dealloc releases this; retain under MRC (the caller's NSURL is autoreleased).
+#if !__has_feature(objc_arc)
+    _checkoutURL = [url retain];
+#else
     _checkoutURL = url;
+#endif
     NSTimeInterval retryDelay = kRetryTimeoutInterval + MAX(0.0, _retryArmDelay);
     [self scheduleStallRetryTimerWithDelay:retryDelay reason:@"initial-main-frame-arm"];
 }
@@ -326,18 +336,18 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     [_modalFallbackTimer invalidate];
     _modalFallbackTimer = nil;
     
-    // Call the network error callback
+    // Header contract: dialog is dismissed BEFORE the callback (same main queue, FIFO), so a
+    // retry openCard inside the callback is not swallowed by the presented guard.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [[StashNativeCard sharedInstance] resetPresentationState];
+    });
+
     id<StashNativeCardDelegate> delegate = [StashNativeCard sharedInstance].delegate;
     if (delegate && [delegate respondsToSelector:@selector(stashNativeCardDidEncounterNetworkError)]) {
         dispatch_async(dispatch_get_main_queue(), ^{
             [delegate stashNativeCardDidEncounterNetworkError];
         });
     }
-    
-    // Dismiss the dialog without calling onDismiss
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [[StashNativeCard sharedInstance] resetPresentationState];
-    });
 }
 
 - (void)cancelNetworkTimeout {
@@ -449,7 +459,33 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
         return;
     }
-    
+
+    // Main-frame navigation to a non-web scheme is a deeplink: never load it in the card.
+    // stash-pay result paths run the same flows as the JS bridge; everything else is handed
+    // to the OS. The card stays presented either way (spec: docs/stash-sdk-js.md).
+    NSString *scheme = url.scheme.lowercaseString;
+    BOOL isWebScheme = scheme.length == 0 ||
+        [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] ||
+        [scheme isEqualToString:@"about"] || [scheme isEqualToString:@"blob"] ||
+        [scheme isEqualToString:@"data"] || [scheme isEqualToString:@"file"] ||
+        [scheme isEqualToString:@"javascript"];
+    BOOL isMainFrame = navigationAction.targetFrame == nil || navigationAction.targetFrame.isMainFrame;
+    if (!isWebScheme && isMainFrame) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+        NSString *lower = urlString.lowercaseString;
+        if ([lower containsString:@"stash-pay/success"]) {
+            [internal handlePaymentSuccessSignalWithOrder:nil];
+        } else if ([lower containsString:@"stash-pay/failure"]) {
+            [internal handlePaymentFailureSignal];
+        } else if ([lower containsString:@"stash-pay/cancel"]) {
+            [internal handleWindowCloseSignal];
+        } else {
+            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+        }
+        return;
+    }
+
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
@@ -731,6 +767,21 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     completionHandler(nil);
 }
 
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures {
+    // target=_blank / window.open: load in the same webview (matches Android single-window
+    // behavior). Deeplink schemes then route through decidePolicyForNavigationAction as usual.
+    // window.open('') / about:blank placeholder popups are dropped: loading them here would
+    // replace the live checkout document with a blank page.
+    if (!navigationAction.targetFrame || !navigationAction.targetFrame.isMainFrame) {
+        NSURL *target = navigationAction.request.URL;
+        if (target && target.absoluteString.length > 0 &&
+            ![target.absoluteString isEqualToString:@"about:blank"]) {
+            [webView loadRequest:navigationAction.request];
+        }
+    }
+    return nil;
+}
+
 - (void)webView:(WKWebView *)webView runJavaScriptAlertPanelWithMessage:(NSString *)message initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completionHandler {
     UIViewController *presenter = getTopPresentedViewController();
     if (!presenter) {
@@ -770,3 +821,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 @end
+
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic pop
+#endif

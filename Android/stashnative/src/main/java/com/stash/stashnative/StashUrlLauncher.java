@@ -51,7 +51,8 @@ public final class StashUrlLauncher {
     try {
       Class.forName(CLASS_CUSTOM_TABS_INTENT);
       return true;
-    } catch (ClassNotFoundException e) {
+    } catch (Throwable t) {
+      // Partially-resolved androidx.browser throws NoClassDefFoundError/LinkageError, not CNFE.
       return false;
     }
   }

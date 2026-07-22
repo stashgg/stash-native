@@ -126,7 +126,7 @@ public class StashNativeCard {
      * {@code window.stash_sdk.openExternalBrowser} is dismissed by the user.
      * For Chrome Custom Tabs, the SDK uses {@link Activity#startActivityForResult} and, when Chrome
      * supports it, engagement session callbacks so this also runs when the tab is closed from
-     * floating or minimized UI. Forward {@link #onActivityResult} from the launching activity.
+     * floating or minimized UI. Handled internally by the SDK's proxy activity; no host forwarding needed.
      * External browser ({@code ACTION_VIEW}) uses host lifecycle with a short debounce.
      * <p>
      * Very old Chrome or devices without engagement support may still delay {@code onActivityResult}
@@ -306,10 +306,10 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.2.4";
+  private static final String SDK_VERSION = "2.3.0";
 
   /**
-   * Returns the SDK version string (e.g. "2.2.1").
+   * Returns the SDK version string (e.g. "2.3.0").
    */
   public static String getVersion() {
     return SDK_VERSION;
@@ -463,7 +463,7 @@ public class StashNativeCard {
   
   /**
    * Opens a URL in Chrome Custom Tabs when {@code androidx.browser} is present, otherwise in the
-   * system browser ({@code ACTION_VIEW}). For Custom Tabs, forward {@link #onActivityResult} from
+   * system browser ({@code ACTION_VIEW}). For Custom Tabs, the result is handled internally by the SDK's proxy activity; nothing to forward from
    * this activity so {@link StashNativeCardListener#onBrowserClosed()} runs when the tab closes;
    * {@code ACTION_VIEW} uses lifecycle-based detection (see {@link StashNativeCardListener#onBrowserClosed}).
    *
@@ -565,7 +565,20 @@ public class StashNativeCard {
       setBackdropBitmap(null);
       return;
     }
-    Bitmap bmp = BitmapFactory.decodeByteArray(pngOrJpeg, 0, pngOrJpeg.length);
+    // Opaque full-screen plate shown behind a dim overlay: RGB_565 + bounded sample size keeps
+    // Unity render-buffer captures from allocating tens of MB while Chromium spins up.
+    BitmapFactory.Options bounds = new BitmapFactory.Options();
+    bounds.inJustDecodeBounds = true;
+    BitmapFactory.decodeByteArray(pngOrJpeg, 0, pngOrJpeg.length, bounds);
+    BitmapFactory.Options opts = new BitmapFactory.Options();
+    opts.inPreferredConfig = Bitmap.Config.RGB_565;
+    int longest = Math.max(bounds.outWidth, bounds.outHeight);
+    int sample = 1;
+    while (longest / sample > 2400) {
+      sample <<= 1;
+    }
+    opts.inSampleSize = sample;
+    Bitmap bmp = BitmapFactory.decodeByteArray(pngOrJpeg, 0, pngOrJpeg.length, opts);
     setBackdropBitmap(bmp);
   }
 

@@ -32,6 +32,9 @@ public class MainActivity extends AppCompatActivity {
   private MainViewModel viewModel;
   private SettingsAdapter adapter;
 
+  private final java.util.concurrent.ExecutorService networkExecutor =
+      Executors.newSingleThreadExecutor();
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -148,8 +151,11 @@ public class MainActivity extends AppCompatActivity {
 
     viewModel.refreshList();
 
-    // Handle a stashdemo:// deeplink that cold-started the app.
-    handleDeepLink(getIntent());
+    // Handle a stashdemo:// deeplink that cold-started the app. Recreations (config change,
+    // process-death restore) redeliver the same intent; do not re-fire the outcome dialog.
+    if (savedInstanceState == null) {
+      handleDeepLink(getIntent());
+    }
   }
 
   @Override
@@ -175,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
     StashNativeCard.getInstance().closeBrowser();
     if (url.contains("stash-pay/success")) {
       showOutcomeDialog("Success", "Deeplink payment success\n" + url);
-    } else if (url.contains("stash-pay/failed")) {
+    } else if (url.contains("stash-pay/failure")) {
       showOutcomeDialog("Payment Failed", "Deeplink payment failed\n" + url);
     } else {
       showOutcomeDialog("Deeplink", url);
@@ -206,6 +212,11 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void showOutcomeDialog(String title, String message) {
+    // Network completions can land after the activity is gone; showing a dialog then
+    // throws BadTokenException.
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
     new AlertDialog.Builder(this)
         .setTitle(title)
         .setMessage(message)
@@ -228,7 +239,7 @@ public class MainActivity extends AppCompatActivity {
   private void openBrowser() {
     String url = viewModel.getBrowserUrl();
     if (url == null || url.trim().isEmpty()) {
-      showOutcomeDialog("Error", getString(R.string.error_checkout_url));
+      showOutcomeDialog("Error", getString(R.string.error_browser_url));
       return;
     }
     syncKeepAlive();
@@ -267,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
     String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
     final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
 
-    Executors.newSingleThreadExecutor().execute(() -> {
+    networkExecutor.execute(() -> {
       HttpURLConnection conn = null;
       try {
         URL url = new URL(urlString);
@@ -360,7 +371,7 @@ public class MainActivity extends AppCompatActivity {
     String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
     final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
 
-    Executors.newSingleThreadExecutor().execute(() -> {
+    networkExecutor.execute(() -> {
       HttpURLConnection conn = null;
       try {
         URL url = new URL(urlString);
@@ -448,6 +459,9 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onDestroy() {
     StashNativeCard.getInstance().setListener(null);
+    if (isFinishing()) {
+      networkExecutor.shutdown();
+    }
     binding = null;
     super.onDestroy();
   }

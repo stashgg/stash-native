@@ -62,4 +62,5 @@
     <string name="option_keep_alive_supporting">Foreground service to survive browser flows</string>
     <string name="error_checkout_url">Please enter a checkout URL</string>
     <string name="error_modal_url">Please enter a modal URL</string>
+    <string name="error_browser_url">Please enter a browser URL</string>
 </resources>

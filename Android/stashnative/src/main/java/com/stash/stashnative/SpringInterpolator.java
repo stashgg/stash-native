@@ -9,7 +9,9 @@ import android.view.animation.Interpolator;
  */
 public class SpringInterpolator implements Interpolator {
   private static final float DAMPING = 0.85f;
-  private static final float STIFFNESS = 400f;
+  // Tuned so the damped envelope decays across the whole [0,1] timeline (STIFFNESS 400 saturated by
+  // t~0.25, making animator durations meaningless); OMEGA*DAMPING ~= 6.9 at t=1.
+  private static final float STIFFNESS = 66f;
   private static final float MASS = 1f;
   
   private static final float OMEGA = (float) Math.sqrt(STIFFNESS / MASS);

@@ -30,6 +30,45 @@ public class StashWebViewUtils {
   /** JavaScript bridge name used by addJavascriptInterface and JS_SDK_SCRIPT. */
   public static final String JS_INTERFACE_NAME = "StashAndroid";
   
+  /** Deeplink result classification (stash-pay result paths, any scheme). */
+  public static final int DEEPLINK_RESULT_NONE = 0;
+  public static final int DEEPLINK_RESULT_SUCCESS = 1;
+  public static final int DEEPLINK_RESULT_FAILURE = 2;
+  public static final int DEEPLINK_RESULT_CANCEL = 3;
+
+  /** True when the URL loads inside the WebView (web schemes); false for deeplinks. */
+  public static boolean isWebScheme(String url) {
+    if (url == null) {
+      return false;
+    }
+    String lower = url.trim().toLowerCase(java.util.Locale.US);
+    return lower.startsWith("http://") || lower.startsWith("https://")
+        || lower.startsWith("about:") || lower.startsWith("data:")
+        || lower.startsWith("blob:") || lower.startsWith("file:")
+        || lower.startsWith("javascript:");
+  }
+
+  /**
+   * Classifies a deeplink as a stash-pay result. Matches the path anywhere in the URL so any
+   * scheme works (spec: stash-pay/success, stash-pay/failure, stash-pay/cancel).
+   */
+  public static int classifyDeeplinkResult(String url) {
+    if (url == null) {
+      return DEEPLINK_RESULT_NONE;
+    }
+    String lower = url.toLowerCase(java.util.Locale.US);
+    if (lower.contains("stash-pay/success")) {
+      return DEEPLINK_RESULT_SUCCESS;
+    }
+    if (lower.contains("stash-pay/failure")) {
+      return DEEPLINK_RESULT_FAILURE;
+    }
+    if (lower.contains("stash-pay/cancel")) {
+      return DEEPLINK_RESULT_CANCEL;
+    }
+    return DEEPLINK_RESULT_NONE;
+  }
+
   /** Query param name for theme. */
   public static final String QUERY_PARAM_THEME = "theme";
   public static final String THEME_DARK = "dark";
@@ -84,6 +123,11 @@ public class StashWebViewUtils {
       + "    try { "
       + JS_INTERFACE_NAME
       + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + "  };"
+      + "  window.stash_sdk.openLink = function(url) {"
+      + "    try { "
+      + JS_INTERFACE_NAME
+      + ".openLink((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
       + "  };"
       + "  try { window.close = function() { try { "
       + JS_INTERFACE_NAME
@@ -239,7 +283,7 @@ public class StashWebViewUtils {
     CookieManager.getInstance().setAcceptCookie(true);
     
     boolean algorithmicDarkeningApplied = false;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       try {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
           WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDarkTheme);
@@ -299,21 +343,57 @@ public class StashWebViewUtils {
     if (url == null || url.isEmpty()) {
       return url;
     }
-    
+    // Idempotent: drop any pre-existing theme param first so re-theming (or a merchant URL that
+    // already carries theme=) yields exactly one value. Matches iOS replace semantics.
+    String base = stripThemeQueryParameter(url);
+    String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
     try {
-      Uri uri = Uri.parse(url);
+      Uri uri = Uri.parse(base);
       Uri.Builder builder = uri.buildUpon();
-      
-      String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
       builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
-      
       return builder.build().toString();
     } catch (Exception e) {
       Log.w(TAG, "Error appending theme parameter: " + e.getMessage());
-      String separator = url.contains("?") ? "&" : "?";
-      String theme = isDarkTheme ? THEME_DARK : THEME_LIGHT;
-      return url + separator + QUERY_PARAM_THEME + "=" + theme;
+      String fragment = "";
+      String head = base;
+      int hash = base.indexOf('#');
+      if (hash >= 0) {
+        fragment = base.substring(hash);
+        head = base.substring(0, hash);
+      }
+      String separator = head.contains("?") ? "&" : "?";
+      return head + separator + QUERY_PARAM_THEME + "=" + theme + fragment;
     }
+  }
+
+  /** Removes every theme=... query segment (exact key match), preserving order and fragment. */
+  private static String stripThemeQueryParameter(String url) {
+    int hash = url.indexOf('#');
+    String fragment = hash >= 0 ? url.substring(hash) : "";
+    String head = hash >= 0 ? url.substring(0, hash) : url;
+    int q = head.indexOf('?');
+    if (q < 0) {
+      return url;
+    }
+    String path = head.substring(0, q);
+    String query = head.substring(q + 1);
+    StringBuilder kept = new StringBuilder();
+    for (String seg : query.split("&")) {
+      if (seg.isEmpty()) {
+        continue;
+      }
+      int eq = seg.indexOf('=');
+      String key = eq >= 0 ? seg.substring(0, eq) : seg;
+      if (key.equals(QUERY_PARAM_THEME)) {
+        continue;
+      }
+      if (kept.length() > 0) {
+        kept.append('&');
+      }
+      kept.append(seg);
+    }
+    String rebuilt = kept.length() > 0 ? path + "?" + kept : path;
+    return rebuilt + fragment;
   }
 
   /**
@@ -363,7 +443,6 @@ public class StashWebViewUtils {
       loadingContainer.setLayoutParams(containerParams);
 
       ProgressBar loadingIndicator = new ProgressBar(context);
-      loadingIndicator.setLayerType(View.LAYER_TYPE_HARDWARE, null);
       loadingIndicator.setIndeterminate(true);
       loadingIndicator.setIndeterminateTintList(
           android.content.res.ColorStateList.valueOf(spinnerAccentArgb));

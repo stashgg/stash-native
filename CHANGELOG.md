@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-07-16
+
+### Added
+- iOS/Android: `window.stash_sdk.openLink(url)` opens a URL in the external browser with no callbacks and no dismissal (terms and misc links). Spec in `docs/stash-sdk-js.md`.
+- iOS/Android: deeplink handling in the checkout WebViews. Main-frame navigations to custom schemes no longer dismiss the card (iOS) or show an error page (Android): URLs containing `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel` run the standard payment success / failure / close flows; every other deeplink is handed to the OS and the checkout stays presented.
+
+### Changed
+- Internal refactor on both platforms: long files split into focused units (iOS `StashNativeCard*` modules, Android `Stash*Support` helpers). No public API or behavior changes.
+- Android: default modal phone portrait width ratio 0.9 to 0.8 (parity with iOS).
+- Test card reworked into a bottom-tab layout with a fixed status dock.
+
+### Fixed
+- Stability pass across both platforms (three review rounds, ~70 fixes). Highlights:
+  - Callback integrity: dismiss/payment/network callbacks fire exactly once, in order, on every path (drag, back, backdrop, plugin, deeplink), including `autoClose false` flows.
+  - Reentrancy: open/dismiss/rotate/drag/browser-handoff overlaps no longer strand presentation state on either platform; rejected opens no longer overwrite the live session's config.
+  - Network grace: 15s absolute load deadline survives pause/background without burning paused time; connectivity-error whitelists stop spurious dismissals on aborted navigations; Android reloads the checkout once after an OS renderer kill.
+  - Android: sticky 450 ms entry-animation start delay no longer defers every later card animation; keep-alive `shortService` handles the Android 14+ timeout instead of crashing the host; low-RAM devices downscale oversized host backdrops; cookies flush at page load and teardown.
+  - iOS: theme query parameter no longer corrupts percent-encoded checkout parameters; NaN/invalid sizing config values are sanitized instead of crashing in CoreAnimation; non-ARC (Unreal) over-release fixed; `window.open('')` no longer blanks the checkout.
+- Sample apps: deeplink outcome no longer re-fires on rotation, dialogs guard against destroyed activities, iOS sample handles `stash-pay/cancel` and pass-through deeplinks like Android.
+
 ## [2.2.4] - 2026-06-23
 
 ### Added

@@ -3,74 +3,48 @@
 //  StashNative
 //
 //  View controller and view classes for card presentation.
-//  Shared state via extern declarations; see StashNativeCard.m for definitions.
+//  View controller and view class implementations for card presentation.
+//  Interfaces and shared-state externs come from StashNativeCardPrivate.h.
 //
 
 #import "StashNativeCard.h"
+#import "StashNativeCardPrivate.h"
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
+// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
+// (e.g., in game engines like Unreal Engine that manage memory manually).
+// ARC builds do not need these suppressions.
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wshadow"
+#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+
 static const void *kRotationResizeCardViewKey = &kRotationResizeCardViewKey;
 static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKey;
+
+/// Invalidates a pending rotation-resize display link on the VC (dismiss during rotation).
+void stashInvalidateRotationResizeArtifacts(UIViewController *vc) {
+    if (!vc) return;
+    CADisplayLink *link = objc_getAssociatedObject(vc, kRotationResizeDisplayLinkKey);
+    if (link) {
+        [link invalidate];
+    }
+    objc_setAssociatedObject(vc, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    objc_setAssociatedObject(vc, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
 
 static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
     return fabs(a.size.width - b.size.width) > 0.5 || fabs(a.size.height - b.size.height) > 0.5
         || fabs(a.origin.x - b.origin.x) > 0.5 || fabs(a.origin.y - b.origin.y) > 0.5;
 }
 
-#pragma mark - Extern declarations (defined in StashNativeCard.m)
-
-extern BOOL _usePopupPresentation;
-extern BOOL _useModalPresentation;
-extern BOOL _modalAllowDismiss;
-extern BOOL _useCustomPopupSize;
-extern CGFloat _customPortraitWidthMultiplier;
-extern CGFloat _customPortraitHeightMultiplier;
-extern CGFloat _customLandscapeWidthMultiplier;
-extern CGFloat _customLandscapeHeightMultiplier;
-extern const CGFloat kPopupPortraitWidthMultiplier;
-extern const CGFloat kPopupPortraitHeightMultiplier;
-extern const CGFloat kPopupLandscapeWidthMultiplier;
-extern const CGFloat kPopupLandscapeHeightMultiplier;
-extern const CGFloat kCornerRadiusDefault;
-extern const CGFloat kDragTrayHeight;
-extern const CGFloat kHandleBarWidth;
-extern const CGFloat kHandleBarHeight;
-extern const CGFloat kHandleBarTopInset;
-extern const CGFloat kHandleHitAreaInset;
-extern const CGFloat kPopupBaseSizePercentageIPad;
-extern const CGFloat kPopupBaseSizePercentagePhone;
-extern const CGFloat kPopupBaseSizeMinIPad;
-extern const CGFloat kPopupBaseSizeMinPhone;
-extern const CGFloat kPopupBaseSizeMax;
-extern const NSTimeInterval kPopupFrameAnimationDuration;
-extern const NSInteger kCardViewTag;
-extern const NSInteger kDragTrayViewTag;
-extern const NSInteger kDragHandleViewTag;
-extern NSString * const StashNativeAssociatedKeyOverlayView;
-
-extern BOOL isRunningOniPad(void);
-extern CGSize calculateiPadCardSize(CGRect screenBounds);
-extern CGRect stashFrameForIPadSdkCard(CGRect screenBounds, UIView *cardView);
-extern CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius);
-extern UIInterfaceOrientation getInterfaceOrientation(void);
-extern CGRect computePopupFrameForScreenBounds(CGRect screenBounds);
-extern CGRect computeModalFrameForScreenBounds(CGRect screenBounds);
-extern void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth);
-extern void layoutCardContentToBounds(UIView *cardView);
-extern WKWebView *switchWebViewToFrameLayoutInCardView(UIView *cardView);
-extern CGRect computePhoneCardFrameForBoundsAndOrientation(CGRect bounds, BOOL isLandscape);
-extern void updateOriginalCardRatiosForOrientation(BOOL isLandscape);
-extern void resetCardExpandedStateAfterRotation(void);
-extern CGRect stashSceneCoordinateBoundsForIPhoneCardWindow(UIWindow *window);
-extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress);
-
 #pragma mark - DragTrayView
-
-@interface DragTrayView : UIView
-@end
 
 @implementation DragTrayView
 
@@ -90,13 +64,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 @end
 
 #pragma mark - IPhoneCardViewController
-
-@interface IPhoneCardViewController : UIViewController
-@property (nonatomic, assign) CGRect cardFrame;
-@property (nonatomic, assign) CGRect customFrame;
-@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-- (void)updateCornerRadiusMask;
-@end
 
 @implementation IPhoneCardViewController
 
@@ -160,14 +127,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 
 #pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
 
-@interface IPhoneCardCurrentOrientationViewController : UIViewController
-@property (nonatomic, assign) CGRect cardFrame;
-@property (nonatomic, assign) CGRect customFrame;
-@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-@property (nonatomic, assign) UIInterfaceOrientationMask lockedOrientationMask;
-- (void)updateCornerRadiusMask;
-@end
-
 @implementation IPhoneCardCurrentOrientationViewController
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -207,15 +166,28 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
     CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
     BOOL isLandscape = size.width > size.height;
     
+    __block CADisplayLink *createdLink = nil;
     [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
         switchWebViewToFrameLayoutInCardView(cardView);
         stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
+        CADisplayLink *stale = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
+        if (stale) {
+            [stale invalidate];
+        }
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
+        createdLink = resizeLink;
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, resizeLink, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [resizeLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        // MRC-safe: a __block object var is non-owning under MRC, so createdLink can dangle if a
+        // newer rotation or teardown already invalidated+cleared the link. Only message the live
+        // object held by the association; use createdLink purely as a pointer-identity tag.
         CADisplayLink *resizeLink = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
+        if (resizeLink != createdLink) {
+            // A newer rotation replaced our link, or teardown cleared it; that path owns cleanup.
+            return;
+        }
         [resizeLink invalidate];
         objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         objc_setAssociatedObject(self, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -265,13 +237,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 
 #pragma mark - IPadModalViewController
 
-@interface IPadModalViewController : UIViewController
-@property (nonatomic, assign) CGSize previousScreenSize;
-@property (nonatomic, assign) CGRect customFrame;
-@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-- (void)updateCornerRadiusMaskForCardView;
-@end
-
 @implementation IPadModalViewController
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -316,12 +281,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 @end
 
 #pragma mark - ModalViewController (Window-based modal, no portrait lock; same pattern as iPad checkout)
-
-@interface ModalViewController : UIViewController
-@property (nonatomic, assign) CGRect customFrame;
-@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-- (void)updateCornerRadiusMaskForCardView;
-@end
 
 @implementation ModalViewController
 
@@ -371,9 +330,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 /// on the external-payment path (when the card window has already been dismissed and the game's
 /// landscape window is key).  Presenting Safari from this VC gives it — and the system keyboard —
 /// the correct portrait orientation and safe-area insets.
-@interface SafariPortraitContainerViewController : UIViewController
-@end
-
 @implementation SafariPortraitContainerViewController
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
@@ -391,13 +347,6 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 @end
 
 #pragma mark - OrientationLockedViewController (Popup rotation only; modal uses ModalViewController)
-
-@interface OrientationLockedViewController : UIViewController
-@property (nonatomic, assign) CGRect customFrame;
-@property (nonatomic, assign) BOOL enforcePortrait;
-@property (nonatomic, assign) BOOL skipLayoutDuringInitialSetup;
-- (void)updateCornerRadiusMask;
-@end
 
 @implementation OrientationLockedViewController
 
@@ -484,3 +433,7 @@ extern void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targ
 }
 
 @end
+
+#if !__has_feature(objc_arc)
+#pragma clang diagnostic pop
+#endif

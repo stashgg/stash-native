@@ -72,6 +72,10 @@ jobs:
       - name: Run unit tests
         run: cd Android && ./gradlew :stashnative:testDebugUnitTest
 
+      - name: Android Lint (non-blocking)
+        continue-on-error: true
+        run: cd Android && ./gradlew :stashnative:lintRelease
+
   test-ios:
     name: Test iOS Library
     runs-on: macos-latest

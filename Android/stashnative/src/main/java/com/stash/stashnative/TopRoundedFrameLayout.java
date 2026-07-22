@@ -55,6 +55,13 @@ public class TopRoundedFrameLayout extends FrameLayout {
     return path;
   }
 
+  private final Path clipPath = new Path();
+  private final RectF clipRect = new RectF();
+  private final float[] clipRadii = new float[8];
+  private int lastClipW = -1;
+  private int lastClipH = -1;
+  private float lastClipRadius = -1f;
+
   @Override
   protected void dispatchDraw(Canvas canvas) {
     int w = getWidth();
@@ -63,9 +70,18 @@ public class TopRoundedFrameLayout extends FrameLayout {
       super.dispatchDraw(canvas);
       return;
     }
-    Path path = buildTopRoundedClipPath(w, h, topCornerRadiusPx);
+    // Runs every frame of entry/drag/spring/IME animations; rebuild the path only on size change.
+    if (w != lastClipW || h != lastClipH || topCornerRadiusPx != lastClipRadius) {
+      float r = topCornerRadiusPx;
+      clipRadii[0] = r; clipRadii[1] = r; clipRadii[2] = r; clipRadii[3] = r;
+      clipRadii[4] = 0f; clipRadii[5] = 0f; clipRadii[6] = 0f; clipRadii[7] = 0f;
+      clipRect.set(0, 0, w, h);
+      clipPath.rewind();
+      clipPath.addRoundRect(clipRect, clipRadii, Path.Direction.CW);
+      lastClipW = w; lastClipH = h; lastClipRadius = topCornerRadiusPx;
+    }
     int save = canvas.save();
-    canvas.clipPath(path);
+    canvas.clipPath(clipPath);
     try {
       super.dispatchDraw(canvas);
     } finally {
@@ -86,12 +102,10 @@ public class TopRoundedFrameLayout extends FrameLayout {
           outline.setEmpty();
           return;
         }
-        Path path = buildTopRoundedClipPath(w, h, radiusPx);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-          outline.setPath(path);
-        } else {
-          outline.setConvexPath(path);
-        }
+        // Sheet is bottom-pinned, so extending the round-rect radiusPx below the bottom edge
+        // pushes the square bottom corners off-screen while the top corners match the clip.
+        // Round-rect outlines use the fast analytic shadow (no per-frame tessellation/alloc).
+        outline.setRoundRect(0, 0, w, (int) (h + radiusPx), radiusPx);
       }
     };
   }
