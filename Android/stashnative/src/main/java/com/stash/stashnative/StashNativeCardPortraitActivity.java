@@ -699,17 +699,23 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
-   * Expanded phone-sheet height: EXPANDED_CARD_HEIGHT_RATIO of the screen, clamped so the
-   * bottom-pinned sheet never overflows the inset content box and clips its header behind the
-   * status bar (mirrors the collapsed clamp in computePhonePortraitSheetHeightPx and iOS
-   * height - safeTop). Prefers the root layout's real content box: it is keyboard-free on every
-   * API path (the inset padding excludes the IME) and immune to DisplayMetrics nav-bar semantics,
-   * which vary by API level. Before first layout falls back to metrics minus keyboard-free
-   * insets -- the stable nav inset, not the legacy system-window inset, because this also runs
-   * on keyboard-show where the legacy inset is IME-inflated and would shrink the card.
+   * Expanded-card height cap: EXPANDED_CARD_HEIGHT_RATIO of the screen, clamped so the card
+   * never overflows the inset content box and gets clipped by the root's inset padding -- the
+   * bottom-pinned phone sheet loses its header behind the status bar, a centered tablet card
+   * loses both edges (mirrors the collapsed clamp in computePhonePortraitSheetHeightPx and iOS
+   * height - safeTop). The phone expanded height IS this cap; the tablet expand target is
+   * min(base * multiplier, this cap).
+   *
+   * <p>Prefers the root layout's real content box: it is keyboard-free on every API path (the
+   * inset padding excludes the IME) and immune to DisplayMetrics nav-bar semantics, which vary
+   * by API level. Pass {@code rootLayoutSettled=false} from rotation callbacks -- there the root
+   * layout still has the previous orientation's geometry -- to fall back to metrics minus
+   * keyboard-free insets (the stable nav inset, not the legacy system-window inset, because
+   * expand also runs on keyboard-show where the legacy inset is IME-inflated and would shrink
+   * the card).
    */
-  private int computeExpandedPhoneCardHeightPx(DisplayMetrics metrics) {
-    int maxHeight = rootContentHeightPx();
+  private int expandedCardHeightCapPx(DisplayMetrics metrics, boolean rootLayoutSettled) {
+    int maxHeight = rootLayoutSettled ? rootContentHeightPx() : 0;
     if (maxHeight <= 0) {
       int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
       int bottom = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
@@ -1359,7 +1365,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (base <= 0) {
         return;
       }
-      int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+      int maxH = expandedCardHeightCapPx(metrics, true);
       int target =
           Math.min(
               Math.round(base * CardConstants.TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER), maxH);
@@ -1384,7 +1390,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       collapsedCardTargetHeightPx = params.height;
     }
 
-    int expandedHeight = computeExpandedPhoneCardHeightPx(metrics);
+    int expandedHeight = expandedCardHeightCapPx(metrics, true);
 
     animateCardHeight(expandedHeight, 450);
 
@@ -1545,7 +1551,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       targetHeight = params.height;
     } else if (isExpanded) {
       // Same clamp as animateExpand; the raw ratio here would undo the clamp on release.
-      targetHeight = computeExpandedPhoneCardHeightPx(metrics);
+      targetHeight = expandedCardHeightCapPx(metrics, true);
     } else {
       targetHeight = collapsedCardTargetHeightPx > 0
           ? collapsedCardTargetHeightPx
@@ -2823,7 +2829,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     int newWidth = newSize[0];
     int newBaseHeight = newSize[1];
     tabletSdkBaseHeightPx = newBaseHeight;
-    int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+    // rootLayoutSettled=false: this runs from onConfigurationChanged, before the root layout
+    // has the new orientation's geometry.
+    int maxH = expandedCardHeightCapPx(metrics, false);
     int targetHeight =
         isExpanded
             ? Math.min(
