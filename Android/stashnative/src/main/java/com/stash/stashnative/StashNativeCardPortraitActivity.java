@@ -699,6 +699,35 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   /**
+   * Expanded phone-sheet height: EXPANDED_CARD_HEIGHT_RATIO of the screen, clamped so the
+   * bottom-pinned sheet never overflows the inset content box and clips its header behind the
+   * status bar (mirrors the collapsed clamp in computePhonePortraitSheetHeightPx and iOS
+   * height - safeTop). Prefers the root layout's real content box: it is keyboard-free on every
+   * API path (the inset padding excludes the IME) and immune to DisplayMetrics nav-bar semantics,
+   * which vary by API level. Before first layout falls back to metrics minus keyboard-free
+   * insets -- the stable nav inset, not the legacy system-window inset, because this also runs
+   * on keyboard-show where the legacy inset is IME-inflated and would shrink the card.
+   */
+  private int computeExpandedPhoneCardHeightPx(DisplayMetrics metrics) {
+    int maxHeight = rootContentHeightPx();
+    if (maxHeight <= 0) {
+      int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
+      int bottom = StashWindowCompat.getStableOrNavBottomPx(rootLayout);
+      maxHeight = metrics.heightPixels - top - bottom;
+    }
+    return clampExpandedHeight(
+        (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO), maxHeight);
+  }
+
+  /** Raw expanded height capped to the available content box; unclamped when the box is unknown. */
+  static int clampExpandedHeight(int rawHeightPx, int maxHeightPx) {
+    if (maxHeightPx <= 0) {
+      return rawHeightPx;
+    }
+    return Math.min(rawHeightPx, maxHeightPx);
+  }
+
+  /**
    * Matches the iOS behaviour: when the keyboard opens the card expands to the STANDARD expanded size
    * (the same {@link #animateExpand} used by drag / the {@code expand()} bridge), and collapses again
    * on hide. The focused input is kept visible by insetting the WebView content from the bottom by
@@ -1355,18 +1384,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       collapsedCardTargetHeightPx = params.height;
     }
 
-    // Clamp to the inset-aware max (status + nav bars) like computePhonePortraitSheetHeightPx and
-    // iOS (screen height - safeTop); the card is bottom-pinned in an inset-padded root with
-    // clipToPadding, so a straight ratio of the full screen overflows the safe area and clips the
-    // header behind the status bar -- worse on smaller screens where the bars are a larger fraction.
-    int top = StashWindowCompat.getSystemTopInsetPx(getWindow());
-    int bottom = StashWindowCompat.getSystemBottomInsetPx(getWindow());
-    int maxExpandedHeight = metrics.heightPixels - top - bottom;
-    if (maxExpandedHeight <= 0) {
-      maxExpandedHeight = metrics.heightPixels;
-    }
-    int expandedHeight = Math.min(
-        (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO), maxExpandedHeight);
+    int expandedHeight = computeExpandedPhoneCardHeightPx(metrics);
 
     animateCardHeight(expandedHeight, 450);
 
@@ -1526,7 +1544,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       // Tablet: single fixed size - keep current height, only reset translation/alpha/scale
       targetHeight = params.height;
     } else if (isExpanded) {
-      targetHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+      // Same clamp as animateExpand; the raw ratio here would undo the clamp on release.
+      targetHeight = computeExpandedPhoneCardHeightPx(metrics);
     } else {
       targetHeight = collapsedCardTargetHeightPx > 0
           ? collapsedCardTargetHeightPx
