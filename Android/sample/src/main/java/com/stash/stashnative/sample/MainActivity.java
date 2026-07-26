@@ -2,11 +2,20 @@ package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
-import android.widget.Toast;
+import android.util.TypedValue;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -17,16 +26,17 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
- * Sample activity demonstrating StashNativeCard SDK integration.
- * Uses ViewBinding, ViewModel, RecyclerView (Settings pattern).
+ * Sample activity demonstrating StashNativeCard integration.
  */
 public class MainActivity extends AppCompatActivity {
 
   private static final String TAG = "StashNativeDemo";
+  private static final String CHECKOUT_PATH = "/sdk/server/checkout_links/generate_quick_pay_url";
+  private static final String WEBSHOP_PATH = "/sdk/server/generate_url";
+  private static final int NETWORK_TIMEOUT_MS = 15000;
 
   private ActivityMainBinding binding;
   private MainViewModel viewModel;
@@ -73,16 +83,86 @@ public class MainActivity extends AppCompatActivity {
       public void onGenerateCheckoutForBrowser() {
         generateCheckoutForBrowser();
       }
+
+      @Override
+      public void onOpenWebshopForBrowser() {
+        openWebshopForBrowser();
+      }
+
+      @Override
+      public void onLockLandscapeChanged(boolean on) {
+        viewModel.setLockLandscape(on);
+        applyOrientationLock();
+      }
+
+      @Override
+      public void onDeleteInstance() {
+        confirmDeleteInstance();
+      }
     });
 
     binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
     binding.recyclerView.setAdapter(adapter);
 
+    binding.toolbar.setNavigationOnClickListener(v -> {
+      MainViewModel.Screen parent = parentOf(viewModel.getCurrentScreen());
+      if (parent != null) {
+        viewModel.navigateTo(parent);
+      }
+    });
+
+    binding.toolbar.setOnMenuItemClickListener(item -> {
+      int id = item.getItemId();
+      if (id == R.id.action_save_payload) {
+        viewModel.savePayload();
+        android.widget.Toast.makeText(this, R.string.payload_saved,
+            android.widget.Toast.LENGTH_SHORT).show();
+        return true;
+      } else if (id == R.id.action_reset_payload) {
+        viewModel.resetPayloadToDefault();
+        return true;
+      } else if (id == R.id.action_import_export) {
+        showImportExportDialog();
+        return true;
+      } else if (id == R.id.action_add_instance) {
+        showAddApiKeyDialog();
+        return true;
+      }
+      return false;
+    });
+
+    binding.bottomNav.setOnItemSelectedListener(item -> {
+      int id = item.getItemId();
+      if (id == R.id.tab_test) {
+        viewModel.navigateTo(MainViewModel.Screen.TEST);
+      } else if (id == R.id.tab_settings) {
+        viewModel.navigateTo(MainViewModel.Screen.SETTINGS);
+      } else if (id == R.id.tab_api) {
+        viewModel.navigateTo(MainViewModel.Screen.API);
+      }
+      return true;
+    });
+
+    getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+      @Override
+      public void handleOnBackPressed() {
+        MainViewModel.Screen parent = parentOf(viewModel.getCurrentScreen());
+        if (parent != null) {
+          viewModel.navigateTo(parent);
+        } else {
+          setEnabled(false);
+          getOnBackPressedDispatcher().onBackPressed();
+        }
+      }
+    });
+
     viewModel.getItems().observe(this, items -> {
       if (items != null) {
         adapter.submitList(items);
       }
+      updateToolbarForScreen();
     });
+    applyOrientationLock();
 
     StashNativeCard stashPayCard = StashNativeCard.getInstance();
     stashPayCard.setActivity(this);
@@ -95,61 +175,55 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onPaymentSuccess(String order) {
         Log.i(TAG, "Payment successful order=" + order);
-        String msg = order != null && !order.isEmpty()
-            ? "Purchase Successful\n\nOrder:\n" + order
-            : "Purchase Successful";
-        runOnUiThread(() -> showOutcomeDialog("Success", msg));
+        String label = order != null && !order.isEmpty()
+            ? "Payment Success · " + order
+            : "Payment Success";
+        runOnUiThread(() -> addCallbackChip(label));
       }
 
       @Override
       public void onPaymentFailure() {
         Log.i(TAG, "Payment failed");
-        runOnUiThread(() -> showOutcomeDialog("Payment Failed", "Purchase Failed"));
+        runOnUiThread(() -> addCallbackChip("Payment Failure"));
       }
 
       @Override
       public void onDialogDismissed() {
         Log.i(TAG, "Dialog dismissed");
-        runOnUiThread(
-            () ->
-                Toast.makeText(
-                        MainActivity.this, "Dialog dismissed callback fired", Toast.LENGTH_SHORT)
-                    .show());
+        runOnUiThread(() -> addCallbackChip("Dialog Dismissed"));
       }
 
       @Override
       public void onOptInResponse(String optinType) {
         Log.i(TAG, "Opt-in response: " + optinType);
-        runOnUiThread(() -> showOutcomeDialog("Opt-in", "Opt-in Selected: " + optinType));
+        runOnUiThread(() -> addCallbackChip("Opt-In: " + optinType));
       }
 
       @Override
       public void onPageLoaded(long loadTimeMs) {
         Log.i(TAG, "Page loaded in " + loadTimeMs + "ms");
+        runOnUiThread(() -> addCallbackChip("Page Loaded · " + loadTimeMs + " ms"));
       }
 
       @Override
       public void onNetworkError() {
         Log.e(TAG, "Network error");
+        runOnUiThread(() -> addCallbackChip("Network Error"));
       }
 
       @Override
       public void onExternalPayment(String url) {
         Log.i(TAG, "External payment URL: " + url);
+        runOnUiThread(() -> addCallbackChip("External Payment"));
       }
 
       @Override
       public void onBrowserClosed() {
         Log.i(TAG, "Browser closed");
-        runOnUiThread(
-            () ->
-                Toast.makeText(
-                        MainActivity.this, "Browser session ended", Toast.LENGTH_SHORT)
-                    .show());
+        runOnUiThread(() -> addCallbackChip("Browser Closed"));
       }
     });
 
-    viewModel.refreshList();
 
     // Handle a stashdemo:// deeplink that cold-started the app. Recreations (config change,
     // process-death restore) redeliver the same intent; do not re-fire the outcome dialog.
@@ -177,14 +251,15 @@ public class MainActivity extends AppCompatActivity {
     }
     String url = data.toString();
     Log.i(TAG, "Deeplink received: " + url);
-    // singleTask already cleared the Custom Tab above us; closeBrowser keeps parity with iOS.
-    StashNativeCard.getInstance().closeBrowser();
+    // singleTask already cleared the Custom Tab above us.
     if (url.contains("stash-pay/success")) {
-      showOutcomeDialog("Success", "Deeplink payment success\n" + url);
+      addCallbackChip("Deeplink · Payment Success");
     } else if (url.contains("stash-pay/failure")) {
-      showOutcomeDialog("Payment Failed", "Deeplink payment failed\n" + url);
+      addCallbackChip("Deeplink · Payment Failure");
+    } else if (url.contains("stash-pay/cancel")) {
+      addCallbackChip("Deeplink · Cancel");
     } else {
-      showOutcomeDialog("Deeplink", url);
+      addCallbackChip("Deeplink · " + url);
     }
   }
 
@@ -217,10 +292,275 @@ public class MainActivity extends AppCompatActivity {
     if (isFinishing() || isDestroyed()) {
       return;
     }
-    new AlertDialog.Builder(this)
+    activeDialog = new AlertDialog.Builder(this)
         .setTitle(title)
         .setMessage(message)
         .setPositiveButton(android.R.string.ok, null)
+        .show();
+  }
+
+  /**
+   * The dialog on screen, if any. Only orientation is in configChanges, so a dark-mode or
+   * font-scale change recreates this activity and would otherwise leak the dialog window.
+   */
+  private android.app.Dialog activeDialog;
+
+  /** Safety cap; chips also auto-expire after a few seconds. */
+  private static final int MAX_CALLBACK_CHIPS = 6;
+  private static final long CALLBACK_CHIP_LIFETIME_MS = 5000L;
+  private final java.text.SimpleDateFormat callbackTimeFormat =
+      new java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US);
+
+  /**
+   * Every SDK callback (and deeplink outcome) is surfaced the same way: a full-width row with a
+   * timestamp. Tap to dismiss, or let it expire.
+   */
+  private void addCallbackChip(String label) {
+    if (binding == null) {
+      return;
+    }
+    LinearLayout container = binding.callbackChipContainer;
+
+    LinearLayout row = new LinearLayout(this);
+    row.setOrientation(LinearLayout.HORIZONTAL);
+    row.setGravity(Gravity.CENTER_VERTICAL);
+    row.setBackgroundResource(R.drawable.bg_callback_chip);
+    row.setPadding(dp(16), dp(11), dp(16), dp(11));
+    row.setElevation(dp(3));
+
+    TextView text = new TextView(this);
+    text.setText(label);
+    text.setTextColor(ContextCompat.getColor(this, R.color.on_primary));
+    text.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
+    text.setMaxLines(1);
+    text.setEllipsize(TextUtils.TruncateAt.END);
+    LinearLayout.LayoutParams textLp = new LinearLayout.LayoutParams(
+        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+    text.setLayoutParams(textLp);
+
+    TextView time = new TextView(this);
+    time.setText(callbackTimeFormat.format(new java.util.Date()));
+    time.setTextColor(ContextCompat.getColor(this, R.color.callback_chip_time));
+    time.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
+    LinearLayout.LayoutParams timeLp = new LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    timeLp.leftMargin = dp(8);
+    time.setLayoutParams(timeLp);
+
+    row.addView(text);
+    row.addView(time);
+
+    LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    rowLp.topMargin = dp(8);
+    row.setLayoutParams(rowLp);
+    row.setOnClickListener(v -> removeCallbackChip(container, v));
+
+    // Newest on top; the stack grows downward and oldest falls off the bottom.
+    container.addView(row, 0);
+    while (container.getChildCount() > MAX_CALLBACK_CHIPS) {
+      container.removeViewAt(container.getChildCount() - 1);
+    }
+
+    row.setAlpha(0f);
+    row.setTranslationY(-dp(8));
+    row.animate().alpha(1f).translationY(0f).setDuration(200).start();
+
+    final View expiring = row;
+    row.postDelayed(() -> removeCallbackChip(container, expiring), CALLBACK_CHIP_LIFETIME_MS);
+  }
+
+  private void removeCallbackChip(LinearLayout container, View chip) {
+    if (chip.getParent() != container) {
+      return;
+    }
+    chip.animate().alpha(0f).translationY(dp(8)).setDuration(200)
+        .withEndAction(() -> {
+          if (chip.getParent() == container) {
+            container.removeView(chip);
+          }
+        }).start();
+  }
+
+  private int dp(int value) {
+    return Math.round(value * getResources().getDisplayMetrics().density);
+  }
+
+  /** The screen a drill-in returns to: payload editors sit under an instance's details, which
+   * sits under the Instances tab; card/modal options sit under Settings. Null for a top-level tab. */
+  private MainViewModel.Screen parentOf(MainViewModel.Screen screen) {
+    switch (screen) {
+      case CHECKOUT_PAYLOAD:
+      case WEBSHOP_PAYLOAD:
+        return MainViewModel.Screen.INSTANCE_DETAILS;
+      case INSTANCE_DETAILS:
+        return MainViewModel.Screen.API;
+      case CARD_OPTIONS:
+      case MODAL_OPTIONS:
+        return MainViewModel.Screen.SETTINGS;
+      default:
+        return null;
+    }
+  }
+
+  /** Each tab titles the toolbar with its own name; Test keeps the app title. Drill-in sub-screens
+   * show a back arrow + their title and keep the bottom-nav highlight in sync: card/modal options
+   * stay under Settings; instance details and the payload editors stay under Instances. */
+  private void updateToolbarForScreen() {
+    if (binding == null) {
+      return;
+    }
+    // Test shows the Stash wordmark logo; every other screen uses a text title.
+    MainViewModel.Screen screen = viewModel.getCurrentScreen();
+    boolean isTest = screen == MainViewModel.Screen.TEST;
+    binding.toolbarLogo.setVisibility(isTest ? View.VISIBLE : View.GONE);
+    // Save/Reset live in the app bar, and only on the payload editors.
+    boolean isPayload = screen == MainViewModel.Screen.CHECKOUT_PAYLOAD
+        || screen == MainViewModel.Screen.WEBSHOP_PAYLOAD;
+    binding.toolbar.getMenu().clear();
+    if (isPayload) {
+      binding.toolbar.inflateMenu(R.menu.payload_editor);
+    } else if (screen == MainViewModel.Screen.API) {
+      binding.toolbar.inflateMenu(R.menu.instances);
+    }
+    switch (screen) {
+      case INSTANCE_DETAILS:
+        binding.toolbar.setTitle(R.string.nav_instance_details);
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
+        binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
+        break;
+      case CHECKOUT_PAYLOAD:
+        binding.toolbar.setTitle(R.string.nav_checkout_payload);
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
+        binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
+        break;
+      case WEBSHOP_PAYLOAD:
+        binding.toolbar.setTitle(R.string.nav_webshop_payload);
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
+        binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
+        break;
+      case CARD_OPTIONS:
+        binding.toolbar.setTitle(R.string.nav_card_options);
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
+        binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
+        break;
+      case MODAL_OPTIONS:
+        binding.toolbar.setTitle(R.string.nav_modal_options);
+        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
+        binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
+        break;
+      case SETTINGS:
+        binding.toolbar.setTitle(R.string.tab_settings);
+        binding.toolbar.setNavigationIcon(null);
+        binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
+        break;
+      case API:
+        binding.toolbar.setTitle(R.string.tab_api);
+        binding.toolbar.setNavigationIcon(null);
+        binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
+        break;
+      case TEST:
+      default:
+        binding.toolbar.setTitle("");
+        binding.toolbar.setNavigationIcon(null);
+        binding.bottomNav.getMenu().findItem(R.id.tab_test).setChecked(true);
+    }
+  }
+
+  private void applyOrientationLock() {
+    setRequestedOrientation(viewModel.isLockLandscape()
+        ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+  }
+
+  /**
+   * One text area serves both directions: it opens holding the exported document (copy it out),
+   * and Import reads back whatever is in it. The format is shared with the iOS sample.
+   */
+  private void showImportExportDialog() {
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
+    // Full-screen so a long document is comfortable to edit, matching the iOS sheet.
+    android.app.Dialog dialog =
+        new android.app.Dialog(this, R.style.Theme_StashNativeDemo_FullScreenDialog);
+    dialog.setContentView(R.layout.dialog_import_export);
+    android.widget.EditText field = dialog.findViewById(R.id.importExportText);
+    field.setText(viewModel.exportInstancesJson());
+
+    com.google.android.material.appbar.MaterialToolbar toolbar =
+        dialog.findViewById(R.id.importExportToolbar);
+    toolbar.setNavigationOnClickListener(v -> dialog.dismiss());
+    toolbar.inflateMenu(R.menu.import_export);
+    toolbar.setOnMenuItemClickListener(item -> {
+      int id = item.getItemId();
+      if (id == R.id.action_copy_instances) {
+        android.content.ClipboardManager clipboard =
+            (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+          clipboard.setPrimaryClip(android.content.ClipData.newPlainText(
+              "Stash instances", field.getText().toString()));
+          android.widget.Toast.makeText(
+              this, R.string.import_export_copied, android.widget.Toast.LENGTH_SHORT).show();
+        }
+        return true;
+      } else if (id == R.id.action_import_instances) {
+        int added = viewModel.importInstancesJson(field.getText().toString());
+        String message;
+        if (added < 0) {
+          message = getString(R.string.import_export_invalid);
+        } else if (added == 0) {
+          message = getString(R.string.import_export_none);
+        } else {
+          message = getString(R.string.import_export_added, added);
+        }
+        android.widget.Toast.makeText(this, message, android.widget.Toast.LENGTH_SHORT).show();
+        if (added > 0) {
+          dialog.dismiss();
+        }
+        return true;
+      }
+      return false;
+    });
+    dialog.show();
+    activeDialog = dialog;
+  }
+
+  private void confirmDeleteInstance() {
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
+    activeDialog = new AlertDialog.Builder(this)
+        .setTitle(R.string.delete_instance_title)
+        .setPositiveButton(R.string.delete_instance_confirm,
+            (dialog, which) -> viewModel.deleteEditingInstance())
+        .setNegativeButton(android.R.string.cancel, null)
+        .show();
+  }
+
+  private void showAddApiKeyDialog() {
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
+    View content = getLayoutInflater().inflate(R.layout.dialog_add_api_key, null);
+    android.widget.EditText nameField = content.findViewById(R.id.addKeyName);
+    android.widget.EditText appIdField = content.findViewById(R.id.addKeyAppId);
+    android.widget.EditText valueField = content.findViewById(R.id.addKeyValue);
+    com.google.android.material.materialswitch.MaterialSwitch prodSwitch =
+        content.findViewById(R.id.addKeyProduction);
+    activeDialog = new AlertDialog.Builder(this)
+        .setTitle(R.string.add_api_key_title)
+        .setView(content)
+        .setPositiveButton(android.R.string.ok, (dialog, which) -> {
+          String name = nameField.getText() != null ? nameField.getText().toString() : "";
+          String appId = appIdField.getText() != null ? appIdField.getText().toString() : "";
+          String key = valueField.getText() != null ? valueField.getText().toString() : "";
+          if (!viewModel.addApiKey(name, appId, key, prodSwitch.isChecked())) {
+            android.widget.Toast.makeText(this, R.string.add_api_key_incomplete,
+                android.widget.Toast.LENGTH_SHORT).show();
+          }
+        })
+        .setNegativeButton(android.R.string.cancel, null)
         .show();
   }
 
@@ -256,71 +596,51 @@ public class MainActivity extends AppCompatActivity {
     StashNativeCard.getInstance().openModal(url.trim(), config);
   }
 
-  /** Generates a checkout URL from the Stash API and opens it in the card. */
   private void generateCheckout() {
-    generateQuickPayCheckout(false);
+    generateAndOpen(CHECKOUT_PATH, viewModel.getActiveCheckoutPayload(), false,
+        R.string.error_generate_checkout_url, "checkout URL");
   }
 
   private void generateCheckoutForBrowser() {
-    generateQuickPayCheckout(true);
+    generateAndOpen(CHECKOUT_PATH, viewModel.getActiveCheckoutPayload(), true,
+        R.string.error_generate_checkout_url, "checkout URL");
   }
 
   private void openWebshop() {
-    generateAuthenticatedWebshopUrl();
+    generateAndOpen(WEBSHOP_PATH, viewModel.getActiveWebshopPayload(), false,
+        R.string.error_generate_webshop_url, "authenticated webshop URL");
+  }
+
+  private void openWebshopForBrowser() {
+    generateAndOpen(WEBSHOP_PATH, viewModel.getActiveWebshopPayload(), true,
+        R.string.error_generate_webshop_url, "authenticated webshop URL");
   }
 
   /**
-   * POSTs to generate_quick_pay_url and opens the returned URL in the card or in the browser.
+   * Signs the saved payload, POSTs it, and opens the returned URL in the card or the browser.
+   * The body is whatever the user saved in Settings; it is signed and sent byte for byte.
    */
-  private void generateQuickPayCheckout(boolean openInBrowser) {
-    String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
-    String urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url";
-    String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
-    final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
+  private void generateAndOpen(String path, final String payload, final boolean openInBrowser,
+      final int errorRes, final String label) {
+    final String urlString = viewModel.getApiBaseUrl() + path;
+    final String appId = viewModel.getActiveAppId();
+    final String ingressSecret = viewModel.getActiveApiKey();
 
     networkExecutor.execute(() -> {
       HttpURLConnection conn = null;
       try {
+        // Sign the exact bytes that go on the wire, then send them unchanged.
+        byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
+        String signature = StashHmac.signature(appId, ingressSecret, bytes);
+
         URL url = new URL(urlString);
         conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("x-stash-api-key", apiKey);
+        conn.setRequestProperty("x-stash-hmac-signature", signature);
         conn.setDoOutput(true);
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
-
-        // Test fixtures -- replace with real user/product data in production.
-        JSONObject user = new JSONObject();
-        user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
-        user.put("validatedEmail", "test@stash.gg");
-        user.put("displayName", "Test User");
-        user.put("profileImageUrl",
-            "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png");
-        user.put("platform", "ANDROID");
-        JSONObject item = new JSONObject();
-        item.put("id", "realMoneyProduct_gems_001");
-        item.put("name", "Handful of Blackstone");
-        item.put("pricePerItem", "1.99");
-        item.put("quantity", 1);
-        item.put("imageUrl", "https://static.stash.gg/stash_logo_128.png");
-        JSONObject bonusItem = new JSONObject();
-        bonusItem.put("id", "196492b7-78f1-4875-bfb5-ff612b46c1f9");
-        bonusItem.put("name", "Bonus Item");
-        bonusItem.put("imageUrl", "https://static.stash.gg/stash_logo_128.png");
-        bonusItem.put("quantity", 1);
-        JSONArray bonusItems = new JSONArray();
-        bonusItems.put(bonusItem);
-        JSONObject body = new JSONObject();
-        body.put("user", user);
-        body.put("item", item);
-        body.put("currency", "USD");
-        body.put("createPaymentIntent", true);
-        body.put("transactionId", "6ef37116-e16f-43c6-ac72-8741c0bbd2b5");
-        body.put("regionCode", "US");
-        body.put("bonusItems", bonusItems);
-
-        byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
+        conn.setConnectTimeout(NETWORK_TIMEOUT_MS);
+        conn.setReadTimeout(NETWORK_TIMEOUT_MS);
         conn.setFixedLengthStreamingMode(bytes.length);
         try (OutputStream os = conn.getOutputStream()) {
           os.write(bytes);
@@ -333,100 +653,35 @@ public class MainActivity extends AppCompatActivity {
           String response = scanner.hasNext() ? scanner.next() : "";
           scanner.close();
           JSONObject json = new JSONObject(response);
-          String checkoutUrl = json.optString("url", null);
-          if (checkoutUrl != null && !checkoutUrl.isEmpty()) {
-            final String finalUrl = checkoutUrl;
-            runOnUiThread(() -> {
-              if (openInBrowser) {
-                syncKeepAlive();
-                Log.i(TAG, "Opening browser (generate checkout URL): " + finalUrl);
-                StashNativeCard.getInstance().openBrowser(finalUrl.trim());
-              } else {
-                Log.i(TAG, "Opening card (generate checkout URL): " + finalUrl);
-                StashNativeCard.CardConfig config = buildCardConfig();
-                StashNativeCard.getInstance().openCard(finalUrl, config);
-              }
-            });
-            return;
+          // org.json coerces an explicit JSON null to the string "null"; isNull covers both.
+          String generated = json.isNull("url") ? null : json.optString("url");
+          if (generated != null) {
+            final String finalUrl = generated.trim();
+            // Re-check after trim: a whitespace-only url passes a pre-trim isEmpty guard.
+            if (!finalUrl.isEmpty()) {
+              runOnUiThread(() -> {
+                if (openInBrowser) {
+                  syncKeepAlive();
+                  Log.i(TAG, "Opening browser (" + label + "): " + finalUrl);
+                  StashNativeCard.getInstance().openBrowser(finalUrl);
+                } else {
+                  Log.i(TAG, "Opening card (" + label + "): " + finalUrl);
+                  StashNativeCard.CardConfig config = buildCardConfig();
+                  StashNativeCard.getInstance().openCard(finalUrl, config);
+                }
+              });
+              return;
+            }
           }
         }
       } catch (Exception e) {
-        Log.e(TAG, "Generate checkout failed", e);
+        Log.e(TAG, "Generate " + label + " failed", e);
       } finally {
         if (conn != null) {
           conn.disconnect();
         }
       }
-      runOnUiThread(() -> showOutcomeDialog(
-          "Error", getString(R.string.error_generate_checkout_url)));
-    });
-  }
-
-  /**
-   * POSTs to /sdk/server/generate_url and opens the returned authenticated webshop URL in card.
-   */
-  private void generateAuthenticatedWebshopUrl() {
-    String baseUrl = viewModel.isUseTestApi() ? "https://test-api.stash.gg" : "https://api.stash.gg";
-    String urlString = baseUrl + "/sdk/server/generate_url";
-    String rawKey = viewModel.getStashApiKey() != null ? viewModel.getStashApiKey().trim() : "";
-    final String apiKey = rawKey.isEmpty() ? MainViewModel.DEFAULT_STASH_API_KEY : rawKey;
-
-    networkExecutor.execute(() -> {
-      HttpURLConnection conn = null;
-      try {
-        URL url = new URL(urlString);
-        conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-        conn.setRequestProperty("x-stash-api-key", apiKey);
-        conn.setDoOutput(true);
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
-
-        // Test fixtures -- replace with real user data in production.
-        JSONObject user = new JSONObject();
-        user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
-        user.put("validatedEmail", "test@stash.gg");
-        user.put("displayName", "Test User");
-        user.put("platform", "ANDROID");
-
-        JSONObject body = new JSONObject();
-        body.put("user", user);
-        body.put("target", "STORE");
-
-        byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
-        conn.setFixedLengthStreamingMode(bytes.length);
-        try (OutputStream os = conn.getOutputStream()) {
-          os.write(bytes);
-        }
-
-        int code = conn.getResponseCode();
-        if (code >= 200 && code < 300) {
-          java.util.Scanner scanner = new java.util.Scanner(
-              conn.getInputStream(), StandardCharsets.UTF_8.name()).useDelimiter("\\A");
-          String response = scanner.hasNext() ? scanner.next() : "";
-          scanner.close();
-          JSONObject json = new JSONObject(response);
-          String webshopUrl = json.optString("url", null);
-          if (webshopUrl != null && !webshopUrl.isEmpty()) {
-            final String finalUrl = webshopUrl.trim();
-            runOnUiThread(() -> {
-              Log.i(TAG, "Opening card (authenticated webshop URL): " + finalUrl);
-              StashNativeCard.CardConfig config = buildCardConfig();
-              StashNativeCard.getInstance().openCard(finalUrl, config);
-            });
-            return;
-          }
-        }
-      } catch (Exception e) {
-        Log.e(TAG, "Generate authenticated webshop URL failed", e);
-      } finally {
-        if (conn != null) {
-          conn.disconnect();
-        }
-      }
-      runOnUiThread(() -> showOutcomeDialog(
-          "Error", getString(R.string.error_generate_webshop_url)));
+      runOnUiThread(() -> showOutcomeDialog("Error", getString(errorRes)));
     });
   }
 
@@ -459,8 +714,12 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onDestroy() {
     StashNativeCard.getInstance().setListener(null);
-    if (isFinishing()) {
-      networkExecutor.shutdown();
+    networkExecutor.shutdown();
+    if (activeDialog != null) {
+      if (activeDialog.isShowing()) {
+        activeDialog.dismiss();
+      }
+      activeDialog = null;
     }
     binding = null;
     super.onDestroy();

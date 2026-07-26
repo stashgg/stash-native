@@ -13,53 +13,57 @@ import StashNative
 extension ViewController: StashNativeCardDelegate {
 
     func stashNativeCardDidCompletePayment(withOrder order: String?) {
-        let message: String
+        let label: String
         if let order, !order.isEmpty {
-            message = "Purchase Successful\n\nOrder:\n\(order)"
+            label = "Payment Success · \(order)"
         } else {
-            message = "Purchase Successful"
+            label = "Payment Success"
         }
         DispatchQueue.main.async {
-            self.showAlert(title: "Success", message: message)
+            self.addCallbackChip(label)
         }
     }
 
     func stashNativeCardDidFailPayment() {
         DispatchQueue.main.async {
-            self.showAlert(title: "Payment Failed", message: "Purchase Failed")
+            self.addCallbackChip("Payment Failure")
         }
     }
 
     func stashNativeCardDidDismiss() {
         DispatchQueue.main.async {
+            self.addCallbackChip("Dialog Dismissed")
             self.flushPendingAlertsIfPossible()
         }
     }
 
     func stashNativeCardDidReceiveOpt(in optinType: String) {
         DispatchQueue.main.async {
-            self.showAlert(title: "Opt-in", message: "Opt-in Selected: \(optinType)")
+            self.addCallbackChip("Opt-In: \(optinType)")
         }
     }
 
-    func stashNativeCardDidLoadPage(_ loadTimeMs: Double) {}
+    func stashNativeCardDidLoadPage(_ loadTimeMs: Double) {
+        DispatchQueue.main.async {
+            self.addCallbackChip("Page Loaded · \(Int(loadTimeMs)) ms")
+        }
+    }
 
     func stashNativeCardDidEncounterNetworkError() {
         DispatchQueue.main.async {
-            self.showAlert(
-                title: "Network Error",
-                message: "Failed to load checkout. Please check your connection and try again."
-            )
+            self.addCallbackChip("Network Error")
         }
     }
 
     func stashNativeCardDidRequestExternalPayment(with url: String) {
-        // Card closed by SDK; Safari opened for external payment.
+        DispatchQueue.main.async {
+            self.addCallbackChip("External Payment")
+        }
     }
 
     func stashNativeCardDidCloseBrowser() {
         DispatchQueue.main.async {
-            self.showAlert(title: "Browser Closed", message: "Browser session ended")
+            self.addCallbackChip("Browser Closed")
         }
     }
 }

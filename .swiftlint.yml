@@ -15,6 +15,8 @@ strict: true
 
 excluded:
   - .build
-  - DerivedData
   - Carthage
   - Pods
+  - iOS/Sample/StashNativeSample/DerivedData
+  - iOS/Sample/StashNativeSample/build
+  - iOS/Sample/StashNativeSample/scratchpad

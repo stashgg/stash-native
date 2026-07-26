@@ -2,31 +2,27 @@ package com.stash.stashnative.sample;
 
 import android.content.Context;
 import android.text.Editable;
+import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.SeekBar;
-import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.google.android.material.materialswitch.MaterialSwitch;
-import com.google.android.material.textfield.TextInputEditText;
-import com.stash.stashnative.sample.databinding.ItemExpandableHeaderBinding;
-import com.stash.stashnative.sample.databinding.ItemHeaderBinding;
+import com.stash.stashnative.sample.databinding.ItemApiKeyBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceActionBinding;
+import com.stash.stashnative.sample.databinding.ItemPreferenceInfoBinding;
+import com.stash.stashnative.sample.databinding.ItemPreferencePayloadBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSliderBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSwitchBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceUrlBinding;
-import com.stash.stashnative.sample.databinding.ItemSectionFooterBinding;
 import com.stash.stashnative.sample.databinding.ItemSectionHeaderBinding;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * RecyclerView adapter for the settings-style list (Google Settings pattern).
- * Uses ViewBinding and multiple view types.
+ * Adapter for the settings-style list.
  */
 public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
@@ -48,6 +44,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     void onOpenWebshop();
 
     void onGenerateCheckoutForBrowser();
+
+    void onLockLandscapeChanged(boolean on);
+
+    void onOpenWebshopForBrowser();
+
+    void onDeleteInstance();
   }
 
   public SettingsAdapter(MainViewModel viewModel, Callbacks callbacks) {
@@ -70,22 +72,22 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   public RecyclerView.ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
     LayoutInflater inflater = LayoutInflater.from(parent.getContext());
     switch (viewType) {
-      case SettingsItem.TYPE_HEADER:
-        return new HeaderVH(ItemHeaderBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_SECTION_HEADER:
         return new SectionHeaderVH(ItemSectionHeaderBinding.inflate(inflater, parent, false));
-      case SettingsItem.TYPE_SECTION_FOOTER:
-        return new SectionFooterVH(ItemSectionFooterBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_URL_PREFERENCE:
         return new UrlPreferenceVH(ItemPreferenceUrlBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_ACTION_PREFERENCE:
         return new ActionPreferenceVH(ItemPreferenceActionBinding.inflate(inflater, parent, false));
-      case SettingsItem.TYPE_EXPANDABLE_HEADER:
-        return new ExpandableHeaderVH(ItemExpandableHeaderBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_SWITCH_PREFERENCE:
         return new SwitchPreferenceVH(ItemPreferenceSwitchBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_SLIDER_PREFERENCE:
         return new SliderPreferenceVH(ItemPreferenceSliderBinding.inflate(inflater, parent, false));
+      case SettingsItem.TYPE_API_KEY:
+        return new ApiKeyVH(ItemApiKeyBinding.inflate(inflater, parent, false));
+      case SettingsItem.TYPE_INFO_PREFERENCE:
+        return new InfoPreferenceVH(ItemPreferenceInfoBinding.inflate(inflater, parent, false));
+      case SettingsItem.TYPE_PAYLOAD_EDITOR:
+        return new PayloadEditorVH(ItemPreferencePayloadBinding.inflate(inflater, parent, false));
       default:
         throw new IllegalArgumentException("Unknown type " + viewType);
     }
@@ -95,14 +97,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
     SettingsItem item = items.get(position);
     switch (item.type) {
-      case SettingsItem.TYPE_HEADER:
-        ((HeaderVH) holder).bind(item);
-        break;
       case SettingsItem.TYPE_SECTION_HEADER:
         ((SectionHeaderVH) holder).bind(item);
-        break;
-      case SettingsItem.TYPE_SECTION_FOOTER:
-        ((SectionFooterVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_URL_PREFERENCE:
         ((UrlPreferenceVH) holder).bind(item, position);
@@ -110,14 +106,20 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       case SettingsItem.TYPE_ACTION_PREFERENCE:
         ((ActionPreferenceVH) holder).bind(item, position);
         break;
-      case SettingsItem.TYPE_EXPANDABLE_HEADER:
-        ((ExpandableHeaderVH) holder).bind(item);
-        break;
       case SettingsItem.TYPE_SWITCH_PREFERENCE:
         ((SwitchPreferenceVH) holder).bind(item, position);
         break;
       case SettingsItem.TYPE_SLIDER_PREFERENCE:
         ((SliderPreferenceVH) holder).bind(item, position);
+        break;
+      case SettingsItem.TYPE_API_KEY:
+        ((ApiKeyVH) holder).bind(item);
+        break;
+      case SettingsItem.TYPE_INFO_PREFERENCE:
+        ((InfoPreferenceVH) holder).bind(item);
+        break;
+      case SettingsItem.TYPE_PAYLOAD_EDITOR:
+        ((PayloadEditorVH) holder).bind(item);
         break;
       default:
         break;
@@ -131,11 +133,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     View v = holder.itemView;
     switch (item.type) {
       case SettingsItem.TYPE_URL_PREFERENCE:
+      case SettingsItem.TYPE_PAYLOAD_EDITOR:
         v.setClickable(false);
         v.setFocusable(false);
         break;
       case SettingsItem.TYPE_ACTION_PREFERENCE:
-      case SettingsItem.TYPE_EXPANDABLE_HEADER:
+      case SettingsItem.TYPE_API_KEY:
         v.setClickable(true);
         v.setFocusable(true);
         break;
@@ -151,10 +154,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   private static final int CARD_MARGIN_BOTTOM_DP = 12;
 
   private void applyCardStyle(View itemView, SettingsItem item) {
-    if (item.type == SettingsItem.TYPE_HEADER) {
-      itemView.setBackground(null);
-      return;
-    }
     Context ctx = itemView.getContext();
     float density = ctx.getResources().getDisplayMetrics().density;
     int horizontal = Math.round(CARD_MARGIN_HORIZONTAL_DP * density);
@@ -179,6 +178,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
+  private static int themeColor(Context ctx, int attr) {
+    android.util.TypedValue tv = new android.util.TypedValue();
+    ctx.getTheme().resolveAttribute(attr, tv, true);
+    return tv.data;
+  }
+
   private void setMargins(View view, int left, int top, int right, int bottom) {
     ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) view.getLayoutParams();
     if (lp != null) {
@@ -195,19 +200,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     return items.size();
   }
 
-  static class HeaderVH extends RecyclerView.ViewHolder {
-    private final ItemHeaderBinding binding;
-
-    HeaderVH(ItemHeaderBinding binding) {
-      super(binding.getRoot());
-      this.binding = binding;
-    }
-
-    void bind(SettingsItem item) {
-      binding.headerTitle.setText(item.titleRes);
-      binding.headerSubtitle.setText(item.supportingRes);
-    }
-  }
 
   static class SectionHeaderVH extends RecyclerView.ViewHolder {
     private final ItemSectionHeaderBinding binding;
@@ -222,18 +214,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
-  static class SectionFooterVH extends RecyclerView.ViewHolder {
-    private final ItemSectionFooterBinding binding;
-
-    SectionFooterVH(ItemSectionFooterBinding binding) {
-      super(binding.getRoot());
-      this.binding = binding;
-    }
-
-    void bind(SettingsItem item) {
-      binding.sectionFooterText.setText(item.titleRes);
-    }
-  }
 
   class UrlPreferenceVH extends RecyclerView.ViewHolder {
     private final ItemPreferenceUrlBinding binding;
@@ -251,9 +231,45 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       boundTitleRes = item.titleRes;
       binding.preferenceIcon.setImageResource(item.iconRes);
       binding.urlInputLayout.setHint(item.titleRes);
+      // setInputType resets the KeyListener and clobbers selection, so set it before setText.
+      int t = item.titleRes;
+      boolean isUrl = t == R.string.hint_checkout_url
+          || t == R.string.hint_browser_url
+          || t == R.string.hint_modal_url;
+      int inputType;
+      if (isUrl) {
+        inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
+      } else if (t == R.string.instance_name) {
+        inputType = InputType.TYPE_CLASS_TEXT;
+      } else {
+        // Hex colors, app ID, ingress secret: plain text, no autosuggest/autocaps.
+        inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+      }
+      binding.urlEditText.setInputType(inputType);
       binding.urlEditText.removeTextChangedListener(watcher);
-      binding.urlEditText.setText(item.value);
+      // Only write when the text actually differs; an unconditional setText on every rebind
+      // resets the caret to index 0 and restarts the IME while the field still has focus.
+      String current = binding.urlEditText.getText() != null
+          ? binding.urlEditText.getText().toString() : "";
+      if (!current.equals(item.value)) {
+        binding.urlEditText.setText(item.value);
+      }
       binding.urlEditText.addTextChangedListener(watcher);
+      // Card/Modal/Browser URL rows carry an inline Open button.
+      int titleRes = item.titleRes;
+      boolean hasOpen = titleRes == R.string.hint_checkout_url
+          || titleRes == R.string.hint_modal_url
+          || titleRes == R.string.hint_browser_url;
+      binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
+      binding.urlOpenButton.setOnClickListener(v -> {
+        if (titleRes == R.string.hint_checkout_url) {
+          callbacks.onOpenCard();
+        } else if (titleRes == R.string.hint_modal_url) {
+          callbacks.onOpenModal();
+        } else if (titleRes == R.string.hint_browser_url) {
+          callbacks.onOpenBrowser();
+        }
+      });
     }
 
     private final TextWatcher watcher = new TextWatcher() {
@@ -272,12 +288,16 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setBrowserUrl(text);
         } else if (boundTitleRes == R.string.hint_modal_url) {
           viewModel.setModalUrl(text);
-        } else if (boundTitleRes == R.string.hint_api_key) {
-          viewModel.setStashApiKey(text);
         } else if (boundTitleRes == R.string.hint_card_background_color) {
           viewModel.setCardBackgroundColorHex(text);
         } else if (boundTitleRes == R.string.hint_modal_background_color) {
           viewModel.setModalBackgroundColorHex(text);
+        } else if (boundTitleRes == R.string.instance_name) {
+          viewModel.setEditingName(text);
+        } else if (boundTitleRes == R.string.instance_app_id) {
+          viewModel.setEditingAppId(text);
+        } else if (boundTitleRes == R.string.instance_secret) {
+          viewModel.setEditingSecret(text);
         }
       }
     };
@@ -292,48 +312,38 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
 
     void bind(SettingsItem item, int position) {
-      binding.actionIcon.setImageResource(item.iconRes);
       binding.actionTitle.setText(item.titleRes);
+      // The destructive delete row is red; every other action row uses the primary colour.
+      boolean isDelete = item.titleRes == R.string.nav_delete_instance;
+      binding.actionTitle.setTextColor(themeColor(binding.actionTitle.getContext(),
+          isDelete ? com.google.android.material.R.attr.colorError
+              : com.google.android.material.R.attr.colorPrimary));
+      // Navigation rows carry a chevron; action buttons are text-only.
+      boolean isNav = item.titleRes == R.string.nav_card_options
+          || item.titleRes == R.string.nav_modal_options
+          || item.titleRes == R.string.nav_checkout_payload
+          || item.titleRes == R.string.nav_webshop_payload;
+      binding.actionChevron.setVisibility(isNav ? View.VISIBLE : View.GONE);
       binding.actionRow.setOnClickListener(v -> {
-        if (item.titleRes == R.string.open_card) {
-          callbacks.onOpenCard();
-        } else if (item.titleRes == R.string.open_browser) {
-          callbacks.onOpenBrowser();
-        } else if (item.titleRes == R.string.open_modal) {
-          callbacks.onOpenModal();
+        if (item.titleRes == R.string.nav_card_options) {
+          viewModel.navigateTo(MainViewModel.Screen.CARD_OPTIONS);
+        } else if (item.titleRes == R.string.nav_modal_options) {
+          viewModel.navigateTo(MainViewModel.Screen.MODAL_OPTIONS);
+        } else if (item.titleRes == R.string.nav_checkout_payload) {
+          viewModel.navigateTo(MainViewModel.Screen.CHECKOUT_PAYLOAD);
+        } else if (item.titleRes == R.string.nav_webshop_payload) {
+          viewModel.navigateTo(MainViewModel.Screen.WEBSHOP_PAYLOAD);
         } else if (item.titleRes == R.string.generate_checkout) {
           callbacks.onGenerateCheckout();
         } else if (item.titleRes == R.string.open_webshop) {
           callbacks.onOpenWebshop();
         } else if (item.titleRes == R.string.generate_checkout_for_browser) {
           callbacks.onGenerateCheckoutForBrowser();
+        } else if (item.titleRes == R.string.open_webshop_for_browser) {
+          callbacks.onOpenWebshopForBrowser();
+        } else if (item.titleRes == R.string.nav_delete_instance) {
+          callbacks.onDeleteInstance();
         }
-      });
-    }
-  }
-
-  class ExpandableHeaderVH extends RecyclerView.ViewHolder {
-    private final ItemExpandableHeaderBinding binding;
-
-    ExpandableHeaderVH(ItemExpandableHeaderBinding binding) {
-      super(binding.getRoot());
-      this.binding = binding;
-    }
-
-    void bind(SettingsItem item) {
-      binding.expandableIcon.setImageResource(item.iconRes);
-      binding.expandableTitle.setText(item.titleRes);
-      binding.expandableChevron.setRotation(item.expanded ? 90f : 0f);
-      binding.expandableRow.setOnClickListener(v -> {
-        v.post(() -> {
-          if (item.titleRes == R.string.show_checkout_options
-              || item.titleRes == R.string.hide_checkout_options) {
-            viewModel.toggleCheckoutOptions();
-          } else if (item.titleRes == R.string.show_modal_options
-              || item.titleRes == R.string.hide_modal_options) {
-            viewModel.toggleModalOptions();
-          }
-        });
       });
     }
   }
@@ -365,10 +375,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setCardAutoClose(isChecked);
         } else if (item.titleRes == R.string.option_modal_auto_close) {
           viewModel.setModalAutoClose(isChecked);
-        } else if (item.titleRes == R.string.option_use_test_api) {
-          viewModel.setUseTestApi(isChecked);
         } else if (item.titleRes == R.string.option_keep_alive) {
           viewModel.setKeepAliveEnabled(isChecked);
+        } else if (item.titleRes == R.string.option_lock_landscape) {
+          callbacks.onLockLandscapeChanged(isChecked);
+        } else if (item.titleRes == R.string.instance_production) {
+          viewModel.setEditingProduction(isChecked);
         }
       });
     }
@@ -432,6 +444,72 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {}
       });
+    }
+  }
+
+  /** Free-form JSON editor. Keystrokes update the draft only -- refreshing the list here would
+   * rebind the field and fight the cursor. */
+  class PayloadEditorVH extends RecyclerView.ViewHolder {
+    private final ItemPreferencePayloadBinding binding;
+
+    PayloadEditorVH(ItemPreferencePayloadBinding binding) {
+      super(binding.getRoot());
+      this.binding = binding;
+    }
+
+    void bind(SettingsItem item) {
+      binding.payloadEditText.removeTextChangedListener(watcher);
+      if (!binding.payloadEditText.getText().toString().equals(item.value)) {
+        binding.payloadEditText.setText(item.value);
+      }
+      binding.payloadEditText.addTextChangedListener(watcher);
+    }
+
+    private final TextWatcher watcher = new TextWatcher() {
+      @Override
+      public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+      @Override
+      public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+      @Override
+      public void afterTextChanged(Editable s) {
+        viewModel.setPayloadDraft(s != null ? s.toString() : "");
+      }
+    };
+  }
+
+  static class InfoPreferenceVH extends RecyclerView.ViewHolder {
+    private final ItemPreferenceInfoBinding binding;
+
+    InfoPreferenceVH(ItemPreferenceInfoBinding binding) {
+      super(binding.getRoot());
+      this.binding = binding;
+    }
+
+    void bind(SettingsItem item) {
+      binding.infoTitle.setText(item.titleRes);
+      binding.infoValue.setText(item.value);
+    }
+  }
+
+  class ApiKeyVH extends RecyclerView.ViewHolder {
+    private final ItemApiKeyBinding binding;
+
+    ApiKeyVH(ItemApiKeyBinding binding) {
+      super(binding.getRoot());
+      this.binding = binding;
+    }
+
+    void bind(SettingsItem item) {
+      binding.apiKeyName.setText(item.name);
+      binding.apiKeyMode.setText(
+          item.production ? R.string.api_key_production : R.string.api_key_test);
+      // Leading radio selects the active instance; tapping the row opens its details.
+      binding.apiKeySelected.setImageResource(
+          item.checked ? R.drawable.ic_radio_selected_24 : R.drawable.ic_radio_unselected_24);
+      binding.apiKeySelected.setOnClickListener(v -> viewModel.selectApiKey(item.stringId));
+      binding.apiKeyRow.setOnClickListener(v -> viewModel.openInstanceDetails(item.stringId));
     }
   }
 }

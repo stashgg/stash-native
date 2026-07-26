@@ -14,4 +14,11 @@
         <item name="android:navigationBarColor">?attr/colorSurface</item>
         <item name="android:windowLightStatusBar">false</item>
     </style>
+
+    <!-- Modal that fills the screen, so long JSON is comfortable to edit (parity with the iOS
+         sheet). windowIsFloating=false is what turns a Dialog full-screen. -->
+    <style name="Theme.StashNativeDemo.FullScreenDialog" parent="Theme.StashNativeDemo">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
 </resources>

@@ -37,4 +37,15 @@
             android:inputType="textUri"
             android:maxLines="1" />
     </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/urlOpenButton"
+        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        app:icon="@drawable/ic_chevron_right_24"
+        app:iconSize="20dp"
+        android:contentDescription="@string/open_button"
+        android:visibility="gone" />
 </LinearLayout>

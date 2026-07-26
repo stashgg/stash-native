@@ -19,8 +19,20 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="@string/header_title"
-            app:titleTextColor="?attr/colorOnSurface" />
+            app:titleTextColor="?attr/colorOnSurface">
+
+            <ImageView
+                android:id="@+id/toolbarLogo"
+                android:layout_width="wrap_content"
+                android:layout_height="28dp"
+                android:layout_gravity="start|center_vertical"
+                android:layout_marginStart="4dp"
+                android:adjustViewBounds="true"
+                android:src="@drawable/logo_stash"
+                app:tint="?attr/colorOnSurface"
+                android:contentDescription="@string/header_title"
+                android:visibility="gone" />
+        </com.google.android.material.appbar.MaterialToolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
     <androidx.recyclerview.widget.RecyclerView
@@ -28,7 +40,31 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:paddingBottom="24dp"
+        android:paddingBottom="96dp"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/item_section_header" />
+
+    <!-- Callback chips overlay everything, including the toolbar: no appbar behavior, and an
+         elevation above the AppBarLayout so they always draw on top. -->
+    <LinearLayout
+        android:id="@+id/callbackChipContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:gravity="top"
+        android:animateLayoutChanges="true"
+        android:clipToPadding="false"
+        android:clipChildren="false"
+        android:elevation="16dp"
+        android:paddingTop="12dp"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNav"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        app:menu="@menu/bottom_nav" />
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

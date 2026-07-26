@@ -12,8 +12,8 @@ import StashNative
 
 extension ViewController {
 
-    @objc func simulateLandscapeToggled(_ sender: UISwitch) {
-        simulateLandscapeGame = sender.isOn
+    @objc func lockLandscapeToggled(_ sender: UISwitch) {
+        lockLandscape = sender.isOn
         if #available(iOS 16.0, *) {
             setNeedsUpdateOfSupportedInterfaceOrientations()
             navigationController?.setNeedsUpdateOfSupportedInterfaceOrientations()
@@ -22,13 +22,10 @@ extension ViewController {
         }
     }
 
-    @objc func forcePortraitOnCheckoutToggled(_ sender: UISwitch) {
-        // Config is built at open time; no-op here.
-    }
-
     @objc func openCardTapped() {
-        guard let url = checkoutUrlTextField.text, !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a URL")
+        let url = (checkoutUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty else {
+            showAlert(title: "Error", message: "Please enter a card URL")
             return
         }
         let config = buildCardConfig()
@@ -36,8 +33,9 @@ extension ViewController {
     }
 
     @objc func openBrowserTapped() {
-        guard let url = browserUrlTextField.text, !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a URL")
+        let url = (browserUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty else {
+            showAlert(title: "Error", message: "Please enter a browser URL")
             return
         }
         StashNativeCard.sharedInstance().openBrowser(withURL: url)
@@ -54,15 +52,15 @@ extension ViewController {
         config.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
         config.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
         config.autoClose = cardAutoCloseSwitch.isOn
-        let hex = cardBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !hex.isEmpty {
+        if let hex = trimmedHex(cardBackgroundColorTextField) {
             config.backgroundColor = hex
         }
         return config
     }
 
     @objc func openModalTapped() {
-        guard let url = modalUrlTextField.text, !url.isEmpty else {
+        let url = (modalUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a modal URL")
             return
         }
@@ -82,67 +80,24 @@ extension ViewController {
         config.tabletWidthRatioLandscape = CGFloat(modalTabletLandscapeWidthSlider.value) / 100.0
         config.tabletHeightRatioLandscape = CGFloat(modalTabletLandscapeHeightSlider.value) / 100.0
         config.autoClose = modalAutoCloseSwitch.isOn
-        let hex = modalBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !hex.isEmpty {
+        if let hex = trimmedHex(modalBackgroundColorTextField) {
             config.backgroundColor = hex
         }
         return config
     }
 
-    @objc func checkoutOptionsToggleTapped() {
-        isCheckoutAdvancedExpanded.toggle()
-        tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
+    @objc func openCardOptionsTapped() {
+        navigationController?.pushViewController(
+            OptionsListViewController(mode: .card, host: self), animated: true)
     }
 
-    @objc func modalOptionsToggleTapped() {
-        isModalAdvancedExpanded.toggle()
-        tableView.reloadSections(IndexSet(integer: Section.presentationOptions.rawValue), with: .automatic)
+    @objc func openModalOptionsTapped() {
+        navigationController?.pushViewController(
+            OptionsListViewController(mode: .modal, host: self), animated: true)
     }
 
-    @objc func phoneCardHeightChanged() {
-        phoneCardHeightLabel.text = "\(Int(phoneCardHeightSlider.value))%"
-    }
-    @objc func checkoutTabletPortraitWidthChanged() {
-        checkoutTabletPortraitWidthLabel.text = "\(Int(checkoutTabletPortraitWidthSlider.value))%"
-    }
-    @objc func checkoutTabletPortraitHeightChanged() {
-        checkoutTabletPortraitHeightLabel.text = "\(Int(checkoutTabletPortraitHeightSlider.value))%"
-    }
-    @objc func checkoutTabletLandscapeWidthChanged() {
-        checkoutTabletLandscapeWidthLabel.text = "\(Int(checkoutTabletLandscapeWidthSlider.value))%"
-    }
-    @objc func checkoutTabletLandscapeHeightChanged() {
-        checkoutTabletLandscapeHeightLabel.text = "\(Int(checkoutTabletLandscapeHeightSlider.value))%"
-    }
-    @objc func checkoutPhoneLandscapeWidthChanged() {
-        checkoutPhoneLandscapeWidthLabel.text = "\(Int(checkoutPhoneLandscapeWidthSlider.value))%"
-    }
-    @objc func checkoutPhoneLandscapeHeightChanged() {
-        checkoutPhoneLandscapeHeightLabel.text = "\(Int(checkoutPhoneLandscapeHeightSlider.value))%"
-    }
-    @objc func modalPhonePortraitWidthChanged() {
-        modalPhonePortraitWidthLabel.text = "\(Int(modalPhonePortraitWidthSlider.value))%"
-    }
-    @objc func modalPhonePortraitHeightChanged() {
-        modalPhonePortraitHeightLabel.text = "\(Int(modalPhonePortraitHeightSlider.value))%"
-    }
-    @objc func modalPhoneLandscapeWidthChanged() {
-        modalPhoneLandscapeWidthLabel.text = "\(Int(modalPhoneLandscapeWidthSlider.value))%"
-    }
-    @objc func modalPhoneLandscapeHeightChanged() {
-        modalPhoneLandscapeHeightLabel.text = "\(Int(modalPhoneLandscapeHeightSlider.value))%"
-    }
-    @objc func modalTabletPortraitWidthChanged() {
-        modalTabletPortraitWidthLabel.text = "\(Int(modalTabletPortraitWidthSlider.value))%"
-    }
-    @objc func modalTabletPortraitHeightChanged() {
-        modalTabletPortraitHeightLabel.text = "\(Int(modalTabletPortraitHeightSlider.value))%"
-    }
-    @objc func modalTabletLandscapeWidthChanged() {
-        modalTabletLandscapeWidthLabel.text = "\(Int(modalTabletLandscapeWidthSlider.value))%"
-    }
-    @objc func modalTabletLandscapeHeightChanged() {
-        modalTabletLandscapeHeightLabel.text = "\(Int(modalTabletLandscapeHeightSlider.value))%"
+    @objc func sliderValueChanged(_ sender: UISlider) {
+        sliderLabels[sender]?.text = "\(Int(sender.value))%"
     }
 
     @objc func dismissKeyboard() {
@@ -150,7 +105,7 @@ extension ViewController {
     }
 
     @objc func generateCheckoutTapped() {
-        performGenerateQuickPayCheckout { [weak self] checkoutUrl in
+        performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
             StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
@@ -158,121 +113,57 @@ extension ViewController {
     }
 
     @objc func generateCheckoutForBrowserTapped() {
-        performGenerateQuickPayCheckout { checkoutUrl in
+        performGenerateUrl(.checkout) { checkoutUrl in
             StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl)
         }
     }
 
     @objc func openWebshopTapped() {
-        performGenerateAuthenticatedWebshopUrl { [weak self] webshopUrl in
+        performGenerateUrl(.webshop) { [weak self] webshopUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
             StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, config: config)
         }
     }
 
-    // swiftlint:disable:next function_body_length
-    private func performGenerateQuickPayCheckout(onSuccess: @escaping (String) -> Void) {
-        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
-        let urlString = baseUrl + "/sdk/server/checkout_links/generate_quick_pay_url"
-        guard let url = URL(string: urlString) else {
-            showAlert(title: "Error", message: "Failed to generate checkout URL")
-            return
+    @objc func openWebshopForBrowserTapped() {
+        performGenerateUrl(.webshop) { webshopUrl in
+            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl)
         }
-        let apiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines)
-            ?? ViewController.defaultStashApiKey
-        if !apiKey.isEmpty {
-            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
-        // Test fixtures -- replace with real user/product data in production.
-        let body: [String: Any] = [
-            "user": [
-                "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
-                "validatedEmail": "test@stash.gg",
-                "displayName": "Test User",
-                "profileImageUrl":
-                    "https://storage.googleapis.com/stash-demo-f9550.firebasestorage.app/avatars/"
-                    + "6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png",
-                "platform": "IOS"
-            ],
-            "item": [
-                "id": "realMoneyProduct_gems_001",
-                "name": "Handful of Blackstone",
-                "pricePerItem": "1.99",
-                "quantity": 1,
-                "imageUrl": "https://static.stash.gg/stash_logo_128.png"
-            ],
-            "currency": "USD",
-            "createPaymentIntent": true,
-            "transactionId": "6ef37116-e16f-43c6-ac72-8741c0bbd2b5",
-            "regionCode": "US",
-            "bonusItems": [
-                [
-                    "id": "196492b7-78f1-4875-bfb5-ff612b46c1f9",
-                    "name": "Bonus Item",
-                    "imageUrl": "https://static.stash.gg/stash_logo_128.png",
-                    "quantity": 1
-                ]
-            ]
-        ]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            showAlert(title: "Error", message: "Failed to generate checkout URL")
-            return
-        }
-        request.httpBody = bodyData
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let self = self else { return }
-            let isSuccessResponse = (response as? HTTPURLResponse)?.statusCode ?? 0 >= 200
-                && (response as? HTTPURLResponse)?.statusCode ?? 0 < 300
-            guard isSuccessResponse, let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let checkoutUrl = json["url"] as? String, !checkoutUrl.isEmpty else {
-                DispatchQueue.main.async {
-                    self.showAlert(title: "Error", message: "Failed to generate checkout URL")
-                }
-                return
-            }
-            DispatchQueue.main.async {
-                onSuccess(checkoutUrl)
-            }
-        }.resume()
     }
 
-    private func performGenerateAuthenticatedWebshopUrl(onSuccess: @escaping (String) -> Void) {
-        let baseUrl = useTestApiSwitch.isOn ? "https://test-api.stash.gg" : "https://api.stash.gg"
-        let urlString = baseUrl + "/sdk/server/generate_url"
-        guard let url = URL(string: urlString) else {
-            showAlert(title: "Error", message: "Failed to generate webshop URL")
+    /// Trimmed hex from a color field, or nil when the field is blank.
+    private func trimmedHex(_ field: UITextField) -> String? {
+        let hex = field.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return hex.isEmpty ? nil : hex
+    }
+
+    /// Calls the Stash server endpoint for `kind` and returns the generated URL.
+    private func performGenerateUrl(_ kind: ViewController.PayloadKind,
+                                    onSuccess: @escaping (String) -> Void) {
+        let path = kind == .checkout
+            ? "/sdk/server/checkout_links/generate_quick_pay_url"
+            : "/sdk/server/generate_url"
+        let failureMessage = kind == .checkout
+            ? "Failed to generate checkout URL"
+            : "Failed to generate webshop URL"
+        let baseUrl = isActiveKeyProduction() ? "https://api.stash.gg" : "https://test-api.stash.gg"
+        guard let url = URL(string: baseUrl + path) else {
+            showAlert(title: "Error", message: failureMessage)
             return
-        }
-        let trimmedApiKey = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let apiKey = trimmedApiKey.isEmpty ? ViewController.defaultStashApiKey : trimmedApiKey
-        if !apiKey.isEmpty {
-            UserDefaults.standard.set(apiKey, forKey: ViewController.userDefaultsApiKeyKey)
         }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-stash-api-key")
-        // Test fixtures -- replace with real user data in production.
-        let body: [String: Any] = [
-            "user": [
-                "id": "7849fbc5-87fd-446d-8d9c-de25298f1092",
-                "validatedEmail": "test@stash.gg",
-                "displayName": "Test User",
-                "platform": "IOS"
-            ],
-            "target": "STORE"
-        ]
-        guard let bodyData = try? JSONSerialization.data(withJSONObject: body) else {
-            showAlert(title: "Error", message: "Failed to generate webshop URL")
+        // Body is the active instance's saved payload for this endpoint, sent verbatim.
+        // Sign the exact bytes that go on the wire, then send them unchanged.
+        let bodyData = Data(activePayload(kind).utf8)
+        guard let signature = StashHmac.signature(
+                appId: activeAppId(), ingressSecretB64: activeApiKey(), body: bodyData) else {
+            showAlert(title: "Error", message: failureMessage)
             return
         }
+        request.setValue(signature, forHTTPHeaderField: "x-stash-hmac-signature")
         request.httpBody = bodyData
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
@@ -281,14 +172,14 @@ extension ViewController {
             let isSuccessResponse = statusCode >= 200 && statusCode < 300
             guard isSuccessResponse, let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let webshopUrl = json["url"] as? String, !webshopUrl.isEmpty else {
+                  let generatedUrl = json["url"] as? String, !generatedUrl.isEmpty else {
                 DispatchQueue.main.async {
-                    self.showAlert(title: "Error", message: "Failed to generate webshop URL")
+                    self.showAlert(title: "Error", message: failureMessage)
                 }
                 return
             }
             DispatchQueue.main.async {
-                onSuccess(webshopUrl)
+                onSuccess(generatedUrl)
             }
         }.resume()
     }

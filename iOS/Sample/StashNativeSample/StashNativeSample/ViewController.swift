@@ -7,8 +7,10 @@
 
 import UIKit
 import StashNative
-// StashNative is imported via bridging header
+import Security
 
+/// A named Stash app credential: the app ID plus its ingress secret, with a production/test flag.
+/// Both are needed to sign requests (see `StashHmac`).
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
     // MARK: - Properties
@@ -18,8 +20,61 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         table.delegate = self
         table.dataSource = self
         table.keyboardDismissMode = .onDrag
-        table.tableHeaderView = nil
         return table
+    }()
+
+    /// Stash wordmark shown in place of the Test-tab title. Template-rendered so it tints with
+    /// the label color and adapts to light/dark.
+    lazy var logoView: UIImageView = {
+        let image = UIImage(named: "StashLogo")?.withRenderingMode(.alwaysTemplate)
+        let imageView = UIImageView(image: image)
+        imageView.contentMode = .scaleAspectFit
+        imageView.tintColor = .label
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        let height: CGFloat = 24
+        let ratio = (image?.size.width ?? 1000) / (image?.size.height ?? 253)
+        NSLayoutConstraint.activate([
+            imageView.heightAnchor.constraint(equalToConstant: height),
+            imageView.widthAnchor.constraint(equalToConstant: height * ratio)
+        ])
+        return imageView
+    }()
+
+    /// Import/export action, shown only on the Instances tab.
+    lazy var instancesTransferBarItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(image: UIImage(named: "ImportExport"),
+                                   style: .plain, target: self,
+                                   action: #selector(importExportTapped))
+        item.accessibilityLabel = "Import / Export"
+        return item
+    }()
+
+    @objc func importExportTapped() {
+        present(UINavigationController(
+            rootViewController: InstancesTransferViewController(host: self)), animated: true)
+    }
+
+    /// Add-instance action, shown only on the Instances tab beside import/export.
+    lazy var addInstanceBarItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(barButtonSystemItem: .add, target: self,
+                                   action: #selector(addInstanceTapped))
+        item.accessibilityLabel = "Add Instance"
+        return item
+    }()
+
+    @objc func addInstanceTapped() {
+        showAddApiKey()
+    }
+
+    /// Leading bar item so the wordmark sits left-aligned, matching the Android toolbar.
+    /// iOS 26 draws a glass capsule behind bar items; suppress it so the logo reads as a
+    /// wordmark rather than a button.
+    lazy var logoBarItem: UIBarButtonItem = {
+        let item = UIBarButtonItem(customView: logoView)
+        if #available(iOS 26.0, *) {
+            item.hidesSharedBackground = true
+        }
+        return item
     }()
 
     let defaultURL = "https://test.stashpreview.com/"
@@ -28,9 +83,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let checkoutUrlTextField = UITextField()
     let browserUrlTextField = UITextField()
     let modalUrlTextField = UITextField()
-    // Presentation options: two separate expandables under one category
-    var isCheckoutAdvancedExpanded = false
-    var isModalAdvancedExpanded = false
+    /// Top stack that shows every SDK callback as a chip, newest on top.
+    let callbackChipStack = UIStackView()
+    /// Bottom tab bar splitting the page into Test / Settings / API views.
+    let tabBar = UITabBar()
     let forcePortraitOnCheckoutSwitch = UISwitch()
     let cardAutoCloseSwitch = UISwitch()
     let phoneCardHeightSlider = UISlider()
@@ -48,9 +104,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let checkoutPhoneLandscapeHeightSlider = UISlider()
     let checkoutPhoneLandscapeHeightLabel = UILabel()
 
-    // MARK: - Game simulation
-    var simulateLandscapeGame = false
-    let simulateLandscapeSwitch = UISwitch()
+    // API keys: named, each production or test; Keychain-persisted (survives reinstall).
+    var apiKeys: [ApiKeyEntry] = []
+    var selectedApiKeyId: String?
+    var pendingAlerts: [(String, String)] = []
+    let cardBackgroundColorTextField = UITextField()
+    let modalBackgroundColorTextField = UITextField()
+
+    // MARK: - App orientation lock
+    var lockLandscape = false
+    let lockLandscapeSwitch = UISwitch()
 
     let modalAllowDismissSwitch = UISwitch()
     let modalAutoCloseSwitch = UISwitch()
@@ -71,17 +134,41 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let modalTabletLandscapeHeightSlider = UISlider()
     let modalTabletLandscapeHeightLabel = UILabel()
 
-    enum Section: Int, CaseIterable {
+    enum Section {
         case card
         case modal
         case browser
         case presentationOptions
+        case other
+        case about
         case checkoutGenerationSettings
-        case gameSimulation
     }
 
-    /// Card option rows (when card expandable is expanded).
-    enum CheckoutOptionRow: Int, CaseIterable {
+    /// Bottom-nav tabs; each shows a subset of sections.
+    enum Tab: Int {
+        case test
+        case settings
+        case api
+    }
+
+    var currentTab: Tab = .test
+
+    /// Sections visible for the current tab, in display order.
+    var visibleSections: [Section] {
+        switch currentTab {
+        case .test: return [.card, .browser, .modal]
+        case .settings: return [.presentationOptions, .other, .about]
+        case .api: return [.checkoutGenerationSettings]
+        }
+    }
+
+    func visibleSection(at index: Int) -> Section? {
+        guard index >= 0 && index < visibleSections.count else { return nil }
+        return visibleSections[index]
+    }
+
+    /// Card option rows, rendered by OptionsListViewController.
+    enum CheckoutOptionRow {
         case cardBackgroundHex
         case forcePortraitOnCheckout
         case cardAutoClose
@@ -93,8 +180,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         case tabletLandscapeWidth
         case tabletLandscapeHeight
     }
-    /// Modal option rows (when modal expandable is expanded).
-    enum ModalOptionRow: Int, CaseIterable {
+    /// Modal option rows, rendered by OptionsListViewController.
+    enum ModalOptionRow {
         case modalBackgroundHex
         case allowDismiss
         case modalAutoClose
@@ -108,53 +195,87 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         case modalTabletLandscapeHeight
     }
 
-    // Checkout Generation Settings
-    static let defaultStashApiKey = "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
-    static let userDefaultsApiKeyKey = "StashApiKey"
+    /// Value label for each slider, so one handler serves them all.
+    var sliderLabels: [UISlider: UILabel] = [:]
+
+    // MARK: - Instance credentials
+    /// Demo ingress secret (base64) used as the HMAC key when no key is configured.
+    static let defaultStashApiKey =
+        "VDBsMm5zRU9weHk5RTZ6X0p2Y3hnLVhrMHVvS21QMG5wYTBJcmhHUHdWTV93Y0dDWVluV0hQd1ZYWHRiYWk2UA=="
+    /// Demo app ID that pairs with the secret above; required by the signature header.
+    static let defaultStashAppId = "4fe1c1a4-b136-4187-82f2-61c9983eedf2"
+    /// Display name of the bundled credential.
+    static let defaultStashKeyName = "Howling Woods"
+    /// Secrets previously shipped as the bundled credential.
+    static let supersededBundledSecrets = [
+        "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
+    ]
+
+    /// True if the key is a superseded bundled secret that should migrate to the current one.
+    static func isSupersededBundledSecret(_ key: String) -> Bool {
+        supersededBundledSecrets.contains(key)
+    }
+
+    /// The bundled demo credential, seeded with the default request bodies.
+    static func bundledEntry() -> ApiKeyEntry {
+        ApiKeyEntry(id: UUID().uuidString, name: defaultStashKeyName,
+                    appId: defaultStashAppId, key: defaultStashApiKey, production: false,
+                    checkoutPayload: defaultCheckoutPayload, webshopPayload: defaultWebshopPayload)
+    }
+    // MARK: - UserDefaults keys
+
     static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
     static let userDefaultsModalBackgroundHexKey = "ModalBackgroundColorHex"
-    var stashApiKey = ViewController.defaultStashApiKey
-    var useTestApi = true
-    var pendingAlerts: [(String, String)] = []
-    var isPresentingQueuedAlert = false
-    let apiKeyTextField = UITextField()
-    let cardBackgroundColorTextField = UITextField()
-    let modalBackgroundColorTextField = UITextField()
-    let useTestApiSwitch = UISwitch()
 
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Stash iOS"
         view.backgroundColor = .systemGroupedBackground
-        navigationItem.largeTitleDisplayMode = .always
+        applyHeader(for: currentTab)
 
+        loadApiKeys()
         setupTextFields()
         setupCheckoutSlidersAndSwitches()
         setupModalSlidersAndSwitches()
-        setupGameSimulation()
+        setupLockLandscape()
+        setupTabBar()
         setupStashNativeCard()
 
         view.addSubview(tableView)
+        view.addSubview(tabBar)
         tableView.translatesAutoresizingMaskIntoConstraints = false
+        tabBar.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            tableView.bottomAnchor.constraint(equalTo: tabBar.topAnchor),
+
+            tabBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tabBar.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        callbackChipStack.axis = .vertical
+        callbackChipStack.alignment = .fill
+        callbackChipStack.spacing = 8
+        callbackChipStack.translatesAutoresizingMaskIntoConstraints = false
+        callbackChipStack.isUserInteractionEnabled = true
+        // Host on the navigation controller's view so chips overlay the nav bar too; this VC's
+        // own view sits underneath it. Falls back to our view if there is no nav controller.
+        let chipHost: UIView = navigationController?.view ?? view
+        chipHost.addSubview(callbackChipStack)
+        NSLayoutConstraint.activate([
+            callbackChipStack.leadingAnchor.constraint(equalTo: chipHost.leadingAnchor, constant: 12),
+            callbackChipStack.trailingAnchor.constraint(equalTo: chipHost.trailingAnchor, constant: -12),
+            callbackChipStack.topAnchor.constraint(
+                equalTo: chipHost.safeAreaLayoutGuide.topAnchor, constant: 8)
         ])
 
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tapGesture.cancelsTouchesInView = false
         view.addGestureRecognizer(tapGesture)
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        if navigationController == nil {
-            navigationController?.navigationBar.prefersLargeTitles = true
-        }
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -163,7 +284,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        simulateLandscapeGame ? .landscape : .all
+        lockLandscape ? .landscape : .all
     }
 
     override var shouldAutorotate: Bool { true }
@@ -186,21 +307,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         configureStandardUrlTextField(browserUrlTextField, text: defaultURL)
         configureStandardUrlTextField(modalUrlTextField, text: defaultModalURL)
 
-        apiKeyTextField.placeholder = "API Key"
-        if let saved = UserDefaults.standard.string(forKey: ViewController.userDefaultsApiKeyKey), !saved.isEmpty {
-            stashApiKey = saved
-            apiKeyTextField.text = saved
-        } else {
-            apiKeyTextField.text = ViewController.defaultStashApiKey
-        }
-        apiKeyTextField.autocapitalizationType = .none
-        apiKeyTextField.autocorrectionType = .no
-        apiKeyTextField.textAlignment = .right
-        apiKeyTextField.font = .systemFont(ofSize: 17, weight: .regular)
-        apiKeyTextField.clearButtonMode = .whileEditing
-        apiKeyTextField.addTarget(self, action: #selector(apiKeyEditingDidEnd), for: .editingDidEnd)
-        useTestApiSwitch.isOn = true
-
         func configureHexField(_ field: UITextField, key: String) {
             field.placeholder = "#RRGGBB (optional)"
             field.autocapitalizationType = .none
@@ -221,11 +327,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             self, action: #selector(modalBackgroundColorEditingDidEnd), for: .editingDidEnd)
     }
 
-    @objc func apiKeyEditingDidEnd() {
-        let key = apiKeyTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        UserDefaults.standard.set(key.isEmpty ? nil : key, forKey: ViewController.userDefaultsApiKeyKey)
-    }
-
     @objc func cardBackgroundColorEditingDidEnd() {
         let hex = cardBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         UserDefaults.standard.set(hex.isEmpty ? nil : hex, forKey: ViewController.userDefaultsCardBackgroundHexKey)
@@ -240,6 +341,20 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         StashNativeCard.sharedInstance().delegate = self
     }
 
+    func setupTabBar() {
+        let test = UITabBarItem(
+            title: "Test", image: UIImage(systemName: "creditcard"), tag: Tab.test.rawValue)
+        let settings = UITabBarItem(
+            title: "Settings", image: UIImage(systemName: "slider.horizontal.3"),
+            tag: Tab.settings.rawValue)
+        let api = UITabBarItem(
+            title: "Instances", image: UIImage(systemName: "key"), tag: Tab.api.rawValue)
+        tabBar.items = [test, settings, api]
+        tabBar.selectedItem = test
+        tabBar.delegate = self
+    }
+
+    // MARK: - API keys
     // MARK: - Helpers
 
     func systemImage(_ name: String) -> UIImage? {
@@ -267,28 +382,4 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         return stack
     }
 
-    func showAlert(title: String, message: String) {
-        print("[StashSample] alert queued: \(title) -- \(message)")
-        pendingAlerts.append((title, message))
-        flushPendingAlertsIfPossible()
-    }
-
-    func flushPendingAlertsIfPossible() {
-        guard !isPresentingQueuedAlert,
-              presentedViewController == nil,
-              !pendingAlerts.isEmpty else {
-            return
-        }
-        let (title, message) = pendingAlerts.removeFirst()
-        isPresentingQueuedAlert = true
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
-            guard let self = self else { return }
-            self.isPresentingQueuedAlert = false
-            DispatchQueue.main.async {
-                self.flushPendingAlertsIfPossible()
-            }
-        })
-        present(alert, animated: true)
-    }
 }

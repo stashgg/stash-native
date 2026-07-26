@@ -5,13 +5,14 @@
 
 import UIKit
 
-/// Forwards orientation to top VC, mirroring game engine (Unity/Unreal) behavior.
+/// Orientation comes from the root VC so the "Lock app to landscape" switch also
+/// covers pushed screens. UINavigationController does not consult its children.
 final class ForwardingNavigationController: UINavigationController {
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        topViewController?.supportedInterfaceOrientations ?? .all
+        viewControllers.first?.supportedInterfaceOrientations ?? .all
     }
     override var shouldAutorotate: Bool {
-        topViewController?.shouldAutorotate ?? true
+        viewControllers.first?.shouldAutorotate ?? true
     }
 }
 
@@ -28,7 +29,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let window = UIWindow(windowScene: windowScene)
         let nav = ForwardingNavigationController(rootViewController: ViewController())
-        nav.navigationBar.prefersLargeTitles = true
+        nav.navigationBar.prefersLargeTitles = false
         window.rootViewController = nav
         self.window = window
         window.makeKeyAndVisible()

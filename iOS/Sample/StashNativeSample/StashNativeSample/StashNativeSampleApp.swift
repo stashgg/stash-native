@@ -53,22 +53,14 @@ enum StashSampleDeepLink {
         }
         if urlString.contains("stash-pay/cancel") {
             StashNativeCard.sharedInstance().closeBrowser()
+            ViewController.postCallbackChip("Deeplink · Cancel")
             return true
         }
 
-        // Pass-through deeplink: close the in-app browser and surface the URL
-        // (parity with the Android sample's outcome dialog).
+        // Pass-through deeplink: close the in-app browser and surface the URL as a chip
+        // (parity with the Android sample).
         StashNativeCard.sharedInstance().closeBrowser()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            let alert = UIAlertController(title: "Deeplink", message: urlString, preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
-            let scene = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .first { $0.activationState == .foregroundActive }
-            var top = scene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
-            while let presented = top?.presentedViewController { top = presented }
-            top?.present(alert, animated: true)
-        }
+        ViewController.postCallbackChip("Deeplink · \(urlString)")
         return true
     }
 }
