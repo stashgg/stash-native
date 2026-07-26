@@ -48,6 +48,10 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
+
+    // Sample/QA build: allow chrome://inspect and Appium to inspect checkout webviews.
+    StashNativeCard.setInspectableWebViewsEnabled(true);
+
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
 

@@ -315,6 +315,30 @@ public class StashNativeCard {
     return SDK_VERSION;
   }
 
+  /** Opt-in webview inspection. Off by default; only debug/sample builds should enable it. */
+  private static volatile boolean inspectableWebViewsEnabled = false;
+
+  /**
+   * Enables remote inspection (chrome://inspect) of the SDK's checkout webviews. Off by default.
+   * When enabled, the SDK calls {@link android.webkit.WebView#setWebContentsDebuggingEnabled(boolean)}
+   * (process-global) as it configures each checkout webview.
+   *
+   * <p>Intended for debug/QA builds and automated UI testing only. Do NOT enable in production: it
+   * lets the webview contents be inspected via chrome://inspect. Set before opening any checkout.
+   *
+   * @param enabled true to make the SDK's webviews inspectable
+   */
+  public static void setInspectableWebViewsEnabled(boolean enabled) {
+    inspectableWebViewsEnabled = enabled;
+  }
+
+  /**
+   * @return whether webview inspection is enabled. Default false.
+   */
+  public static boolean isInspectableWebViewsEnabled() {
+    return inspectableWebViewsEnabled;
+  }
+
   /**
    * Gets the singleton instance of StashNativeCard.
    *

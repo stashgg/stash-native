@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import StashNative
 
 /// Orientation comes from the root VC so the "Lock app to landscape" switch also
 /// covers pushed screens. UINavigationController does not consult its children.
@@ -26,6 +27,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         options connectionOptions: UIScene.ConnectionOptions
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
+
+        // Sample/QA build: allow Safari Web Inspector and Appium to inspect checkout webviews.
+        StashNativeCard.setInspectableWebViewsEnabled(true)
 
         let window = UIWindow(windowScene: windowScene)
         let nav = ForwardingNavigationController(rootViewController: ViewController())

@@ -266,6 +266,13 @@ public class StashWebViewUtils {
     if (webView == null) {
       return;
     }
+    if (StashNativeCard.isInspectableWebViewsEnabled()) {
+      try {
+        WebView.setWebContentsDebuggingEnabled(true);
+      } catch (Throwable ignored) {
+        // Never let inspection toggling crash checkout.
+      }
+    }
     webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
     WebSettings settings = webView.getSettings();
     settings.setAllowFileAccess(false);

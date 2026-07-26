@@ -34,6 +34,7 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
     - [Config](#config-1)
     - [Callbacks](#callbacks-1)
   - [openBrowser](#openbrowser)
+- [Webview inspection (debug / testing)](#webview-inspection-debug--testing)
 
 **Reference**
 
@@ -420,6 +421,28 @@ StashNativeCard.getInstance().setKeepAliveConfig(cfg);
 - **Notifications:** no `POST_NOTIFICATIONS` permission is added; on Android 13+ notifications may be hidden unless requested, but the service still works.
 
 - **Permissions & Google Play:** With keep-alive, your manifest adds `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_SHORT_SERVICE`. In Google Play Console, declare foreground service usage and the shortService type, and describe its use (e.g., keeping application alive after browser launch).
+
+## Webview inspection (debug / testing)
+
+The SDK can make its checkout webviews inspectable so you can debug the checkout page with Safari Web Inspector / `chrome://inspect`, or drive it from automated UI tests (e.g. Appium). It is **off by default** and the flag name is identical on both platforms. Set it once, before opening any checkout.
+
+**Android**
+
+```java
+StashNativeCard.setInspectableWebViewsEnabled(true);
+```
+
+Enabling calls `WebView.setWebContentsDebuggingEnabled(true)` (process-global) as each checkout webview is configured.
+
+**iOS (Swift)**
+
+```swift
+StashNativeCard.setInspectableWebViewsEnabled(true)
+```
+
+On iOS 16.4+ the SDK's `WKWebView`s are created with `inspectable = true`.
+
+> **Do not enable this in production.** It exposes the checkout webview contents to remote inspection. Gate it behind a debug/QA build flag; the sample apps enable it only for local testing.
 
 ---
 

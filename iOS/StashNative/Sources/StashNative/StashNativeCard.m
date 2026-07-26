@@ -406,6 +406,17 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
     return @"2.3.0";
 }
 
+// Opt-in webview inspection. Off by default; only debug/sample builds should enable it.
+static BOOL stashInspectableWebViewsEnabled = NO;
+
++ (void)setInspectableWebViewsEnabled:(BOOL)enabled {
+    stashInspectableWebViewsEnabled = enabled;
+}
+
++ (BOOL)isInspectableWebViewsEnabled {
+    return stashInspectableWebViewsEnabled;
+}
+
 - (instancetype)init {
     self = [super init];
     if (self) {
@@ -1916,6 +1927,11 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     
     UIColor *chromeBackgroundColor = stash_sheetBackgroundUIColor();
     WKWebView *webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:config];
+    if (@available(iOS 16.4, *)) {
+        if (stashInspectableWebViewsEnabled) {
+            webView.inspectable = YES;
+        }
+    }
     webView.opaque = YES;
     webView.hidden = NO;
     setWebViewBackgroundColor(webView, chromeBackgroundColor);
