@@ -973,7 +973,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       if (base <= 0) {
         return;
       }
-      int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+      int maxH = StashCheckoutSizing.expandedCardHeightCapPx(this, metrics, true);
       int target =
           Math.min(
               Math.round(base * CardConstants.TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER), maxH);
@@ -1000,7 +1000,7 @@ public class StashNativeCardPortraitActivity extends Activity {
       collapsedCardTargetHeightPx = params.height;
     }
 
-    int expandedHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+    int expandedHeight = StashCheckoutSizing.expandedCardHeightCapPx(this, metrics, true);
 
     animateCardHeight(expandedHeight, 450);
 
@@ -1160,7 +1160,8 @@ public class StashNativeCardPortraitActivity extends Activity {
       // Tablet: single fixed size - keep current height, only reset translation/alpha/scale
       targetHeight = params.height;
     } else if (isExpanded) {
-      targetHeight = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+      // Same clamp as animateExpand; the raw ratio here would undo the clamp on release.
+      targetHeight = StashCheckoutSizing.expandedCardHeightCapPx(this, metrics, true);
     } else {
       targetHeight = collapsedCardTargetHeightPx > 0
           ? collapsedCardTargetHeightPx
@@ -1838,7 +1839,9 @@ public class StashNativeCardPortraitActivity extends Activity {
     int newWidth = newSize[0];
     int newBaseHeight = newSize[1];
     tabletSdkBaseHeightPx = newBaseHeight;
-    int maxH = (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO);
+    // rootLayoutSettled=false: this runs from onConfigurationChanged, before the root layout
+    // has the new orientation's geometry.
+    int maxH = StashCheckoutSizing.expandedCardHeightCapPx(this, metrics, false);
     int targetHeight =
         isExpanded
             ? Math.min(
