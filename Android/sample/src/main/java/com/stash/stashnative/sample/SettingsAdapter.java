@@ -261,6 +261,17 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           || titleRes == R.string.hint_modal_url
           || titleRes == R.string.hint_browser_url;
       binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
+      // Stable ids for UI tests; rows are recycled, so null out non-open rows.
+      String tag = null;
+      if (titleRes == R.string.hint_checkout_url) {
+        tag = "card";
+      } else if (titleRes == R.string.hint_modal_url) {
+        tag = "modal";
+      } else if (titleRes == R.string.hint_browser_url) {
+        tag = "browser";
+      }
+      binding.urlEditText.setContentDescription(tag == null ? null : tag + "-url-field");
+      binding.urlOpenButton.setContentDescription(tag == null ? null : tag + "-open-button");
       binding.urlOpenButton.setOnClickListener(v -> {
         if (titleRes == R.string.hint_checkout_url) {
           callbacks.onOpenCard();

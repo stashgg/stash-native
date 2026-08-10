@@ -120,6 +120,10 @@ extension ViewController {
             openButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.12)
             openButton.layer.cornerRadius = 15
             openButton.addTarget(self, action: openSelector, for: .touchUpInside)
+            // Derive a stable id from the field, e.g. card-url-field -> card-open-button.
+            openButton.accessibilityIdentifier =
+                textField.accessibilityIdentifier?.replacingOccurrences(
+                    of: "-url-field", with: "-open-button")
             openButton.translatesAutoresizingMaskIntoConstraints = false
             openButton.setContentHuggingPriority(.required, for: .horizontal)
             openButton.setContentCompressionResistancePriority(.required, for: .horizontal)

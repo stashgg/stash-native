@@ -306,6 +306,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         configureStandardUrlTextField(checkoutUrlTextField, text: defaultURL)
         configureStandardUrlTextField(browserUrlTextField, text: defaultURL)
         configureStandardUrlTextField(modalUrlTextField, text: defaultModalURL)
+        // Stable ids for UI tests. The Open button ids are derived from these in urlCell.
+        checkoutUrlTextField.accessibilityIdentifier = "card-url-field"
+        browserUrlTextField.accessibilityIdentifier = "browser-url-field"
+        modalUrlTextField.accessibilityIdentifier = "modal-url-field"
 
         func configureHexField(_ field: UITextField, key: String) {
             field.placeholder = "#RRGGBB (optional)"
