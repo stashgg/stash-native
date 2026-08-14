@@ -61,7 +61,6 @@ public class StashNativeCardPortraitActivity extends Activity {
   boolean callbackSent;
   /** Once-guard for terminal payment events when autoClose is on (parity with iOS). */
   private boolean paymentResultHandled;
-  boolean googlePayRedirectHandled;
   volatile boolean isPurchaseProcessing;
   boolean initialPageLoadComplete;
   boolean networkErrorHandled;

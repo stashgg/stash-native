@@ -241,11 +241,6 @@ public final class CardConstants {
   /** Delay in ms before hiding loading after page finished (Plugin). */
   public static final int HIDE_LOADING_DELAY_MS = 300;
   
-  /** Google Pay redirect: domain to detect . */
-  public static final String GOOGLE_PAY_DOMAIN = "pay.google.com";
-  public static final String GOOGLE_PAY_PARAM_PREFIX_AMP = "&dpm=gpay";
-  public static final String GOOGLE_PAY_PARAM_PREFIX_QUERY = "?dpm=gpay";
-  
   // ============================================================================
   // Timing Constants
   // ============================================================================

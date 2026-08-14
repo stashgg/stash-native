@@ -21,7 +21,7 @@ import androidx.annotation.RequiresApi;
 
 /**
  * Checkout WebView lifecycle for {@link StashNativeCardPortraitActivity}: creation and clients,
- * stall-retry and network-deadline timers, provider / Google Pay redirect checks, and the
+ * stall-retry and network-deadline timers, provider checks, and the
  * loading-overlay / reveal crossfade. State lives on the activity (mirrors iOS
  * WebViewLoadDelegate timing).
  */
@@ -83,7 +83,6 @@ final class StashCheckoutWebViewSupport {
             showLoading(activity);
             injectSDK(view);
             checkProvider(activity, url);
-            checkGooglePayRedirect(activity, url);
           } catch (Exception e) {
             Log.w(TAG, "Error in onPageStarted: " + e.getMessage(), e);
           }
@@ -107,7 +106,6 @@ final class StashCheckoutWebViewSupport {
             maybeRevealWhenReady(activity);
             injectSDK(view);
             checkProvider(activity, url);
-            checkGooglePayRedirect(activity, url);
           } catch (Exception e) {
             Log.w(TAG, "Error in onPageFinished: " + e.getMessage(), e);
           }
@@ -423,45 +421,6 @@ final class StashCheckoutWebViewSupport {
     String lower = url.toLowerCase();
     boolean show = lower.contains("klarna") || lower.contains("paypal") || lower.contains("stripe");
     activity.runOnUiThread(() -> activity.homeButton.setVisibility(show ? View.VISIBLE : View.GONE));
-  }
-
-  static void checkGooglePayRedirect(StashNativeCardPortraitActivity activity, String url) {
-    if (url == null || activity.googlePayRedirectHandled || activity.initialURL == null || activity.initialURL.isEmpty()) {
-      return;
-    }
-
-    String lower = url.toLowerCase();
-    if (lower.contains(CardConstants.GOOGLE_PAY_DOMAIN)) {
-      activity.googlePayRedirectHandled = true;
-      openGooglePayInBrowser(activity, activity.initialURL);
-    }
-  }
-
-  static void openGooglePayInBrowser(StashNativeCardPortraitActivity activity, String url) {
-    try {
-      String urlWithParam = url;
-      if (url != null && !url.isEmpty()) {
-        Uri uri = Uri.parse(url);
-        String existingQuery = uri.getQuery();
-        if (existingQuery != null && !existingQuery.isEmpty()) {
-          urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_AMP;
-        } else {
-          urlWithParam = url + CardConstants.GOOGLE_PAY_PARAM_PREFIX_QUERY;
-        }
-      }
-
-      StashNativeCardPlugin.getInstance()
-          .openExternalBrowserFromCheckout(
-              activity,
-              urlWithParam,
-              false,
-              activity::hideCardSheetLeavingDimOverlay,
-              activity::finishAfterExternalBrowserClose);
-    } catch (Exception e) {
-      Log.e(TAG, "Failed to open Google Pay URL: " + e.getMessage());
-      StashNativeCardPlugin.getInstance().cancelBrowserCloseTrackingLaunch();
-      activity.dismissWithAnimation();
-    }
   }
 
   /**
