@@ -260,9 +260,8 @@ public class StashWebViewUtils {
    * Configures WebView settings for checkout (JS, storage, theme).
    *
    * @param webView WebView to configure
-   * @param isDarkTheme whether to force dark mode
    */
-  public static void configureWebViewSettings(WebView webView, boolean isDarkTheme) {
+  public static void configureWebViewSettings(WebView webView) {
     if (webView == null) {
       return;
     }
@@ -289,11 +288,16 @@ public class StashWebViewUtils {
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
     CookieManager.getInstance().setAcceptCookie(true);
     
+    // Never darken web content at paint time. The checkout themes itself via the theme= URL
+    // param; algorithmic darkening only affected third-party iframes (Adyen secured fields)
+    // that lack a color-scheme declaration, inverting their input text to near-white.
+    // Explicit opt-out is still required: on Android 10-12 the default is FORCE_DARK_AUTO,
+    // which darkens when the host activity theme is dark.
     boolean algorithmicDarkeningApplied = false;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       try {
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-          WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDarkTheme);
+          WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, false);
           algorithmicDarkeningApplied = true;
         }
       } catch (NoClassDefFoundError unused) {
@@ -301,7 +305,7 @@ public class StashWebViewUtils {
       }
     }
     if (!algorithmicDarkeningApplied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      settings.setForceDark(isDarkTheme ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_OFF);
+      settings.setForceDark(WebSettings.FORCE_DARK_OFF);
     }
   }
 

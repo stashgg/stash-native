@@ -378,7 +378,7 @@ final class StashPopupDialogSupport {
     final boolean effDark = dialogEffectiveDarkForWeb(plugin, activity);
 
     try {
-      StashWebViewUtils.configureWebViewSettings(webView, effDark);
+      StashWebViewUtils.configureWebViewSettings(webView);
     } catch (Exception e) {
       Log.d(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
     }

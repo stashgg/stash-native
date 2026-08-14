@@ -54,7 +54,7 @@ final class StashCheckoutWebViewSupport {
         }
       }
       try {
-        StashWebViewUtils.configureWebViewSettings(activity.webView, activity.effectiveIsDarkForContent);
+        StashWebViewUtils.configureWebViewSettings(activity.webView);
       } catch (Exception e) {
         Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
       }
