@@ -125,7 +125,7 @@ final class StashCheckoutSizing {
         : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
     int minHeight = isTablet
         ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
+        : (int) CardConstants.MIN_PHONE_CARD_HEIGHT_DP;
 
     if (cardWidth < minWidth) {
       cardWidth = minWidth;

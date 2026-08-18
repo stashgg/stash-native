@@ -1,16 +1,16 @@
 package com.stash.stashnative;
 
 /**
-* Shared constants for card presentation, animations, and gestures.
-* Aligned with iOS for consistent cross-platform behavior.
-*/
+ * Shared constants for card presentation, animations, and gestures.
+ * Aligned with iOS for consistent cross-platform behavior.
+ */
 public final class CardConstants {
   private CardConstants() {} // Prevent instantiation
-  
+
   // ============================================================================
   // Animation Durations (milliseconds)
   // ============================================================================
-  
+
   /** Default animation duration. */
   public static final int ANIMATION_DURATION_DEFAULT = 400;
 
@@ -55,11 +55,11 @@ public final class CardConstants {
    * until landscape configuration is applied; this caps wait if the device never reports it.
    */
   public static final int LANDSCAPE_FINISH_FALLBACK_MS = 900;
-  
+
   // ============================================================================
   // Gesture Thresholds (Velocity-based, aligned across platforms)
   // ============================================================================
-  
+
   /** Upward velocity threshold to expand (pixels/second). */
   public static final float EXPAND_VELOCITY_THRESHOLD = -300f;
 
@@ -71,11 +71,11 @@ public final class CardConstants {
 
   /** iPad/Tablet dismiss velocity threshold. */
   public static final float DISMISS_VELOCITY_THRESHOLD_TABLET = 1040f;
-  
+
   // ============================================================================
   // Distance Thresholds (relative to card height)
   // ============================================================================
-  
+
   /** Drag distance to trigger expand (15% of height). */
   public static final float EXPAND_DISTANCE_THRESHOLD = 0.15f;
 
@@ -87,24 +87,22 @@ public final class CardConstants {
 
   /** Drag distance to trigger dismiss on tablet (15% of screen height). */
   public static final float DISMISS_DISTANCE_THRESHOLD_TABLET = 0.15f;
-  
+
   // ============================================================================
   // Visual Constants
   // ============================================================================
-  
-  /** Default corner radius in dp . */
+
+  /** Default corner radius in dp. */
   public static final float CORNER_RADIUS_DP = 12f;
-  
-  
-  /** Card elevation in dp . */
+
+  /** Card elevation in dp. */
   public static final float ELEVATION_DP = 24f;
-  
-  /** Drag handle width in dp . */
+
+  /** Drag handle width in dp. */
   public static final float DRAG_HANDLE_WIDTH_DP = 36f;
-  
-  /** Drag handle height in dp . */
+
+  /** Drag handle height in dp. */
   public static final float DRAG_HANDLE_HEIGHT_DP = 5f;
-  
 
   /**
    * Top inset from card top to the handle bar (matches iOS {@code kHandleBarTopInset} = 8pt).
@@ -120,131 +118,132 @@ public final class CardConstants {
    * Handle pill corner radius (matches iOS {@code kHandleBarCornerRadius} = 3pt).
    */
   public static final float DRAG_HANDLE_CORNER_RADIUS_DP = 3f;
-  
-  
+
   // ============================================================================
   // Overlay Opacity (unified across all modes and platforms: 40%)
   // ============================================================================
-  
+
   /** Overlay dim alpha 0-1 (used consistently everywhere). */
   public static final float OVERLAY_ALPHA = 0.4f;
 
   /** Overlay dim color 40% black - use for all overlay/dim backgrounds. */
   public static final String COLOR_OVERLAY_DIM = "#66000000";
-  
+
   // ============================================================================
   // Default Size Ratios
   // ============================================================================
-  
+
   /** Default phone card height ratio. */
   public static final float DEFAULT_CARD_HEIGHT_RATIO = 0.68f;
-  
-  
+
   /** Default phone card width ratio in landscape (when not forcing portrait). */
   public static final float DEFAULT_CARD_WIDTH_RATIO_LANDSCAPE = 0.7f;
 
   /** Default phone card height ratio in landscape (when not forcing portrait). */
   public static final float DEFAULT_CARD_HEIGHT_RATIO_LANDSCAPE = 0.9f;
-  
+
   /** Expanded phone card height ratio. */
   public static final float EXPANDED_CARD_HEIGHT_RATIO = 0.95f;
 
   /** Tablet SDK expand: height multiplier from base card height (+50%; clamped to screen via {@link #EXPANDED_CARD_HEIGHT_RATIO}). */
   public static final float TABLET_SDK_EXPAND_HEIGHT_MULTIPLIER = 1.5f;
 
-  /** Minimum phone popup/card width in dp . */
+  /** Minimum phone popup/card width in dp. */
   public static final float MIN_PHONE_CARD_WIDTH_DP = 300f;
-  
-  /** Minimum tablet card width in dp . */
+
+  /** Minimum phone card height in dp. */
+  public static final float MIN_PHONE_CARD_HEIGHT_DP = 300f;
+
+  /** Minimum tablet card width in dp. */
   public static final float MIN_TABLET_CARD_WIDTH_DP = 400f;
-  
-  /** Minimum tablet card height in dp . */
+
+  /** Minimum tablet card height in dp. */
   public static final float MIN_TABLET_CARD_HEIGHT_DP = 500f;
-  
-  /** Default tablet height ratio for portrait . */
+
+  /** Default tablet height ratio for portrait. */
   public static final float DEFAULT_TABLET_HEIGHT_RATIO_PORTRAIT = 0.5f;
-  
-  /** Default tablet width ratio for portrait . */
+
+  /** Default tablet width ratio for portrait. */
   public static final float DEFAULT_TABLET_WIDTH_RATIO_PORTRAIT = 0.4f;
-  
-  /** Default tablet height ratio for landscape . */
+
+  /** Default tablet height ratio for landscape. */
   public static final float DEFAULT_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.6f;
-  
-  /** Default tablet width ratio for landscape . */
+
+  /** Default tablet width ratio for landscape. */
   public static final float DEFAULT_TABLET_WIDTH_RATIO_LANDSCAPE = 0.3f;
-  
+
   // ============================================================================
   // Modal Default Size Ratios (openModal always shows centered modal)
   // ============================================================================
-  
-  /** Default modal phone width ratio for portrait . */
+
+  /** Default modal phone width ratio for portrait. */
   public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_PORTRAIT = 0.8f;
-  
-  /** Default modal phone height ratio for portrait . */
+
+  /** Default modal phone height ratio for portrait. */
   public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_PORTRAIT = 0.50f;
-  
-  /** Default modal phone width ratio for landscape . */
+
+  /** Default modal phone width ratio for landscape. */
   public static final float DEFAULT_MODAL_PHONE_WIDTH_RATIO_LANDSCAPE = 0.50f;
-  
-  /** Default modal phone height ratio for landscape . */
+
+  /** Default modal phone height ratio for landscape. */
   public static final float DEFAULT_MODAL_PHONE_HEIGHT_RATIO_LANDSCAPE = 0.80f;
-  
-  /** Default modal tablet width ratio for portrait . */
+
+  /** Default modal tablet width ratio for portrait. */
   public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_PORTRAIT = 0.40f;
-  
-  /** Default modal tablet height ratio for portrait . */
+
+  /** Default modal tablet height ratio for portrait. */
   public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_PORTRAIT = 0.30f;
-  
-  /** Default modal tablet width ratio for landscape . */
+
+  /** Default modal tablet width ratio for landscape. */
   public static final float DEFAULT_MODAL_TABLET_WIDTH_RATIO_LANDSCAPE = 0.30f;
-  
-  /** Default modal tablet height ratio for landscape . */
+
+  /** Default modal tablet height ratio for landscape. */
   public static final float DEFAULT_MODAL_TABLET_HEIGHT_RATIO_LANDSCAPE = 0.40f;
-  
+
   // ============================================================================
   // Popup Size Multipliers
   // ============================================================================
-  
-  /** Default popup portrait width multiplier . */
+
+  /** Default popup portrait width multiplier. */
   public static final float POPUP_PORTRAIT_WIDTH_MULTIPLIER = 1.0285f;
-  
-  /** Default popup portrait height multiplier . */
+
+  /** Default popup portrait height multiplier. */
   public static final float POPUP_PORTRAIT_HEIGHT_MULTIPLIER = 1.485f;
-  
-  /** Default popup landscape width multiplier . */
+
+  /** Default popup landscape width multiplier. */
   public static final float POPUP_LANDSCAPE_WIDTH_MULTIPLIER = 1.2275445f;
-  
-  /** Default popup landscape height multiplier . */
+
+  /** Default popup landscape height multiplier. */
   public static final float POPUP_LANDSCAPE_HEIGHT_MULTIPLIER = 1.1385f;
-  
-  /** Popup size ratio for phone . */
+
+  /** Popup size ratio for phone. */
   public static final float POPUP_SIZE_RATIO_PHONE = 0.75f;
-  
-  /** Popup size ratio for tablet . */
+
+  /** Popup size ratio for tablet. */
   public static final float POPUP_SIZE_RATIO_TABLET = 0.5f;
-  
-  /** Fallback popup width when calculation fails . */
+
+  /** Fallback popup width when calculation fails. */
   public static final int FALLBACK_POPUP_WIDTH = 800;
-  
-  /** Fallback popup height when calculation fails . */
+
+  /** Fallback popup height when calculation fails. */
   public static final int FALLBACK_POPUP_HEIGHT = 600;
-  
-  /** Fallback card width for tablet . */
+
+  /** Fallback card width for tablet. */
   public static final int FALLBACK_TABLET_CARD_WIDTH = 600;
-  
-  /** Fallback card height for tablet . */
+
+  /** Fallback card height for tablet. */
   public static final int FALLBACK_TABLET_CARD_HEIGHT = 700;
-  
-  /** Loading indicator size in dp . */
+
+  /** Loading indicator size in dp. */
   public static final int LOADING_INDICATOR_SIZE_DP = 48;
-  
+
   /** Delay in ms before hiding loading after page finished (Plugin). */
   public static final int HIDE_LOADING_DELAY_MS = 300;
-  
+
   // ============================================================================
   // Timing Constants
   // ============================================================================
-  
+
   /**
    * If no main-frame response/progress within this window, reload once with a fresh request
    * (bypass cache). Matches iOS {@code kRetryTimeoutInterval} (1.25s).
@@ -261,21 +260,21 @@ public final class CardConstants {
    * Loading overlay crossfade duration (matches iOS {@code kLoadingRevealAnimationDuration} 0.35s).
    */
   public static final long LOADING_REVEAL_DURATION_MS = 350L;
-  
+
   // ============================================================================
   // Visual Effects
   // ============================================================================
-  
-  /** Alpha fade multiplier for drag feedback . */
+
+  /** Alpha fade multiplier for drag feedback. */
   public static final float ALPHA_FADE_MULTIPLIER = 0.5f;
-  
-  /** Tablet size threshold in dp . */
+
+  /** Tablet size threshold in dp. */
   public static final int TABLET_SIZE_THRESHOLD_DP = 600;
-  
+
   // ============================================================================
   // Intent Extras (StashNativeCardPlugin -> StashNativeCardPortraitActivity)
   // ============================================================================
-  
+
   /** Request code for {@link android.app.Activity#startActivityForResult} Chrome Custom Tabs launches. */
   public static final int REQUEST_CODE_STASH_CUSTOM_TAB = 0x7374;
 
@@ -361,10 +360,10 @@ public final class CardConstants {
   // ============================================================================
   // Colors
   // ============================================================================
-  
+
   /** Background dim color (40% alpha). Same as COLOR_OVERLAY_DIM for consistency. */
   public static final String COLOR_BACKGROUND_DIM = COLOR_OVERLAY_DIM;
-  
+
   public static final String COLOR_LIGHT_BG = "#F2F2F7";
   public static final String COLOR_DARK_BG = "#1e1e1e";
   /** Home button background in dark theme (iOS-style system gray). */
