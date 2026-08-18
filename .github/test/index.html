@@ -1010,6 +1010,30 @@
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                             <span class="btn-label">Deeplink: pass-through (opens app)</span>
                         </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplinkIframe('stashdemo://misc/passthrough?src=iframe')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: from an iframe (sub-frame)</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://misc/passthrough?src=intent#Intent;scheme=stashdemo;package=com.stash.stashnative.sample;end')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: Android intent:// (opens app)</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('https://example.com/deeplink-test')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: iOS universal link (https)</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashunknown://nope')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: unhandled scheme (no app, card stays)</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://nope#Intent;scheme=stashunknown;package=com.example.notinstalled;S.browser_fallback_url=https%3A%2F%2Fexample.com%2Ffallback;end')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: intent:// with browser_fallback_url</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://nope#Intent;scheme=stashunknown;package=com.example.notinstalled;end')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                            <span class="btn-label">Deeplink: intent://, missing app, no fallback (Play Store)</span>
+                        </button>
                     </div>
                 </div>
 
@@ -1477,6 +1501,22 @@
             updateStatus('Navigating to deeplink: ' + url);
             try {
                 window.location.href = url;
+            } catch (e) {
+                updateStatus('Deeplink error: ' + (e && e.message ? e.message : e));
+            }
+        }
+
+        // Fires the deeplink from a throwaway sub-frame so the SDK's any-frame
+        // interception is exercised (a WebView cannot load a non-web scheme in
+        // an iframe either, so it must still be handed to the OS).
+        function triggerDeeplinkIframe(url) {
+            updateStatus('Navigating to deeplink from iframe: ' + url);
+            try {
+                var frame = document.createElement('iframe');
+                frame.style.display = 'none';
+                frame.src = url;
+                document.body.appendChild(frame);
+                setTimeout(function () { frame.remove(); }, 1000);
             } catch (e) {
                 updateStatus('Deeplink error: ' + (e && e.message ? e.message : e));
             }

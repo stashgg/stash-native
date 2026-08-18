@@ -94,11 +94,6 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onOpenDeeplinkTest() {
-        openDeeplinkTest();
-      }
-
-      @Override
       public void onLockLandscapeChanged(boolean on) {
         viewModel.setLockLandscape(on);
         applyOrientationLock();
@@ -583,11 +578,6 @@ public class MainActivity extends AppCompatActivity {
     Log.i(TAG, "Opening card: " + url);
     StashNativeCard.CardConfig config = buildCardConfig();
     StashNativeCard.getInstance().openCard(url, config);
-  }
-
-  private void openDeeplinkTest() {
-    StashNativeCard.CardConfig config = buildCardConfig();
-    StashNativeCard.getInstance().openCard(DeeplinkTestHarness.dataUrl(), config);
   }
 
   private void openBrowser() {

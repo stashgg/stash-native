@@ -815,10 +815,6 @@ public class MainViewModel extends AndroidViewModel {
         R.string.hint_modal_url, modalUrl,
         R.drawable.ic_ms_link_24, false, true));
 
-    // Deeplink test: opens the card against a bundled harness page.
-    list.add(SettingsItem.sectionHeader(R.string.section_deeplink_test, true, false));
-    list.add(SettingsItem.actionPreference(R.string.open_deeplink_test, false, true));
-
     return list;
   }
 

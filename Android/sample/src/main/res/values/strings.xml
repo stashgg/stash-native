@@ -5,8 +5,6 @@
     <string name="section_card">Card</string>
     <string name="section_browser">Browser</string>
     <string name="section_modal">Modal</string>
-    <string name="section_deeplink_test">Deeplink test</string>
-    <string name="open_deeplink_test">Open Deeplink Test</string>
     <string name="section_presentation_options">Presentation options</string>
     <string name="nav_card_options">Card options</string>
     <string name="nav_modal_options">Modal options</string>

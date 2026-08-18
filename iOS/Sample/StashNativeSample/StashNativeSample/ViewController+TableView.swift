@@ -21,7 +21,6 @@ extension ViewController {
         case .card: return 3
         case .modal: return 1
         case .browser: return 3
-        case .deeplinkTest: return 1
         case .presentationOptions: return 2
         case .other: return 1
         case .about: return 1
@@ -36,7 +35,6 @@ extension ViewController {
         case .card: title = "CARD"
         case .modal: title = "MODAL"
         case .browser: title = "BROWSER"
-        case .deeplinkTest: title = "DEEPLINK TEST"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .other: title = "OTHER"
         case .about: title = "ABOUT"
@@ -75,8 +73,6 @@ extension ViewController {
             return modalSectionCell()
         case .browser:
             return browserSectionCell(for: indexPath)
-        case .deeplinkTest:
-            return actionCell("Open Deeplink Test")
         case .presentationOptions:
             return presentationOptionCell(for: indexPath)
         case .other:
@@ -100,8 +96,6 @@ extension ViewController {
             generateCheckoutForBrowserTapped()
         case .browser where indexPath.row == 2:
             openWebshopForBrowserTapped()
-        case .deeplinkTest:
-            openDeeplinkTestTapped()
         case .presentationOptions:
             handlePresentationOptionsSelection(at: indexPath)
         case .checkoutGenerationSettings:
