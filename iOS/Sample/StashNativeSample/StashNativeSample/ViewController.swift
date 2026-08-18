@@ -68,11 +68,12 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     /// Leading bar item so the wordmark sits left-aligned, matching the Android toolbar.
     /// iOS 26 draws a glass capsule behind bar items; suppress it so the logo reads as a
-    /// wordmark rather than a button.
+    /// wordmark rather than a button. hidesSharedBackground is an iOS 26 SDK symbol; set it
+    /// via KVC so the sample still compiles against the iOS 18 SDK used for device builds.
     lazy var logoBarItem: UIBarButtonItem = {
         let item = UIBarButtonItem(customView: logoView)
         if #available(iOS 26.0, *) {
-            item.hidesSharedBackground = true
+            item.setValue(true, forKey: "hidesSharedBackground")
         }
         return item
     }()
@@ -87,6 +88,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let callbackChipStack = UIStackView()
     /// Bottom tab bar splitting the page into Test / Settings / API views.
     let tabBar = UITabBar()
+    /// Explicit height for the standalone tab bar on pre-iOS-26 (see updateTabBarHeight).
+    var tabBarHeightConstraint: NSLayoutConstraint?
     let forcePortraitOnCheckoutSwitch = UISwitch()
     let cardAutoCloseSwitch = UISwitch()
     let phoneCardHeightSlider = UISlider()
@@ -256,6 +259,16 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
             tabBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tabBar.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        // A bare UITabBar (not owned by a UITabBarController) does not inflate its intrinsic
+        // height by the bottom safe-area inset on iOS 18 and earlier, so its items render down
+        // inside the home-indicator region. Pin an explicit height on those versions; iOS 26's
+        // floating tab bar self-manages its layout, so leave it to intrinsic sizing there.
+        if #unavailable(iOS 26.0) {
+            let heightConstraint = tabBar.heightAnchor.constraint(
+                equalToConstant: tabBar.intrinsicContentSize.height)
+            heightConstraint.isActive = true
+            tabBarHeightConstraint = heightConstraint
+        }
 
         callbackChipStack.axis = .vertical
         callbackChipStack.alignment = .fill
@@ -281,6 +294,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         flushPendingAlertsIfPossible()
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        // Reserve the bottom safe-area inset above the bar's own content height so items clear
+        // the home indicator. Intrinsic height tracks portrait (49) vs landscape (32) so the
+        // bar stays native in both. No-op on iOS 26, where tabBarHeightConstraint is nil.
+        tabBarHeightConstraint?.constant =
+            tabBar.intrinsicContentSize.height + view.safeAreaInsets.bottom
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
