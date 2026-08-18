@@ -386,11 +386,13 @@ final class StashPopupDialogSupport {
     webView.setWebViewClient(new WebViewClient() {
       @Override
       public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
-        if (!request.isForMainFrame()) {
+        String target = request.getUrl() != null ? request.getUrl().toString() : null;
+        // Sub-frame web navigations load in place; a deeplink (non-web scheme) fired from an
+        // iframe still has to be handed to the OS -- the WebView cannot load it.
+        if (!request.isForMainFrame() && StashWebViewUtils.isWebScheme(target)) {
           return false;
         }
-        return handleDeeplinkNavigation(
-            plugin, activity, request.getUrl() != null ? request.getUrl().toString() : null);
+        return handleDeeplinkNavigation(plugin, activity, target);
       }
 
       @Override

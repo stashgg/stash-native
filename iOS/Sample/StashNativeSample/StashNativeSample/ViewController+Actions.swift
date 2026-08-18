@@ -32,6 +32,11 @@ extension ViewController {
         StashNativeCard.sharedInstance().openCard(withURL: url, config: config)
     }
 
+    @objc func openDeeplinkTestTapped() {
+        let config = buildCardConfig()
+        StashNativeCard.sharedInstance().openCard(withURL: DeeplinkTestHarness.dataURL(), config: config)
+    }
+
     @objc func openBrowserTapped() {
         let url = (browserUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {

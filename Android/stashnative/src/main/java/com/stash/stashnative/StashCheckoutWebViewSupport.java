@@ -62,11 +62,13 @@ final class StashCheckoutWebViewSupport {
       activity.webView.setWebViewClient(new WebViewClient() {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
-          if (!request.isForMainFrame()) {
+          String target = request.getUrl() != null ? request.getUrl().toString() : null;
+          // Sub-frame web navigations load in place; but a deeplink (non-web scheme) fired from
+          // an iframe still has to be handed to the OS -- the WebView cannot load it.
+          if (!request.isForMainFrame() && StashWebViewUtils.isWebScheme(target)) {
             return false;
           }
-          return handleDeeplinkNavigation(
-              activity, request.getUrl() != null ? request.getUrl().toString() : null);
+          return handleDeeplinkNavigation(activity, target);
         }
 
         @Override
@@ -401,12 +403,75 @@ final class StashCheckoutWebViewSupport {
 
   /** ACTION_VIEW for a non-stash deeplink; no browser-close tracking, card stays open. */
   static void openDeeplinkExternally(Activity activity, String url) {
+    if (activity == null || url == null || url.isEmpty()) {
+      return;
+    }
+    if (url.regionMatches(true, 0, "intent:", 0, 7)) {
+      openIntentUri(activity, url);
+      return;
+    }
     try {
       Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       activity.startActivity(intent);
     } catch (Throwable t) {
+      // App not installed / no handler: nothing more to try for a bare custom-scheme URL.
       Log.w(TAG, "No handler for deeplink: " + t.getMessage());
+    }
+  }
+
+  /**
+   * Launches an {@code intent://} URI (Chrome intent syntax). Clears any component/selector to
+   * stop the URI redirecting to an internal host component (WebView intent-redirection hardening),
+   * then falls back to {@code browser_fallback_url} or the Play Store when the target app is
+   * missing. Card stays open throughout.
+   */
+  private static void openIntentUri(Activity activity, String url) {
+    Intent intent;
+    try {
+      intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
+    } catch (Throwable t) {
+      Log.w(TAG, "Malformed intent URI: " + t.getMessage());
+      return;
+    }
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    intent.setComponent(null);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      intent.setSelector(null);
+    }
+    try {
+      activity.startActivity(intent);
+      return;
+    } catch (Throwable t) {
+      Log.w(TAG, "No app for intent URI: " + t.getMessage());
+    }
+    String fallback = intent.getStringExtra("browser_fallback_url");
+    if (fallback != null && StashWebViewUtils.isWebScheme(fallback)) {
+      openDeeplinkExternally(activity, fallback);
+      return;
+    }
+    String pkg = intent.getPackage();
+    if (pkg != null && !pkg.isEmpty()) {
+      openPlayStoreForPackage(activity, pkg);
+    }
+  }
+
+  /** Play Store fallback for a missing intent:// target: market:// first, then the https listing. */
+  private static void openPlayStoreForPackage(Activity activity, String pkg) {
+    try {
+      Intent market = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=" + pkg));
+      market.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      activity.startActivity(market);
+      return;
+    } catch (Throwable ignored) {
+    }
+    try {
+      Intent web = new Intent(Intent.ACTION_VIEW,
+          Uri.parse("https://play.google.com/store/apps/details?id=" + pkg));
+      web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      activity.startActivity(web);
+    } catch (Throwable t) {
+      Log.w(TAG, "No Play Store for package " + pkg + ": " + t.getMessage());
     }
   }
 

@@ -49,6 +49,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void onOpenWebshopForBrowser();
 
+    void onOpenDeeplinkTest();
+
     void onDeleteInstance();
   }
 
@@ -352,6 +354,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           callbacks.onGenerateCheckoutForBrowser();
         } else if (item.titleRes == R.string.open_webshop_for_browser) {
           callbacks.onOpenWebshopForBrowser();
+        } else if (item.titleRes == R.string.open_deeplink_test) {
+          callbacks.onOpenDeeplinkTest();
         } else if (item.titleRes == R.string.nav_delete_instance) {
           callbacks.onDeleteInstance();
         }

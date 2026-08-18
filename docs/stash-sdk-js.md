@@ -106,14 +106,18 @@ Opens the URL in the external browser and nothing else: the checkout stays prese
 
 ### Deeplink navigation (stash-pay results)
 
-Main-frame navigations to any non-web scheme (anything other than http/https/about/blob/data/file/javascript) never load inside the checkout WebView:
+Navigations to any non-web scheme (anything other than http/https/about/blob/data/file/javascript) never load inside the checkout WebView. This applies to navigations from the main frame and from sub-frames/iframes alike, since a WebView cannot load a non-web scheme in either case:
 
 - URLs containing `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel` (any scheme) are consumed by the SDK and run the exact same native flows as `onPaymentSuccess` (no order payload), `onPaymentFailure`, and `window.close()` respectively - including the once-guards, `autoClose` handling, and the purchase-processing close guard.
-- Every other deeplink is handed to the OS (`UIApplication openURL:` on iOS, `ACTION_VIEW` on Android) and the checkout stays presented; if no app handles the scheme the navigation is dropped silently.
+- Every other deeplink is handed to the OS (`UIApplication openURL:` on iOS, `ACTION_VIEW` on Android) and the checkout stays presented.
+- Android `intent://` URIs (Chrome intent syntax) are parsed and launched; any explicit component/selector is stripped first to prevent redirection to an internal host component. If the target app is missing, the SDK uses the intent's `browser_fallback_url` when present, otherwise opens the package's Play Store listing.
+- If no app can handle a deeplink (and no fallback applies), the navigation is dropped gracefully - no crash, and the checkout stays presented.
+
+iOS universal links: a user-tapped (link-activated) main-frame https navigation is offered to any installed app that claims it as a universal link (via `openURL:` with `UniversalLinksOnly`); if no app claims it, it loads normally in the checkout. This is gated to link activations so the initial checkout load and provider redirects always stay in the card, and it requires the target app's associated domains.
 
 Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
 
-Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information, so non-web-scheme navigations from iframes are intercepted there as well. From API 24 on (and always on iOS) interception is main-frame only.
+Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information; web-scheme sub-frame navigations cannot be distinguished there, but non-web-scheme deeplinks are still intercepted.
 
 ### `window.close()`
 

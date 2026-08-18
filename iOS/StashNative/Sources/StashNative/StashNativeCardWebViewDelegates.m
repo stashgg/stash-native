@@ -431,6 +431,16 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
     [self scheduleStallRetryTimerWithDelay:delay reason:@"process-terminate-reload"];
 }
 
+/// Hands a non-web deeplink to the OS. Graceful when no app is installed: logs and leaves the
+/// card presented (no crash, no fallback surface for a bare custom-scheme URL).
+- (void)openDeeplinkURLExternally:(NSURL *)url {
+    [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL success) {
+        if (!success) {
+            STASH_DEBUG_LOG(@"StashNative: no app installed for deeplink %@", url.absoluteString);
+        }
+    }];
+}
+
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     if (![self sessionIsValidForCallbacks]) {
         STASH_DEBUG_LOG(@"StashNativeRetryTrace navigationAction CANCEL stale session");
@@ -460,9 +470,10 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         return;
     }
 
-    // Main-frame navigation to a non-web scheme is a deeplink: never load it in the card.
-    // stash-pay result paths run the same flows as the JS bridge; everything else is handed
-    // to the OS. The card stays presented either way (spec: docs/stash-sdk-js.md).
+    // A non-web scheme is a deeplink, in any frame (a WKWebView cannot load it, so an
+    // iframe-initiated deeplink must be intercepted too): never load it in the card. stash-pay
+    // result paths run the same flows as the JS bridge; everything else is handed to the OS. The
+    // card stays presented either way (spec: docs/stash-sdk-js.md).
     NSString *scheme = url.scheme.lowercaseString;
     BOOL isWebScheme = scheme.length == 0 ||
         [scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"] ||
@@ -470,7 +481,7 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         [scheme isEqualToString:@"data"] || [scheme isEqualToString:@"file"] ||
         [scheme isEqualToString:@"javascript"];
     BOOL isMainFrame = navigationAction.targetFrame == nil || navigationAction.targetFrame.isMainFrame;
-    if (!isWebScheme && isMainFrame) {
+    if (!isWebScheme) {
         decisionHandler(WKNavigationActionPolicyCancel);
         StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
         NSString *lower = urlString.lowercaseString;
@@ -481,8 +492,23 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
         } else if ([lower containsString:@"stash-pay/cancel"]) {
             [internal handleWindowCloseSignal];
         } else {
-            [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:nil];
+            [self openDeeplinkURLExternally:url];
         }
+        return;
+    }
+
+    // A user-tapped https link an installed app claims as a universal link: hand it to that app
+    // and cancel the in-card load; if no app claims it, load normally. Gated to link activations
+    // so the initial checkout load and provider redirects (navigationType Other) always stay in
+    // the card. Needs the target app's associated domains, so it cannot be exercised with the
+    // bundled sample.
+    if (isMainFrame && navigationAction.navigationType == WKNavigationTypeLinkActivated &&
+        ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"])) {
+        [[UIApplication sharedApplication] openURL:url
+                                           options:@{UIApplicationOpenURLOptionUniversalLinksOnly: @YES}
+                                 completionHandler:^(BOOL success) {
+            decisionHandler(success ? WKNavigationActionPolicyCancel : WKNavigationActionPolicyAllow);
+        }];
         return;
     }
 
