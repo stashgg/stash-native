@@ -30,6 +30,8 @@ Statuses: `OPEN` (reported by an agent, not yet verified) -> `CONFIRMED` (main a
 
 Severity: `P0` crash/data-loss/security in the SDK, `P1` real bug integrators can hit, `P2` leak/perf/robustness debt, `P3` polish (dead code, docs drift, naming).
 
+Two lenses, one ledger. Findings are either **correctness** (bugs/robustness/security, areas A-K) or **quality** (readability/cleanliness/style, areas L-P). Tag each entry's category accordingly (e.g. `quality/naming`, `quality/structure`). Quality findings are capped at `P2` -- use `P2` only for genuine maintainability debt or a public-facing style/doc gap, `P3` for local nits (formatting, a single unclear name, a stale comment). Never inflate a style nit; a subjective preference with no guideline behind it is not a finding.
+
 ## Phase 1 -- iterative investigation
 
 Repeat iterations until convergence. Each iteration:
@@ -40,6 +42,12 @@ Repeat iterations until convergence. Each iteration:
 4. Convergence check: if a full iteration produced zero new CONFIRMED entries, the audit is done. Otherwise, next iteration -- rotate/deepen areas (e.g. follow up on hotspots the previous batch flagged).
 
 Scope for agents: `iOS/StashNative/`, `Android/stashnative/`, `iOS/Sample/`, `Android/sample/`, `docs/`, `README*`, `.github/` (workflows + test card), consumer ProGuard rules, gradle/xcodeproj/SPM manifests.
+
+Run BOTH lenses every iteration. Alongside the correctness agents (areas A-K), assign at least one dedicated **code-quality agent** (areas L-P) -- more if the surface is large; split by platform. Quality agents judge the code against the canonical standards, not personal taste, and must name the specific rule each finding violates:
+- Android / Java: [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) + AOSP code conventions + Android Lint expectations (resource naming, no unused resources).
+- iOS / Objective-C: Apple *Coding Guidelines for Cocoa* (method naming, prefixes, `instancetype`) + complete nullability annotations (`NS_ASSUME_NONNULL_BEGIN`, `nullable`/`nonnull`) and consistent property attributes on public headers.
+- iOS / Swift (samples): *Swift API Design Guidelines* (clarity at the call site, no needless words) + `swiftlint` config in the repo.
+The bar is "readable, clean, and idiomatic to the platform" -- but every quality fix must be behavior-preserving and must not touch the public API (see Phase 3). Respect the existing project rules that override the style guides: terse human-style comments (not verbose docs on unchanged code), no emoji, Obj-C ivar underscore prefix, the deliberately preserved `stashNativement*` handler typo.
 
 ## Audit checklist (assign areas across agents)
 
@@ -110,6 +118,39 @@ Filtered to what this codebase actually is: an offline mobile payments-checkout 
 - Ratio clamp correctness at boundaries, px/dp/pt rounding, division by zero in geometry, float comparison with `==`.
 - Encoding: base64 paths, URL encoding/decoding round-trips, unicode in payloads/query params, `Locale` sensitivity in `String.format`/`toLowerCase`.
 
+---
+
+The remaining areas are the **code-quality lens** (category `quality`). Judge against the named standards; every finding needs file:line evidence and the specific rule it breaks. Fixes must be behavior-preserving and internal-only.
+
+**L. Naming & clarity**
+- Names read as documentation: no cryptic abbreviations, no single-letter names outside tight loops, booleans read as `is/has/should`.
+- Platform idiom: Java lowerCamelCase members + `UPPER_SNAKE_CASE` constants; Obj-C descriptive method names with grammatical parameter phrases + `Stash` prefix on public symbols + `_ivar` underscore; Swift lowerCamelCase, no needless words, no Obj-C-isms.
+- Consistent vocabulary for the same concept across files (e.g. one of "dismiss" vs "close" vs "teardown", not all three for the same thing).
+- INTERNAL names only -- a public symbol with a poor name is a WONTFIX (renaming it breaks the API); note it but do not propose a rename.
+
+**M. Structure & readability**
+- Overlong methods / multiple responsibilities; deep nesting that a guard/early-return would flatten.
+- Magic numbers and duplicated string/number literals that should be named constants (respect the existing `CardConstants` / iOS constant homes).
+- Long parameter lists that a small value/config type would clarify.
+- Member ordering and grouping; iOS `#pragma mark` sections present and accurate; related helpers co-located.
+- Copy-pasted near-duplicate logic (card vs popup vs modal) that hurts readability even when not a correctness bug.
+
+**N. Style conformance to the guides**
+- Google Java Style: import order, NO wildcard imports, brace/indent consistency, line length, `@Override` present, `final` where it aids clarity, one top-level construct per file.
+- AOSP/Android: `res/` naming, no unused resources/strings, lint-clean expectations.
+- Obj-C: complete nullability audit on public headers (`NS_ASSUME_NONNULL_BEGIN`/`nullable`), correct/consistent property attributes (`copy` for `NSString`, `weak`/`assign` per the ARC guard), `instancetype` initializers, header include hygiene.
+- Swift (samples): access control (`private`/`fileprivate` where possible), no force-unwrap/`try!` in sample paths, `guard` for early exit, `swiftlint` clean.
+
+**O. Comment & documentation quality**
+- Public API carries accurate doc comments (Javadoc / header doc); comments explain WHY, not restate the code.
+- Project rule enforcement: terse human-style comments, no AI-verbose blocks, no emoji. Flag over-commented or stale/misleading comments and commented-out code.
+- TODO/FIXME format and staleness (cross-reference area A).
+
+**P. Consistency & idioms**
+- The same task done the same way everywhere: threading dispatch shape, reflection-with-`Throwable` pattern, logging tag constants and level usage, error-handling shape, null-guard style.
+- Modern, idiomatic constructs over legacy where it improves clarity (without changing behavior).
+- Consistent formatting the repo's own tooling would enforce (swiftlint config, any checkstyle/ktlint/android-lint) -- read the configs and flag divergences from them specifically.
+
 ## Phase 2 -- gate
 
 Present a summary: counts by severity/category, the full P0/P1 list, notable P2s. Then use `AskUserQuestion` to let the Developer choose: fix everything, fix P0-P1 only, cherry-pick, or stop (ledger stays for a later `fix` run).
@@ -119,6 +160,7 @@ Present a summary: counts by severity/category, the full P0/P1 list, notable P2s
 Work strictly from CONFIRMED entries, ordered P0 -> P3. For each fix:
 
 1. Respect project constraints: no breaking public API changes; both-platform parity for shared behavior; JS bridge changes mirrored on both platforms AND `docs/stash-sdk-js.md` updated; terse human comments; no emojis; reflection catches `Throwable`; new iOS `.m` files added to the pbxproj; keep samples clean.
+   - Quality fixes (category `quality`) are held to a stricter bar: they MUST be purely behavior-preserving and internal-only. Never rename/reshape a public symbol, header signature, ProGuard-kept surface, or JS-bridge handler name (all breaking) -- if a public name is poor, mark WONTFIX. No opportunistic scope creep: a naming fix does not get to reformat the whole file. Keep quality diffs small and reviewable; do not add doc comments to code you did not otherwise touch.
 2. After each coherent batch, verify:
    - Android: `cd Android && JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ./gradlew :stashnative:assembleRelease :stashnative:testDebugUnitTest :sample:assembleDebug`
    - iOS: `cd iOS/StashNative && xcodebuild -project StashNative.xcodeproj -scheme StashNative -sdk iphoneos build` and swiftlint if Swift files changed.
