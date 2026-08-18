@@ -122,10 +122,12 @@ BOOL _useModalPresentation = NO;
 BOOL _modalAllowDismiss = YES;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure. Reset to YES on cleanup. */
 BOOL _autoCloseOnPaymentEvent = YES;
-CGFloat _modalPhoneWidthRatioPortrait = 0.9f;
-CGFloat _modalPhoneHeightRatioPortrait = 0.7f;
-CGFloat _modalPhoneWidthRatioLandscape = 0.7f;
-CGFloat _modalPhoneHeightRatioLandscape = 0.85f;
+// Always overwritten by openModalWithURL:config: before use; kept in sync with the
+// StashNativeModalConfig -init defaults to avoid a misleading initial value.
+CGFloat _modalPhoneWidthRatioPortrait = 0.80f;
+CGFloat _modalPhoneHeightRatioPortrait = 0.50f;
+CGFloat _modalPhoneWidthRatioLandscape = 0.50f;
+CGFloat _modalPhoneHeightRatioLandscape = 0.80f;
 CGFloat _modalTabletWidthRatioPortrait = 0.40f;
 CGFloat _modalTabletHeightRatioPortrait = 0.30f;
 CGFloat _modalTabletWidthRatioLandscape = 0.30f;
