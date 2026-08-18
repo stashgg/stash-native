@@ -380,32 +380,4 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         tabBar.delegate = self
     }
 
-    // MARK: - API keys
-    // MARK: - Helpers
-
-    func systemImage(_ name: String) -> UIImage? {
-        UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .regular))
-    }
-
-    func makeSliderCellContent(title: String, valueLabel: UILabel, slider: UISlider) -> UIView {
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let topRow = UIStackView()
-        topRow.axis = .horizontal
-        topRow.distribution = .equalSpacing
-        topRow.alignment = .center
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
-        titleLabel.textColor = .label
-        valueLabel.setContentHuggingPriority(.required, for: .horizontal)
-        topRow.addArrangedSubview(titleLabel)
-        topRow.addArrangedSubview(valueLabel)
-        stack.addArrangedSubview(topRow)
-        stack.addArrangedSubview(slider)
-        return stack
-    }
-
 }
