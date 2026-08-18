@@ -326,7 +326,7 @@ public class StashWebViewUtils {
     if (s.isEmpty()) {
       return null;
     }
-    String lower = s.toLowerCase();
+    String lower = s.toLowerCase(java.util.Locale.ROOT);
     if (lower.startsWith("javascript:") || lower.startsWith("file:") || lower.startsWith("data:")) {
       return null;
     }
@@ -339,7 +339,7 @@ public class StashWebViewUtils {
       if (scheme == null) {
         return null;
       }
-      scheme = scheme.toLowerCase();
+      scheme = scheme.toLowerCase(java.util.Locale.ROOT);
       if (!"http".equals(scheme) && !"https".equals(scheme)) {
         return null;
       }

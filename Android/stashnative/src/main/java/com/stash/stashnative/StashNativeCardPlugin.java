@@ -917,6 +917,11 @@ public class StashNativeCardPlugin {
   // ============================================================================
 
   private float clampRatio(float ratio) {
+    // NaN/Inf would flow through Math.min/max unclamped (parity with iOS stashClampRatio,
+    // which rejects them too); fall back to a mid default rather than a boundary value.
+    if (Float.isNaN(ratio) || Float.isInfinite(ratio)) {
+      return 0.5f;
+    }
     return Math.max(0.1f, Math.min(1.0f, ratio));
   }
 

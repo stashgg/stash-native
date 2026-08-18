@@ -549,7 +549,7 @@ final class StashCheckoutWebViewSupport {
     if (activity.homeButton == null || url == null) {
       return;
     }
-    String lower = url.toLowerCase();
+    String lower = url.toLowerCase(java.util.Locale.ROOT);
     boolean show = lower.contains("klarna") || lower.contains("paypal") || lower.contains("stripe");
     activity.runOnUiThread(() -> activity.homeButton.setVisibility(show ? View.VISIBLE : View.GONE));
   }

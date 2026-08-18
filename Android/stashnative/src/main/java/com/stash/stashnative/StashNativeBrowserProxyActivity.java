@@ -117,7 +117,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
       if (scheme == null) {
         return null;
       }
-      String s = scheme.toLowerCase();
+      String s = scheme.toLowerCase(java.util.Locale.ROOT);
       if (!"http".equals(s) && !"https".equals(s)) {
         return null;
       }

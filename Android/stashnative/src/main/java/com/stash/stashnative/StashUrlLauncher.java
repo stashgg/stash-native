@@ -183,7 +183,7 @@ public final class StashUrlLauncher {
     if (scheme == null) {
       return null;
     }
-    String sch = scheme.toLowerCase();
+    String sch = scheme.toLowerCase(java.util.Locale.ROOT);
     if (!"http".equals(sch) && !"https".equals(sch)) {
       return null;
     }
