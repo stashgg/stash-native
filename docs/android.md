@@ -61,6 +61,7 @@ For checkout page authors, see the consolidated web API reference: [JavaScript `
 | `expand()` | `StashAndroid.expand` |
 | `collapse()` | `StashAndroid.collapse` |
 | `openExternalBrowser(url)` | `StashAndroid.openExternalBrowser` |
+| `openLink(url)` | `StashAndroid.openLink` |
 | `window.close()` | `StashAndroid.requestCloseFromPage` |
 
 `@JavascriptInterface` implementations:

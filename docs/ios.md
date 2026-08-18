@@ -54,6 +54,7 @@ Message handler name constants (examples — verify in source): defined as `stat
 | `expand` | `stashExpand` |
 | `collapse` | `stashCollapse` |
 | `openExternalBrowser` | `stashExternalPayment` |
+| `openLink` | `stashOpenLink` |
 | `window.close` | `stashWindowClose` |
 | page ready (injected) | `stashNativePageReady` |
 
