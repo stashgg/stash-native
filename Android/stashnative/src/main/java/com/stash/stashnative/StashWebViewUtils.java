@@ -279,6 +279,9 @@ public class StashWebViewUtils {
     
     settings.setJavaScriptEnabled(true);
     settings.setDomStorageEnabled(true);
+    // Route target=_blank / window.open to WebChromeClient.onCreateWindow so the SDK can open
+    // those in the external browser instead of a (nonexistent) second WebView tab.
+    settings.setSupportMultipleWindows(true);
     settings.setLoadWithOverviewMode(true);
     settings.setUseWideViewPort(true);
     settings.setBuiltInZoomControls(false);

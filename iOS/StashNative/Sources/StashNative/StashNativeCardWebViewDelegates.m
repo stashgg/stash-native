@@ -794,16 +794,14 @@ static BOOL stashHTTPStatusIsRedirect(NSInteger statusCode) {
 }
 
 - (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures {
-    // target=_blank / window.open: load in the same webview (matches Android single-window
-    // behavior). Deeplink schemes then route through decidePolicyForNavigationAction as usual.
-    // window.open('') / about:blank placeholder popups are dropped: loading them here would
-    // replace the live checkout document with a blank page.
-    if (!navigationAction.targetFrame || !navigationAction.targetFrame.isMainFrame) {
-        NSURL *target = navigationAction.request.URL;
-        if (target && target.absoluteString.length > 0 &&
-            ![target.absoluteString isEqualToString:@"about:blank"]) {
-            [webView loadRequest:navigationAction.request];
-        }
+    // target=_blank / window.open cannot open a second tab in the card, so the destination is
+    // opened in the external browser instead (openLink semantics: the checkout stays presented).
+    // window.open('') / about:blank placeholder popups are dropped: there is nothing to open and
+    // the live checkout document must not be replaced.
+    NSURL *target = navigationAction.request.URL;
+    if (target && target.absoluteString.length > 0 &&
+        ![target.absoluteString isEqualToString:@"about:blank"]) {
+        [[UIApplication sharedApplication] openURL:target options:@{} completionHandler:nil];
     }
     return nil;
 }

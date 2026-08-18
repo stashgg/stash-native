@@ -119,6 +119,13 @@ Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDel
 
 Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information; web-scheme sub-frame navigations cannot be distinguished there, but non-web-scheme deeplinks are still intercepted.
 
+### New windows (`target="_blank"` / `window.open`)
+
+A WebView has no second tab, so any navigation that requests a new window - an anchor with `target="_blank"` or a `window.open(url)` call, from the main frame or an iframe - is opened in the external browser instead, and the checkout stays presented (same semantics as `openLink`: no `theme` parameter, no dismissal, no host callback). http/https URLs open in the system browser; any other scheme flows through the deeplink handling above. Empty / `about:blank` placeholder popups are dropped so the live checkout document is never replaced.
+
+- Android: `WebView` settings enable `setSupportMultipleWindows(true)`; `WebChromeClient.onCreateWindow` (card and popup) captures the destination via a throwaway transport `WebView` and opens it externally (`openTargetBlankWindow` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java)). No real second `WebView` is created.
+- iOS: `WKUIDelegate createWebViewWithConfiguration:forNavigationAction:` opens the destination via `UIApplication openURL:` and returns `nil` (no new `WKWebView`). See [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m).
+
 ### `window.close()`
 
 The injected script replaces `window.close` with a function that requests closing the checkout from the native side (`requestCloseFromPage` on Android, `stashWindowClose` message on iOS).

@@ -514,7 +514,14 @@ final class StashPopupDialogSupport {
     });
 
     try {
-      webView.setWebChromeClient(new WebChromeClient());
+      webView.setWebChromeClient(new WebChromeClient() {
+        @Override
+        public boolean onCreateWindow(
+            WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+          // target=_blank / window.open opens in the external browser, not a second dialog.
+          return StashCheckoutWebViewSupport.openTargetBlankWindow(activity, view, resultMsg);
+        }
+      });
       webView.addJavascriptInterface(new StashPopupJsInterface(plugin),
           StashWebViewUtils.JS_INTERFACE_NAME);
       webView.setVerticalScrollBarEnabled(false);

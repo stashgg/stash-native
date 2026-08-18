@@ -225,6 +225,12 @@ final class StashCheckoutWebViewSupport {
               maybeRevealWhenReady(activity);
             }
           }
+
+          @Override
+          public boolean onCreateWindow(
+              WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+            return openTargetBlankWindow(activity, view, resultMsg);
+          }
         });
         activity.webView.addJavascriptInterface(
             new StashCheckoutJsInterface(activity), StashWebViewUtils.JS_INTERFACE_NAME);
@@ -399,6 +405,66 @@ final class StashCheckoutWebViewSupport {
       openDeeplinkExternally(activity, url);
     }
     return true;
+  }
+
+  /**
+   * WebChromeClient.onCreateWindow handler shared by the card and popup paths. target=_blank /
+   * window.open has no second tab in the checkout, so the destination is opened outside the
+   * WebView instead. The href is only exposed through the new window's first navigation, so a
+   * throwaway transport WebView is used to capture it. A real WebView tab is never created.
+   */
+  static boolean openTargetBlankWindow(Activity activity, WebView parent, android.os.Message resultMsg) {
+    try {
+      final WebView transport = new WebView(parent.getContext());
+      transport.setWebViewClient(new WebViewClient() {
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+          return route(request.getUrl() != null ? request.getUrl().toString() : null);
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public boolean shouldOverrideUrlLoading(WebView view, String url) {
+          return route(url);
+        }
+
+        private boolean route(String url) {
+          openTargetBlankExternally(activity, url);
+          transport.post(new Runnable() {
+            @Override
+            public void run() {
+              transport.destroy();
+            }
+          });
+          return true;
+        }
+      });
+      ((WebView.WebViewTransport) resultMsg.obj).setWebView(transport);
+      resultMsg.sendToTarget();
+      return true;
+    } catch (Throwable t) {
+      Log.w(TAG, "onCreateWindow handling failed: " + t.getMessage());
+      return false;
+    }
+  }
+
+  /**
+   * Opens a target=_blank / window.open destination outside the checkout. http/https go to the
+   * system browser (openLink semantics: no theme, no dismissal, card stays presented); any other
+   * scheme flows through the normal deeplink handling.
+   */
+  static void openTargetBlankExternally(Activity activity, String url) {
+    if (activity == null || url == null || url.isEmpty()) {
+      return;
+    }
+    if (StashWebViewUtils.isWebScheme(url)) {
+      String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+      if (normalized != null) {
+        StashWebViewUtils.openInSystemBrowser(activity, normalized);
+      }
+      return;
+    }
+    openDeeplinkExternally(activity, url);
   }
 
   /** ACTION_VIEW for a non-stash deeplink; no browser-close tracking, card stays open. */
