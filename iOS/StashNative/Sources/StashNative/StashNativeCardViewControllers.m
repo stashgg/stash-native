@@ -2,7 +2,6 @@
 //  StashNativeCardViewControllers.m
 //  StashNative
 //
-//  View controller and view classes for card presentation.
 //  View controller and view class implementations for card presentation.
 //  Interfaces and shared-state externs come from StashNativeCardPrivate.h.
 //
