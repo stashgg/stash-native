@@ -12,7 +12,7 @@ Argument (optional): `$ARGUMENTS`
 
 ## The ledger
 
-Single source of truth: `AUDIT_LEDGER.md` at the repo root. Do NOT commit it unless Ondra asks. If it already exists, load it and continue from it -- never wipe prior entries.
+Single source of truth: `AUDIT_LEDGER.md` at the repo root. Do NOT commit it unless the Developer asks. If it already exists, load it and continue from it -- never wipe prior entries.
 
 Every finding is one entry:
 
@@ -112,7 +112,7 @@ Filtered to what this codebase actually is: an offline mobile payments-checkout 
 
 ## Phase 2 -- gate
 
-Present a summary: counts by severity/category, the full P0/P1 list, notable P2s. Then use `AskUserQuestion` to let Ondra choose: fix everything, fix P0-P1 only, cherry-pick, or stop (ledger stays for a later `fix` run).
+Present a summary: counts by severity/category, the full P0/P1 list, notable P2s. Then use `AskUserQuestion` to let the Developer choose: fix everything, fix P0-P1 only, cherry-pick, or stop (ledger stays for a later `fix` run).
 
 ## Phase 3 -- fix (from the ledger only)
 
