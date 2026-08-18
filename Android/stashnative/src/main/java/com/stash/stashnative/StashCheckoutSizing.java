@@ -62,8 +62,24 @@ final class StashCheckoutSizing {
         == Configuration.ORIENTATION_LANDSCAPE;
     int portraitHeight = (activity.forcePortraitOnCheckout && isLandscape)
         ? metrics.widthPixels : metrics.heightPixels;
+    int maxH = phoneSheetMaxHeightPx(activity, portraitHeight);
+    return Math.min((int) (portraitHeight * activity.cardHeightRatioPortrait), maxH);
+  }
+
+  /**
+   * Hard ceiling for the phone sheet: top+bottom system insets subtracted from the physical
+   * portrait height. This is the true "100%" bound -- {@link #expandedCardHeightCapPx} must never
+   * exceed it, or {@code expand()} can grow a card past what a ratio-1.0 config already reaches.
+   *
+   * <p>Bottom uses {@link StashWindowCompat#getStableOrNavBottomPx} (keyboard-free), not {@link
+   * StashWindowCompat#getSystemBottomInsetPx} -- the latter's legacy {@code
+   * getSystemWindowInsetBottom()} includes the IME height while the keyboard is visible, which
+   * would shrink this ceiling by the keyboard height and starve the keyboard-triggered {@code
+   * expand()} in {@link StashCheckoutImeSupport#applyImeOverlap}.
+   */
+  private static int phoneSheetMaxHeightPx(StashNativeCardPortraitActivity activity, int portraitHeight) {
     int top = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-    int bottom = StashWindowCompat.getSystemBottomInsetPx(activity.getWindow());
+    int bottom = StashWindowCompat.getStableOrNavBottomPx(activity.rootLayout);
     int maxH = portraitHeight - top - bottom;
     if (maxH <= 0) {
       maxH = portraitHeight - top;
@@ -71,7 +87,7 @@ final class StashCheckoutSizing {
     if (maxH <= 0) {
       maxH = portraitHeight;
     }
-    return Math.min((int) (portraitHeight * activity.cardHeightRatioPortrait), maxH);
+    return maxH;
   }
 
   static int[] calculateModalCardSize(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
@@ -129,8 +145,10 @@ final class StashCheckoutSizing {
     boolean isLandscape = activity.getResources().getConfiguration().orientation
         == Configuration.ORIENTATION_LANDSCAPE;
     if (isLandscape && !activity.forcePortraitOnCheckout) {
-      int maxH = metrics.heightPixels - StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-      if (maxH <= 0) maxH = metrics.heightPixels;
+      // Subtract both insets, not just top -- a bottom-inset-blind ceiling here previously let this
+      // fallback disagree with calculatePhoneCheckoutCardSize's landscape ceiling, which does account
+      // for the bottom inset.
+      int maxH = phoneSheetMaxHeightPx(activity, metrics.heightPixels);
       int h = (int) (metrics.heightPixels * activity.cardHeightRatioLandscape);
       int minPx = (int) StashWebViewUtils.dpToPx(
           activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
@@ -154,16 +172,18 @@ final class StashCheckoutSizing {
     int cardWidth;
     int cardHeight;
     if (isLandscape) {
-      // Use activity.rootLayout content height (after inset padding) when available; this is the
-      // actual drawable area. Fall back to screen height minus insets before first layout.
-      int contentHeight = screenHeight;
+      // Always compute the inset-based content height first -- reliable even before the first
+      // onApplyWindowInsets dispatch has landed on rootLayout. rootLayout.getHeight() can be
+      // positive (laid out) before its inset padding has been applied, in which case its content
+      // height would read as the full (unpadded) screen height and this ceiling would silently
+      // permit the card to sit behind the status bar. Intersecting the two instead of trusting
+      // rootLayout alone whenever it's positive closes that race (mirrors expandedCardHeightCapPx).
+      int contentHeight = phoneSheetMaxHeightPx(activity, screenHeight);
       if (activity.rootLayout != null && activity.rootLayout.getHeight() > 0) {
-        contentHeight = activity.rootLayout.getHeight() - activity.rootLayout.getPaddingTop() - activity.rootLayout.getPaddingBottom();
-      } else {
-        int topInset = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-        int bottomInset = StashWindowCompat.getSystemBottomInsetPx(activity.getWindow());
-        if (topInset + bottomInset > 0) {
-          contentHeight = screenHeight - topInset - bottomInset;
+        int rootContentHeight = activity.rootLayout.getHeight()
+            - activity.rootLayout.getPaddingTop() - activity.rootLayout.getPaddingBottom();
+        if (rootContentHeight > 0) {
+          contentHeight = Math.min(contentHeight, rootContentHeight);
         }
       }
       if (contentHeight <= 0) contentHeight = screenHeight;
@@ -195,22 +215,39 @@ final class StashCheckoutSizing {
    * height - safeTop). The phone expanded height IS this cap; the tablet expand target is
    * min(base * multiplier, this cap).
    *
-   * <p>Prefers the root layout's real content box: it is keyboard-free on every API path (the
-   * inset padding excludes the IME) and immune to DisplayMetrics nav-bar semantics, which vary
-   * by API level. Pass {@code rootLayoutSettled=false} from rotation callbacks -- there the root
-   * layout still has the previous orientation's geometry -- to fall back to metrics minus
-   * keyboard-free insets (the stable nav inset, not the legacy system-window inset, because
-   * expand also runs on keyboard-show where the legacy inset is IME-inflated and would shrink
-   * the card).
+   * <p>Intersects two independent sources rather than trusting either alone: the inset-based
+   * ceiling (always computed, reliable even before insets have been dispatched) and, when {@code
+   * rootLayoutSettled}, the root layout's real content box (keyboard-free on every API path,
+   * immune to DisplayMetrics nav-bar semantics which vary by API level). Pass {@code
+   * rootLayoutSettled=false} from rotation callbacks -- there the root layout still has the
+   * previous orientation's geometry.
    */
   static int expandedCardHeightCapPx(
       StashNativeCardPortraitActivity activity, DisplayMetrics metrics, boolean rootLayoutSettled) {
-    int maxHeight =
-        rootLayoutSettled ? StashCheckoutImeSupport.rootContentHeightPx(activity) : 0;
-    if (maxHeight <= 0) {
-      int top = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-      int bottom = StashWindowCompat.getStableOrNavBottomPx(activity.rootLayout);
-      maxHeight = metrics.heightPixels - top - bottom;
+    // Always compute the inset-based ceiling directly from the window -- this is reliable even
+    // before the first onApplyWindowInsets dispatch has landed on rootLayout (see
+    // StashWindowCompat.getSystemTopInsetPx's dimen fallback). rootContentHeightPx() depends on
+    // rootLayout's padding, which is only set async by that first dispatch: if expand() runs
+    // before it lands, rootLayout already has its full (unpadded) height, so rootContentHeightPx()
+    // returns a positive but WRONG (too-large) value. Intersecting with the inset-based ceiling
+    // instead of trusting rootContentHeightPx() alone closes that race.
+    int top = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
+    int bottom = StashWindowCompat.getStableOrNavBottomPx(activity.rootLayout);
+    int maxHeight = metrics.heightPixels - top - bottom;
+    if (rootLayoutSettled) {
+      int rootMax = StashCheckoutImeSupport.rootContentHeightPx(activity);
+      if (rootMax > 0) {
+        maxHeight = maxHeight > 0 ? Math.min(maxHeight, rootMax) : rootMax;
+      }
+    }
+    if (!activity.cachedIsTablet) {
+      // Phone sheet must never expand past the same ceiling a ratio=1.0 (100%) card is clamped
+      // to, regardless of what the root content box / stable-nav fallback above report.
+      boolean isLandscape = activity.getResources().getConfiguration().orientation
+          == Configuration.ORIENTATION_LANDSCAPE;
+      int portraitHeight = (activity.forcePortraitOnCheckout && isLandscape)
+          ? metrics.widthPixels : metrics.heightPixels;
+      maxHeight = Math.min(maxHeight, phoneSheetMaxHeightPx(activity, portraitHeight));
     }
     return clampExpandedHeight(
         (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO), maxHeight);
