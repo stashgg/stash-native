@@ -1,0 +1,531 @@
+name: Ripley (on-demand)
+
+# Thin on-demand dispatcher for the ripley-delegate — the companion to the
+# automatic ripley-auto.yml. Comment a ripley verb on a pull request (repo
+# members only) and this workflow signs a request to the delegate service, which
+# does all the compute; Actions runs no agent and checks out no code.
+#
+# One workflow serves every on-demand verb rather than one workflow per verb.
+# The signing, the admission retry, and the failure reporting below are tuned
+# against the delegate's timeout arithmetic, and a per-verb copy would drift from
+# it the first time one copy was edited. The verb selects the delegate endpoint
+# and nothing else; adding a verb is a line in the gate and a line in the case.
+#
+#   /ripley:review    ->  POST /ripley/review    read-only; posts findings + callout
+#   /ripley:fix       ->  POST /ripley/fix       commits the fixes onto THIS PR
+#
+# Both verbs optionally take a harness tier as `model:effort` after the
+# command — `/ripley:review gpt-5.6-sol:high`, `/ripley:fix sol:high` — buying
+# one request a deeper model than the fleet runs by default. The tier applies to
+# that request alone — it is never persisted and never reaches the next run —
+# and because the tier is part of the review verdict cache's identity, asking
+# for one on an already-reviewed pull request re-reviews it rather than
+# replaying the cheaper model's verdict.
+#
+# Both act on the one pull request the comment was made on, and neither can
+# touch a rulebook: review reads, and fix refuses a RIPLEY.md change before it
+# commits. That is exactly the set RIPLEY_REVIEW_SECRET unlocks, which is why
+# one organization-held key signs both. Every verb that can author a rulebook —
+# loosen and tighten, which open RIPLEY.md pull requests, and the repo-wide
+# init/update/validate — is NOT dispatchable from here: the delegate verifies
+# those against the key set this secret is excluded from, so a key every
+# repository holds can never author a rulebook for any of them.
+#
+# The file is named for the dispatcher, not for one verb: a workflow named
+# after a single verb that also dispatches others advertises behavior its name
+# does not have. The gate never accepts a verb the delegate cannot answer.
+#
+# The delegate posts the 👀 ack, the description stamp, and review
+# comments as stash-ripley[bot] — and owns the in-flight "Ripley" check run,
+# created at ack time with the App identity (App check suites render live in
+# the PR checks UI; Actions-token check runs only surface once completed).
+# This workflow uploads the delegate response as a run artifact and reports
+# failures only: a red "Ripley" commit status plus a thread comment when the
+# request never completes (statuses attach purely by SHA, so the fallback
+# always renders even when the delegate never got to create its check).
+#
+# Requires the RIPLEY_REVIEW_SECRET Actions secret (the org-level HMAC key the
+# delegate verifies).
+
+on:
+  issue_comment:
+    types: [created]
+
+# pull-requests:write is required only for the failure reply: GITHUB_TOKEN maps
+# issue-comment mutations on a pull request to the pull-requests scope, not
+# issues (issues:write alone 403s on PR comments). Success posts no comment; the
+# 👀 ack, description stamp, and review comments are the delegate's, not this
+# token's. The in-flight "Ripley" check run is the delegate's (App identity —
+# Actions-token check runs don't render in the PR checks UI until completed),
+# so this workflow needs no checks permission; statuses:write is kept solely
+# for the failure-fallback commit status.
+permissions:
+  pull-requests: write
+  statuses: write
+
+jobs:
+  trigger:
+    # PR comments only, prefixed with a ripley verb in the canonical colon form
+    # that is 1:1 with the skill name, or the legacy space-separated form — from
+    # repo members. The gate is who can
+    # spend tokens on demand; automatic reviews on PR lifecycle events are
+    # handled separately by ripley-auto.yml.
+    #
+    # startsWith makes this an over-inclusive PREFILTER: an Actions expression
+    # cannot require a word boundary, so "/ripley:fixture" passes here and is
+    # skipped (green, dispatching nothing) by the verb case in "Build request
+    # body" — the authority on what actually dispatches. The gate and that case
+    # are the two places a verb appears; the parity test pins their verb lists
+    # against each other.
+    if: >-
+      github.event.issue.pull_request &&
+      (startsWith(github.event.comment.body, '/ripley:review') ||
+      startsWith(github.event.comment.body, '/ripley review') ||
+      startsWith(github.event.comment.body, '/ripley:fix') ||
+      startsWith(github.event.comment.body, '/ripley fix')) &&
+      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'),
+      github.event.comment.author_association)
+    timeout-minutes: 35
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    # Job-level so only gate-passing runs claim the slot: a skipped job (any
+    # ordinary comment, including this workflow's own summary reply) never
+    # cancels a queued /ripley:review. Shared group with ripley-auto.yml (same
+    # ripley-<pr> key) so an on-demand run and an auto run never review the same
+    # PR at once. One review per PR runs at a time; the newest queued re-trigger
+    # supersedes an older queued one.
+    concurrency:
+      group: ripley-${{ github.event.issue.number }}
+      cancel-in-progress: false
+
+    steps:
+      # The comment event carries no SHA; resolve the PR head at trigger time. The
+      # PR number arrives through env: rather than an Actions expression — an
+      # expression is substituted into the script text before the shell parses it,
+      # so no run script in this workflow reads one.
+      - name: Resolve PR head SHA
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          head_sha=$(gh api \
+            "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" \
+            --jq .head.sha)
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      # Build the request body once, in a step with no secret in its environment;
+      # the signing step signs these exact bytes and POSTs them. Handled failures
+      # (curl error, non-200, status!=ok) record an outcome and exit zero there so
+      # the final step can report them; the final step reddens the run.
+      - name: Build request body
+        id: build
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          # Spend attribution. requested_by is the COMMENTER — on this path someone
+          # deliberately asked for a review and spent the tokens — while pr_author is
+          # whose pull request it is. They differ when one person spends on another's
+          # pull request, which a single field could not distinguish from the ordinary
+          # case of reviewing your own.
+          REQUESTED_BY: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+
+          # Resolve the verb from the comment's FIRST LINE, on a word boundary:
+          # the command must be the whole line or be followed by whitespace. The
+          # body arrives through env: like every other GitHub field here — an
+          # Actions expression would be substituted into this script's text
+          # before the shell parsed it, and a comment body is attacker-controlled
+          # text, so it is the one field that must never be.
+          #
+          # The gate above is an over-inclusive PREFILTER (an Actions expression
+          # cannot express a boundary), so this case is the authority on what
+          # dispatches: "/ripley:fixture" or "/ripley fixed this locally" fall to
+          # the skip arm and sign nothing — with a GREEN run and no comment,
+          # because a near-miss is ordinary conversation, not a failure. That
+          # matters most for fix, which writes code: a command that merely
+          # prefixes another word must never invoke it.
+          first_line=${COMMENT_BODY%%$'\n'*}
+          first_line=${first_line%$'\r'}
+          verb=''
+          rest=''
+          case "$first_line" in
+            '/ripley:review')             verb=review ;;
+            '/ripley:review'[[:space:]]*) verb=review; rest=${first_line#'/ripley:review'} ;;
+            '/ripley review')             verb=review ;;
+            '/ripley review'[[:space:]]*) verb=review; rest=${first_line#'/ripley review'} ;;
+            '/ripley:fix')                verb=fix ;;
+            '/ripley:fix'[[:space:]]*)    verb=fix; rest=${first_line#'/ripley:fix'} ;;
+            '/ripley fix')                verb=fix ;;
+            '/ripley fix'[[:space:]]*)    verb=fix; rest=${first_line#'/ripley fix'} ;;
+            *)
+              echo skip > outcome.txt
+              echo "Comment starts with a ripley prefix but is not a ripley command; nothing dispatched."
+              exit 0
+              ;;
+          esac
+          echo "verb=$verb" >> "$GITHUB_OUTPUT"
+          echo "endpoint=https://agents.stash-eng.com/ripley/$verb" >> "$GITHUB_OUTPUT"
+
+          # The rest of the first line is an optional per-request harness tier,
+          # written as `model:effort` after the command — `/ripley:review
+          # gpt-5.6-sol:high`, or the aliased `/ripley:fix sol:high`. It buys one
+          # request a deeper model than the fleet default without re-tiering
+          # every repository, and is spent per request: nothing persists it.
+          #
+          # The argument is forwarded VERBATIM. The delegate owns the grammar
+          # (aliases included) and answers a malformed tier with a 400 that the
+          # reporting step below prints onto the thread. Parsing it here would
+          # put a second copy of that grammar in every repository this workflow
+          # is copied into, and those copies would drift from the delegate that
+          # has to honour them. What IS taken is the whole rest of the first
+          # line, not the first word: a trailing token the delegate cannot parse
+          # has to be a loud refusal, never a silently-dropped request that runs
+          # at the fleet tier while its author believes a deeper model ran.
+          #
+          # Trim both ends only; interior whitespace is the delegate's to reject, and it
+          # does, because the tier is rendered into a single-line record it parses back.
+          tier=$(printf '%s' "$rest" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+          if [ -n "$tier" ]; then
+            echo "Requesting harness tier: $tier"
+          fi
+
+          # Two body shapes, because the verbs take different inputs and the
+          # delegate's request structs are the authority on which:
+          #
+          #   review    {repo, pr_number, shadow, head_sha, ack_comment_id,
+          #              requested_by, pr_author, event} (+ tier when asked)
+          #   fix       {repo, pr_number, head_sha, comment_id, ack_comment_id}
+          #             (+ tier when asked)
+          #
+          # No requested_by on the fix shape, deliberately: authorization is
+          # never a field this body asserts. The delegate resolves comment_id
+          # with its own credential, verifies it is a fix command on this pull
+          # request, and checks write authority against the author GitHub
+          # records — the member gate above proves membership, not write access,
+          # and a signed body could claim any login.
+          #
+          # Review takes its input from the pull request itself and ignores the
+          # comment beyond the fact that it was made. Fix acts on one comment, so
+          # it carries comment_id, but its input is the pull request's own
+          # unresolved threads and it reads no free text at all — sending a body
+          # it does not read would be a second instruction channel into a run
+          # that edits code.
+          #
+          # Live run, so shadow is always false. ack_comment_id (>0) tells the
+          # delegate which comment to react on. Numbers stay JSON numbers via
+          # --argjson; the comment body goes through --arg so jq quotes it and no
+          # amount of punctuation in a comment can restructure the JSON. On the
+          # review shape, the tier key is OMITTED when none was asked for, so an
+          # ordinary /ripley:review signs byte-identical bytes to before it
+          # existed, and the event is the constant `issue_comment`: this workflow
+          # has exactly one trigger, and it is the only path on which a human
+          # deliberately asks for a review, which is what the delegate reads it
+          # to mean.
+          case "$verb" in
+            fix)
+              jq -cn \
+                --arg repo "$GITHUB_REPOSITORY" \
+                --arg head_sha "$HEAD_SHA" \
+                --arg tier "$tier" \
+                --argjson pr "$PR_NUMBER" \
+                --argjson ack "$COMMENT_ID" \
+                '{repo: $repo, pr_number: $pr, head_sha: $head_sha, comment_id: $ack, ack_comment_id: $ack}
+                 + (if $tier == "" then {} else {tier: $tier} end)' \
+                > body.json
+              ;;
+            *)
+              jq -cn \
+                --arg repo "$GITHUB_REPOSITORY" \
+                --arg head_sha "$HEAD_SHA" \
+                --arg tier "$tier" \
+                --arg requested_by "$REQUESTED_BY" \
+                --arg pr_author "$PR_AUTHOR" \
+                --argjson pr "$PR_NUMBER" \
+                --argjson ack "$COMMENT_ID" \
+                '{repo: $repo, pr_number: $pr, shadow: false, head_sha: $head_sha, ack_comment_id: $ack,
+                  requested_by: $requested_by, pr_author: $pr_author, event: "issue_comment"}
+                 + (if $tier == "" then {} else {tier: $tier} end)' \
+                > body.json
+              ;;
+          esac
+
+      # Sign the exact bytes and POST them, re-signing on each attempt. This is the
+      # only step that receives RIPLEY_REVIEW_SECRET — signing and sending are one
+      # step because a retry needs a fresh signature and the signer is what mints it.
+      #
+      # The key reaches python through that one process's environment (os.environb),
+      # never as an argument, so it cannot be read out of any process listing; the -c
+      # program is a fixed single-quoted string the shell does not expand. openssl
+      # cannot sign here: dgst -hmac and openssl mac both accept the key only as an
+      # argument. The signature reaches curl through a config file rather than an
+      # argument, and every file holding either lives in $RUNNER_TEMP rather than the
+      # workspace, so neither outlives the call nor becomes a candidate for artifact
+      # upload or caching. The EXIT trap removes them on every path out, including the
+      # early exits below.
+      #
+      # Retry exists for one response only: a capacity refusal. The delegate bounds how
+      # many reviews run at once, and a burst past that bound is answered with
+      # stage=admission — a pull request whose only mistake was arriving alongside
+      # others. Treating that as a failed review would redden it and drop the review
+      # entirely, so it waits and asks again. Every other failure keeps its original
+      # behavior and fails on the first response; a retry there would hide real errors
+      # behind silent repetition.
+      #
+      # Each attempt re-signs rather than replaying. The delegate accepts a signature
+      # within a few minutes of its timestamp, and an admission wait can exceed that on
+      # its own, so a replayed signature would be rejected as stale and the retry would
+      # fail for a reason that has nothing to do with capacity.
+      - name: Sign and send
+        id: request
+        env:
+          RIPLEY_REVIEW_SECRET: ${{ secrets.RIPLEY_REVIEW_SECRET }}
+          ENDPOINT: ${{ steps.build.outputs.endpoint }}
+        run: |
+          set -uo pipefail
+
+          # The build step records an outcome and exits zero when it cannot
+          # resolve a verb. Its files are the report; signing a request to an
+          # endpoint it never resolved would overwrite them with a curl error
+          # and hide the real cause.
+          if [ -f outcome.txt ]; then
+            echo "Build step already recorded an outcome; nothing to send."
+            exit 0
+          fi
+
+          # A secret can only enter a step through env:, and a step's environment is
+          # inherited by every child it spawns. Hold the key in a shell variable and drop
+          # it from the environment, so curl, jq, date, cat and the retry sleep all start
+          # without it; the signer gets it back as a one-command prefix assignment, which
+          # the shell places in that one process's environment and in no argv. What this
+          # does not do is scrub the key from this shell's own process image — unset does
+          # not reliably rewrite that — and no workflow can, because Actions delivers a
+          # secret to a step by putting it there.
+          key=$RIPLEY_REVIEW_SECRET
+          unset RIPLEY_REVIEW_SECRET
+
+          # A secret the repository was never granted arrives as the empty string rather
+          # than unset, so an unguarded run signs with an empty key and the delegate
+          # answers 401 — which reads as a delegate fault rather than as a repository
+          # that was never wired up. Name the secret instead.
+          if [ -z "$key" ]; then
+            echo error > outcome.txt
+            echo configuration > stage.txt
+            echo "RIPLEY_REVIEW_SECRET is empty: this repository has no access to the organization-level RIPLEY_REVIEW_SECRET Actions secret. Grant it to this repository and re-run." > detail.txt
+            echo false > surfaced.txt
+            exit 0
+          fi
+
+          sig_config="$RUNNER_TEMP/ripley-signature.conf"
+          trap 'rm -f "$sig_config"' EXIT
+
+          # One attempt: mint a current timestamp, sign "<ts>.<body bytes>", write the
+          # header to a private config file, and POST. Timestamp and digest stay in
+          # shell variables this step never writes to disk; only the header file is
+          # created, under umask 077.
+          post_once() {
+            ts=$(date +%s%3N)
+            sig=$({ printf '%s.' "$ts"; cat body.json; } \
+              | RIPLEY_REVIEW_SECRET="$key" python3 -c 'import hashlib, hmac, os, sys; print(hmac.new(os.environb[b"RIPLEY_REVIEW_SECRET"], sys.stdin.buffer.read(), hashlib.sha256).hexdigest())')
+            (umask 077; cat > "$sig_config") <<EOF
+          header = "Content-Type: application/json"
+          header = "X-Steve-Signature: t=${ts},v1=${sig}"
+          EOF
+
+            curl_rc=0
+            http_status=$(curl -sS -o response.json -w '%{http_code}' \
+              --max-time 970 \
+              -X POST \
+              --config "$sig_config" \
+              --data-binary @body.json \
+              "$ENDPOINT") || curl_rc=$?
+          }
+
+          # Both attempts are bounded by the job deadline, and the arithmetic below is
+          # what sets timeout-minutes rather than the other way round.
+          #
+          # A request costs its admission wait plus its review, and those are
+          # complementary by construction: the delegate derives admission as
+          # (balancer deadline - review ceiling - margin), so A + R = 950s for every
+          # ceiling R. That is the constant curl's --max-time 970 is sized against.
+          #
+          # A retry spends its OWN admission wait; it does not inherit a place in the
+          # queue. So the worst case is two full requests, not one plus a review:
+          #
+          #   first request, refused at its admission budget      A + 0
+          #   retry delay                                          + 45
+          #   second request, admitted late and reviewed          A + R
+          #   ----------------------------------------------------------
+          #   total                                    2A + 45 + R = 1945 - R
+          #
+          # 1345s at a 600s ceiling, 1645s at 300s. An earlier version of this comment
+          # counted one admission window instead of two, concluded 995s, and set the
+          # job deadline from that — which would have had the job cancelled mid-retry
+          # at every ceiling below 900s. A cancelled job skips the reporting step, so
+          # the pull request is left with no verdict at all: worse than the red check
+          # the retry exists to prevent.
+          #
+          # timeout-minutes is therefore 35 (2100s), which covers 1945s with room for
+          # setup and reporting, and covers ceilings well below the 300s case above.
+          # The cost is runner minutes on a job that retries; that only happens under
+          # sustained capacity pressure, which the cap and the admission budget exist
+          # to make rare.
+          #
+          # A third attempt is what does not fit, so the bound is two.
+          max_attempts=2
+          retry_delay=45
+          attempt=1
+
+          while : ; do
+            post_once
+
+            if [ "$curl_rc" -ne 0 ]; then
+              echo error > outcome.txt
+              echo request > stage.txt
+              echo "curl exited ${curl_rc} calling the delegate (network error or timeout past --max-time)" > detail.txt
+              # No response body means the delegate posted nothing itself, so the
+              # fallback status/comment below is the only failure signal — keep it.
+              echo false > surfaced.txt
+              exit 0
+            fi
+
+            status=$(jq -r '.status // empty' response.json 2>/dev/null || echo '')
+            if [ "$http_status" = "200" ] && [ "$status" = "ok" ]; then
+              echo ok > outcome.txt
+              echo false > surfaced.txt
+              echo "Delegate returned HTTP 200 status=ok (attempt ${attempt})."
+              break
+            fi
+
+            stage=$(jq -r '.stage // "delegate"' response.json 2>/dev/null || echo delegate)
+
+            # The one retryable answer. Anything else is a real failure and is reported
+            # on its first response.
+            if [ "$stage" = "admission" ] && [ "$attempt" -lt "$max_attempts" ]; then
+              echo "Delegate at capacity (attempt ${attempt}/${max_attempts}); retrying in ${retry_delay}s."
+              attempt=$((attempt + 1))
+              sleep "$retry_delay"
+              continue
+            fi
+
+            echo error > outcome.txt
+            printf '%s\n' "$stage" > stage.txt
+            detail=$(jq -r '.detail // empty' response.json 2>/dev/null || echo '')
+            if [ -z "$detail" ]; then
+              detail="delegate returned HTTP ${http_status} status='${status:-none}'"
+            fi
+            if [ "$stage" = "admission" ]; then
+              # ${attempt}, not ${max_attempts}: reporting a count that never ran sends
+              # the reader looking for requests that were never made.
+              detail="delegate still at capacity after ${attempt} attempt(s): ${detail}"
+            fi
+            printf '%s\n' "$detail" > detail.txt
+            # surfaced=true means the delegate already posted its own failure check
+            # run + PR-body stamp, so the fallback status/comment below would be a
+            # duplicate — suppress it (still fail the run). Absent/false => post it.
+            jq -r 'if .surfaced == true then "true" else "false" end' response.json 2>/dev/null > surfaced.txt || echo false > surfaced.txt
+            exit 0
+          done
+
+      # Upload the response body whether the call succeeded or failed.
+      - name: Upload Ripley review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ripley-${{ steps.build.outputs.verb }}-pr${{ github.event.issue.number }}
+          path: response.json
+          if-no-files-found: warn
+
+      # The delegate posts its own feedback and owns the in-flight Ripley check
+      # run, settling it itself. This step reports failures only: when the request
+      # never completed, it stamps a red Ripley commit status (renders regardless
+      # of check-suite quirks), posts the failure detail on the thread, and reddens
+      # the run. On success it does nothing — the delegate's check is the record.
+      - name: Report failures
+        # Skip on cancellation: a cancelled run (the job deadline, or a human
+        # cancelling it) may have no outcome.txt, which always() would misread as an
+        # error and post a false failure status and PR comment. !cancelled() still runs
+        # on real success and real failure.
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          VERB: ${{ steps.build.outputs.verb }}
+        run: |
+          set -uo pipefail
+
+          # Empty when the build step failed before resolving a verb; the failure
+          # report still has to name something.
+          verb=${VERB:-request}
+
+          # Every GitHub field this step needs arrives through env:, and
+          # $GITHUB_REPOSITORY is already in the runner environment. An Actions
+          # expression is substituted into the script text before the shell parses it,
+          # so a script that reads one is only as trustworthy as that field's
+          # provenance; a shell variable is never substituted into the script at all,
+          # which makes the property hold without auditing each field.
+          outcome=$(cat outcome.txt 2>/dev/null || echo error)
+
+          # A near-miss comment ("/ripley:fixture") dispatched nothing and owes
+          # nothing: green run, no status, no comment.
+          if [ "$outcome" = "skip" ]; then
+            echo "Not a ripley command; nothing was dispatched."
+            exit 0
+          fi
+
+          if [ "$outcome" = "ok" ]; then
+            echo "Delegate completed the $verb; its check run carries the verdict."
+            # Commit statuses are sticky per context+SHA: if an earlier attempt
+            # on this same head left a red Ripley status, clear it — otherwise
+            # post no status at all (the delegate's check run is the record).
+            if [ -n "${HEAD_SHA:-}" ]; then
+              latest=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/statuses" \
+                --jq '[.[] | select(.context=="Ripley")][0].state // empty' 2>/dev/null || echo '')
+              if [ "$latest" = "failure" ] || [ "$latest" = "error" ]; then
+                gh api "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+                  -f state=success -f context=Ripley \
+                  -f description="Ripley $verb completed by the delegate on retry" \
+                  -f target_url="$RUN_URL" || true
+              fi
+            fi
+          else
+            surfaced=$(cat surfaced.txt 2>/dev/null || echo false)
+            if [ "$surfaced" = "true" ]; then
+              # Delegate surfaced the failure itself: its red check run is the
+              # authoritative signal and its PR-body stamp carries the detail. Get
+              # out of the way — no duplicate status/comment — but clear any stale
+              # red Ripley status a prior non-surfaced attempt left on this SHA
+              # (sticky per context+SHA) and fail the run.
+              if [ -n "${HEAD_SHA:-}" ]; then
+                latest=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/statuses" \
+                  --jq '[.[] | select(.context=="Ripley")][0].state // empty' 2>/dev/null || echo '')
+                if [ "$latest" = "failure" ] || [ "$latest" = "error" ]; then
+                  gh api "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+                    -f state=success -f context=Ripley \
+                    -f description='Delegate surfaced the failure via its check run' \
+                    -f target_url="$RUN_URL" || true
+                fi
+              fi
+              exit 1
+            fi
+            # Not surfaced — the delegate posted no check run, so the fallback red
+            # status + comment are the only failure signal.
+            if [ -n "${HEAD_SHA:-}" ]; then
+              gh api "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+                -f state=failure -f context=Ripley \
+                -f description="Ripley $verb failed; see run logs" -f target_url="$RUN_URL" || true
+            fi
+            stage=$(cat stage.txt 2>/dev/null || echo unknown)
+            detail=$(cat detail.txt 2>/dev/null || echo 'no detail captured')
+            body=$(printf '**Ripley %s failed**\n\n- Stage: %s\n- Detail: %s\n\nSee the [workflow run](%s) for logs.' \
+              "$verb" "$stage" "$detail" "$RUN_URL")
+            gh api \
+              "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+              -f body="$body"
+            exit 1
+          fi
