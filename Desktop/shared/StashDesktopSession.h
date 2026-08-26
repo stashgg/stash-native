@@ -58,7 +58,8 @@ public:
 
     // Main-frame policy: deeplinks are consumed (stash-pay results run the bridge flows, other
     // schemes go to the OS silently), file:// needs allowFileUrls, http is blocked, everything
-    // else loads and reports a navigation event.
+    // else loads and reports a navigation event. A block before the first finished load is a
+    // networkError (nothing to show); a block afterwards leaves the loaded page in place.
     NavigationDecision decideMainFrameNavigation(const std::string &url);
     // Sub-frames: deeplinks are consumed the same way, http is blocked, web schemes load.
     NavigationDecision decideSubFrameNavigation(const std::string &url);

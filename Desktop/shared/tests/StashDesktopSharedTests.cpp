@@ -568,11 +568,15 @@ static void testNavigationPolicy() {
         Session s(h, cardConfig(), false);
         CHECK(s.decideMainFrameNavigation("https://checkout.stash.gg/pay/1") == NavigationDecision::Load);
         CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION), 1);
+        // After the first finished load a blocked navigation cancels and the page stays.
+        s.handlePageFinished(10);
         CHECK(s.decideMainFrameNavigation("http://insecure.example.com") == NavigationDecision::Cancel);
         CHECK(s.decideMainFrameNavigation("file:///tmp/page.html") == NavigationDecision::Cancel);
         CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED), 2);
-        CHECK(contains(h.events[1].second, "\"reason\":\"insecure_http\""));
-        CHECK(contains(h.events[2].second, "\"reason\":\"file_urls_disabled\""));
+        CHECK(contains(h.events[2].second, "\"reason\":\"insecure_http\""));
+        CHECK(contains(h.events[3].second, "\"reason\":\"file_urls_disabled\""));
+        CHECK(s.isPresented());
+        CHECK(!h.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         CHECK(s.decideMainFrameNavigation("about:blank") == NavigationDecision::Load);
         CHECK(s.decideMainFrameNavigation("blob:https://x/y") == NavigationDecision::Load);
         // Other deeplinks: handed to the OS silently, no event, checkout stays open.
@@ -591,6 +595,22 @@ static void testNavigationPolicy() {
         CHECK(s.decideSubFrameNavigation("bankapp://stash-pay/failure") == NavigationDecision::Cancel);
         CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_FAILURE), 1);
         CHECK(!s.isPresented());
+    }
+    {
+        // A block before the first load completes fails fast: navigationBlocked then networkError.
+        RecordingHost h;
+        Session s(h, cardConfig(), false);
+        CHECK(s.decideMainFrameNavigation("http://checkout.example.com/pay") == NavigationDecision::Cancel);
+        CHECK_EQ(h.events.size(), size_t(2));
+        CHECK_EQ(h.events[0].first, std::string(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED));
+        CHECK_EQ(h.events[1].first, std::string(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        CHECK(!s.isPresented());
+        CHECK_EQ(h.closes, 1);
+        RecordingHost h2;
+        Session s2(h2, cardConfig(), false);
+        CHECK(s2.decideMainFrameNavigation("file:///tmp/page.html") == NavigationDecision::Cancel);
+        CHECK(h2.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        CHECK(!s2.isPresented());
     }
     {
         // stash-pay/success via deeplink: success with an empty order, once-guarded like the bridge.

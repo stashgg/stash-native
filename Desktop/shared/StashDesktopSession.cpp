@@ -163,14 +163,20 @@ NavigationDecision Session::decideMainFrameNavigation(const std::string &u) {
         return NavigationDecision::Cancel;
     }
     std::string sch = url::scheme(u);
+    const char *blockReason = nullptr;
     if (sch == "file" && !config_.allowFileUrls) {
-        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
-                        json::object({{"url", u}, {"reason", "file_urls_disabled"}}));
-        return NavigationDecision::Cancel;
+        blockReason = "file_urls_disabled";
+    } else if (sch == "http") {
+        blockReason = "insecure_http";
     }
-    if (sch == "http") {
+    if (blockReason != nullptr) {
         host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
-                        json::object({{"url", u}, {"reason", "insecure_http"}}));
+                        json::object({{"url", u}, {"reason", blockReason}}));
+        // Before the first load completes there is nothing to fall back to: fail fast instead of
+        // spinning until the deadline. Afterwards the loaded page stays.
+        if (!pageLoadedEmitted_) {
+            handleNetworkError();
+        }
         return NavigationDecision::Cancel;
     }
     host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION, u);
