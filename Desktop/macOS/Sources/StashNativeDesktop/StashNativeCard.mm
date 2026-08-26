@@ -79,6 +79,24 @@ static void StashRunOnMain(dispatch_block_t block) {
     });
 }
 
+- (void)openCardWithURL:(NSString *)url configJSON:(NSString *)configJSON {
+    std::string json = configJSON.UTF8String ?: "";
+    NSString *urlCopy = [url copy];
+    StashRunOnMain(^{
+        stash::desktop::SurfaceConfig surface = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, json);
+        [[StashDesktopCore sharedInstance] openURL:urlCopy ?: @"" config:surface];
+    });
+}
+
+- (void)openModalWithURL:(NSString *)url configJSON:(NSString *)configJSON {
+    std::string json = configJSON.UTF8String ?: "";
+    NSString *urlCopy = [url copy];
+    StashRunOnMain(^{
+        stash::desktop::SurfaceConfig surface = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Modal, json);
+        [[StashDesktopCore sharedInstance] openURL:urlCopy ?: @"" config:surface];
+    });
+}
+
 - (void)dismiss {
     StashRunOnMain(^{
         [[StashDesktopCore sharedInstance] dismiss];

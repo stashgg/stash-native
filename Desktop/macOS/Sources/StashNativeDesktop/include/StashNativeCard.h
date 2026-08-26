@@ -250,6 +250,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openModalWithURL:(NSString *)url config:(nullable StashNativeModalConfig *)config;
 
 /**
+ * Opens a card with the JSON config the game-engine wrappers send (see docs/macos.md). Same keys
+ * as \c StashNativeCardConfig plus the desktop-only \c presentation ("attached" or "window"),
+ * \c width, \c height and \c allowFileUrls. nil or empty for defaults.
+ */
+- (void)openCardWithURL:(NSString *)url configJSON:(nullable NSString *)configJSON NS_SWIFT_NAME(openCard(withURL:configJSON:));
+
+/**
+ * Opens a modal with the JSON config the game-engine wrappers send. nil or empty for defaults.
+ */
+- (void)openModalWithURL:(NSString *)url configJSON:(nullable NSString *)configJSON NS_SWIFT_NAME(openModal(withURL:configJSON:));
+
+/**
  * Dismisses any currently displayed checkout dialog. Invokes \c stashNativeCardDidDismiss.
  */
 - (void)dismiss;

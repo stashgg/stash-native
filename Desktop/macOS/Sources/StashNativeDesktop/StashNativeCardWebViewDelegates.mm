@@ -70,8 +70,13 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     [[_core presenter] setLoading:YES];
     if ([_checkoutURL.scheme.lowercaseString isEqualToString:@"file"]) {
         if (!_allowFileUrls) {
-            [self session]->decideMainFrameNavigation(_checkoutURL.absoluteString.UTF8String ?: "");
-            [self session]->handleNetworkError();
+            // WebKit would fail the request without a policy callback; run the policy here so
+            // the refusal is reported the same way (navigationBlocked, then networkError).
+            Session *session = [self session];
+            if (session) {
+                session->decideMainFrameNavigation(_checkoutURL.absoluteString.UTF8String ?: "");
+                [_core refreshStateMirrors];
+            }
             return;
         }
         // Read access to the containing directory so relative assets resolve. Do not standardize
@@ -117,6 +122,10 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     _initialLoadComplete = NO;
     _stallReloadCount = 0;
     [self loadCheckoutURL];
+    if (_invalidated) {
+        // The load was refused and the session already closed.
+        return;
+    }
     [self scheduleDeadlineTimer];
     [self scheduleStallTimer];
 }

@@ -353,18 +353,25 @@ private:
 }
 
 // The session keeps living until the next open so the caller of the closing method can finish;
-// only the surface goes away here.
+// only the surface goes away here. The delegate and webview are often mid-callback when this
+// runs (a refused load, a script message), so they are released on the next run-loop turn.
 - (void)closeSurface {
-    [_loadDelegate invalidate];
+    StashNativeCardLoadDelegate *delegate = _loadDelegate;
+    WKWebView *webView = _liveWebView;
+    [delegate invalidate];
     _loadDelegate = nil;
-    if (_liveWebView) {
-        [_liveWebView stopLoading];
-        _liveWebView.navigationDelegate = nil;
-        _liveWebView.UIDelegate = nil;
-        _liveWebView = nil;
+    _liveWebView = nil;
+    if (webView) {
+        [webView stopLoading];
+        webView.navigationDelegate = nil;
+        webView.UIDelegate = nil;
     }
     [_presenter teardown];
     [self refreshStateMirrors];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        (void)delegate;
+        (void)webView;
+    });
 }
 
 - (void)shutdown {
