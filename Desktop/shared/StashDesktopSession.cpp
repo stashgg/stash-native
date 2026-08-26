@@ -1,0 +1,274 @@
+#include "StashDesktopSession.h"
+
+#include <cmath>
+#include <cstdio>
+
+#include "../include/StashNativeDesktop.h"
+#include "StashDesktopJson.h"
+#include "StashDesktopTheme.h"
+#include "StashDesktopUrl.h"
+#include "StashSdkScript.h"
+
+namespace stash {
+namespace desktop {
+
+Session::Session(SessionHost &host, const SurfaceConfig &config, bool systemPrefersDark)
+    : host_(host), config_(config), dark_(theme::effectiveThemeIsDark(config.backgroundColor, systemPrefersDark)) {}
+
+std::string Session::themedUrl(const std::string &u) const {
+    return url::appendThemeQueryParameter(u, dark_);
+}
+
+void Session::handleMessage(const std::string &name, const std::string &payload) {
+    if (name == STASH_SDK_MSG_PAYMENT_SUCCESS) {
+        handlePaymentSuccess(payload);
+    } else if (name == STASH_SDK_MSG_PAYMENT_FAILURE) {
+        handlePaymentFailure();
+    } else if (name == STASH_SDK_MSG_PURCHASE_PROCESSING) {
+        handlePurchaseProcessing();
+    } else if (name == STASH_SDK_MSG_PROCESSING_COMPLETED) {
+        handleProcessingCompleted();
+    } else if (name == STASH_SDK_MSG_OPTIN) {
+        handleOptIn(payload);
+    } else if (name == STASH_SDK_MSG_WINDOW_CLOSE) {
+        handleWindowClose();
+    } else if (name == STASH_SDK_MSG_EXTERNAL_PAYMENT) {
+        handleExternalPayment(payload);
+    } else if (name == STASH_SDK_MSG_OPEN_LINK) {
+        handleOpenLink(payload);
+    } else if (name == STASH_SDK_MSG_EXPAND || name == STASH_SDK_MSG_COLLAPSE) {
+        // Defined no-ops on desktop: the card has one size.
+    } else {
+        host_.log("unknown bridge message: " + name);
+    }
+}
+
+// With autoClose the first result tears the surface down, so later signals are dropped. With
+// autoClose off the page stays alive and may legitimately emit failure then success.
+bool Session::resultOnceGuard() {
+    if (config_.autoClose && paymentResultHandled_) {
+        return false;
+    }
+    if (config_.autoClose) {
+        paymentResultHandled_ = true;
+    }
+    return true;
+}
+
+void Session::handlePaymentSuccess(const std::string &order) {
+    if (finished_ || !resultOnceGuard()) {
+        return;
+    }
+    purchaseProcessing_ = false;
+    if (config_.autoClose) {
+        finishWithoutDismissEvent();
+    }
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS, order);
+}
+
+void Session::handlePaymentFailure() {
+    if (finished_ || !resultOnceGuard()) {
+        return;
+    }
+    purchaseProcessing_ = false;
+    if (config_.autoClose) {
+        finishWithoutDismissEvent();
+    }
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_FAILURE, "");
+}
+
+void Session::handlePurchaseProcessing() {
+    if (finished_) {
+        return;
+    }
+    purchaseProcessing_ = true;
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PURCHASE_PROCESSING, "");
+}
+
+void Session::handleProcessingCompleted() {
+    if (finished_) {
+        return;
+    }
+    purchaseProcessing_ = false;
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PROCESSING_COMPLETED, "");
+}
+
+void Session::handleOptIn(const std::string &optInType) {
+    if (finished_) {
+        return;
+    }
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_OPT_IN_RESPONSE, optInType);
+    finishWithDismissEvent();
+}
+
+// window.close honours the processing lock but not modal allowDismiss, as on mobile.
+void Session::handleWindowClose() {
+    if (finished_ || purchaseProcessing_) {
+        return;
+    }
+    finishWithDismissEvent();
+}
+
+void Session::handleExternalPayment(const std::string &rawUrl) {
+    if (finished_) {
+        return;
+    }
+    std::string normalized;
+    if (!url::normalizeExternalPaymentUrl(rawUrl, normalized)) {
+        host_.log("openExternalBrowser rejected: " + rawUrl);
+        return;
+    }
+    std::string themed = themedUrl(normalized);
+    purchaseProcessing_ = false;
+    finishWithoutDismissEvent();
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_EXTERNAL_PAYMENT, themed);
+    host_.openSystemBrowser(themed);
+}
+
+void Session::handleOpenLink(const std::string &rawUrl) {
+    if (finished_) {
+        return;
+    }
+    std::string normalized;
+    if (!url::normalizeExternalPaymentUrl(rawUrl, normalized)) {
+        host_.log("openLink rejected: " + rawUrl);
+        return;
+    }
+    host_.openSystemBrowser(normalized);
+}
+
+void Session::runDeeplinkResult(const std::string &u) {
+    switch (url::classifyDeeplinkResult(u)) {
+        case url::DeeplinkResult::Success:
+            handlePaymentSuccess("");
+            break;
+        case url::DeeplinkResult::Failure:
+            handlePaymentFailure();
+            break;
+        case url::DeeplinkResult::Cancel:
+            handleWindowClose();
+            break;
+        case url::DeeplinkResult::None:
+            host_.openDeeplinkExternally(u);
+            break;
+    }
+}
+
+NavigationDecision Session::decideMainFrameNavigation(const std::string &u) {
+    if (finished_) {
+        return NavigationDecision::Cancel;
+    }
+    if (!url::isWebScheme(u)) {
+        runDeeplinkResult(u);
+        return NavigationDecision::Cancel;
+    }
+    std::string sch = url::scheme(u);
+    if (sch == "file" && !config_.allowFileUrls) {
+        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
+                        json::object({{"url", u}, {"reason", "file_urls_disabled"}}));
+        return NavigationDecision::Cancel;
+    }
+    if (sch == "http") {
+        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
+                        json::object({{"url", u}, {"reason", "insecure_http"}}));
+        return NavigationDecision::Cancel;
+    }
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION, u);
+    return NavigationDecision::Load;
+}
+
+NavigationDecision Session::decideSubFrameNavigation(const std::string &u) {
+    if (finished_) {
+        return NavigationDecision::Cancel;
+    }
+    if (!url::isWebScheme(u)) {
+        runDeeplinkResult(u);
+        return NavigationDecision::Cancel;
+    }
+    if (url::scheme(u) == "http") {
+        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
+                        json::object({{"url", u}, {"reason", "insecure_http"}}));
+        return NavigationDecision::Cancel;
+    }
+    return NavigationDecision::Load;
+}
+
+void Session::handleNewWindow(const std::string &u) {
+    if (finished_ || u.empty() || u == "about:blank") {
+        return;
+    }
+    if (url::isWebScheme(u)) {
+        std::string normalized;
+        if (url::normalizeExternalPaymentUrl(u, normalized)) {
+            host_.openSystemBrowser(normalized);
+        }
+        return;
+    }
+    host_.openDeeplinkExternally(u);
+}
+
+void Session::handlePageFinished(double loadTimeMs) {
+    if (finished_ || pageLoadedEmitted_) {
+        return;
+    }
+    pageLoadedEmitted_ = true;
+    char buf[32];
+    std::snprintf(buf, sizeof(buf), "%.0f", loadTimeMs < 0 ? 0.0 : std::floor(loadTimeMs + 0.5));
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PAGE_LOADED, buf);
+}
+
+void Session::handleNetworkError() {
+    if (finished_) {
+        return;
+    }
+    finishWithoutDismissEvent();
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR, "");
+}
+
+bool Session::requestUserDismiss() {
+    if (finished_) {
+        return false;
+    }
+    if (purchaseProcessing_) {
+        return false;
+    }
+    if (config_.mode == SurfaceMode::Modal && !config_.allowDismiss) {
+        return false;
+    }
+    finishWithDismissEvent();
+    return true;
+}
+
+void Session::dismiss() {
+    if (finished_) {
+        return;
+    }
+    finishWithDismissEvent();
+}
+
+void Session::reset() {
+    if (finished_) {
+        return;
+    }
+    finishWithoutDismissEvent();
+}
+
+// The surface is gone (and isPresented false) before the terminal event reaches the host, so a
+// wrapper may open the next checkout from inside the callback.
+void Session::finishWithoutDismissEvent() {
+    finished_ = true;
+    presented_ = false;
+    purchaseProcessing_ = false;
+    host_.closeSurface();
+}
+
+void Session::finishWithDismissEvent() {
+    finishWithoutDismissEvent();
+    if (!dismissEmitted_) {
+        dismissEmitted_ = true;
+        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED, "");
+    }
+}
+
+}  // namespace desktop
+}  // namespace stash

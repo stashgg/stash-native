@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stash Webview Validation Matrix</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #15171c; color: #f2f3f5; padding: 24px 20px;
+  }
+  h1 { font-size: 17px; margin-bottom: 4px; }
+  p.sub { font-size: 12px; color: #8b93a1; margin-bottom: 18px; }
+  .check { background: #1d2027; border: 1px solid #2c3039; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  .check h2 { font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .chip { font-size: 11px; padding: 3px 9px; border-radius: 20px; background: #3a3f4a; }
+  .chip.pass { background: #14532d; color: #4ade80; }
+  .chip.wait { background: #3a3f4a; color: #9aa1ad; }
+  .check p { font-size: 12px; color: #9aa1ad; margin-top: 6px; }
+  iframe { width: 100%; height: 120px; border: 1px dashed #3a3f4a; border-radius: 8px; margin-top: 10px; background: #14161b; }
+  button { margin-top: 10px; padding: 9px 14px; border: 0; border-radius: 8px; background: #2c3039; color: #f2f3f5; cursor: pointer; }
+</style>
+</head>
+<body>
+  <h1>Webview Validation Matrix: mechanics</h1>
+  <p class="sub">Exercises the browser plumbing 3DS2 and PSP popup flows depend on . Real 3DS2/PayPal sandbox runs plug into this same harness.</p>
+
+  <div class="check">
+    <h2>3DS2-style challenge iframe <span class="chip wait" id="c1">waiting</span></h2>
+    <p>Cross-window challenge frame renders below and reports back to the merchant page via postMessage.</p>
+    <iframe src="matrix_challenge_frame.html" id="frame"></iframe>
+  </div>
+
+  <div class="check">
+    <h2>PSP popup round-trip (PayPal shape) <span class="chip wait" id="c2">waiting</span></h2>
+    <p>window.open a payment popup, the popup completes, posts its result to window.opener and calls window.close(); the merchant page continues.</p>
+    <button id="popupBtn">Open payment popup</button>
+  </div>
+
+<script>
+  const results = { iframeChallenge: false, popupRoundTrip: false };
+  let reported = false;
+
+  function send(handler, data) {
+    const sdk = window.stash_sdk;
+    if (sdk && handler === 'stashPaymentSuccess') return sdk.onPaymentSuccess(data);
+    console.log('stash_sdk unavailable (browser test)', handler, data);
+  }
+
+  function maybeReport() {
+    if (reported || !(results.iframeChallenge && results.popupRoundTrip)) return;
+    reported = true;
+    send('stashPaymentSuccess', { matrix: results, source: 'stash_validation_matrix' });
+  }
+
+  window.addEventListener('message', e => {
+    const d = e.data || {};
+    if (d.challenge === 'ok') {
+      results.iframeChallenge = true;
+      document.getElementById('c1').textContent = 'PASS';
+      document.getElementById('c1').className = 'chip pass';
+    }
+    if (d.popupResult === 'ok') {
+      results.popupRoundTrip = true;
+      document.getElementById('c2').textContent = 'PASS';
+      document.getElementById('c2').className = 'chip pass';
+    }
+    maybeReport();
+  });
+
+  function openPopup() { window.open('matrix_popup.html', 'psp_popup'); }
+  document.getElementById('popupBtn').addEventListener('click', openPopup);
+
+  if (new URLSearchParams(location.search).get('auto') === '1' || location.hash.includes('auto')) setTimeout(openPopup, 900);
+</script>
+</body>
+</html>
