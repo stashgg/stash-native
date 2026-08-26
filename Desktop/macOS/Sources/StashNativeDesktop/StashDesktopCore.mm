@@ -98,7 +98,10 @@ private:
 }
 
 + (BOOL)systemPrefersDark {
-    NSAppearance *appearance = NSApp ? NSApp.effectiveAppearance : [NSAppearance currentAppearance];
+    NSAppearance *appearance = NSApp ? NSApp.effectiveAppearance : nil;
+    if (!appearance) {
+        return NO;
+    }
     NSAppearanceName name = [appearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]];
     return [name isEqualToString:NSAppearanceNameDarkAqua];
 }
