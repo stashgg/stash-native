@@ -377,3 +377,58 @@ jobs:
             echo "Failed to upload iOS simulator sample to Appetize (HTTP $HTTP_CODE)"
             exit 1
           fi
+
+  build-macos-library:
+    name: Build macOS desktop library only
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build package
+        working-directory: Desktop
+        run: swift build -c release
+
+      - name: Build bundle and verify exports
+        run: Desktop/macOS/build_bundle.sh
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-desktop-bundle
+          path: Desktop/macOS/build/StashNativeDesktop.bundle
+          retention-days: 7
+          if-no-files-found: error
+
+  build-macos-sample:
+    name: Build macOS desktop sample
+    runs-on: macos-15
+    needs: [build-macos-library]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build sample
+        working-directory: Desktop
+        run: swift build -c release --product StashNativeDesktopSample
+
+      - name: Run WKWebView smoke test (offline checkout page)
+        working-directory: Desktop
+        run: |
+          set -o pipefail
+          ./.build/release/StashNativeDesktopSample -stash-auto local 2>&1 | tee smoke-local.log | grep STASH-PROOF
+          grep -q "STASH-PROOF local: RESULT: PASS" smoke-local.log
+
+      - name: Run navigation policy smoke test
+        working-directory: Desktop
+        run: |
+          set -o pipefail
+          ./.build/release/StashNativeDesktopSample -stash-auto secure 2>&1 | tee smoke-secure.log | grep STASH-PROOF
+          grep -q "STASH-PROOF secure: RESULT: PASS" smoke-secure.log
+
+      - name: Upload sample artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-desktop-sample
+          path: Desktop/.build/release/StashNativeDesktopSample
+          retention-days: 7

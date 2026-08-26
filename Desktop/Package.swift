@@ -45,6 +45,11 @@ let package = Package(
                 .linkedFramework("QuartzCore"),
             ]
         ),
+        .executableTarget(
+            name: "StashNativeDesktopSample",
+            dependencies: ["StashNativeDesktop"],
+            path: "macOS/Sample/StashNativeDesktopSample"
+        ),
         .testTarget(
             name: "StashNativeDesktopTests",
             dependencies: ["StashNativeDesktop", "StashDesktopShared"],
