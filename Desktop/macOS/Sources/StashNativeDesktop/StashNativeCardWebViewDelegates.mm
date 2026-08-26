@@ -100,10 +100,12 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     StashAddTimerToMainRunLoop(_deadlineTimer);
 }
 
+// Stall retries are for network stalls; a local file that has not committed yet is just slow.
 - (void)scheduleStallTimer {
     [_stallTimer invalidate];
     _stallTimer = nil;
-    if (_initialLoadComplete || _stallReloadCount >= stash::desktop::kMaxStallReloads) {
+    if (_initialLoadComplete || _stallReloadCount >= stash::desktop::kMaxStallReloads ||
+        [_checkoutURL.scheme.lowercaseString isEqualToString:@"file"]) {
         return;
     }
     _stallTimer = [NSTimer timerWithTimeInterval:stash::desktop::kStallRetrySeconds
@@ -180,6 +182,11 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         return;
     }
     std::string url = navigationAction.request.URL.absoluteString.UTF8String ?: "";
+    if (url == "about:blank") {
+        // The prewarmed webview's placeholder document, never a checkout: no policy, no event.
+        decisionHandler(WKNavigationActionPolicyAllow);
+        return;
+    }
     BOOL isMainFrame = navigationAction.targetFrame == nil || navigationAction.targetFrame.isMainFrame;
     NavigationDecision decision = isMainFrame ? session->decideMainFrameNavigation(url)
                                              : session->decideSubFrameNavigation(url);

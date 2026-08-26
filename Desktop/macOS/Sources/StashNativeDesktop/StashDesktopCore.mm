@@ -193,6 +193,9 @@ private:
     _prewarmedWebView = nil;
     if (!webView) {
         webView = [self makeWebView];
+    } else {
+        // The placeholder load may still be in flight; it must not reach the session's delegate.
+        [webView stopLoading];
     }
     return webView;
 }
