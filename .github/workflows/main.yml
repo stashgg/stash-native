@@ -444,3 +444,70 @@ jobs:
           name: macos-desktop-sample
           path: macos-desktop-sample.tar.gz
           retention-days: 7
+
+  build-windows-library:
+    name: Build Windows desktop library only
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release --target StashNativeDesktop
+
+      - name: Collect library artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact/include | Out-Null
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.dll artifact/
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.lib artifact/
+          Copy-Item Desktop/include/*.h artifact/include/
+          Copy-Item Desktop/Windows/include/StashNativeCard.hpp artifact/include/
+
+      - name: Upload library artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-library
+          path: artifact
+          retention-days: 7
+          if-no-files-found: error
+
+  build-windows-sample:
+    name: Build Windows desktop sample
+    runs-on: windows-latest
+    needs: [build-windows-library]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+      - name: Run WebView2 smoke test (offline checkout page)
+        shell: pwsh
+        working-directory: Desktop/Windows/build/Sample/Release
+        run: |
+          $output = & .\StashNativeDesktopSample.exe -stash-auto local 2>&1 | Tee-Object -Variable lines
+          $lines | Where-Object { $_ -match "STASH-PROOF" }
+          if (-not ($lines -match "STASH-PROOF local: RESULT: PASS")) { exit 1 }
+
+      - name: Run navigation policy smoke test
+        shell: pwsh
+        working-directory: Desktop/Windows/build/Sample/Release
+        run: |
+          $output = & .\StashNativeDesktopSample.exe -stash-auto secure 2>&1 | Tee-Object -Variable lines
+          $lines | Where-Object { $_ -match "STASH-PROOF" }
+          if (-not ($lines -match "STASH-PROOF secure: RESULT: PASS")) { exit 1 }
+
+      - name: Upload sample artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-sample
+          path: |
+            Desktop/Windows/build/Sample/Release/StashNativeDesktopSample.exe
+            Desktop/Windows/build/Sample/Release/StashNativeDesktop.dll
+          retention-days: 7
