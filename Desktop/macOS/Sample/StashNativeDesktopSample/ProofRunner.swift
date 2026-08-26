@@ -73,8 +73,17 @@ final class ProofRunner {
         }
     }
 
+    /// Consecutive duplicates collapsed: a redirect chain or a retry reports several navigations.
+    private func collapsedTypes() -> [String] {
+        var out: [String] = []
+        for type in EventLog.shared.types where out.last != type {
+            out.append(type)
+        }
+        return out
+    }
+
     private func evaluate() {
-        let types = EventLog.shared.types
+        let types = collapsedTypes()
         let presented = StashNativeCard.sharedInstance().isCurrentlyPresented
         switch mode {
         case "local":
