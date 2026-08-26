@@ -205,3 +205,30 @@ jobs:
         run: |
           swiftlint lint Desktop/macOS/Sample/StashNativeDesktopSample --strict --config .swiftlint.yml
         continue-on-error: false
+
+  lint-windows:
+    name: Lint Windows Desktop Host (warnings as errors)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build with /WX
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+  test-windows:
+    name: Test Windows Desktop Host
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+      - name: Run tests
+        run: ctest --test-dir Desktop/Windows/build -C Release --output-on-failure
