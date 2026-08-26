@@ -39,6 +39,17 @@ std::string narrow(const wchar_t *utf16) {
     return out;
 }
 
+// OutputDebugString always; also stderr when STASH_NATIVE_DESKTOP_LOG=stderr (CI, console samples).
+static bool logToStderr() {
+    static int cached = -1;
+    if (cached < 0) {
+        wchar_t value[16] = L"";
+        DWORD len = GetEnvironmentVariableW(L"STASH_NATIVE_DESKTOP_LOG", value, 16);
+        cached = (len > 0 && len < 16 && _wcsicmp(value, L"stderr") == 0) ? 1 : 0;
+    }
+    return cached == 1;
+}
+
 void debugLog(const char *fmt, ...) {
     char buf[1024];
     va_list args;
@@ -48,6 +59,10 @@ void debugLog(const char *fmt, ...) {
     char line[1100];
     _snprintf_s(line, _TRUNCATE, "[StashNativeDesktop] %s\n", buf);
     OutputDebugStringA(line);
+    if (logToStderr()) {
+        fputs(line, stderr);
+        fflush(stderr);
+    }
 }
 
 // -- Message window -------------------------------------------------------------------------

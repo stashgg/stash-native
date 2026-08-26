@@ -81,10 +81,12 @@ void killLoadTimers() {
     KillTimer(wnd, TIMER_DEADLINE);
 }
 
+// Stall retries are for network stalls; a local file that has not committed yet is just slow.
 void startLoadTimers() {
     HWND wnd = Core::instance().messageWindow();
     SetTimer(wnd, TIMER_DEADLINE, static_cast<UINT>(kNetworkDeadlineSeconds * 1000), nullptr);
-    if (g.stallReloads < kMaxStallReloads) {
+    bool fileCheckout = url::scheme(narrow(g.checkoutUrl.c_str())) == "file";
+    if (!fileCheckout && g.stallReloads < kMaxStallReloads) {
         SetTimer(wnd, TIMER_STALL, static_cast<UINT>(kStallRetrySeconds * 1000), nullptr);
     } else {
         KillTimer(wnd, TIMER_STALL);
@@ -133,8 +135,10 @@ void navigateToCheckout() {
         return;
     }
     Core::instance().presenter().setLoading(true);
+    debugLog("navigate %s", narrow(g.checkoutUrl.c_str()).c_str());
     HRESULT hr = g.webView->Navigate(g.checkoutUrl.c_str());
     if (FAILED(hr)) {
+        debugLog("Navigate failed hr=0x%08X", static_cast<unsigned>(hr));
         emitError("invalid url: " + narrow(g.checkoutUrl.c_str()));
         failSession();
     }
@@ -236,6 +240,7 @@ void wireWebView(ICoreWebView2 *webView) {
         STASH_CALLBACK(ICoreWebView2ContentLoadingEventHandler, ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *,
                        ([id](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
                            if (Core::instance().sessionForId(id) != nullptr) {
+                               debugLog("content loading");
                                markInitialLoadComplete();
                            }
                            return S_OK;
@@ -259,6 +264,7 @@ void wireWebView(ICoreWebView2 *webView) {
                            }
                            bool first = !g.firstNavigationDone;
                            g.firstNavigationDone = true;
+                           debugLog("navigation completed success=%d status=%d first=%d", success ? 1 : 0, static_cast<int>(status), first ? 1 : 0);
                            int httpStatus = 0;
                            ICoreWebView2NavigationCompletedEventArgs2 *args2 = nullptr;
                            if (SUCCEEDED(args->QueryInterface(IID_ICoreWebView2NavigationCompletedEventArgs2,
