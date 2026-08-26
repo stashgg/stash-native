@@ -52,6 +52,8 @@ struct State {
     int stallReloads = 0;
     bool processFailedRecoveryUsed = false;
     ULONGLONG pageLoadStart = 0;
+    // The checkout's own navigation; completions of superseded loads (the prewarm placeholder) are ignored.
+    UINT64 checkoutNavigationId = 0;
 };
 
 State g;
@@ -209,8 +211,14 @@ void wireWebView(ICoreWebView2 *webView) {
                            }
                            std::string url = narrow(uri);
                            CoTaskMemFree(uri);
+                           if (url == "about:blank") {
+                               // The prewarm placeholder, never a checkout: no policy, no event.
+                               return S_OK;
+                           }
                            if (session == nullptr || session->decideMainFrameNavigation(url) == NavigationDecision::Cancel) {
                                args->put_Cancel(TRUE);
+                           } else {
+                               args->get_NavigationId(&g.checkoutNavigationId);
                            }
                            Core::instance().refreshStateMirrors();
                            return S_OK;
@@ -252,6 +260,12 @@ void wireWebView(ICoreWebView2 *webView) {
                        ([id](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
                            if (session == nullptr) {
+                               return S_OK;
+                           }
+                           UINT64 navigationId = 0;
+                           args->get_NavigationId(&navigationId);
+                           if (navigationId != g.checkoutNavigationId) {
+                               // A superseded load (the prewarm placeholder, a cancelled first attempt).
                                return S_OK;
                            }
                            BOOL success = FALSE;
@@ -530,6 +544,7 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
     g.stallReloads = 0;
     g.processFailedRecoveryUsed = false;
     g.pageLoadStart = GetTickCount64();
+    g.checkoutNavigationId = 0;
 
     HWND parent = Core::instance().presenter().webViewParent();
     if (parent == nullptr || g.environment == nullptr) {
@@ -545,6 +560,8 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
         g.prewarmWebView = nullptr;
         g.sdkScriptRegistered = true;
         g.wired = false;
+        // The placeholder load may still be in flight; it must not reach the session.
+        g.webView->Stop();
         g.controller->put_ParentWindow(parent);
         g.controller->NotifyParentWindowPositionChanged();
         finishControllerSetup();
