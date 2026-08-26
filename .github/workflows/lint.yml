@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+    # desktop/** so every PR of a stacked desktop branch set gets CI, not only the bottom one.
+    branches: [ main, master, 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
