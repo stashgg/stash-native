@@ -114,12 +114,40 @@ visual artefacts.
 | iPhone (all models iOS 13+)    | Full     | Portrait/landscape, card slides from bottom |
 | iPad                           | Full     | Centered presentation, all orientations     |
 | iPad (Split View / Slide Over) | Full     | Responsive layout                           |
-| Mac (Catalyst)                 | Untested | Should work; not officially tested yet      |
+| Mac (Catalyst)                 | Not supported | Use the macOS desktop host (`Desktop/macOS`, see below) for Mac apps |
 
+
+### Windows
+
+| Attribute | Requirement |
+| --- | --- |
+| Minimum OS | Windows 10 version 1809, Windows 11 |
+| Runtime | WebView2 Evergreen runtime (preinstalled on Windows 11 and updated Windows 10; otherwise the Evergreen bootstrapper) |
+| Architecture | x64 |
+| Toolchain to build | Visual Studio 2019/2022 C++ workload, CMake 3.20+; consumers need neither (one DLL, static CRT, static WebView2 loader) |
+
+The checkout is presented as a child window of the game window (dimmed backdrop, card, native trust header). It renders over windowed and borderless-fullscreen games; exclusive fullscreen must be switched to borderless for the flow (the Unity and Unreal wrappers do this and restore it). The WebView2 processes run out of process under `%LOCALAPPDATA%\Stash\<executable name>\WebView2`, one profile per game.
+
+- Apple Pay renders (QR handoff to an iPhone), Google Pay, PayPal (full-page redirect inside the card) and cards are available.
+- Anti-cheat: the host injects nothing into the game and only creates child windows and out-of-process WebView2 processes; validation on a protected title is tracked in [`docs/desktop-validation-matrix.md`](docs/desktop-validation-matrix.md).
+- Runtime validation of the host on Windows hardware is part of that matrix; the host is built and unit-tested on `windows-latest` in CI.
+
+### macOS
+
+| Attribute | Requirement |
+| --- | --- |
+| Minimum macOS | 11.0 |
+| Architecture | arm64, x86_64 (universal bundle) |
+| Toolchain to build | Xcode command line tools (plain clang); Swift 5.5+ for the SwiftPM package |
+
+The checkout is presented over the host window's content view with WKWebView (the system WebKit; nothing is bundled). Works in windowed and fullscreen (borderless) games.
+
+- **Apple Pay is not available in the macOS card.** macOS WKWebView has never supported the web Apple Pay API (WebKit bug 282078); this is a platform limitation, not a signing or configuration issue, and the hosted checkout hides the button. Cards, Google Pay and PayPal are available.
+- The bundle is unsigned by default; `build_bundle.sh` signs with Developer ID when `STASH_SIGN_IDENTITY` is set. Gatekeeper applies to the hosting app, not to a bundle inside it.
 
 ### Testing
 
-We test this library using BrowserStack App Automate devices. Supported environments are listed in the [App Automate list of browsers and platforms](https://www.browserstack.com/list-of-browsers-and-platforms/app_automate).
+We test the mobile libraries using BrowserStack App Automate devices. Supported environments are listed in the [App Automate list of browsers and platforms](https://www.browserstack.com/list-of-browsers-and-platforms/app_automate).
 
 ### Known limitations
 
@@ -129,6 +157,13 @@ We test this library using BrowserStack App Automate devices. Supported environm
 - Android Go: Performance may vary on low-memory devices (<1GB RAM), please use the [keep-alive service](README.md#openbrowser) (see **Optional: Keep-alive service** under openBrowser).
 - WebView updates: Devices without Play Store may have outdated WebView.
 - Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](README.md#sample-apps) (GPU / `swangle` note)
+
+**Windows / macOS**
+
+- No browser-closed callback (`openBrowser` opens the system browser and returns immediately).
+- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, clamped to the window, never below 400 x 500 pt); the mobile ratio fields are ignored, `forcePortrait` has no effect.
+- Steam builds: follow the store policy for external payments before enabling in-game checkout.
+- Windows: without the WebView2 runtime the host reports `error` and `networkError`; use `openBrowser` as the fallback.
 
 **iOS**
 
@@ -148,6 +183,15 @@ The SDK uses only public, documented APIs on both platforms. Below is a summary 
 | `UIDevice` KVC (`setValue:forKey:@"orientation"`) | Forces orientation on older iOS |
 | Remove WKWebView keyboard toolbar | Prevents orientation issues in game engines |
 | Deprecated API usage | Backwards compatibility |
+
+### Windows / macOS
+
+| Technique | Purpose |
+|-----------|---------|
+| Child windows of the game window (Windows), subviews of the host content view (macOS) | Card over the live game without a second top-level window |
+| WebView2 out-of-process runtime, per-game user data folder | Isolated browser processes; saved payment methods per game |
+| `AddScriptToExecuteOnDocumentCreated` / `WKUserScript` | `window.stash_sdk` bridge injection |
+| Native trust header drawn by the game process | Page content cannot forge the host / lock row |
 
 ### Android
 

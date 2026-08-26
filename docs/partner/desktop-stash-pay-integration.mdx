@@ -1,0 +1,89 @@
+---
+title: Desktop (Windows and macOS)
+description: Present Stash Pay checkout inside your game on Windows and macOS with the same API you use on mobile.
+---
+
+Stash Native presents checkout as a card over your game's own window on Windows and macOS. The game keeps rendering underneath, nothing is bundled (Windows uses the WebView2 Evergreen runtime, macOS uses the system WebKit), and the API, callbacks and configuration are the ones you already use on iOS and Android.
+
+## Requirements
+
+| | Windows | macOS |
+|---|---|---|
+| OS | Windows 10 1809 or later, Windows 11 | macOS 11 or later |
+| Runtime | WebView2 Evergreen runtime (preinstalled on Windows 11 and updated Windows 10; otherwise the [Evergreen bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/)) | none, system WebKit |
+| Architecture | x64 | arm64 and x86_64 (universal) |
+| Artifact | `StashNativeDesktop-<version>-win64.zip`: `StashNativeDesktop.dll`, `StashNativeDesktop.lib`, headers | `StashNativeDesktop-<version>-macos.zip`: `StashNativeDesktop.bundle`, headers |
+
+Download both from the [stash-native releases](https://github.com/stashgg/stash-native/releases). Unity and Unreal ship the binaries inside the engine packages.
+
+## Enabling desktop in an existing integration
+
+If you already integrate Stash Pay on mobile through Unity or Unreal, update the package: the same `OpenCard` / `OpenModal` / `OpenBrowser` calls and the same callbacks now work in Windows and macOS players. Config objects are unchanged; the ratio fields are ignored on desktop (the card is a fixed 480 x 720 pt surface, the modal 480 x 600 pt, both clamped to the game window).
+
+For native apps and custom engines the desktop hosts expose two layers:
+
+- A C ABI, identical on both OSes (`StashNativeDesktop.h`): one event callback, `OpenCard(url, configJson)`, `OpenModal`, `OpenBrowser`, `Dismiss`, `ResetPresentationState`, `IsCurrentlyPresented`, `IsPurchaseProcessing`, `Prewarm`, `Shutdown`.
+- Typed facades: Objective-C `StashNativeCard` with `StashNativeCardDelegate` on macOS (`StashNativeCard.h`, also a Swift package), a header-only C++ `StashNativeCard` with `StashNativeCardListener` on Windows (`StashNativeCard.hpp`).
+
+### Windows (C++)
+
+```cpp
+#include "StashNativeCard.hpp"
+
+class Listener : public stash::StashNativeCardListener {
+    void onPaymentSuccess(const std::string &order) override { /* grant the purchase */ }
+    void onPaymentFailure() override {}
+    void onDialogDismissed() override {}
+};
+
+Listener listener;
+auto &card = stash::StashNativeCard::getInstance();
+card.setListener(&listener);
+card.setHostWindow(gameWindowHandle);   // optional
+card.prewarm();                          // optional, at startup
+card.openCard(checkoutUrl);
+```
+
+Call from the thread that runs the game window's message loop. Callbacks arrive on that thread.
+
+### macOS (Swift)
+
+```swift
+import StashNativeDesktop
+
+StashNativeCard.sharedInstance().delegate = self
+StashNativeCard.sharedInstance().hostWindow = gameWindow   // optional
+StashNativeCard.sharedInstance().prewarm()                 // optional
+StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: nil)
+```
+
+Load the bundle with `dlopen` and bind `StashNativeDesktop_*` if you are not using the Swift package.
+
+## Identical API
+
+| Mobile | Desktop |
+|---|---|
+| `openCard(url, config)` | same; card over the game window |
+| `openModal(url, config)` | same; centred modal, `allowDismiss` honoured |
+| `openBrowser(url)` | system browser; there is no browser-closed callback on desktop |
+| Payment success / failure, dialog dismissed, opt-in, page loaded, network error, external payment | same callbacks, same order and once-guards |
+| `autoClose`, `backgroundColor` | same |
+| Ratio fields | accepted, ignored |
+| `window.stash_sdk` | same bridge, injected by the SDK |
+
+## Platform notes
+
+- Fullscreen: the card is a child of the game window, so it renders over borderless and windowed modes. Exclusive fullscreen on Windows should be switched to borderless for the checkout; the Unity and Unreal packages do this for you and restore it afterwards.
+- Apple Pay is not available in the macOS card (a WebKit limitation for embedded web views); the checkout hides the button. Card payments, Google Pay and PayPal are available on macOS. All methods including Apple Pay are available on Windows.
+- Saved payment methods are keyed to the user id you pass when generating the link, so returning players see their saved card preselected. Generate links on your backend; never ship an ingress secret in the game.
+- Anti-cheat: the host creates child windows of your game window and spawns the WebView2 processes out of process; it injects nothing into the game. If your anti-cheat vendor blocks either, fall back to `openBrowser`.
+- Steam builds: follow the store policy for external payments before enabling in-game checkout.
+
+## Payment method coverage
+
+| Method | Windows | macOS |
+|---|---|---|
+| Card | yes | yes |
+| Google Pay | yes | yes |
+| PayPal | yes (redirect inside the card) | yes |
+| Apple Pay | yes (QR handoff to iPhone) | not available |

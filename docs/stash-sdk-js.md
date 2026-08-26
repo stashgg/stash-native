@@ -2,10 +2,11 @@
 
 This document describes the JavaScript API injected into checkout and webshop pages loaded inside the Stash Native WebView. Web authors call these functions to report payment outcomes, adjust the native chrome, request an external browser, or close the sheet.
 
-The native implementations are kept in lockstep on Android and iOS. Source of truth:
+The native implementations are kept in lockstep on Android, iOS, Windows and macOS. Source of truth:
 
 - Android: [`StashWebViewUtils.JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (constant `JS_SDK_SCRIPT`).
 - iOS: `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (assembled `NSString` passed to `WKUserScript` at `WKUserScriptInjectionTimeAtDocumentStart`).
+- Desktop (Windows and macOS): [`Desktop/shared/StashSdkScript.h`](../Desktop/shared/StashSdkScript.h), one body with a per-OS transport prelude.
 
 ## Availability and Detection
 
@@ -25,12 +26,13 @@ Manual testing: [`.github/test/index.html`](../.github/test/index.html).
 |----------|-----------|-------------|
 | Android | `WebView.evaluateJavascript(JS_SDK_SCRIPT, ...)` after page load; script source is `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), evaluated by the card path in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and the popup path (`injectStashSDKFunctions`) in [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java) | JavaScript interface object `StashAndroid` (`JS_INTERFACE_NAME` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)) |
 | iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess`, `stashExternalPayment` (constants `kMessageHandler*` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)) |
+| Desktop | macOS: `WKUserScript` at document start, main frame only, `window.webkit.messageHandlers.<name>.postMessage(...)`. Windows: `AddScriptToExecuteOnDocumentCreated`, `window.chrome.webview.postMessage({type, data})`; the script returns outside the top document and messages from sub-frames are ignored. Script in [`StashSdkScript.h`](../Desktop/shared/StashSdkScript.h), dispatch in [`StashDesktopSession.cpp`](../Desktop/shared/StashDesktopSession.cpp) | `stashPaymentSuccess`, `stashPaymentFailure`, `stashPurchaseProcessing`, `stashProcessingCompleted`, `stashOptin`, `stashExpand`, `stashCollapse`, `stashExternalPayment`, `stashOpenLink`, `stashWindowClose` (`STASH_SDK_MSG_*`) |
 
 From the page’s perspective the API is identical: only `window.stash_sdk` and `window.close` (see below).
 
 ## API Reference
 
-On Android every bridge call in the injected script is wrapped in try/catch. On iOS the bridge functions post directly (only the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. Exceptions in page code before the bridge call are never suppressed on either platform.
+On Android and on desktop every bridge call in the injected script is wrapped in try/catch. On iOS the bridge functions post directly (only the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. Exceptions in page code before the bridge call are never suppressed on any platform.
 
 ### `window.stash_sdk.onPaymentSuccess(order?)`
 
@@ -138,7 +140,8 @@ iOS injects a separate script that posts `stashNativePageReady` for load metrics
 
 ## Platform Parity Notes
 
-- **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` / `onProcessingCompleted` Java methods. Pages should not rely on native interpretation of complex objects for those calls on Android unless the Android implementation is extended.
+- **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` / `onProcessingCompleted` Java methods. Pages should not rely on native interpretation of complex objects for those calls on Android unless the Android implementation is extended. Desktop forwards them like iOS and ignores them like Android.
+- **Desktop:** `expand` and `collapse` are defined no-ops (the card has one size). `openExternalBrowser` and `openLink` open the system browser; there is no browser-closed callback. `target="_blank"` / `window.open` go to the system browser with the checkout staying presented, so PSP popups are never rendered inside the card. Deeplinks follow the mobile rules: `stash-pay/success|failure|cancel` run the bridge flows, any other non-web scheme is handed to the OS silently. Main-frame navigation is https only (plus `file://` for test pages when the host enables it). `setPaymentChannel` emits the opt-in callback and then dismisses with the dismissed callback (the Android ordering).
 - **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Diagram
