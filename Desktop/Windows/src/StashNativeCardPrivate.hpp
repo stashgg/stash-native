@@ -11,6 +11,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// COM base types the MIDL-generated WebView2.h relies on; windows.h skips them with WIN32_LEAN_AND_MEAN.
+#include <objbase.h>
 
 #include <atomic>
 #include <functional>
