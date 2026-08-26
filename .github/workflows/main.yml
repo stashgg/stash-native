@@ -490,17 +490,21 @@ jobs:
       - name: Run WebView2 smoke test (offline checkout page)
         shell: pwsh
         working-directory: Desktop/Windows/build/Sample/Release
+        env:
+          STASH_NATIVE_DESKTOP_LOG: stderr
         run: |
-          $output = & .\StashNativeDesktopSample.exe -stash-auto local 2>&1 | Tee-Object -Variable lines
-          $lines | Where-Object { $_ -match "STASH-PROOF" }
+          $lines = & .\StashNativeDesktopSample.exe -stash-auto local 2>&1 | ForEach-Object { "$_" }
+          $lines
           if (-not ($lines -match "STASH-PROOF local: RESULT: PASS")) { exit 1 }
 
       - name: Run navigation policy smoke test
         shell: pwsh
         working-directory: Desktop/Windows/build/Sample/Release
+        env:
+          STASH_NATIVE_DESKTOP_LOG: stderr
         run: |
-          $output = & .\StashNativeDesktopSample.exe -stash-auto secure 2>&1 | Tee-Object -Variable lines
-          $lines | Where-Object { $_ -match "STASH-PROOF" }
+          $lines = & .\StashNativeDesktopSample.exe -stash-auto secure 2>&1 | ForEach-Object { "$_" }
+          $lines
           if (-not ($lines -match "STASH-PROOF secure: RESULT: PASS")) { exit 1 }
 
       - name: Upload sample artifact
