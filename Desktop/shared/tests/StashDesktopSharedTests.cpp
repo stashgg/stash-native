@@ -97,6 +97,9 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://256.1.1.1/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://999.999.999.999/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://1.2.3/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://09.0.0.1/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://010.0.0.1/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://0.0.0.0/x", out));
     CHECK(url::normalizeExternalPaymentUrl("https://10.0.0.1:8443/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("sms:12345", out));
     CHECK(!url::normalizeExternalPaymentUrl("custom:123/path", out));

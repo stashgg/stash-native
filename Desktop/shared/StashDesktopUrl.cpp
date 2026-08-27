@@ -34,7 +34,9 @@ bool validIpv4(const std::string &s) {
     while (pos <= s.size()) {
         size_t dot = s.find('.', pos);
         std::string part = s.substr(pos, dot == std::string::npos ? std::string::npos : dot - pos);
-        if (part.empty() || part.size() > 3) {
+        // 1-3 decimal digits, no leading zero: a browser rejects 09.0.0.1 and would read
+        // 010.0.0.1 as octal.
+        if (part.empty() || part.size() > 3 || (part.size() > 1 && part[0] == '0')) {
             return false;
         }
         int value = 0;
