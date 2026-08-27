@@ -189,7 +189,7 @@ The SDK uses only public, documented APIs on both platforms. Below is a summary 
 | Technique | Purpose |
 |-----------|---------|
 | Child windows of the game window (Windows), subviews of the host content view (macOS) | Card over the live game without a second top-level window |
-| WebView2 out-of-process runtime, per-game user data folder | Isolated browser processes; saved payment methods per game |
+| WebView2 out-of-process runtime, user data folder per executable name | Isolated browser processes; browser state (cookies, local storage) is shared only by executables of the same name; saved payment methods are keyed per shop and user on the backend, not by this folder |
 | `AddScriptToExecuteOnDocumentCreated` / `WKUserScript` | `window.stash_sdk` bridge injection |
 | Native trust header drawn by the game process | Page content cannot forge the host / lock row |
 
