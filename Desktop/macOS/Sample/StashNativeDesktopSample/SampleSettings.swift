@@ -2,9 +2,9 @@
 //  SampleSettings.swift
 //  StashNativeDesktopSample
 //
-//  Credentials and last-used values. UserDefaults keeps a rebuilt, unsigned sample binary away
-//  from Keychain prompts; the ingress secret is a server secret that must never ship in a real
-//  client, so nothing here is production guidance.
+//  Credentials and last-used values. The app id, environment and last URL live in UserDefaults;
+//  the ingress secret is a server secret that must never ship in a real client, so the sample
+//  keeps it in memory for the session only and never writes it to disk.
 //
 
 import Foundation
@@ -39,10 +39,16 @@ enum SampleSettings {
         set { defaults.set(newValue, forKey: "stash.appId") }
     }
 
+    /// Session-only. A value an earlier build saved to defaults is removed on first access.
     static var ingressSecret: String {
-        get { defaults.string(forKey: "stash.ingressSecret") ?? "" }
-        set { defaults.set(newValue, forKey: "stash.ingressSecret") }
+        get {
+            _ = purgeLegacySecret
+            return sessionSecret
+        }
+        set { sessionSecret = newValue }
     }
+    private static var sessionSecret = ""
+    private static let purgeLegacySecret: Void = defaults.removeObject(forKey: "stash.ingressSecret")
 
     static var environment: StashEnvironment {
         get { StashEnvironment(rawValue: defaults.string(forKey: "stash.environment") ?? "") ?? .test }

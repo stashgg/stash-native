@@ -15,6 +15,33 @@ final class EventLog {
     struct Entry {
         let type: String
         let payload: String
+
+        /// What the window shows and the proof runner prints. Payloads can carry the checkout URL
+        /// (navigation) or order data (paymentSuccess), so only fields that are safe to display
+        /// are rendered; everything else is reported by size.
+        var summary: String {
+            switch type {
+            case "pageLoaded", "webProcessCrashed":
+                return "\(type) \(payload)"
+            case "navigation":
+                return "\(type) \(Entry.origin(of: payload))"
+            case "navigationBlocked":
+                return "\(type) \(Entry.field("reason", in: payload))"
+            default:
+                return payload.isEmpty ? type : "\(type) (\(payload.utf8.count) bytes)"
+            }
+        }
+
+        static func origin(of url: String) -> String {
+            guard let parsed = URL(string: url), let scheme = parsed.scheme else { return "" }
+            return "\(scheme)://\(parsed.host ?? "")"
+        }
+
+        private static func field(_ name: String, in json: String) -> String {
+            guard let range = json.range(of: "\"\(name)\":\"") else { return "" }
+            let rest = json[range.upperBound...]
+            return String(rest.prefix { $0 != "\"" })
+        }
     }
 
     private(set) var entries: [Entry] = []

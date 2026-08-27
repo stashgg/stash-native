@@ -32,7 +32,7 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
         buildContent()
         StashNativeCard.sharedInstance().delegate = self
         EventLog.shared.onEvent = { [weak self] entry in
-            self?.appendLog("event \(entry.type) \(entry.payload)")
+            self?.appendLog("event \(entry.summary)")
         }
     }
 

@@ -426,9 +426,15 @@ jobs:
           ./.build/release/StashNativeDesktopSample -stash-auto secure 2>&1 | tee smoke-secure.log | grep STASH-PROOF
           grep -q "STASH-PROOF secure: RESULT: PASS" smoke-secure.log
 
+      - name: Stage sample artifact
+        run: |
+          mkdir -p artifact/test-pages
+          cp Desktop/.build/release/StashNativeDesktopSample artifact/
+          cp Desktop/shared/test-pages/* artifact/test-pages/
+
       - name: Upload sample artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-desktop-sample
-          path: Desktop/.build/release/StashNativeDesktopSample
+          path: artifact
           retention-days: 7

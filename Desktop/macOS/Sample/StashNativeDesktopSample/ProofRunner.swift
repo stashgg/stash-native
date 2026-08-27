@@ -24,8 +24,15 @@ final class ProofRunner {
         self.remoteUrl = remoteUrl
     }
 
+    /// Offline pages: next to the executable when the sample was packaged (the CI artifact ships
+    /// them in test-pages/), otherwise the source tree the binary was built from.
     static func testPageUrl(_ name: String) -> String {
-        // The shared pages live in the source tree next to this sample.
+        if let executableDir = Bundle.main.executableURL?.deletingLastPathComponent() {
+            let packaged = executableDir.appendingPathComponent("test-pages/\(name)")
+            if FileManager.default.fileExists(atPath: packaged.path) {
+                return packaged.absoluteString
+            }
+        }
         let sourceDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         let page = sourceDir.appendingPathComponent("../../../shared/test-pages/\(name)").standardized
         return page.absoluteString
@@ -45,7 +52,7 @@ final class ProofRunner {
 
     func start() {
         EventLog.shared.onEvent = { [weak self] entry in
-            self?.log("event \(entry.type) \(entry.payload)")
+            self?.log("event \(entry.summary)")
             self?.evaluate()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
@@ -54,29 +61,31 @@ final class ProofRunner {
         switch mode {
         case "local":
             let url = ProofRunner.testPageUrl("stash_test_checkout.html") + "?auto=1"
-            log("opening \(url)")
+            log("opening stash_test_checkout.html?auto=1 with allowFileUrls")
             StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: "{\"allowFileUrls\":true}")
         case "remote":
             guard let url = remoteUrl, !url.isEmpty else {
                 finish(false, "pass -stash-url <https://checkout url>")
                 return
             }
-            log("opening \(url)")
+            // The generated link carries a signed token: name the origin only.
+            log("opening \(EventLog.Entry.origin(of: url))")
             StashNativeCard.sharedInstance().openCard(withURL: url, config: nil)
         case "secure":
             phase = 1
             let url = ProofRunner.testPageUrl("stash_test_checkout.html")
-            log("opening \(url) without allowFileUrls")
+            log("opening stash_test_checkout.html without allowFileUrls")
             StashNativeCard.sharedInstance().openCard(withURL: url, config: nil)
         default:
             finish(false, "unknown mode, use local | remote | secure")
         }
     }
 
-    /// Consecutive duplicates collapsed: a redirect chain or a retry reports several navigations.
+    /// Adjacent navigation entries collapse into one (a redirect chain or a retry reports
+    /// several); every other event stays, so duplicates cannot pass as the expected sequence.
     private func collapsedTypes() -> [String] {
         var out: [String] = []
-        for type in EventLog.shared.types where out.last != type {
+        for type in EventLog.shared.types where !(type == "navigation" && out.last == "navigation") {
             out.append(type)
         }
         return out
