@@ -171,10 +171,12 @@ void Session::runDeeplinkResult(const std::string &u) {
     }
 }
 
-NavigationDecision Session::decideMainFrameNavigation(const std::string &u) {
+NavigationDecision Session::decideMainFrameNavigation(const std::string &raw) {
     if (finished_) {
         return NavigationDecision::Cancel;
     }
+    // Normalized once so classification and the scheme policy see the same string.
+    std::string u = url::trim(raw);
     if (!url::isWebScheme(u)) {
         runDeeplinkResult(u);
         return NavigationDecision::Cancel;
@@ -194,10 +196,11 @@ NavigationDecision Session::decideMainFrameNavigation(const std::string &u) {
     return NavigationDecision::Load;
 }
 
-NavigationDecision Session::decideSubFrameNavigation(const std::string &u) {
+NavigationDecision Session::decideSubFrameNavigation(const std::string &raw) {
     if (finished_) {
         return NavigationDecision::Cancel;
     }
+    std::string u = url::trim(raw);
     if (!url::isWebScheme(u)) {
         runDeeplinkResult(u);
         return NavigationDecision::Cancel;
@@ -212,7 +215,8 @@ NavigationDecision Session::decideSubFrameNavigation(const std::string &u) {
     return NavigationDecision::Load;
 }
 
-void Session::handleNewWindow(const std::string &u) {
+void Session::handleNewWindow(const std::string &raw) {
+    std::string u = url::trim(raw);
     if (finished_ || u.empty() || u == "about:blank") {
         return;
     }

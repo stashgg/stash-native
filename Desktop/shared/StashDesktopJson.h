@@ -12,7 +12,7 @@ namespace desktop {
 namespace json {
 
 // True when the text is one complete, well-formed JSON object (surrounding whitespace allowed):
-// string keys, balanced values, nothing after the closing brace. Config and message parsing gate
+// string keys, values validated against the full JSON grammar, nothing after the closing brace. Config and message parsing gate
 // on this so a truncated object falls back to defaults instead of a partial read.
 bool isObject(const std::string &text);
 

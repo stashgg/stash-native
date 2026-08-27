@@ -196,6 +196,30 @@ static void testJson() {
     CHECK(!json::isObject("{\"a\"}"));
     CHECK(!json::isObject("{\"a\":}"));
     CHECK(!json::isObject("{\"a\":1 \"b\":2}"));
+    // Values are validated against the JSON grammar, nested or not: bad literals, malformed
+    // numbers, invalid escapes and unbalanced containers all reject the whole object.
+    CHECK(!json::isObject("{\"allowFileUrls\":true,\"bad\":tru}"));
+    CHECK(!json::isObject("{\"a\":truex}"));
+    CHECK(!json::isObject("{\"a\":[1,2}"));
+    CHECK(!json::isObject("{\"a\":{\"b\":}}"));
+    CHECK(!json::isObject("{\"a\":[1,]}"));
+    CHECK(!json::isObject("{\"a\":{\"b\":1,}}"));
+    CHECK(!json::isObject("{\"a\":01}"));
+    CHECK(!json::isObject("{\"a\":1.}"));
+    CHECK(!json::isObject("{\"a\":+1}"));
+    CHECK(!json::isObject("{\"a\":1e}"));
+    CHECK(!json::isObject("{\"a\":\"\\x\"}"));
+    CHECK(!json::isObject("{\"a\":\"\\u12\"}"));
+    CHECK(!json::isObject("{\"a\":\"line\nbreak\"}"));
+    CHECK(!json::isObject("{\"a\":{\"b\":[\"c\"}}"));
+    CHECK(json::isObject("{\"a\":-0.5e+3,\"b\":[true,false,null,{\"c\":[]},[]],\"d\":\"\\/\\u00e9\"}"));
+    CHECK(near(json::getNumber("{\"a\":-0.5e+3}", "a", 0), -500));
+    CHECK_EQ(json::getString("{\"u\":\"https://x/?a=1\\u0026b=2\\/c\"}", "u", ""), std::string("https://x/?a=1&b=2/c"));
+    std::string deep = "{\"a\":";
+    for (int k = 0; k < 100; k++) {
+        deep += "[";
+    }
+    CHECK(!json::isObject(deep));
     std::string truncatedRaw;
     CHECK(!json::getRaw("{\"a\":false", "a", truncatedRaw));
     CHECK(json::getBool("{\"a\":false", "a", true));
@@ -291,6 +315,8 @@ static void testConfigParsing() {
     CHECK(malformedFile.autoClose);
     SurfaceConfig trailing = parseSurfaceConfig(SurfaceMode::Modal, "{\"allowDismiss\":false} extra");
     CHECK(trailing.allowDismiss);
+    SurfaceConfig badLiteral = parseSurfaceConfig(SurfaceMode::Card, "{\"allowFileUrls\":true,\"bad\":tru}");
+    CHECK(!badLiteral.allowFileUrls);
     SurfaceConfig notObject = parseSurfaceConfig(SurfaceMode::Card, "[1,2]");
     CHECK(notObject.autoClose);
 
@@ -648,6 +674,22 @@ static void testNavigationPolicy() {
         CHECK(h3.has(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED));
         CHECK(!h3.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         CHECK(s3.isPresented());
+        // Surrounding whitespace never slips a URL past the policy: trimmed once, then classified.
+        RecordingHost h4;
+        Session s4(h4, cardConfig(), false);
+        CHECK(s4.decideMainFrameNavigation(" file:///tmp/page.html") == NavigationDecision::Cancel);
+        CHECK(contains(h4.events[0].second, "\"url\":\"file:///tmp/page.html\""));
+        CHECK(contains(h4.events[0].second, "\"reason\":\"file_urls_disabled\""));
+        CHECK(h4.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        RecordingHost h5;
+        Session s5(h5, cardConfig(), false);
+        CHECK(s5.decideSubFrameNavigation("\thttp://acs.bank.example/challenge\n") == NavigationDecision::Cancel);
+        CHECK(contains(h5.events[0].second, "\"reason\":\"insecure_http\""));
+        CHECK(!h5.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        CHECK(s5.isPresented());
+        CHECK(s5.decideMainFrameNavigation("  https://checkout.stash.gg/pay/2  ") == NavigationDecision::Load);
+        CHECK(contains(h5.events[1].second, "https://checkout.stash.gg/pay/2"));
+        CHECK(!contains(h5.events[1].second, " https"));
     }
     {
         // stash-pay/success via deeplink: success with an empty order, once-guarded like the bridge.

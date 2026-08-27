@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace stash {
 namespace desktop {
@@ -15,60 +16,6 @@ bool isSpace(char c) {
 
 size_t skipSpace(const std::string &s, size_t i) {
     while (i < s.size() && isSpace(s[i])) {
-        i++;
-    }
-    return i;
-}
-
-// Index just past the value starting at s[i]; npos on malformed input.
-size_t skipValue(const std::string &s, size_t i) {
-    i = skipSpace(s, i);
-    if (i >= s.size()) {
-        return std::string::npos;
-    }
-    char c = s[i];
-    if (c == '"') {
-        i++;
-        while (i < s.size()) {
-            if (s[i] == '\\') {
-                i += 2;
-                continue;
-            }
-            if (s[i] == '"') {
-                return i + 1;
-            }
-            i++;
-        }
-        return std::string::npos;
-    }
-    if (c == '{' || c == '[') {
-        int depth = 0;
-        bool inString = false;
-        while (i < s.size()) {
-            char d = s[i];
-            if (inString) {
-                if (d == '\\') {
-                    i += 2;
-                    continue;
-                }
-                if (d == '"') {
-                    inString = false;
-                }
-            } else if (d == '"') {
-                inString = true;
-            } else if (d == '{' || d == '[') {
-                depth++;
-            } else if (d == '}' || d == ']') {
-                depth--;
-                if (depth == 0) {
-                    return i + 1;
-                }
-            }
-            i++;
-        }
-        return std::string::npos;
-    }
-    while (i < s.size() && s[i] != ',' && s[i] != '}' && s[i] != ']' && !isSpace(s[i])) {
         i++;
     }
     return i;
@@ -115,7 +62,170 @@ bool hex4(const std::string &s, size_t i, unsigned int &out) {
     return true;
 }
 
-// Walks one complete top-level object: string keys, colon, values delimited by skipValue, commas
+// Recursive-descent validation of one JSON value starting at s[i]: returns the index just past
+// it, npos on any grammar defect (bad literal, malformed number, invalid escape, unbalanced or
+// trailing-comma container). Nesting is capped so hostile input cannot exhaust the stack.
+const int kMaxDepth = 64;
+
+size_t skipValueAt(const std::string &s, size_t i, int depth);
+
+bool isDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+size_t skipString(const std::string &s, size_t i) {
+    i++;
+    while (i < s.size()) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c == '"') {
+            return i + 1;
+        }
+        if (c == '\\') {
+            if (i + 1 >= s.size()) {
+                return std::string::npos;
+            }
+            char e = s[i + 1];
+            if (e == 'u') {
+                unsigned int code = 0;
+                if (!hex4(s, i + 2, code)) {
+                    return std::string::npos;
+                }
+                i += 6;
+            } else if (e == '"' || e == '\\' || e == '/' || e == 'b' || e == 'f' || e == 'n' || e == 'r' || e == 't') {
+                i += 2;
+            } else {
+                return std::string::npos;
+            }
+            continue;
+        }
+        if (c < 0x20) {
+            return std::string::npos;
+        }
+        i++;
+    }
+    return std::string::npos;
+}
+
+size_t skipNumber(const std::string &s, size_t i) {
+    if (i < s.size() && s[i] == '-') {
+        i++;
+    }
+    if (i >= s.size()) {
+        return std::string::npos;
+    }
+    if (s[i] == '0') {
+        i++;
+    } else if (isDigit(s[i])) {
+        while (i < s.size() && isDigit(s[i])) {
+            i++;
+        }
+    } else {
+        return std::string::npos;
+    }
+    if (i < s.size() && s[i] == '.') {
+        i++;
+        size_t digits = i;
+        while (i < s.size() && isDigit(s[i])) {
+            i++;
+        }
+        if (i == digits) {
+            return std::string::npos;
+        }
+    }
+    if (i < s.size() && (s[i] == 'e' || s[i] == 'E')) {
+        i++;
+        if (i < s.size() && (s[i] == '+' || s[i] == '-')) {
+            i++;
+        }
+        size_t digits = i;
+        while (i < s.size() && isDigit(s[i])) {
+            i++;
+        }
+        if (i == digits) {
+            return std::string::npos;
+        }
+    }
+    return i;
+}
+
+size_t skipLiteral(const std::string &s, size_t i, const char *word) {
+    size_t n = std::strlen(word);
+    return s.compare(i, n, word) == 0 ? i + n : std::string::npos;
+}
+
+size_t skipContainer(const std::string &s, size_t i, char close, int depth) {
+    if (depth > kMaxDepth) {
+        return std::string::npos;
+    }
+    bool object = close == '}';
+    i = skipSpace(s, i + 1);
+    if (i < s.size() && s[i] == close) {
+        return i + 1;
+    }
+    while (true) {
+        if (object) {
+            if (i >= s.size() || s[i] != '"') {
+                return std::string::npos;
+            }
+            i = skipString(s, i);
+            if (i == std::string::npos) {
+                return std::string::npos;
+            }
+            i = skipSpace(s, i);
+            if (i >= s.size() || s[i] != ':') {
+                return std::string::npos;
+            }
+            i++;
+        }
+        i = skipValueAt(s, i, depth + 1);
+        if (i == std::string::npos) {
+            return std::string::npos;
+        }
+        i = skipSpace(s, i);
+        if (i >= s.size()) {
+            return std::string::npos;
+        }
+        if (s[i] == close) {
+            return i + 1;
+        }
+        if (s[i] != ',') {
+            return std::string::npos;
+        }
+        i = skipSpace(s, i + 1);
+    }
+}
+
+size_t skipValueAt(const std::string &s, size_t i, int depth) {
+    i = skipSpace(s, i);
+    if (i >= s.size()) {
+        return std::string::npos;
+    }
+    char c = s[i];
+    if (c == '"') {
+        return skipString(s, i);
+    }
+    if (c == '{') {
+        return skipContainer(s, i, '}', depth);
+    }
+    if (c == '[') {
+        return skipContainer(s, i, ']', depth);
+    }
+    if (c == 't') {
+        return skipLiteral(s, i, "true");
+    }
+    if (c == 'f') {
+        return skipLiteral(s, i, "false");
+    }
+    if (c == 'n') {
+        return skipLiteral(s, i, "null");
+    }
+    if (c == '-' || isDigit(c)) {
+        return skipNumber(s, i);
+    }
+    return std::string::npos;
+}
+
+// Walks one complete top-level object: string keys, colon, fully validated values, commas
 // between pairs, nothing but whitespace after the closing brace. False on the first defect, so a
 // truncated or garbled object never yields a partial read. With a key, the raw text of its first
 // occurrence lands in rawOut and found reports whether it was present.
@@ -133,7 +243,7 @@ bool scanObject(const std::string &s, const std::string *key, std::string *rawOu
         if (i >= s.size() || s[i] != '"') {
             return false;
         }
-        size_t keyEnd = skipValue(s, i);
+        size_t keyEnd = skipString(s, i);
         if (keyEnd == std::string::npos) {
             return false;
         }
@@ -143,8 +253,8 @@ bool scanObject(const std::string &s, const std::string *key, std::string *rawOu
             return false;
         }
         i = skipSpace(s, i + 1);
-        size_t valueEnd = skipValue(s, i);
-        if (valueEnd == std::string::npos || valueEnd == i) {
+        size_t valueEnd = skipValueAt(s, i, 1);
+        if (valueEnd == std::string::npos) {
             return false;
         }
         if (key != nullptr && !found && k == *key) {
