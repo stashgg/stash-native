@@ -389,9 +389,11 @@ struct RecordingHost : SessionHost {
     std::vector<std::pair<std::string, std::string>> events;
     std::vector<std::string> browser;
     std::vector<std::string> deeplinks;
+    std::vector<std::string> logs;
     int closes = 0;
     void emitEvent(const std::string &type, const std::string &payload) override { events.push_back({type, payload}); }
     void closeSurface() override { closes++; }
+    void log(const std::string &message) override { logs.push_back(message); }
     void openSystemBrowser(const std::string &u) override { browser.push_back(u); }
     void openDeeplinkExternally(const std::string &u) override { deeplinks.push_back(u); }
     bool has(const char *type) const {
@@ -574,7 +576,11 @@ static void testExternalPayment() {
 static void testExternalPaymentRejected() {
     RecordingHost h;
     Session s(h, cardConfig(), false);
-    s.handleExternalPayment("javascript:alert(1)");
+    s.handleExternalPayment("javascript:alert(1)?token=secret");
+    // The rejection log names the scheme only; the value itself never reaches a host log.
+    CHECK(!h.logs.empty());
+    CHECK(contains(h.logs.back(), "scheme javascript"));
+    CHECK(!contains(h.logs.back(), "secret"));
     s.handleExternalPayment("");
     CHECK(s.isPresented());
     CHECK(h.events.empty());

@@ -132,7 +132,8 @@ void Session::handleExternalPayment(const std::string &rawUrl) {
     }
     std::string normalized;
     if (!url::normalizeExternalPaymentUrl(rawUrl, normalized)) {
-        host_.log("openExternalBrowser rejected: " + rawUrl);
+        // Scheme only: the rejected value may carry signed query data.
+        host_.log("openExternalBrowser rejected, scheme " + url::scheme(url::trim(rawUrl)));
         return;
     }
     std::string themed = themedUrl(normalized);
@@ -148,7 +149,8 @@ void Session::handleOpenLink(const std::string &rawUrl) {
     }
     std::string normalized;
     if (!url::normalizeExternalPaymentUrl(rawUrl, normalized)) {
-        host_.log("openLink rejected: " + rawUrl);
+        // Scheme only: the rejected value may carry signed query data.
+        host_.log("openLink rejected, scheme " + url::scheme(url::trim(rawUrl)));
         return;
     }
     host_.openSystemBrowser(normalized);
