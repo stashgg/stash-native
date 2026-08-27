@@ -186,7 +186,7 @@ NavigationDecision Session::decideMainFrameNavigation(const std::string &raw) {
     const char *blockReason = blockReasonFor(u, config_);
     if (blockReason != nullptr) {
         host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
-                        json::object({{"url", u}, {"reason", blockReason}}));
+                        json::object({{"url", url::origin(u)}, {"reason", blockReason}}));
         // Before the first load completes there is nothing to fall back to: fail fast instead of
         // spinning until the deadline. Afterwards the loaded page stays.
         if (!pageLoadedEmitted_) {
@@ -194,7 +194,8 @@ NavigationDecision Session::decideMainFrameNavigation(const std::string &raw) {
         }
         return NavigationDecision::Cancel;
     }
-    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION, u);
+    // Origin only: the URL carries the signed checkout token and wrappers log this event.
+    host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION, url::origin(u));
     return NavigationDecision::Load;
 }
 
@@ -211,7 +212,7 @@ NavigationDecision Session::decideSubFrameNavigation(const std::string &raw) {
     if (blockReason != nullptr) {
         // The parent page stays; only the frame is refused.
         host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
-                        json::object({{"url", u}, {"reason", blockReason}}));
+                        json::object({{"url", url::origin(u)}, {"reason", blockReason}}));
         return NavigationDecision::Cancel;
     }
     return NavigationDecision::Load;

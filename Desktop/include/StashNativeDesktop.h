@@ -43,8 +43,8 @@ extern "C" {
 #define STASH_NATIVE_DESKTOP_EVENT_PURCHASE_PROCESSING  "purchaseProcessing"  /* payload: empty */
 #define STASH_NATIVE_DESKTOP_EVENT_PROCESSING_COMPLETED "processingCompleted" /* payload: empty */
 // Diagnostics. Wrappers log these; they carry no host-facing semantics.
-#define STASH_NATIVE_DESKTOP_EVENT_NAVIGATION           "navigation"          /* payload: URL */
-#define STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED   "navigationBlocked"   /* payload: {"url","reason"} */
+#define STASH_NATIVE_DESKTOP_EVENT_NAVIGATION           "navigation"          /* payload: origin (scheme://host), never the URL */
+#define STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED   "navigationBlocked"   /* payload: {"url": origin, "reason"} */
 #define STASH_NATIVE_DESKTOP_EVENT_WEB_PROCESS_CRASHED  "webProcessCrashed"   /* payload: "reloading" | "terminal" */
 #define STASH_NATIVE_DESKTOP_EVENT_ERROR                "error"               /* payload: message */
 

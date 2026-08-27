@@ -94,6 +94,11 @@ static void testUrlParts() {
     CHECK_EQ(url::host("https://User:pw@Checkout.Stash.gg:443/pay/1?x#y"), std::string("checkout.stash.gg"));
     CHECK_EQ(url::host("https://[::1]:8080/x"), std::string("[::1]"));
     CHECK_EQ(url::host("mailto:a@b"), std::string(""));
+    CHECK_EQ(url::origin("https://User:pw@Checkout.Stash.gg:443/pay/1?token=abc#y"), std::string("https://checkout.stash.gg"));
+    CHECK_EQ(url::origin("file:///tmp/page.html"), std::string("file://"));
+    CHECK_EQ(url::origin("mailto:a@b"), std::string("mailto:"));
+    CHECK_EQ(url::origin("about:blank"), std::string("about:"));
+    CHECK_EQ(url::origin("/relative"), std::string(""));
 }
 
 static void testDeeplinks() {
@@ -620,8 +625,9 @@ static void testNavigationPolicy() {
     {
         RecordingHost h;
         Session s(h, cardConfig(), false);
-        CHECK(s.decideMainFrameNavigation("https://checkout.stash.gg/pay/1") == NavigationDecision::Load);
+        CHECK(s.decideMainFrameNavigation("https://checkout.stash.gg/pay/1?token=signed") == NavigationDecision::Load);
         CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION), 1);
+        CHECK_EQ(h.events[0].second, std::string("https://checkout.stash.gg"));
         // After the first finished load a blocked navigation cancels and the page stays.
         s.handlePageFinished(10);
         CHECK(s.decideMainFrameNavigation("http://insecure.example.com") == NavigationDecision::Cancel);
@@ -684,7 +690,7 @@ static void testNavigationPolicy() {
         RecordingHost h4;
         Session s4(h4, cardConfig(), false);
         CHECK(s4.decideMainFrameNavigation(" file:///tmp/page.html") == NavigationDecision::Cancel);
-        CHECK(contains(h4.events[0].second, "\"url\":\"file:///tmp/page.html\""));
+        CHECK(contains(h4.events[0].second, "\"url\":\"file://\""));
         CHECK(contains(h4.events[0].second, "\"reason\":\"file_urls_disabled\""));
         CHECK(h4.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         RecordingHost h5;
@@ -694,8 +700,8 @@ static void testNavigationPolicy() {
         CHECK(!h5.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         CHECK(s5.isPresented());
         CHECK(s5.decideMainFrameNavigation("  https://checkout.stash.gg/pay/2  ") == NavigationDecision::Load);
-        CHECK(contains(h5.events[1].second, "https://checkout.stash.gg/pay/2"));
-        CHECK(!contains(h5.events[1].second, " https"));
+        // The navigation payload is the origin: no path, query or token, no whitespace.
+        CHECK_EQ(h5.events[1].second, std::string("https://checkout.stash.gg"));
     }
     {
         // stash-pay/success via deeplink: success with an empty order, once-guarded like the bridge.

@@ -97,6 +97,17 @@ std::string host(const std::string &u) {
     return toLower(authority);
 }
 
+std::string origin(const std::string &u) {
+    std::string sch = scheme(u);
+    if (sch.empty()) {
+        return "";
+    }
+    if (u.compare(sch.size(), 3, "://") != 0) {
+        return sch + ":";
+    }
+    return sch + "://" + host(u);
+}
+
 bool isWebScheme(const std::string &u) {
     std::string s = scheme(trim(u));
     return s.empty() || s == "http" || s == "https" || s == "about" || s == "data" || s == "blob" ||
