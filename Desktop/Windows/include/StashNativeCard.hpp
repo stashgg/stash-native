@@ -187,6 +187,12 @@ inline void dispatchEvent(StashNativeCardListener *listener, const char *type, c
 
 }  // namespace detail
 
+// Threading and callback contract: every call goes on the thread that runs the host window's
+// message loop (an STA; an MTA thread is refused with an error event). Listener callbacks are
+// delivered on that same thread through a posted message, so they arrive after the WebView2
+// event that produced them has unwound, never re-entrantly. target=_blank / window.open and
+// openLink open the system browser and the checkout stays presented; externalPayment closes it.
+// Full guide: docs/windows.md in the stash-native repository.
 class StashNativeCard {
 public:
     static StashNativeCard &getInstance() {

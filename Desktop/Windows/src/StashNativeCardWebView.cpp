@@ -727,10 +727,16 @@ void prewarm() {
         g.prewarmHost = CreateWindowExW(WS_EX_TOOLWINDOW, kPrewarmClass, L"", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr,
                                         Core::instance().moduleInstance(), nullptr);
     }
+    unsigned long generation = g.environmentGeneration;
     auto *handler = STASH_CALLBACK(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler, HRESULT, ICoreWebView2Controller *,
-                                   ([](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
+                                   ([generation](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
                                        if (FAILED(result) || controller == nullptr) {
                                            debugLog("prewarm controller creation failed hr=0x%08X", static_cast<unsigned>(result));
+                                           return S_OK;
+                                       }
+                                       if (generation != g.environmentGeneration) {
+                                           // Shutdown ran meanwhile: a controller of a retired environment must not be kept.
+                                           controller->Close();
                                            return S_OK;
                                        }
                                        if (g.controller != nullptr || g.prewarmController != nullptr) {
