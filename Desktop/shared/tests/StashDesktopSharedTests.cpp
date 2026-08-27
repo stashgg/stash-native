@@ -283,6 +283,11 @@ static void testJson() {
              std::string("{\"url\":\"https://x/?a=\\\"1\\\"\",\"reason\":\"insecure_http\"}"));
     CHECK_EQ(json::escape("a\nb\tc\\"), std::string("a\\nb\\tc\\\\"));
     CHECK_EQ(json::dataToPayload("\"order-1\""), std::string("order-1"));
+    // Lone surrogates become U+FFFD; a pair still decodes.
+    CHECK_EQ(json::unescape("a\\ud800b"), std::string("a\xEF\xBF\xBD" "b"));
+    CHECK_EQ(json::unescape("\\udc00"), std::string("\xEF\xBF\xBD"));
+    CHECK_EQ(json::unescape("\\ud83d\\ude00"), std::string("\xF0\x9F\x98\x80"));
+    CHECK_EQ(json::unescape("\\ud83dx"), std::string("\xEF\xBF\xBDx"));
     CHECK_EQ(json::dataToPayload("{\"id\":1}"), std::string("{\"id\":1}"));
     CHECK_EQ(json::dataToPayload(""), std::string(""));
     CHECK_EQ(json::dataToPayload("null"), std::string(""));
@@ -657,6 +662,19 @@ static void testNewWindow() {
     CHECK_EQ(h.deeplinks.size(), size_t(1));
     CHECK(s.isPresented());
     CHECK(h.events.empty());
+
+    // A stash-pay result opened in a new window runs the bridge flow, as from any frame.
+    RecordingHost h2;
+    Session s2(h2, cardConfig(), false);
+    s2.handleNewWindow("bankapp://stash-pay/success?order=1");
+    CHECK(h2.has(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS));
+    CHECK(h2.deeplinks.empty());
+    CHECK(!s2.isPresented());
+    RecordingHost h3;
+    Session s3(h3, cardConfig(), false);
+    s3.handleNewWindow("bankapp://stash-pay/cancel");
+    CHECK(h3.has(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED));
+    CHECK(!s3.isPresented());
 }
 
 static void testNavigationPolicy() {

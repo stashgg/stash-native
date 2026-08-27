@@ -65,7 +65,8 @@ public:
     // needs allowFileUrls, http is blocked); a refused frame reports navigationBlocked and leaves
     // the parent page in place.
     NavigationDecision decideSubFrameNavigation(const std::string &url);
-    // target=_blank / window.open: external browser, checkout stays open; empty / about:blank dropped.
+    // target=_blank / window.open: web URLs open the external browser and the checkout stays;
+    // deeplinks are consumed as in the frame policies; empty / about:blank dropped.
     void handleNewWindow(const std::string &url);
 
     // First finished main-frame load of the presentation: pageLoaded once, spinner hides.

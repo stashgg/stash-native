@@ -230,7 +230,9 @@ void Session::handleNewWindow(const std::string &raw) {
         }
         return;
     }
-    host_.openDeeplinkExternally(u);
+    // A deeplink opened in a new window is still a deeplink: stash-pay results run the bridge
+    // flows, anything else goes to the OS.
+    runDeeplinkResult(u);
 }
 
 void Session::handlePageFinished(double loadTimeMs) {

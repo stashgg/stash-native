@@ -428,6 +428,11 @@ std::string unescape(const std::string &raw) {
                         i += 6;
                     }
                 }
+                // A lone surrogate (WebView2 serializes unpaired JavaScript surrogates as \udXXX)
+                // has no UTF-8 form; the ABI promises UTF-8, so it becomes U+FFFD.
+                if (code >= 0xD800 && code <= 0xDFFF) {
+                    code = 0xFFFD;
+                }
                 appendUtf8(out, code);
                 break;
             }
