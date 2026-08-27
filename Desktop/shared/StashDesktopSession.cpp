@@ -303,7 +303,13 @@ void Session::reset() {
 
 // The surface is gone (and isPresented false) before the terminal event reaches the host, so a
 // wrapper may open the next checkout from inside the callback.
+// Idempotent: a terminal event is delivered synchronously, and an integrator may call Dismiss
+// or Reset from inside it. The re-entrant call finishes the session; the outer path then finds
+// it finished and closes nothing twice. dismissEmitted_ keeps dialogDismissed to one.
 void Session::finishWithoutDismissEvent() {
+    if (finished_) {
+        return;
+    }
     finished_ = true;
     presented_ = false;
     purchaseProcessing_ = false;

@@ -613,6 +613,30 @@ static void testModalAllowDismiss() {
     CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED), 1);
 }
 
+// An integrator dismissing from inside the opt-in callback: one opt-in event, one dismissal,
+// one surface close.
+struct ReentrantDismissHost : RecordingHost {
+    Session *session = nullptr;
+    void emitEvent(const std::string &type, const std::string &payload) override {
+        RecordingHost::emitEvent(type, payload);
+        if (type == STASH_NATIVE_DESKTOP_EVENT_OPT_IN_RESPONSE && session != nullptr) {
+            session->dismiss();
+        }
+    }
+};
+
+static void testReentrantDismissFromOptIn() {
+    ReentrantDismissHost h;
+    Session s(h, cardConfig(), false);
+    h.session = &s;
+    s.handleMessage(STASH_SDK_MSG_OPTIN, "email");
+    CHECK_EQ(h.events.size(), size_t(2));
+    CHECK_EQ(h.events[0].first, std::string(STASH_NATIVE_DESKTOP_EVENT_OPT_IN_RESPONSE));
+    CHECK_EQ(h.events[1].first, std::string(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED));
+    CHECK_EQ(h.closes, 1);
+    CHECK(!s.isPresented());
+}
+
 static void testOptIn() {
     RecordingHost h;
     Session s(h, cardConfig(), false);
@@ -853,6 +877,7 @@ int main() {
     testProgrammaticDismissDuringProcessing();
     testModalAllowDismiss();
     testOptIn();
+    testReentrantDismissFromOptIn();
     testExternalPayment();
     testExternalPaymentRejected();
     testEmbeddedNulPayload();
