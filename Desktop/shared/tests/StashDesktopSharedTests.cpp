@@ -80,6 +80,15 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("HTTPS:/pay.example", out));
     CHECK(url::normalizeExternalPaymentUrl("pay.example/x", out));
     CHECK_EQ(out, std::string("https://pay.example/x"));
+    // Any other explicit scheme is rejected; a scheme-less host with a port is prefixed.
+    CHECK(!url::normalizeExternalPaymentUrl("ftp://pay.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("mailto:pay@example.com", out));
+    CHECK(!url::normalizeExternalPaymentUrl("stashdemo://open", out));
+    CHECK(!url::normalizeExternalPaymentUrl("about:blank", out));
+    CHECK(url::normalizeExternalPaymentUrl("pay.example:8443/x", out));
+    CHECK_EQ(out, std::string("https://pay.example:8443/x"));
+    CHECK(url::normalizeExternalPaymentUrl("pay.example:8443", out));
+    CHECK_EQ(out, std::string("https://pay.example:8443"));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.%ZZ/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%4/x", out));
@@ -113,8 +122,9 @@ static void testUrlNormalization() {
     CHECK(url::normalizeExternalPaymentUrl("https://[::]/x", out));
     CHECK(url::normalizeExternalPaymentUrl("https://pay.example:8443/x?a=1", out));
     CHECK_EQ(out, std::string("https://pay.example:8443/x?a=1"));
-    // Mobile parses "https://mailto:a@b.c" as userinfo + host b.c and accepts it; same here.
-    CHECK(url::normalizeExternalPaymentUrl("mailto:a@b.c", out) && out == "https://mailto:a@b.c");
+    // Deliberate divergence from the mobile vector (which prefixes this into https://mailto:a@b.c
+    // and opens a nonsense URL): an explicit non-HTTP scheme is rejected on desktop.
+    CHECK(!url::normalizeExternalPaymentUrl("mailto:a@b.c", out));
     CHECK(!url::normalizeExternalPaymentUrl("https:///nohost", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://ex ample.com/x", out));
 

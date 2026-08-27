@@ -297,10 +297,28 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
     if (startsWith(lower, "javascript:") || startsWith(lower, "file:") || startsWith(lower, "data:")) {
         return false;
     }
-    if (startsWith(lower, "http:") || startsWith(lower, "https:")) {
-        // Explicitly schemed: it must be well-formed. "https:/pay.example" is not a scheme-less
-        // host to prefix; prefixing would open https://https:/pay.example.
-        if (!startsWith(lower, "http://") && !startsWith(lower, "https://")) {
+    // Only a scheme-less value is prefixed with https://. An explicit scheme must be http or
+    // https and well-formed: "ftp://pay.example" and "https:/pay.example" are rejected, not
+    // reinterpreted as hosts. "pay.example:8443/x" is a host with a port, not a scheme.
+    std::string explicitScheme = scheme(lower);
+    if (!explicitScheme.empty()) {
+        std::string rest = lower.substr(explicitScheme.size() + 1);
+        bool hierarchical = startsWith(rest, "//");
+        bool portOnly = !rest.empty();
+        for (size_t i = 0; i < rest.size() && portOnly; i++) {
+            if (rest[i] == '/' || rest[i] == '?' || rest[i] == '#') {
+                portOnly = i > 0;
+                break;
+            }
+            portOnly = rest[i] >= '0' && rest[i] <= '9';
+        }
+        if (hierarchical) {
+            if (explicitScheme != "http" && explicitScheme != "https") {
+                return false;
+            }
+        } else if (portOnly) {
+            s = "https://" + s;
+        } else {
             return false;
         }
     } else {

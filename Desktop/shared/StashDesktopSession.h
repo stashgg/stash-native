@@ -13,6 +13,11 @@
 namespace stash {
 namespace desktop {
 
+// Hosts deliver events after the call that produced them has returned (macOS: dispatch_async
+// on the main queue, Windows: a posted message). The session relies on that: terminal
+// sequences such as optInResponse then dialogDismissed are queued in full before an integrator
+// callback can run, so a checkout opened from inside a callback never receives the previous
+// session's events.
 class SessionHost {
 public:
     virtual ~SessionHost() {}
