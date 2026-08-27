@@ -28,6 +28,8 @@ struct Waiter {
 
 struct State {
     bool comInitialized = false;
+    // Retires an environment-creation completion that outlives releaseAll().
+    unsigned long environmentGeneration = 0;
     ICoreWebView2Environment *environment = nullptr;
     bool environmentCreating = false;
     std::vector<Waiter> waiters;
@@ -557,7 +559,19 @@ void ensureEnvironment(std::function<void()> onReady, std::function<void()> onFa
     }
     if (!g.comInitialized) {
         HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-        // RPC_E_CHANGED_MODE: the thread already runs a COM apartment, which is fine.
+        if (hr == RPC_E_CHANGED_MODE) {
+            // The thread already runs a COM apartment. WebView2 needs an STA: an MTA thread
+            // would show a surface and then fail to create the environment.
+            APTTYPE type = APTTYPE_CURRENT;
+            APTTYPEQUALIFIER qualifier = APTTYPEQUALIFIER_NONE;
+            bool sta = SUCCEEDED(CoGetApartmentType(&type, &qualifier)) && (type == APTTYPE_STA || type == APTTYPE_MAINSTA);
+            if (!sta) {
+                emitError("WebView2 needs a single-threaded apartment: call the SDK from the thread that runs the "
+                          "host window's message loop, not from an MTA thread");
+                runWaiters(false);
+                return;
+            }
+        }
         if (SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE) {
             g.comInitialized = true;
         }
@@ -575,8 +589,14 @@ void ensureEnvironment(std::function<void()> onReady, std::function<void()> onFa
 
     g.environmentCreating = true;
     std::wstring folder = userDataFolder();
+    unsigned long generation = g.environmentGeneration;
     auto *handler = STASH_CALLBACK(ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler, HRESULT, ICoreWebView2Environment *,
-                                   ([](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
+                                   ([generation](HRESULT result, ICoreWebView2Environment *environment) -> HRESULT {
+                                       if (generation != g.environmentGeneration) {
+                                           // releaseAll() ran meanwhile; a later open owns the waiters now.
+                                           debugLog("stale environment completion ignored");
+                                           return S_OK;
+                                       }
                                        g.environmentCreating = false;
                                        if (FAILED(result) || environment == nullptr) {
                                            debugLog("environment creation failed hr=0x%08X", static_cast<unsigned>(result));
@@ -746,6 +766,7 @@ void releaseAll() {
     }
     safeRelease(g.environment);
     g.environmentCreating = false;
+    g.environmentGeneration++;
     g.waiters.clear();
 }
 
