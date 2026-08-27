@@ -31,24 +31,84 @@ bool isHexDigit(char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
+unsigned int hexValue(char c) {
+    if (c >= '0' && c <= '9') {
+        return static_cast<unsigned int>(c - '0');
+    }
+    if (c >= 'a' && c <= 'f') {
+        return static_cast<unsigned int>(c - 'a' + 10);
+    }
+    return static_cast<unsigned int>(c - 'A' + 10);
+}
+
+// Well-formed UTF-8 (shortest forms, no surrogates, no code points above U+10FFFF).
+bool validUtf8(const std::string &s) {
+    size_t i = 0;
+    while (i < s.size()) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        size_t extra;
+        unsigned int code;
+        if (c < 0x80) {
+            i++;
+            continue;
+        } else if ((c & 0xE0) == 0xC0 && c >= 0xC2) {
+            extra = 1;
+            code = c & 0x1F;
+        } else if ((c & 0xF0) == 0xE0) {
+            extra = 2;
+            code = c & 0x0F;
+        } else if ((c & 0xF8) == 0xF0 && c <= 0xF4) {
+            extra = 3;
+            code = c & 0x07;
+        } else {
+            return false;
+        }
+        for (size_t k = 1; k <= extra; k++) {
+            if (i + k >= s.size()) {
+                return false;
+            }
+            unsigned char cc = static_cast<unsigned char>(s[i + k]);
+            if ((cc & 0xC0) != 0x80) {
+                return false;
+            }
+            code = (code << 6) | (cc & 0x3F);
+        }
+        if ((extra == 2 && (code < 0x800 || (code >= 0xD800 && code <= 0xDFFF))) || (extra == 3 && (code < 0x10000 || code > 0x10FFFF))) {
+            return false;
+        }
+        i += extra + 1;
+    }
+    return true;
+}
+
 // Plain (non-bracketed) hosts only: brackets and colons belong to IPv6 literals, which are
-// validated structurally instead. A '%' must be a complete hexadecimal escape.
+// validated structurally instead. Percent escapes are decoded first: what they stand for must
+// itself be a host byte (a browser rejects %2F, %00 or %20 in a host), and the decoded host
+// must be well-formed UTF-8.
 bool validHostChars(const std::string &h) {
+    std::string decoded;
+    decoded.reserve(h.size());
     for (size_t i = 0; i < h.size(); i++) {
-        unsigned char c = static_cast<unsigned char>(h[i]);
+        char c = h[i];
         if (c == '%') {
             if (i + 2 >= h.size() || !isHexDigit(h[i + 1]) || !isHexDigit(h[i + 2])) {
                 return false;
             }
+            decoded += static_cast<char>(hexValue(h[i + 1]) * 16 + hexValue(h[i + 2]));
             i += 2;
-            continue;
+        } else {
+            decoded += c;
         }
-        bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' || c >= 0x80;
+    }
+    for (char ch : decoded) {
+        unsigned char c = static_cast<unsigned char>(ch);
+        bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' ||
+                  c == '_' || c >= 0x80;
         if (!ok) {
             return false;
         }
     }
-    return true;
+    return validUtf8(decoded);
 }
 
 }  // namespace

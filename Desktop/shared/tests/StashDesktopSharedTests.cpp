@@ -78,6 +78,15 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%4/x", out));
     CHECK(url::normalizeExternalPaymentUrl("https://pay.%41example/x", out));
+    // Escapes are judged by what they decode to: a host byte and well-formed UTF-8.
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay%2Fexample/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay%00example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay%20example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay%FFexample/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay%C3example/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://b%C3%BCcher.example/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://b\xC3\xBC" "cher.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://b\xC3" "cher.example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.[example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:8443]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[zz::1]/x", out));
