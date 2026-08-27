@@ -70,6 +70,7 @@ private:
     StashDesktopMessageProxy *_messageProxy;
     WKWebView *_liveWebView;
     WKWebView *_prewarmedWebView;
+    WKNavigation *_prewarmNavigation;
     std::atomic<bool> _presentedMirror;
     std::atomic<bool> _processingMirror;
     StashNativeDesktopEventCallback _callback;
@@ -226,7 +227,7 @@ private:
         return;
     }
     WKWebView *webView = [self makeWebView];
-    [webView loadHTMLString:@"<html></html>" baseURL:nil];
+    _prewarmNavigation = [webView loadHTMLString:@"<html></html>" baseURL:nil];
     _prewarmedWebView = webView;
     STASH_DESKTOP_LOG(@"StashNativeDesktop: prewarmed webview ready");
 }
@@ -278,6 +279,10 @@ private:
     WKWebView *webView = [self takeWebView];
     [self applySessionScriptsToWebView:webView dark:_session->themeIsDark() sheetArgb:sheetArgb];
     _loadDelegate = [[StashNativeCardLoadDelegate alloc] initWithCore:self sessionId:_sessionId];
+    // stopLoading in takeWebView is not a callback barrier: a placeholder completion already
+    // queued must not count as the checkout's.
+    [_loadDelegate ignoreNavigation:_prewarmNavigation];
+    _prewarmNavigation = nil;
     webView.navigationDelegate = _loadDelegate;
     webView.UIDelegate = _loadDelegate;
     _liveWebView = webView;
@@ -400,6 +405,7 @@ private:
     }
     [self closeSurface];
     _prewarmedWebView = nil;
+    _prewarmNavigation = nil;
     _callback = nullptr;
     _callbackUserData = nullptr;
     [self refreshStateMirrors];

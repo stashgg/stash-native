@@ -9,6 +9,7 @@
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 
+#include <algorithm>
 #include <atomic>
 #include <string>
 #include <unistd.h>
@@ -17,13 +18,17 @@
 #include "StashNativeDesktop.h"
 #include "StashSdkScript.h"
 
+#include <vector>
+
 static std::string gLastEventType;
 static std::string gLastEventPayload;
+static std::vector<std::string> gEventTypes;
 
 static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *payload, void *userData) {
     (void)userData;
     gLastEventType = type ?: "";
     gLastEventPayload = payload ?: "";
+    gEventTypes.push_back(gLastEventType);
 }
 
 @interface StashNativeDesktopTests : XCTestCase
@@ -233,6 +238,40 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
     XCTAssertTrue(sawMarkerOnSet->load());
     XCTAssertTrue(sawMarkerOnShutdown->load());
     StashNativeDesktop_SetEventCallback(nullptr, nullptr);
+}
+
+// Opening right after prewarm: the placeholder's queued completion must not consume the
+// one-shot pageLoaded. Exactly one pageLoaded, after the checkout's navigation event.
+- (void)testPrewarmThenImmediateOpenReportsOnePageLoaded {
+    [NSApplication sharedApplication];
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 900, 700)
+                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    window.releasedWhenClosed = NO;
+    StashNativeCard *card = [StashNativeCard sharedInstance];
+    card.hostWindow = window;
+    gEventTypes.clear();
+    StashNativeDesktop_SetEventCallback(RecordEvent, nullptr);
+    [card prewarm];
+    [card openCardWithURL:@"data:text/html,<p>stash</p>" config:nil];
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:3];
+    while ([deadline timeIntervalSinceNow] > 0) {
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+        if (std::count(gEventTypes.begin(), gEventTypes.end(), std::string(STASH_NATIVE_DESKTOP_EVENT_PAGE_LOADED)) > 0 &&
+            [deadline timeIntervalSinceNow] < 2.2) {
+            break;
+        }
+    }
+    size_t loaded = std::count(gEventTypes.begin(), gEventTypes.end(), std::string(STASH_NATIVE_DESKTOP_EVENT_PAGE_LOADED));
+    XCTAssertEqual(loaded, (size_t)1);
+    XCTAssertFalse(gEventTypes.empty());
+    XCTAssertEqual(gEventTypes.front(), std::string(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION));
+    XCTAssertTrue(card.isCurrentlyPresented);
+    StashNativeDesktop_SetEventCallback(nullptr, nullptr);
+    [card resetPresentationState];
+    card.hostWindow = nil;
+    [window close];
 }
 
 - (void)testShutdownClearsState {

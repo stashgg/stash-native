@@ -70,6 +70,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)startLoadingURL:(NSURL *)url inWebView:(WKWebView *)webView allowFileUrls:(BOOL)allowFileUrls;
 
+/// The prewarm placeholder navigation of an adopted webview: its callbacks, possibly still
+/// queued after stopLoading, are ignored so they cannot pass for the checkout's.
+- (void)ignoreNavigation:(nullable WKNavigation *)navigation;
+
 /// Stops timers and ends an open JavaScript panel as cancelled; every later WebKit callback is
 /// ignored.
 - (void)invalidate;

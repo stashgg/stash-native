@@ -33,6 +33,7 @@ using stash::desktop::Session;
     NSTimer *_stallTimer;
     NSTimer *_deadlineTimer;
     CFAbsoluteTime _pageLoadStartTime;
+    WKNavigation *_ignoredNavigation;
     // The open JavaScript panel, if any: invalidate() ends it as cancelled.
     NSWindow *_panelWindow;
     void (^_panelCancel)(void);
@@ -52,6 +53,14 @@ using stash::desktop::Session;
         return nullptr;
     }
     return [_core sessionForId:_sessionId];
+}
+
+- (void)ignoreNavigation:(WKNavigation *)navigation {
+    _ignoredNavigation = navigation;
+}
+
+- (BOOL)isIgnoredNavigation:(WKNavigation *)navigation {
+    return navigation != nil && navigation == _ignoredNavigation;
 }
 
 - (void)invalidate {
@@ -262,8 +271,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
 }
 
 - (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
-    (void)navigation;
-    if (![self session]) {
+    if (![self session] || [self isIgnoredNavigation:navigation]) {
         return;
     }
     NSString *scheme = webView.URL.scheme.lowercaseString;
@@ -274,9 +282,8 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    (void)navigation;
     Session *session = [self session];
-    if (!session) {
+    if (!session || [self isIgnoredNavigation:navigation]) {
         return;
     }
     [[_core presenter] setLoading:NO];
@@ -324,13 +331,17 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     (void)webView;
-    (void)navigation;
+    if ([self isIgnoredNavigation:navigation]) {
+        return;
+    }
     [self handleLoadFailure:error];
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     (void)webView;
-    (void)navigation;
+    if ([self isIgnoredNavigation:navigation]) {
+        return;
+    }
     [self handleLoadFailure:error];
 }
 
