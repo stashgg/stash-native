@@ -84,9 +84,12 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://pay%20example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay%FFexample/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay%C3example/x", out));
-    CHECK(url::normalizeExternalPaymentUrl("https://b%C3%BCcher.example/x", out));
-    CHECK(url::normalizeExternalPaymentUrl("https://b\xC3\xBC" "cher.example/x", out));
-    CHECK(!url::normalizeExternalPaymentUrl("https://b\xC3" "cher.example/x", out));
+    // No IDNA here: Unicode labels are refused raw or escaped; punycode passes.
+    CHECK(!url::normalizeExternalPaymentUrl("https://b%C3%BCcher.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://b\xC3\xBC" "cher.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://%E2%80%8D.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://%C2%80.example/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://xn--bcher-kva.example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.[example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:8443]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[zz::1]/x", out));

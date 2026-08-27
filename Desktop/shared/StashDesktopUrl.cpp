@@ -41,50 +41,11 @@ unsigned int hexValue(char c) {
     return static_cast<unsigned int>(c - 'A' + 10);
 }
 
-// Well-formed UTF-8 (shortest forms, no surrogates, no code points above U+10FFFF).
-bool validUtf8(const std::string &s) {
-    size_t i = 0;
-    while (i < s.size()) {
-        unsigned char c = static_cast<unsigned char>(s[i]);
-        size_t extra;
-        unsigned int code;
-        if (c < 0x80) {
-            i++;
-            continue;
-        } else if ((c & 0xE0) == 0xC0 && c >= 0xC2) {
-            extra = 1;
-            code = c & 0x1F;
-        } else if ((c & 0xF0) == 0xE0) {
-            extra = 2;
-            code = c & 0x0F;
-        } else if ((c & 0xF8) == 0xF0 && c <= 0xF4) {
-            extra = 3;
-            code = c & 0x07;
-        } else {
-            return false;
-        }
-        for (size_t k = 1; k <= extra; k++) {
-            if (i + k >= s.size()) {
-                return false;
-            }
-            unsigned char cc = static_cast<unsigned char>(s[i + k]);
-            if ((cc & 0xC0) != 0x80) {
-                return false;
-            }
-            code = (code << 6) | (cc & 0x3F);
-        }
-        if ((extra == 2 && (code < 0x800 || (code >= 0xD800 && code <= 0xDFFF))) || (extra == 3 && (code < 0x10000 || code > 0x10FFFF))) {
-            return false;
-        }
-        i += extra + 1;
-    }
-    return true;
-}
-
 // Plain (non-bracketed) hosts only: brackets and colons belong to IPv6 literals, which are
 // validated structurally instead. Percent escapes are decoded first: what they stand for must
-// itself be a host byte (a browser rejects %2F, %00 or %20 in a host), and the decoded host
-// must be well-formed UTF-8.
+// itself be a host byte (a browser rejects %2F, %00 or %20 in a host). Non-ASCII is refused,
+// raw or escaped: without an IDNA implementation here a Unicode label cannot be validated, so
+// an internationalized host must be given in punycode (NSURL on iOS refuses it as well).
 bool validHostChars(const std::string &h) {
     std::string decoded;
     decoded.reserve(h.size());
@@ -103,12 +64,12 @@ bool validHostChars(const std::string &h) {
     for (char ch : decoded) {
         unsigned char c = static_cast<unsigned char>(ch);
         bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' ||
-                  c == '_' || c >= 0x80;
+                  c == '_';
         if (!ok) {
             return false;
         }
     }
-    return validUtf8(decoded);
+    return true;
 }
 
 }  // namespace
