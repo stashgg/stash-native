@@ -9,7 +9,9 @@
 #import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
 
+#include <atomic>
 #include <string>
+#include <unistd.h>
 
 #include "StashDesktopConfig.h"
 #include "StashNativeDesktop.h"
@@ -186,6 +188,36 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
     [card resetPresentationState];
     card.hostWindow = nil;
     [window close];
+}
+
+// Off the main thread, SetEventCallback and Shutdown return only after the main queue applied
+// them: a block queued on the main queue before the worker's calls must have run by the time
+// each call returns. The main thread sleeps first, so an asynchronous dispatch would return
+// before that block ran.
+- (void)testOffMainCallbackAndShutdownAreSynchronousBarriers {
+    auto mainRan = std::make_shared<std::atomic<bool>>(false);
+    auto sawMainOnSet = std::make_shared<std::atomic<bool>>(false);
+    auto sawMainOnShutdown = std::make_shared<std::atomic<bool>>(false);
+    auto done = std::make_shared<std::atomic<bool>>(false);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        mainRan->store(true);
+    });
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+        StashNativeDesktop_SetEventCallback(RecordEvent, nullptr);
+        sawMainOnSet->store(mainRan->load());
+        StashNativeDesktop_Shutdown();
+        sawMainOnShutdown->store(mainRan->load());
+        done->store(true);
+    });
+    usleep(200000);
+    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+    while (!done->load() && [deadline timeIntervalSinceNow] > 0) {
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+    XCTAssertTrue(done->load());
+    XCTAssertTrue(sawMainOnSet->load());
+    XCTAssertTrue(sawMainOnShutdown->load());
+    StashNativeDesktop_SetEventCallback(nullptr, nullptr);
 }
 
 - (void)testShutdownClearsState {
