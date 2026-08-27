@@ -39,6 +39,8 @@ set(STASH_WEBVIEW2_INCLUDE "${STASH_WEBVIEW2_DIR}/build/native/include")
 set(STASH_WEBVIEW2_LOADER "${STASH_WEBVIEW2_DIR}/build/native/x64/WebView2LoaderStatic.lib")
 
 set(STASH_DESKTOP_SHARED_TESTS ON CACHE BOOL "" FORCE)
+# At the project root, or ctest at the build root finds no tests at all.
+enable_testing()
 add_subdirectory(../shared shared)
 
 set(STASH_WIN_WARNINGS /W3 /WX /utf-8)

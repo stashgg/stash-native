@@ -110,8 +110,12 @@ public:
     void hide();
     void teardown();
 
+    // Something of ours is on screen and its window still exists.
     bool isLive() const;
     HWND dialogOwner() const;
+    // True while destroyWindows() runs, so the backdrop's WM_DESTROY can tell our own teardown
+    // from the host window being destroyed underneath it.
+    bool destroying() const { return destroying_; }
 
     // Window-procedure hooks.
     void paintCard(HWND hwnd);
@@ -136,8 +140,8 @@ private:
 
     Core &core_;
     HWND host_ = nullptr;
-    LONG_PTR hostOriginalStyle_ = 0;
     bool hostStyleModified_ = false;
+    bool destroying_ = false;
     HWND backdrop_ = nullptr;
     HWND card_ = nullptr;
     HWND closeButton_ = nullptr;
@@ -187,6 +191,9 @@ public:
 
     // Presenter -> core.
     void requestUserDismiss();
+    // The attached host window is being destroyed: the presentation cannot outlive it, so the
+    // session ends with dialogDismissed regardless of processing or modal rules.
+    void hostWindowClosing();
     Presenter &presenter() { return *presenter_; }
     HINSTANCE moduleInstance() const { return module_; }
     void setModuleInstance(HINSTANCE instance) { module_ = instance; }

@@ -39,11 +39,13 @@ struct State {
     ICoreWebView2Controller *controller = nullptr;
     ICoreWebView2 *webView = nullptr;
     unsigned long sessionId = 0;
-    // The bridge script: requested (registered), confirmed by WebView2 (ready), and whether a
-    // checkout is waiting for that confirmation before its first navigation. The generation
-    // retires completions from a webview that has since been closed.
+    // Document scripts: the bridge script is requested (registered) and confirmed by WebView2
+    // (ready); pendingScripts counts registrations (bridge and dark sheet) whose completion is
+    // still outstanding, and a checkout waits for all of them before its first navigation. The
+    // generation retires completions from a webview that has since been closed.
     bool sdkScriptRegistered = false;
     bool sdkScriptReady = false;
+    int pendingScripts = 0;
     bool navigateWhenScriptReady = false;
     unsigned long scriptGeneration = 0;
     bool wired = false;
@@ -158,51 +160,51 @@ void navigateToCheckout() {
 
 void startCheckoutNavigation();
 
-// AddScriptToExecuteOnDocumentCreated completes asynchronously. A checkout must not navigate
-// before the bridge script is confirmed, or its first document would load without
-// window.stash_sdk and every bridge callback would be lost silently.
-void registerSdkScript(ICoreWebView2 *webView) {
-    g.sdkScriptRegistered = true;
-    g.sdkScriptReady = false;
+// AddScriptToExecuteOnDocumentCreated completes asynchronously and a script is only guaranteed
+// on navigations started after its completion. A checkout must not navigate before every
+// registered script (the bridge, the dark sheet) is confirmed, or its first document would
+// load without window.stash_sdk or without the theme.
+void scriptRegistrationSettled() {
+    if (g.pendingScripts > 0 || !g.navigateWhenScriptReady) {
+        return;
+    }
+    g.navigateWhenScriptReady = false;
+    if (g.sdkScriptReady) {
+        startCheckoutNavigation();
+    } else {
+        emitError("bridge script registration failed");
+        failSession();
+    }
+}
+
+void registerScript(ICoreWebView2 *webView, const std::string &script, bool isSdk) {
+    if (isSdk) {
+        g.sdkScriptRegistered = true;
+        g.sdkScriptReady = false;
+    }
+    g.pendingScripts++;
     unsigned long generation = g.scriptGeneration;
     auto *handler = STASH_CALLBACK(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler, HRESULT, LPCWSTR,
-                                   ([generation](HRESULT result, LPCWSTR) -> HRESULT {
+                                   ([generation, isSdk](HRESULT result, LPCWSTR id) -> HRESULT {
                                        if (generation != g.scriptGeneration) {
                                            return S_OK;
                                        }
-                                       bool pending = g.navigateWhenScriptReady;
-                                       g.navigateWhenScriptReady = false;
+                                       g.pendingScripts--;
                                        if (FAILED(result)) {
-                                           debugLog("bridge script registration failed hr=0x%08X", static_cast<unsigned>(result));
-                                           g.sdkScriptRegistered = false;
-                                           if (pending) {
-                                               emitError("bridge script registration failed");
-                                               failSession();
+                                           debugLog("%s script registration failed hr=0x%08X", isSdk ? "bridge" : "dark sheet",
+                                                    static_cast<unsigned>(result));
+                                           if (isSdk) {
+                                               g.sdkScriptRegistered = false;
                                            }
-                                           return S_OK;
-                                       }
-                                       g.sdkScriptReady = true;
-                                       if (pending) {
-                                           startCheckoutNavigation();
-                                       }
-                                       return S_OK;
-                                   }));
-    webView->AddScriptToExecuteOnDocumentCreated(widen(STASH_SDK_SCRIPT_WEBVIEW2).c_str(), handler);
-    handler->Release();
-}
-
-void addDarkScript(const std::string &script) {
-    if (g.webView == nullptr) {
-        return;
-    }
-    auto *handler = STASH_CALLBACK(ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler, HRESULT, LPCWSTR,
-                                   ([](HRESULT result, LPCWSTR id) -> HRESULT {
-                                       if (SUCCEEDED(result) && id != nullptr) {
+                                       } else if (isSdk) {
+                                           g.sdkScriptReady = true;
+                                       } else if (id != nullptr) {
                                            g.darkScriptId = id;
                                        }
+                                       scriptRegistrationSettled();
                                        return S_OK;
                                    }));
-    g.webView->AddScriptToExecuteOnDocumentCreated(widen(script).c_str(), handler);
+    webView->AddScriptToExecuteOnDocumentCreated(widen(script).c_str(), handler);
     handler->Release();
 }
 
@@ -291,8 +293,11 @@ void wireWebView(ICoreWebView2 *webView) {
     // Document bytes arrived for the main frame: the stall / deadline timers are done.
     webView->add_ContentLoading(
         STASH_CALLBACK(ICoreWebView2ContentLoadingEventHandler, ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *,
-                       ([id](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *) -> HRESULT {
-                           if (Core::instance().sessionForId(id) != nullptr) {
+                       ([id](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *args) -> HRESULT {
+                           UINT64 navigationId = 0;
+                           args->get_NavigationId(&navigationId);
+                           // Navigations overlap: only the checkout's own document counts.
+                           if (Core::instance().sessionForId(id) != nullptr && navigationId == g.checkoutNavigationId) {
                                debugLog("content loading");
                                markInitialLoadComplete();
                            }
@@ -455,10 +460,10 @@ void finishControllerSetup() {
         controller2->Release();
     }
     if (!g.sdkScriptRegistered) {
-        registerSdkScript(g.webView);
+        registerScript(g.webView, STASH_SDK_SCRIPT_WEBVIEW2, true);
     }
     if (g.dark) {
-        addDarkScript(theme::darkSheetScript(g.sheetArgb));
+        registerScript(g.webView, theme::darkSheetScript(g.sheetArgb), false);
     }
     if (!g.wired) {
         wireWebView(g.webView);
@@ -487,12 +492,11 @@ void finishControllerSetup() {
     g.controller->put_IsVisible(TRUE);
     g.controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
 
-    if (g.sdkScriptReady) {
-        startCheckoutNavigation();
-    } else {
-        debugLog("waiting for the bridge script before navigating");
-        g.navigateWhenScriptReady = true;
+    g.navigateWhenScriptReady = true;
+    if (g.pendingScripts > 0) {
+        debugLog("waiting for %d document script registration(s) before navigating", g.pendingScripts);
     }
+    scriptRegistrationSettled();
 }
 
 // First navigation of the session, once the bridge script is confirmed registered.
@@ -678,6 +682,7 @@ void closeSessionController() {
     safeRelease(g.controller);
     g.sdkScriptRegistered = false;
     g.sdkScriptReady = false;
+    g.pendingScripts = 0;
     g.navigateWhenScriptReady = false;
     g.scriptGeneration++;
     g.wired = false;
@@ -709,7 +714,7 @@ void prewarm() {
                                        controller->get_CoreWebView2(&g.prewarmWebView);
                                        controller->put_IsVisible(FALSE);
                                        if (g.prewarmWebView != nullptr) {
-                                           registerSdkScript(g.prewarmWebView);
+                                           registerScript(g.prewarmWebView, STASH_SDK_SCRIPT_WEBVIEW2, true);
                                            g.prewarmWebView->Navigate(L"about:blank");
                                        }
                                        debugLog("prewarmed webview ready");

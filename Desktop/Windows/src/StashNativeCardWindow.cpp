@@ -78,6 +78,13 @@ static LRESULT CALLBACK BackdropProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             break;
         case WM_ERASEBKGND:
             return 1;
+        case WM_DESTROY:
+            // A child dies with its parent: unless this is our own teardown, the host window is
+            // going away and the session must not stay "presented" over nothing.
+            if (!presenter.destroying()) {
+                Core::instance().hostWindowClosing();
+            }
+            break;
         default:
             break;
     }
@@ -194,7 +201,11 @@ void Presenter::registerClasses() {
 }
 
 bool Presenter::isLive() const {
-    return live_ && !hidden_;
+    if (!live_ || hidden_) {
+        return false;
+    }
+    HWND window = standalone_ != nullptr ? standalone_ : host_;
+    return window == nullptr || IsWindow(window);
 }
 
 HWND Presenter::dialogOwner() const {
@@ -262,10 +273,11 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
     dark_ = theme::isDarkColor(sheetArgb);
     hidden_ = false;
 
-    // Child overlays need the host to clip them out of its own drawing.
-    hostOriginalStyle_ = GetWindowLongPtrW(host_, GWL_STYLE);
-    if ((hostOriginalStyle_ & WS_CLIPCHILDREN) == 0) {
-        SetWindowLongPtrW(host_, GWL_STYLE, hostOriginalStyle_ | WS_CLIPCHILDREN);
+    // Child overlays need the host to clip them out of its own drawing. Only the one bit is
+    // added, and only that bit is removed again: the game may change its style meanwhile.
+    LONG_PTR style = GetWindowLongPtrW(host_, GWL_STYLE);
+    if ((style & WS_CLIPCHILDREN) == 0) {
+        SetWindowLongPtrW(host_, GWL_STYLE, style | WS_CLIPCHILDREN);
         hostStyleModified_ = true;
     }
 
@@ -450,6 +462,7 @@ void Presenter::hide() {
 }
 
 void Presenter::destroyWindows() {
+    destroying_ = true;
     if (spinner_ != nullptr) {
         KillTimer(spinner_, TIMER_SPIN);
         DestroyWindow(spinner_);
@@ -473,6 +486,7 @@ void Presenter::destroyWindows() {
         DestroyWindow(standalone_);
         standalone_ = nullptr;
     }
+    destroying_ = false;
 }
 
 void Presenter::teardown() {
@@ -482,7 +496,8 @@ void Presenter::teardown() {
     hide();
     destroyWindows();
     if (host_ != nullptr && hostStyleModified_ && IsWindow(host_)) {
-        SetWindowLongPtrW(host_, GWL_STYLE, hostOriginalStyle_);
+        LONG_PTR style = GetWindowLongPtrW(host_, GWL_STYLE);
+        SetWindowLongPtrW(host_, GWL_STYLE, style & ~static_cast<LONG_PTR>(WS_CLIPCHILDREN));
     }
     hostStyleModified_ = false;
     host_ = nullptr;

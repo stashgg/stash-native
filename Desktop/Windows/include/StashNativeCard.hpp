@@ -14,6 +14,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <charconv>
 #include <cmath>
 #include <cstring>
 #include <string>
@@ -96,17 +97,12 @@ inline std::string jsonEscape(const std::string &text) {
     return out;
 }
 
-// Locale-independent: the host may have set a decimal-comma LC_NUMERIC, and the parser reads
-// JSON, not the process locale.
+// std::to_chars is locale-independent by definition (printf honours LC_NUMERIC, and the parser
+// reads JSON, not the process locale); the float overload gives the shortest round-trip form.
 inline std::string number(float v) {
     char buf[32];
-    std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(v));
-    for (char *p = buf; *p != '\0'; p++) {
-        if (*p == ',') {
-            *p = '.';
-        }
-    }
-    return buf;
+    std::to_chars_result r = std::to_chars(buf, buf + sizeof(buf), v);
+    return r.ec == std::errc() ? std::string(buf, r.ptr) : std::string("0");
 }
 
 inline void appendField(std::string &json, const char *key, const std::string &valueText) {
@@ -217,21 +213,25 @@ public:
 
     void openCard(const std::string &url, const StashNativeCardConfig *config = nullptr) {
         std::string json = config != nullptr ? detail::cardConfigJson(*config) : "{}";
+        ensureCallback();
         StashNativeDesktop_OpenCard(url.c_str(), json.c_str());
     }
 
     // The JSON config the game-engine wrappers send (see docs/windows.md); supports the
     // desktop-only keys presentation, width, height and allowFileUrls.
     void openCard(const std::string &url, const std::string &configJson) {
+        ensureCallback();
         StashNativeDesktop_OpenCard(url.c_str(), configJson.c_str());
     }
 
     void openModal(const std::string &url, const StashNativeModalConfig *config = nullptr) {
         std::string json = config != nullptr ? detail::modalConfigJson(*config) : "{}";
+        ensureCallback();
         StashNativeDesktop_OpenModal(url.c_str(), json.c_str());
     }
 
     void openModal(const std::string &url, const std::string &configJson) {
+        ensureCallback();
         StashNativeDesktop_OpenModal(url.c_str(), configJson.c_str());
     }
 
@@ -250,10 +250,19 @@ public:
     // Creates the browser processes ahead of time so the first checkout opens instantly.
     void prewarm() { StashNativeDesktop_Prewarm(); }
 
-    // Releases the WebView2 environment. Call at exit; the SDK can be used again afterwards.
+    // Releases the WebView2 environment and clears the C callback. Call at exit; the SDK can
+    // be used again afterwards and the listener is re-attached by the next open.
     void shutdown() { StashNativeDesktop_Shutdown(); }
 
 private:
+    // Shutdown clears the C callback but the listener is kept: every open re-attaches it so
+    // reuse after shutdown does not lose the callbacks silently.
+    void ensureCallback() {
+        if (listener_ != nullptr) {
+            StashNativeDesktop_SetEventCallback(&StashNativeCard::trampoline, this);
+        }
+    }
+
     StashNativeCard() : listener_(nullptr) {}
     StashNativeCard(const StashNativeCard &) = delete;
     StashNativeCard &operator=(const StashNativeCard &) = delete;

@@ -346,6 +346,15 @@ void Core::requestUserDismiss() {
     }
 }
 
+void Core::hostWindowClosing() {
+    if (session_ && session_->isPresented()) {
+        session_->dismiss();
+    } else {
+        closeSurface();
+    }
+    refreshStateMirrors();
+}
+
 void Core::prewarm() {
     webview::ensureEnvironment([]() { webview::prewarm(); }, []() {});
 }

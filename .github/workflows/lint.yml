@@ -231,4 +231,4 @@ jobs:
           cmake --build Desktop/Windows/build --config Release
 
       - name: Run tests
-        run: ctest --test-dir Desktop/Windows/build -C Release --output-on-failure
+        run: ctest --test-dir Desktop/Windows/build -C Release --output-on-failure --no-tests=error
