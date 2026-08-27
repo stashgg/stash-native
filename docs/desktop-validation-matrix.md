@@ -10,7 +10,7 @@ Each cell is one flow through one engine on one OS, against a real staging check
 |------|-----------------|---------------|------------------|----------------|
 | Card purchase (sandbox card) | | | | |
 | Google Pay | | | | |
-| Apple Pay (Windows only; needs an iPhone or Mac signed into the same Apple ID to complete) | | n/a (WKWebView, see notes) | | n/a (WKWebView, see notes) |
+| Apple Pay (Windows only; WebView2 shows a code that an Apple Pay-enabled iPhone or iPad scans to authorize) | | n/a (WKWebView, see notes) | | n/a (WKWebView, see notes) |
 | PayPal redirect and return | | | | |
 | 3DS2 challenge | blocked (see notes) | blocked | blocked | blocked |
 | Saved-card preselect (repeat purchase, same user id) | | | | |
