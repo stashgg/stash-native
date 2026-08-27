@@ -93,9 +93,9 @@ The core owns one `Session` per presentation; the session keeps living until the
 `StashNativeCardLoadDelegate`, one per presentation:
 
 - Stall reload after `kStallRetrySeconds` (1.25 s) up to `kMaxStallReloads` (2), not armed for `file://` checkouts; hard deadline `kNetworkDeadlineSeconds` (15 s). Constants in [`StashDesktopConfig.h`](../Desktop/shared/StashDesktopConfig.h).
-- Main-frame HTTP status >= 400 before the first finished page (the first document or anything it navigates to on its own): `networkError`; after a finished page an HTTP error document is shown like any page. Redirect statuses keep the timers armed; any other response marks the initial load complete. `file:` / `data:` commits do the same. A main-frame response WebKit cannot display (a download or plugin) is refused: `networkError` before the first finished page, the shown page stays afterwards.
+- Main-frame HTTP status >= 400 before the first finished page (the first document or anything it navigates to on its own): `networkError`; after a finished page an HTTP error document is shown like any page. Redirect statuses keep the timers armed; any other response marks the initial load complete. `file:` / `data:` commits do the same. A main-frame response WebKit would download (an unshowable type or `Content-Disposition: attachment`) or hand to a plugin is refused: `networkError` before the first finished page, the shown page stays afterwards; a download WebKit starts on its own (error 102) is classified the same way.
 - `pageLoaded(ms)` on the first finished main-frame navigation of the presentation.
-- Load failures before the first finished page: `networkError` (a body that fails while still arriving included); afterwards: dismiss (`dialogDismissed`), as on iOS. After a web-content process death the reload counts as a first load again. `NSURLErrorCancelled` and frame-load-interrupted (already decided by the response policy) are ignored.
+- Load failures before the first finished page: `networkError` (a body that fails while still arriving included); afterwards: dismiss (`dialogDismissed`), as on iOS. After a web-content process death the reload counts as a first load again. `NSURLErrorCancelled` is ignored.
 - Web-content process death: `webProcessCrashed` with `reloading` before the one reload, `terminal` before the `networkError` on a second death.
 - JavaScript `alert` / `confirm` / `prompt` run as sheets on the presenting window; dismiss, reset, shutdown and the host window closing end an open sheet as cancelled. Esc dismisses only from the presenting window and never while a sheet is attached to it.
 - The attached host window closing ends the session with `dialogDismissed`, so a later open is not refused as already presented.
@@ -111,7 +111,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 - Double presentation: a second open while the surface is live is ignored with a log; a presented flag with nothing on screen is cleared and the open proceeds (iOS self-heal).
 - Session id: delegates capture it and drop callbacks from earlier presentations.
 - `closeSurface` releases the load delegate and webview on the next run-loop turn: both are often mid-callback when a session closes.
-- `shutdown` resets, drops the prewarmed webview and clears the C callback. The bundle is never unloaded by the engines.
+- `shutdown` resets, drops the prewarmed webview and clears the C callback. `StashNativeDesktop_Shutdown` and `StashNativeDesktop_SetEventCallback` are synchronous barriers: called off the main thread they wait for the main queue, so the callback is gone when they return (a managed domain may unload right after). The bundle is never unloaded by the engines.
 
 ## Building And Testing
 
