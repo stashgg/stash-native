@@ -82,7 +82,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 
 ## Presentation
 
-- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt, modal 480 x 600 pt, clamped to the host minus 24 pt and never below 400 x 500 pt.
+- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt, modal 480 x 600 pt, clamped to the host minus a 24 pt margin, never below 400 x 500 pt unless the host itself is smaller, with an absolute floor of 200 x 240 pt.
 - Window (`presentation: "window"` in the JSON config): a titled, resizable `NSWindow` for editor play mode. The title bar close button goes through the session like any other user dismissal.
 - Browser: `NSWorkspace openURL:` with the theme parameter appended.
 
@@ -96,7 +96,9 @@ The core owns one `Session` per presentation; the session keeps living until the
 - Main-frame HTTP status >= 400 before the first load: `networkError`. Redirect statuses keep the timers armed; any other response marks the initial load complete. `file:` / `data:` commits do the same.
 - `pageLoaded(ms)` on the first finished main-frame navigation of the presentation.
 - Load failures before the first load: `networkError`; afterwards: dismiss (`dialogDismissed`), as on iOS. `NSURLErrorCancelled` and frame-load-interrupted are ignored.
-- Web-content process death: one reload, then `networkError`.
+- Web-content process death: `webProcessCrashed` with `reloading` before the one reload, `terminal` before the `networkError` on a second death.
+- JavaScript `alert` / `confirm` / `prompt` run as sheets on the presenting window; dismiss, reset, shutdown and the host window closing end an open sheet as cancelled. Esc dismisses only from the presenting window and never while a sheet is attached to it.
+- The attached host window closing ends the session with `dialogDismissed`, so a later open is not refused as already presented.
 - A main-frame navigation blocked by policy (`http://`, `file://` without `allowFileUrls`) before the first load: `navigationBlocked` then `networkError`; afterwards the loaded page stays.
 - Sub-frames follow the same scheme policy (`http://` never, `file://` only with `allowFileUrls`): a refused frame reports `navigationBlocked` and the parent page stays, before or after the first load.
 
@@ -114,7 +116,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 ## Building And Testing
 
 - `cd Desktop && swift build && swift test`
-- `Desktop/macOS/build_bundle.sh` produces `Desktop/macOS/build/StashNativeDesktop.bundle` and fails if any ABI export is missing. `STASH_SIGN_IDENTITY` signs it.
+- `Desktop/macOS/build_bundle.sh` produces `Desktop/macOS/build/StashNativeDesktop.bundle` and fails if any ABI export is missing. `STASH_SIGN_IDENTITY` signs it; the release archive is unsigned. A shipping app must re-sign the nested bundle with its own certificate before signing and notarizing the outer app: Gatekeeper validates nested code and hardened-runtime library validation rejects a bundle from another Team ID (see COMPATIBILITY.md).
 - `cd Desktop && swift run StashNativeDesktopSample -stash-auto local` is the WKWebView smoke test (`secure` for the navigation policy, `remote -stash-url <url>` for a real checkout).
 - Static analysis: `clang++ --analyze` over every `.mm` and `.cpp` (see `lint-macos` in [`lint.yml`](../.github/workflows/lint.yml)).
 

@@ -143,7 +143,7 @@ The checkout is presented as a child window of the game window (dimmed backdrop,
 The checkout is presented over the host window's content view with WKWebView (the system WebKit; nothing is bundled). Works in windowed and fullscreen (borderless) games.
 
 - **Apple Pay is not available in the macOS card.** macOS WKWebView has never supported the web Apple Pay API (WebKit bug 282078); this is a platform limitation, not a signing or configuration issue, and the hosted checkout hides the button. Cards, Google Pay and PayPal are available.
-- The bundle is unsigned by default; `build_bundle.sh` signs with Developer ID when `STASH_SIGN_IDENTITY` is set. Gatekeeper applies to the hosting app, not to a bundle inside it.
+- The bundle is unsigned by default and the release archive is built without a signing identity (`build_bundle.sh` signs when `STASH_SIGN_IDENTITY` is set). Gatekeeper validates nested code, and an app built with the hardened runtime only loads libraries signed by its own Team ID (or Apple) unless it carries the `com.apple.security.cs.disable-library-validation` entitlement. Before shipping, sign the nested bundle with the host app's certificate (`codesign --force --timestamp --options runtime --sign "<identity>" StashNativeDesktop.bundle`), then sign and notarize the outer app as usual.
 
 ### Testing
 
@@ -161,7 +161,7 @@ We test the mobile libraries using BrowserStack App Automate devices. Supported 
 **Windows / macOS**
 
 - No browser-closed callback (`openBrowser` opens the system browser and returns immediately).
-- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, clamped to the window, never below 400 x 500 pt); the mobile ratio fields are ignored, `forcePortrait` has no effect.
+- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, clamped to the window minus a 24 pt margin; it never goes below 400 x 500 pt unless the window itself is smaller, where the absolute floor is 200 x 240 pt); the mobile ratio fields are ignored, `forcePortrait` has no effect.
 - Steam builds: follow the store policy for external payments before enabling in-game checkout.
 - Windows: without the WebView2 runtime the host reports `error` and `networkError`; use `openBrowser` as the fallback.
 

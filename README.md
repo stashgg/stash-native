@@ -168,7 +168,7 @@ let config = StashNativeCardConfig()  // or nil for defaults
 StashNativeCard.sharedInstance().openCard(withURL: "https://test.stashpreview.com", config: config)
 ```
 
-On desktop the card is a fixed 480 x 720 pt surface centred over the game window (clamped to the window, never below 400 x 500 pt) with a native trust header showing the checkout host; the ratio fields below are accepted and ignored, `forcePortrait` has no effect.
+On desktop the card is a fixed 480 x 720 pt surface centred over the game window (clamped to the window minus a 24 pt margin; it never goes below 400 x 500 pt unless the window itself is smaller, where the absolute floor is 200 x 240 pt) with a native trust header showing the checkout host; the ratio fields below are accepted and ignored, `forcePortrait` has no effect.
 
 ### Config
 
