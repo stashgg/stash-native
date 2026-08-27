@@ -11,11 +11,14 @@ namespace stash {
 namespace desktop {
 namespace json {
 
-// True when the text is a JSON object (leading whitespace allowed).
+// True when the text is one complete, well-formed JSON object (surrounding whitespace allowed):
+// string keys, balanced values, nothing after the closing brace. Config and message parsing gate
+// on this so a truncated object falls back to defaults instead of a partial read.
 bool isObject(const std::string &text);
 
 // Raw value text of a top-level key ("..." for strings, {...} / [...] for containers,
-// literal for numbers / true / false / null). False when absent or malformed.
+// literal for numbers / true / false / null). False when absent or when the object is malformed
+// anywhere, even after the key.
 bool getRaw(const std::string &object, const std::string &key, std::string &rawOut);
 
 bool has(const std::string &object, const std::string &key);

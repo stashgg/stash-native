@@ -115,50 +115,73 @@ bool hex4(const std::string &s, size_t i, unsigned int &out) {
     return true;
 }
 
-}  // namespace
-
-bool isObject(const std::string &text) {
-    size_t i = skipSpace(text, 0);
-    return i < text.size() && text[i] == '{';
-}
-
-bool getRaw(const std::string &object, const std::string &key, std::string &rawOut) {
-    size_t i = skipSpace(object, 0);
-    if (i >= object.size() || object[i] != '{') {
+// Walks one complete top-level object: string keys, colon, values delimited by skipValue, commas
+// between pairs, nothing but whitespace after the closing brace. False on the first defect, so a
+// truncated or garbled object never yields a partial read. With a key, the raw text of its first
+// occurrence lands in rawOut and found reports whether it was present.
+bool scanObject(const std::string &s, const std::string *key, std::string *rawOut, bool &found) {
+    found = false;
+    size_t i = skipSpace(s, 0);
+    if (i >= s.size() || s[i] != '{') {
         return false;
     }
-    i++;
-    while (i < object.size()) {
-        while (i < object.size() && (isSpace(object[i]) || object[i] == ',')) {
-            i++;
-        }
-        if (i >= object.size() || object[i] == '}') {
+    i = skipSpace(s, i + 1);
+    if (i < s.size() && s[i] == '}') {
+        return skipSpace(s, i + 1) == s.size();
+    }
+    while (true) {
+        if (i >= s.size() || s[i] != '"') {
             return false;
         }
-        if (object[i] != '"') {
-            return false;
-        }
-        size_t keyEnd = skipValue(object, i);
+        size_t keyEnd = skipValue(s, i);
         if (keyEnd == std::string::npos) {
             return false;
         }
-        std::string k = unescape(object.substr(i + 1, keyEnd - i - 2));
-        i = skipSpace(object, keyEnd);
-        if (i >= object.size() || object[i] != ':') {
+        std::string k = unescape(s.substr(i + 1, keyEnd - i - 2));
+        i = skipSpace(s, keyEnd);
+        if (i >= s.size() || s[i] != ':') {
             return false;
         }
-        i = skipSpace(object, i + 1);
-        size_t valueEnd = skipValue(object, i);
-        if (valueEnd == std::string::npos) {
+        i = skipSpace(s, i + 1);
+        size_t valueEnd = skipValue(s, i);
+        if (valueEnd == std::string::npos || valueEnd == i) {
             return false;
         }
-        if (k == key) {
-            rawOut = object.substr(i, valueEnd - i);
-            return true;
+        if (key != nullptr && !found && k == *key) {
+            found = true;
+            if (rawOut != nullptr) {
+                *rawOut = s.substr(i, valueEnd - i);
+            }
         }
-        i = valueEnd;
+        i = skipSpace(s, valueEnd);
+        if (i >= s.size()) {
+            return false;
+        }
+        if (s[i] == '}') {
+            return skipSpace(s, i + 1) == s.size();
+        }
+        if (s[i] != ',') {
+            return false;
+        }
+        i = skipSpace(s, i + 1);
     }
-    return false;
+}
+
+}  // namespace
+
+bool isObject(const std::string &text) {
+    bool found = false;
+    return scanObject(text, nullptr, nullptr, found);
+}
+
+bool getRaw(const std::string &object, const std::string &key, std::string &rawOut) {
+    bool found = false;
+    std::string raw;
+    if (!scanObject(object, &key, &raw, found) || !found) {
+        return false;
+    }
+    rawOut = raw;
+    return true;
 }
 
 bool has(const std::string &object, const std::string &key) {

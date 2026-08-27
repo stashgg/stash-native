@@ -61,7 +61,9 @@ public:
     // else loads and reports a navigation event. A block before the first finished load is a
     // networkError (nothing to show); a block afterwards leaves the loaded page in place.
     NavigationDecision decideMainFrameNavigation(const std::string &url);
-    // Sub-frames: deeplinks are consumed the same way, http is blocked, web schemes load.
+    // Sub-frames: deeplinks are consumed the same way and the scheme policy is identical (file://
+    // needs allowFileUrls, http is blocked); a refused frame reports navigationBlocked and leaves
+    // the parent page in place.
     NavigationDecision decideSubFrameNavigation(const std::string &url);
     // target=_blank / window.open: external browser, checkout stays open; empty / about:blank dropped.
     void handleNewWindow(const std::string &url);

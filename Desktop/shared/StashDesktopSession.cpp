@@ -12,6 +12,23 @@
 namespace stash {
 namespace desktop {
 
+namespace {
+
+// Scheme policy shared by the main frame and sub-frames: http never loads, file only when the
+// wrapper opted in for local test pages.
+const char *blockReasonFor(const std::string &u, const SurfaceConfig &config) {
+    std::string sch = url::scheme(u);
+    if (sch == "file" && !config.allowFileUrls) {
+        return "file_urls_disabled";
+    }
+    if (sch == "http") {
+        return "insecure_http";
+    }
+    return nullptr;
+}
+
+}  // namespace
+
 Session::Session(SessionHost &host, const SurfaceConfig &config, bool systemPrefersDark)
     : host_(host), config_(config), dark_(theme::effectiveThemeIsDark(config.backgroundColor, systemPrefersDark)) {}
 
@@ -162,13 +179,7 @@ NavigationDecision Session::decideMainFrameNavigation(const std::string &u) {
         runDeeplinkResult(u);
         return NavigationDecision::Cancel;
     }
-    std::string sch = url::scheme(u);
-    const char *blockReason = nullptr;
-    if (sch == "file" && !config_.allowFileUrls) {
-        blockReason = "file_urls_disabled";
-    } else if (sch == "http") {
-        blockReason = "insecure_http";
-    }
+    const char *blockReason = blockReasonFor(u, config_);
     if (blockReason != nullptr) {
         host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
                         json::object({{"url", u}, {"reason", blockReason}}));
@@ -191,9 +202,11 @@ NavigationDecision Session::decideSubFrameNavigation(const std::string &u) {
         runDeeplinkResult(u);
         return NavigationDecision::Cancel;
     }
-    if (url::scheme(u) == "http") {
+    const char *blockReason = blockReasonFor(u, config_);
+    if (blockReason != nullptr) {
+        // The parent page stays; only the frame is refused.
         host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED,
-                        json::object({{"url", u}, {"reason", "insecure_http"}}));
+                        json::object({{"url", u}, {"reason", blockReason}}));
         return NavigationDecision::Cancel;
     }
     return NavigationDecision::Load;

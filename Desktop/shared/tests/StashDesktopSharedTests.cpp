@@ -185,6 +185,21 @@ static void testJson() {
     CHECK(json::isObject(obj));
     CHECK(!json::isObject("[1]"));
     CHECK(!json::isObject(""));
+    CHECK(json::isObject(" {} "));
+    // Only one complete object counts: truncated, trailing text, trailing comma, bare or missing
+    // keys, empty values.
+    CHECK(!json::isObject("{\"a\":1"));
+    CHECK(!json::isObject("{\"a\":{\"b\":1}"));
+    CHECK(!json::isObject("{\"a\":1} x"));
+    CHECK(!json::isObject("{\"a\":1,}"));
+    CHECK(!json::isObject("{a:1}"));
+    CHECK(!json::isObject("{\"a\"}"));
+    CHECK(!json::isObject("{\"a\":}"));
+    CHECK(!json::isObject("{\"a\":1 \"b\":2}"));
+    std::string truncatedRaw;
+    CHECK(!json::getRaw("{\"a\":false", "a", truncatedRaw));
+    CHECK(json::getBool("{\"a\":false", "a", true));
+    CHECK(json::getBool("{\"a\":false,\"b\":1", "a", true));
     CHECK_EQ(json::getString(obj, "a", ""), std::string("x\"y"));
     CHECK(json::getBool(obj, "b", false));
     CHECK(json::getBool(obj, "missing", true));
@@ -267,8 +282,15 @@ static void testConfigParsing() {
     CHECK(near(modal.phoneWidthRatioPortrait, 0.80));
     CHECK(near(modal.modalTabletHeightRatioPortrait, 0.9));
 
+    // A truncated or garbled config never leaks a partial read: every field takes its default.
     SurfaceConfig malformed = parseSurfaceConfig(SurfaceMode::Card, "{\"autoClose\":false");
-    CHECK(malformed.autoClose == false || malformed.autoClose == true);  // no crash; value is whatever the scanner recovers
+    CHECK(malformed.autoClose);
+    CHECK(!malformed.allowFileUrls);
+    SurfaceConfig malformedFile = parseSurfaceConfig(SurfaceMode::Card, "{\"allowFileUrls\":true,\"autoClose\":false");
+    CHECK(!malformedFile.allowFileUrls);
+    CHECK(malformedFile.autoClose);
+    SurfaceConfig trailing = parseSurfaceConfig(SurfaceMode::Modal, "{\"allowDismiss\":false} extra");
+    CHECK(trailing.allowDismiss);
     SurfaceConfig notObject = parseSurfaceConfig(SurfaceMode::Card, "[1,2]");
     CHECK(notObject.autoClose);
 
@@ -577,6 +599,13 @@ static void testNavigationPolicy() {
         CHECK(contains(h.events[3].second, "\"reason\":\"file_urls_disabled\""));
         CHECK(s.isPresented());
         CHECK(!h.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        // Sub-frames follow the same scheme policy; a refused frame never tears down the page.
+        CHECK(s.decideSubFrameNavigation("file:///tmp/frame.html") == NavigationDecision::Cancel);
+        CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED), 3);
+        CHECK(contains(h.events[4].second, "\"reason\":\"file_urls_disabled\""));
+        CHECK(s.decideSubFrameNavigation("https://acs.bank.example/challenge") == NavigationDecision::Load);
+        CHECK(s.isPresented());
+        CHECK(!h.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         CHECK(s.decideMainFrameNavigation("about:blank") == NavigationDecision::Load);
         CHECK(s.decideMainFrameNavigation("blob:https://x/y") == NavigationDecision::Load);
         // Other deeplinks: handed to the OS silently, no event, checkout stays open.
@@ -590,6 +619,7 @@ static void testNavigationPolicy() {
         RecordingHost h;
         Session s(h, cardConfig("{\"allowFileUrls\":true}"), false);
         CHECK(s.decideMainFrameNavigation("file:///tmp/page.html") == NavigationDecision::Load);
+        CHECK(s.decideSubFrameNavigation("file:///tmp/frame.html") == NavigationDecision::Load);
         CHECK(s.decideSubFrameNavigation("https://acs.bank.example/challenge") == NavigationDecision::Load);
         CHECK(s.decideSubFrameNavigation("http://acs.bank.example/challenge") == NavigationDecision::Cancel);
         CHECK(s.decideSubFrameNavigation("bankapp://stash-pay/failure") == NavigationDecision::Cancel);
@@ -611,6 +641,13 @@ static void testNavigationPolicy() {
         CHECK(s2.decideMainFrameNavigation("file:///tmp/page.html") == NavigationDecision::Cancel);
         CHECK(h2.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
         CHECK(!s2.isPresented());
+        // A refused sub-frame before the first load is not a fail-fast: the main document is still coming.
+        RecordingHost h3;
+        Session s3(h3, cardConfig(), false);
+        CHECK(s3.decideSubFrameNavigation("file:///tmp/frame.html") == NavigationDecision::Cancel);
+        CHECK(h3.has(STASH_NATIVE_DESKTOP_EVENT_NAVIGATION_BLOCKED));
+        CHECK(!h3.has(STASH_NATIVE_DESKTOP_EVENT_NETWORK_ERROR));
+        CHECK(s3.isPresented());
     }
     {
         // stash-pay/success via deeplink: success with an empty order, once-guarded like the bridge.
