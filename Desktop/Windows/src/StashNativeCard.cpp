@@ -123,7 +123,8 @@ HWND Core::messageWindow() {
 // updated when the callback runs.
 void Core::emitEvent(const std::string &type, const std::string &payload) {
     refreshStateMirrors();
-    debugLog("event %s %.300s", type.c_str(), payload.c_str());
+    // Type and size only: payloads carry checkout URLs and order data, which never belong in logs.
+    debugLog("event %s (%u bytes)", type.c_str(), static_cast<unsigned>(payload.size()));
     std::string *pair = new std::string[2]{type, payload};
     if (!PostMessageW(messageWindow(), WMA_EVENT, 0, reinterpret_cast<LPARAM>(pair))) {
         delete[] pair;
@@ -175,7 +176,7 @@ void Core::openSystemBrowser(const std::string &url) {
 void Core::openDeeplinkExternally(const std::string &url) {
     HINSTANCE result = ShellExecuteW(nullptr, L"open", widen(url).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     if (reinterpret_cast<INT_PTR>(result) <= 32) {
-        debugLog("no handler for deeplink %s", url.c_str());
+        debugLog("no handler for deeplink scheme %s", stash::desktop::url::scheme(url).c_str());
     }
 }
 

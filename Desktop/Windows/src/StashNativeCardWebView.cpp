@@ -137,7 +137,8 @@ void navigateToCheckout() {
         return;
     }
     Core::instance().presenter().setLoading(true);
-    debugLog("navigate %s", narrow(g.checkoutUrl.c_str()).c_str());
+    std::string origin = narrow(g.checkoutUrl.c_str());
+    debugLog("navigate %s://%s", stash::desktop::url::scheme(origin).c_str(), stash::desktop::url::host(origin).c_str());
     HRESULT hr = g.webView->Navigate(g.checkoutUrl.c_str());
     if (FAILED(hr)) {
         debugLog("Navigate failed hr=0x%08X", static_cast<unsigned>(hr));
