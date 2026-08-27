@@ -190,33 +190,48 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
     [window close];
 }
 
-// Off the main thread, SetEventCallback and Shutdown return only after the main queue applied
-// them: a block queued on the main queue before the worker's calls must have run by the time
-// each call returns. The main thread sleeps first, so an asynchronous dispatch would return
-// before that block ran.
+// Off the main thread, SetEventCallback and Shutdown each return only after the main queue
+// applied them. For each call a marker block is queued on the main queue first, while the main
+// thread is deliberately not running its loop; the call must not return before that marker ran,
+// which an asynchronous dispatch would.
 - (void)testOffMainCallbackAndShutdownAreSynchronousBarriers {
-    auto mainRan = std::make_shared<std::atomic<bool>>(false);
-    auto sawMainOnSet = std::make_shared<std::atomic<bool>>(false);
-    auto sawMainOnShutdown = std::make_shared<std::atomic<bool>>(false);
+    auto marker1 = std::make_shared<std::atomic<bool>>(false);
+    auto marker2 = std::make_shared<std::atomic<bool>>(false);
+    auto sawMarkerOnSet = std::make_shared<std::atomic<bool>>(false);
+    auto sawMarkerOnShutdown = std::make_shared<std::atomic<bool>>(false);
+    auto phase2 = std::make_shared<std::atomic<bool>>(false);
+    auto mainPaused = std::make_shared<std::atomic<bool>>(false);
     auto done = std::make_shared<std::atomic<bool>>(false);
     dispatch_async(dispatch_get_main_queue(), ^{
-        mainRan->store(true);
+        marker1->store(true);
     });
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         StashNativeDesktop_SetEventCallback(RecordEvent, nullptr);
-        sawMainOnSet->store(mainRan->load());
+        sawMarkerOnSet->store(marker1->load());
+        phase2->store(true);
+        while (!mainPaused->load()) {
+            usleep(1000);
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            marker2->store(true);
+        });
         StashNativeDesktop_Shutdown();
-        sawMainOnShutdown->store(mainRan->load());
+        sawMarkerOnShutdown->store(marker2->load());
         done->store(true);
     });
     usleep(200000);
     NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:5];
+    while (!phase2->load() && [deadline timeIntervalSinceNow] > 0) {
+        [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
+    }
+    mainPaused->store(true);
+    usleep(200000);
     while (!done->load() && [deadline timeIntervalSinceNow] > 0) {
         [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.05]];
     }
     XCTAssertTrue(done->load());
-    XCTAssertTrue(sawMainOnSet->load());
-    XCTAssertTrue(sawMainOnShutdown->load());
+    XCTAssertTrue(sawMarkerOnSet->load());
+    XCTAssertTrue(sawMarkerOnShutdown->load());
     StashNativeDesktop_SetEventCallback(nullptr, nullptr);
 }
 
