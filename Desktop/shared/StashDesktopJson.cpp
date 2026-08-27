@@ -1,7 +1,7 @@
 #include "StashDesktopJson.h"
 
+#include <cmath>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 
 namespace stash {
@@ -146,6 +146,48 @@ size_t skipNumber(const std::string &s, size_t i) {
         }
     }
     return i;
+}
+
+// Value of a token that matched the JSON number grammar. Hand-rolled because strtod follows
+// the process LC_NUMERIC, and a game may have selected a decimal-comma locale.
+double parseNumber(const std::string &raw) {
+    size_t i = 0;
+    bool negative = false;
+    if (i < raw.size() && raw[i] == '-') {
+        negative = true;
+        i++;
+    }
+    double value = 0;
+    while (i < raw.size() && isDigit(raw[i])) {
+        value = value * 10 + (raw[i] - '0');
+        i++;
+    }
+    if (i < raw.size() && raw[i] == '.') {
+        i++;
+        double scale = 0.1;
+        while (i < raw.size() && isDigit(raw[i])) {
+            value += (raw[i] - '0') * scale;
+            scale *= 0.1;
+            i++;
+        }
+    }
+    if (i < raw.size() && (raw[i] == 'e' || raw[i] == 'E')) {
+        i++;
+        int sign = 1;
+        if (i < raw.size() && (raw[i] == '+' || raw[i] == '-')) {
+            sign = raw[i] == '-' ? -1 : 1;
+            i++;
+        }
+        int exponent = 0;
+        while (i < raw.size() && isDigit(raw[i])) {
+            if (exponent < 400) {
+                exponent = exponent * 10 + (raw[i] - '0');
+            }
+            i++;
+        }
+        value *= std::pow(10.0, sign * exponent);
+    }
+    return negative ? -value : value;
 }
 
 size_t skipLiteral(const std::string &s, size_t i, const char *word) {
@@ -327,15 +369,11 @@ double getNumber(const std::string &object, const std::string &key, double fallb
         return fallback;
     }
     char first = raw[0];
-    if (!(first == '-' || (first >= '0' && first <= '9'))) {
+    if (!(first == '-' || isDigit(first))) {
         return fallback;
     }
-    char *end = nullptr;
-    double value = std::strtod(raw.c_str(), &end);
-    if (end == raw.c_str() || (end != nullptr && *end != '\0')) {
-        return fallback;
-    }
-    return value;
+    // getRaw validated the token against the number grammar.
+    return parseNumber(raw);
 }
 
 std::string escape(const std::string &text) {

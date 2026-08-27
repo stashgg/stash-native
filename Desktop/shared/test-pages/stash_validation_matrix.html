@@ -33,13 +33,13 @@
   </div>
 
   <div class="check">
-    <h2>PSP popup round-trip (PayPal shape) <span class="chip wait" id="c2">waiting</span></h2>
-    <p>window.open a payment popup, the popup completes, posts its result to window.opener and calls window.close(); the merchant page continues.</p>
+    <h2>PSP popup handoff (PayPal shape) <span class="chip wait" id="c2">waiting</span></h2>
+    <p>window.open a payment popup. A desktop host never renders it in the card: it hands the URL to the system browser (a local file target is refused), returns null to the page and keeps the checkout presented. window.opener round-trips are not available on desktop.</p>
     <button id="popupBtn">Open payment popup</button>
   </div>
 
 <script>
-  const results = { iframeChallenge: false, popupRoundTrip: false };
+  const results = { iframeChallenge: false, popupHandoff: false };
   let reported = false;
 
   function send(handler, data) {
@@ -49,7 +49,7 @@
   }
 
   function maybeReport() {
-    if (reported || !(results.iframeChallenge && results.popupRoundTrip)) return;
+    if (reported || !(results.iframeChallenge && results.popupHandoff)) return;
     reported = true;
     send('stashPaymentSuccess', { matrix: results, source: 'stash_validation_matrix' });
   }
@@ -61,15 +61,21 @@
       document.getElementById('c1').textContent = 'PASS';
       document.getElementById('c1').className = 'chip pass';
     }
-    if (d.popupResult === 'ok') {
-      results.popupRoundTrip = true;
-      document.getElementById('c2').textContent = 'PASS';
-      document.getElementById('c2').className = 'chip pass';
-    }
     maybeReport();
   });
 
-  function openPopup() { window.open('matrix_popup.html', 'psp_popup'); }
+  function openPopup() {
+    const popup = window.open('psp_popup.html', 'psp_popup');
+    const chip = document.getElementById('c2');
+    if (popup === null) {
+      results.popupHandoff = true;
+      chip.textContent = 'PASS';
+      chip.className = 'chip pass';
+      maybeReport();
+    } else {
+      chip.textContent = 'popup rendered in-page (plain browser, not a host)';
+    }
+  }
   document.getElementById('popupBtn').addEventListener('click', openPopup);
 
   if (new URLSearchParams(location.search).get('auto') === '1' || location.hash.includes('auto')) setTimeout(openPopup, 900);

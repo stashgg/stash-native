@@ -74,27 +74,63 @@ std::string scheme(const std::string &u) {
     return toLower(u.substr(0, colon));
 }
 
-std::string host(const std::string &u) {
+// Authority of a hierarchical URL with the userinfo removed; "" when there is no "://".
+static std::string authority(const std::string &u) {
     size_t start = u.find("://");
     if (start == std::string::npos) {
         return "";
     }
     start += 3;
     size_t end = u.find_first_of("/?#", start);
-    std::string authority = u.substr(start, end == std::string::npos ? std::string::npos : end - start);
-    size_t at = authority.rfind('@');
+    std::string auth = u.substr(start, end == std::string::npos ? std::string::npos : end - start);
+    size_t at = auth.rfind('@');
     if (at != std::string::npos) {
-        authority = authority.substr(at + 1);
+        auth = auth.substr(at + 1);
     }
-    if (!authority.empty() && authority[0] == '[') {
-        size_t close = authority.find(']');
-        return toLower(close == std::string::npos ? authority : authority.substr(0, close + 1));
+    return auth;
+}
+
+// Host and port of an authority. False when a bracketed IPv6 literal is unterminated or the
+// port is not 1-5 digits within 0..65535 ("host:" counts as no port).
+static bool splitAuthority(const std::string &auth, std::string &hostOut, std::string &portOut) {
+    portOut.clear();
+    std::string rest;
+    if (!auth.empty() && auth[0] == '[') {
+        size_t close = auth.find(']');
+        if (close == std::string::npos) {
+            hostOut = auth;
+            return false;
+        }
+        hostOut = auth.substr(0, close + 1);
+        rest = auth.substr(close + 1);
+        if (!rest.empty() && rest[0] != ':') {
+            return false;
+        }
+    } else {
+        size_t colon = auth.find(':');
+        hostOut = colon == std::string::npos ? auth : auth.substr(0, colon);
+        rest = colon == std::string::npos ? "" : auth.substr(colon);
     }
-    size_t colon = authority.find(':');
-    if (colon != std::string::npos) {
-        authority = authority.substr(0, colon);
+    if (rest.empty()) {
+        return true;
     }
-    return toLower(authority);
+    portOut = rest.substr(1);
+    if (portOut.size() > 5) {
+        return false;
+    }
+    for (char c : portOut) {
+        if (c < '0' || c > '9') {
+            return false;
+        }
+    }
+    return portOut.empty() || std::stoi(portOut) <= 65535;
+}
+
+std::string host(const std::string &u) {
+    std::string h;
+    std::string port;
+    splitAuthority(authority(u), h, port);
+    return toLower(h);
 }
 
 std::string origin(const std::string &u) {
@@ -105,7 +141,10 @@ std::string origin(const std::string &u) {
     if (u.compare(sch.size(), 3, "://") != 0) {
         return sch + ":";
     }
-    return sch + "://" + host(u);
+    std::string h;
+    std::string port;
+    splitAuthority(authority(u), h, port);
+    return sch + "://" + toLower(h) + (port.empty() ? "" : ":" + port);
 }
 
 bool isWebScheme(const std::string &u) {
@@ -148,7 +187,14 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
     if (sch != "http" && sch != "https") {
         return false;
     }
-    std::string h = host(s);
+    // The whole authority must parse: a bad port ("host:bogus") would close the checkout for a
+    // handoff the browser cannot use.
+    std::string h;
+    std::string port;
+    if (!splitAuthority(authority(s), h, port)) {
+        return false;
+    }
+    h = toLower(h);
     if (h.empty() || !validHostChars(h)) {
         return false;
     }

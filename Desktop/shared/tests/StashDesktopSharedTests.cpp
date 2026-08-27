@@ -2,6 +2,7 @@
 // as the Android JUnit tests (UrlNormalizationTest, ThemeParameterTest, DeeplinkClassificationTest,
 // ConfigDefaultsTest, StashBackgroundColorUtilsTest) plus the session flows the mobile
 // implementations pin in StashNativeCardInternal.m / StashNativeCardPortraitActivity.java.
+#include <clocale>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -67,6 +68,12 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("JAVASCRIPT:void(0)", out));
     CHECK(!url::normalizeExternalPaymentUrl("data:text/html,<h1>x</h1>", out));
     CHECK(!url::normalizeExternalPaymentUrl("file:///etc/passwd", out));
+    // The authority must parse: a bad port would close the checkout for an unusable handoff.
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:bogus/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:70000/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[::1/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://pay.example:8443/x?a=1", out));
+    CHECK_EQ(out, std::string("https://pay.example:8443/x?a=1"));
     // Mobile parses "https://mailto:a@b.c" as userinfo + host b.c and accepts it; same here.
     CHECK(url::normalizeExternalPaymentUrl("mailto:a@b.c", out) && out == "https://mailto:a@b.c");
     CHECK(!url::normalizeExternalPaymentUrl("https:///nohost", out));
@@ -94,7 +101,11 @@ static void testUrlParts() {
     CHECK_EQ(url::host("https://User:pw@Checkout.Stash.gg:443/pay/1?x#y"), std::string("checkout.stash.gg"));
     CHECK_EQ(url::host("https://[::1]:8080/x"), std::string("[::1]"));
     CHECK_EQ(url::host("mailto:a@b"), std::string(""));
-    CHECK_EQ(url::origin("https://User:pw@Checkout.Stash.gg:443/pay/1?token=abc#y"), std::string("https://checkout.stash.gg"));
+    CHECK_EQ(url::origin("https://User:pw@Checkout.Stash.gg:443/pay/1?token=abc#y"), std::string("https://checkout.stash.gg:443"));
+    CHECK_EQ(url::origin("https://checkout.stash.gg:8443/pay"), std::string("https://checkout.stash.gg:8443"));
+    CHECK_EQ(url::origin("https://[::1]:8080/x"), std::string("https://[::1]:8080"));
+    CHECK_EQ(url::origin("https://pay.example:/x"), std::string("https://pay.example"));
+    CHECK_EQ(url::host("https://checkout.stash.gg:8443/pay"), std::string("checkout.stash.gg"));
     CHECK_EQ(url::origin("file:///tmp/page.html"), std::string("file://"));
     CHECK_EQ(url::origin("mailto:a@b"), std::string("mailto:"));
     CHECK_EQ(url::origin("about:blank"), std::string("about:"));
@@ -219,6 +230,16 @@ static void testJson() {
     CHECK(!json::isObject("{\"a\":{\"b\":[\"c\"}}"));
     CHECK(json::isObject("{\"a\":-0.5e+3,\"b\":[true,false,null,{\"c\":[]},[]],\"d\":\"\\/\\u00e9\"}"));
     CHECK(near(json::getNumber("{\"a\":-0.5e+3}", "a", 0), -500));
+    CHECK(near(json::getNumber("{\"a\":1.5e3}", "a", 0), 1500));
+    CHECK(near(json::getNumber("{\"a\":1e-2}", "a", 0), 0.01));
+    CHECK(near(json::getNumber("{\"a\":640.25}", "a", 0), 640.25));
+    CHECK(near(json::getNumber("{\"a\":0}", "a", 7), 0));
+    // Number parsing ignores a decimal-comma process locale.
+    if (std::setlocale(LC_NUMERIC, "de_DE.UTF-8") != nullptr || std::setlocale(LC_NUMERIC, "de-DE") != nullptr) {
+        CHECK(near(json::getNumber("{\"a\":0.55}", "a", 0), 0.55));
+        CHECK(near(parseSurfaceConfig(SurfaceMode::Card, "{\"width\":640.5}").width, 640.5));
+        std::setlocale(LC_NUMERIC, "C");
+    }
     CHECK_EQ(json::getString("{\"u\":\"https://x/?a=1\\u0026b=2\\/c\"}", "u", ""), std::string("https://x/?a=1&b=2/c"));
     std::string deep = "{\"a\":";
     for (int k = 0; k < 100; k++) {

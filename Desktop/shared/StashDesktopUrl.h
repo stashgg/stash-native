@@ -16,9 +16,9 @@ std::string toLower(std::string s);
 std::string scheme(const std::string &url);
 // Lowercase host without userinfo or port, "" when absent. IPv6 literals keep their brackets.
 std::string host(const std::string &url);
-// "scheme://host" for hierarchical URLs, "scheme:" otherwise, "" without a scheme. What the
-// diagnostic events carry instead of a URL: a checkout link holds a signed token and wrappers
-// log these payloads.
+// "scheme://host[:port]" for hierarchical URLs (the port as written, when present),
+// "scheme:" otherwise, "" without a scheme. What the diagnostic events carry instead of a URL:
+// a checkout link holds a signed token and wrappers log these payloads.
 std::string origin(const std::string &url);
 
 // Loads inside the webview: http, https, about, data, blob, file, javascript, or no scheme
