@@ -93,9 +93,9 @@ The core owns one `Session` per presentation; the session keeps living until the
 `StashNativeCardLoadDelegate`, one per presentation:
 
 - Stall reload after `kStallRetrySeconds` (1.25 s) up to `kMaxStallReloads` (2), not armed for `file://` checkouts; hard deadline `kNetworkDeadlineSeconds` (15 s). Constants in [`StashDesktopConfig.h`](../Desktop/shared/StashDesktopConfig.h).
-- Main-frame HTTP status >= 400 before the first load: `networkError`. Redirect statuses keep the timers armed; any other response marks the initial load complete. `file:` / `data:` commits do the same.
+- Main-frame HTTP status >= 400 before the first finished page (the first document or anything it navigates to on its own): `networkError`; after a finished page an HTTP error document is shown like any page. Redirect statuses keep the timers armed; any other response marks the initial load complete. `file:` / `data:` commits do the same. A main-frame response WebKit cannot display (a download or plugin) is refused: `networkError` before the first finished page, the shown page stays afterwards.
 - `pageLoaded(ms)` on the first finished main-frame navigation of the presentation.
-- Load failures before the first load: `networkError`; afterwards: dismiss (`dialogDismissed`), as on iOS. `NSURLErrorCancelled` and frame-load-interrupted are ignored.
+- Load failures before the first finished page: `networkError` (a body that fails while still arriving included); afterwards: dismiss (`dialogDismissed`), as on iOS. After a web-content process death the reload counts as a first load again. `NSURLErrorCancelled` and frame-load-interrupted (already decided by the response policy) are ignored.
 - Web-content process death: `webProcessCrashed` with `reloading` before the one reload, `terminal` before the `networkError` on a second death.
 - JavaScript `alert` / `confirm` / `prompt` run as sheets on the presenting window; dismiss, reset, shutdown and the host window closing end an open sheet as cancelled. Esc dismisses only from the presenting window and never while a sheet is attached to it.
 - The attached host window closing ends the session with `dialogDismissed`, so a later open is not refused as already presented.
