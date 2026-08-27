@@ -141,8 +141,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         return;
     }
     _stallReloadCount += 1;
-    STASH_DESKTOP_LOG(@"StashNativeDesktop: stall retry %d/%d %@", _stallReloadCount,
-                      stash::desktop::kMaxStallReloads, _checkoutURL.absoluteString);
+    STASH_DESKTOP_LOG(@"StashNativeDesktop: stall retry %d/%d", _stallReloadCount, stash::desktop::kMaxStallReloads);
     [self loadCheckoutURL];
     [self scheduleDeadlineTimer];
     [self scheduleStallTimer];
@@ -373,9 +372,23 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
                          initiatedByFrame:(WKFrameInfo *)frame
                         completionHandler:(void (^)(NSString *))completionHandler {
     (void)webView;
-    (void)prompt;
     (void)frame;
-    completionHandler(defaultText);
+    NSWindow *window = [_core presenter].sheetWindow;
+    if (!window) {
+        // Nothing to present on: the page sees a cancelled prompt, as confirm() sees Cancel.
+        completionHandler(nil);
+        return;
+    }
+    NSAlert *alert = [self alertWithMessage:prompt];
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Cancel"];
+    NSTextField *field = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 300, 24)];
+    field.stringValue = defaultText ?: @"";
+    alert.accessoryView = field;
+    alert.window.initialFirstResponder = field;
+    [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
+        completionHandler(response == NSAlertFirstButtonReturn ? field.stringValue : nil);
+    }];
 }
 
 @end

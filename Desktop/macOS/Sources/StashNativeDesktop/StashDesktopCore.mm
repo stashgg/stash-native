@@ -48,7 +48,7 @@ public:
     void openDeeplinkExternally(const std::string &url) override {
         NSURL *nsurl = [NSURL URLWithString:[NSString stringWithUTF8String:url.c_str()] ?: @""];
         if (!nsurl || ![[NSWorkspace sharedWorkspace] openURL:nsurl]) {
-            STASH_DESKTOP_LOG(@"StashNativeDesktop: no app installed for deeplink %s", url.c_str());
+            STASH_DESKTOP_LOG(@"StashNativeDesktop: no app installed for deeplink scheme %s", stash::desktop::url::scheme(url).c_str());
         }
     }
 
@@ -153,7 +153,8 @@ private:
     [self refreshStateMirrors];
     std::string typeCopy = type;
     std::string payloadCopy = payload;
-    STASH_DESKTOP_LOG(@"StashNativeDesktop: event %s %s", type.c_str(), payload.c_str());
+    // Type and size only: payloads carry checkout URLs and order data, which never belong in logs.
+    STASH_DESKTOP_LOG(@"StashNativeDesktop: event %s (%zu bytes)", type.c_str(), payload.size());
     dispatch_async(dispatch_get_main_queue(), ^{
         StashNativeDesktopEventCallback cb = self->_callback;
         if (cb != nullptr) {
@@ -297,7 +298,7 @@ private:
 
     NSURL *nsurl = [NSURL URLWithString:[NSString stringWithUTF8String:themed.c_str()] ?: @""];
     if (!nsurl) {
-        STASH_DESKTOP_LOG(@"StashNativeDesktop: invalid URL %@", url);
+        STASH_DESKTOP_LOG(@"StashNativeDesktop: open ignored, URL does not parse");
         _session->handleNetworkError();
         return;
     }
