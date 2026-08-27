@@ -28,6 +28,9 @@ using stash::desktop::Session;
     NSTimer *_stallTimer;
     NSTimer *_deadlineTimer;
     CFAbsoluteTime _pageLoadStartTime;
+    // The open JavaScript panel, if any: invalidate() ends it as cancelled.
+    NSWindow *_panelWindow;
+    void (^_panelCancel)(void);
 }
 
 - (instancetype)initWithCore:(StashDesktopCore *)core sessionId:(NSUInteger)sessionId {
@@ -52,6 +55,11 @@ using stash::desktop::Session;
     _stallTimer = nil;
     [_deadlineTimer invalidate];
     _deadlineTimer = nil;
+    if (_panelCancel) {
+        void (^cancel)(void) = _panelCancel;
+        _panelCancel = nil;
+        cancel();
+    }
 }
 
 #pragma mark - Loading and timers
@@ -186,9 +194,17 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         decisionHandler(WKNavigationActionPolicyAllow);
         return;
     }
-    BOOL isMainFrame = navigationAction.targetFrame == nil || navigationAction.targetFrame.isMainFrame;
-    NavigationDecision decision = isMainFrame ? session->decideMainFrameNavigation(url)
-                                             : session->decideSubFrameNavigation(url);
+    if (navigationAction.targetFrame == nil) {
+        // target=_blank without a window yet: the new-window rules apply (system browser or
+        // deeplink), never the main-frame policy. Cancelling here means WebKit never asks the
+        // UI delegate for a window, so the URL is handled exactly once.
+        session->handleNewWindow(url);
+        [_core refreshStateMirrors];
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+    NavigationDecision decision = navigationAction.targetFrame.isMainFrame ? session->decideMainFrameNavigation(url)
+                                                                           : session->decideSubFrameNavigation(url);
     [_core refreshStateMirrors];
     decisionHandler(decision == NavigationDecision::Load ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
 }
@@ -283,7 +299,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         return;
     }
     if (_processTerminateRecoveryUsed) {
-        // Host-visible diagnostic; delivered through the same path as every event.
+        [_core dispatchEventType:STASH_NATIVE_DESKTOP_EVENT_WEB_PROCESS_CRASHED payload:"terminal"];
         session->handleNetworkError();
         [_core refreshStateMirrors];
         return;
@@ -291,6 +307,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     _processTerminateRecoveryUsed = YES;
     _initialLoadComplete = NO;
     STASH_DESKTOP_LOG(@"StashNativeDesktop: web content process terminated, reloading");
+    [_core dispatchEventType:STASH_NATIVE_DESKTOP_EVENT_WEB_PROCESS_CRASHED payload:"reloading"];
     [self loadCheckoutURL];
     [self scheduleDeadlineTimer];
     [self scheduleStallTimer];
@@ -328,6 +345,40 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     return alert;
 }
 
+// One JavaScript panel at a time, as a sheet on the presenting window. onResponse runs exactly
+// once: from the sheet, or with Cancel when invalidate() ends the panel (dismiss, reset,
+// shutdown, host window closing) or when there is nothing to present on.
+- (void)presentPanel:(NSAlert *)alert onResponse:(void (^)(NSModalResponse))onResponse {
+    NSWindow *window = [_core presenter].sheetWindow;
+    if (_invalidated || !window || _panelWindow) {
+        onResponse(NSModalResponseCancel);
+        return;
+    }
+    NSWindow *panelWindow = alert.window;
+    _panelWindow = panelWindow;
+    __block BOOL resolved = NO;
+    __weak StashNativeCardLoadDelegate *weakSelf = self;
+    void (^resolve)(NSModalResponse) = ^(NSModalResponse response) {
+        if (resolved) {
+            return;
+        }
+        resolved = YES;
+        StashNativeCardLoadDelegate *strongSelf = weakSelf;
+        if (strongSelf && strongSelf->_panelWindow == panelWindow) {
+            strongSelf->_panelWindow = nil;
+            strongSelf->_panelCancel = nil;
+        }
+        onResponse(response);
+    };
+    _panelCancel = ^{
+        [window endSheet:panelWindow returnCode:NSModalResponseCancel];
+        resolve(NSModalResponseCancel);
+    };
+    [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
+        resolve(response);
+    }];
+}
+
 - (void)webView:(WKWebView *)webView
     runJavaScriptAlertPanelWithMessage:(NSString *)message
                       initiatedByFrame:(WKFrameInfo *)frame
@@ -336,15 +387,10 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     (void)frame;
     NSAlert *alert = [self alertWithMessage:message];
     [alert addButtonWithTitle:@"OK"];
-    NSWindow *window = [_core presenter].sheetWindow;
-    if (window) {
-        [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
-            (void)response;
-            completionHandler();
-        }];
-    } else {
+    [self presentPanel:alert onResponse:^(NSModalResponse response) {
+        (void)response;
         completionHandler();
-    }
+    }];
 }
 
 - (void)webView:(WKWebView *)webView
@@ -356,14 +402,9 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     NSAlert *alert = [self alertWithMessage:message];
     [alert addButtonWithTitle:@"OK"];
     [alert addButtonWithTitle:@"Cancel"];
-    NSWindow *window = [_core presenter].sheetWindow;
-    if (window) {
-        [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
-            completionHandler(response == NSAlertFirstButtonReturn);
-        }];
-    } else {
-        completionHandler(NO);
-    }
+    [self presentPanel:alert onResponse:^(NSModalResponse response) {
+        completionHandler(response == NSAlertFirstButtonReturn);
+    }];
 }
 
 - (void)webView:(WKWebView *)webView
@@ -373,12 +414,6 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
                         completionHandler:(void (^)(NSString *))completionHandler {
     (void)webView;
     (void)frame;
-    NSWindow *window = [_core presenter].sheetWindow;
-    if (!window) {
-        // Nothing to present on: the page sees a cancelled prompt, as confirm() sees Cancel.
-        completionHandler(nil);
-        return;
-    }
     NSAlert *alert = [self alertWithMessage:prompt];
     [alert addButtonWithTitle:@"OK"];
     [alert addButtonWithTitle:@"Cancel"];
@@ -386,7 +421,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     field.stringValue = defaultText ?: @"";
     alert.accessoryView = field;
     alert.window.initialFirstResponder = field;
-    [alert beginSheetModalForWindow:window completionHandler:^(NSModalResponse response) {
+    [self presentPanel:alert onResponse:^(NSModalResponse response) {
         completionHandler(response == NSAlertFirstButtonReturn ? field.stringValue : nil);
     }];
 }

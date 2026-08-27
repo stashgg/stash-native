@@ -341,6 +341,15 @@ private:
     }
 }
 
+- (void)hostWindowWillClose {
+    if (_session && _session->isPresented()) {
+        _session->dismiss();
+    } else {
+        [self closeSurface];
+    }
+    [self refreshStateMirrors];
+}
+
 - (void)handleMessageNamed:(NSString *)name body:(id)body fromWebView:(WKWebView *)webView {
     if (!_session || !webView || webView != _liveWebView) {
         return;

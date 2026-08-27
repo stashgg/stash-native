@@ -57,7 +57,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// Something of ours is on screen.
 @property (nonatomic, readonly) BOOL isLive;
 
-/// Window to attach JavaScript alert sheets to.
+/// Window to attach JavaScript panel sheets to (the standalone window or the attached host).
 @property (nonatomic, readonly, nullable) NSWindow *sheetWindow;
 
 @end
@@ -70,7 +70,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)startLoadingURL:(NSURL *)url inWebView:(WKWebView *)webView allowFileUrls:(BOOL)allowFileUrls;
 
-/// Stops timers; every later WebKit callback is ignored.
+/// Stops timers and ends an open JavaScript panel as cancelled; every later WebKit callback is
+/// ignored.
 - (void)invalidate;
 
 @end
@@ -117,6 +118,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// From the presenter: close button, backdrop, Esc, window close. Refused while processing or
 /// when a modal disallows dismissal.
 - (void)requestUserDismiss;
+
+/// From the presenter: the attached host window is closing. The presentation cannot outlive
+/// it, so the session ends with dialogDismissed regardless of processing or modal rules.
+- (void)hostWindowWillClose;
 
 /// From the message proxy.
 - (void)handleMessageNamed:(NSString *)name body:(nullable id)body fromWebView:(nullable WKWebView *)webView;

@@ -115,6 +115,36 @@
     XCTAssertTrue(script.find("window.stash_sdk.openLink") != std::string::npos);
 }
 
+// An attached presentation ends with its host window; a later open must not be refused.
+- (void)testHostWindowCloseEndsAttachedPresentation {
+    [NSApplication sharedApplication];
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 900, 700)
+                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    window.releasedWhenClosed = NO;
+    StashNativeCard *card = [StashNativeCard sharedInstance];
+    card.hostWindow = window;
+    [card openCardWithURL:@"data:text/html,<p>stash</p>" config:nil];
+    XCTAssertTrue(card.isCurrentlyPresented);
+
+    [window close];
+    XCTAssertFalse(card.isCurrentlyPresented);
+
+    NSWindow *second = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 900, 700)
+                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    second.releasedWhenClosed = NO;
+    card.hostWindow = second;
+    [card openCardWithURL:@"data:text/html,<p>again</p>" config:nil];
+    XCTAssertTrue(card.isCurrentlyPresented);
+    [card resetPresentationState];
+    XCTAssertFalse(card.isCurrentlyPresented);
+    card.hostWindow = nil;
+    [second close];
+}
+
 - (void)testShutdownClearsState {
     StashNativeCard *card = [StashNativeCard sharedInstance];
     [card prewarm];

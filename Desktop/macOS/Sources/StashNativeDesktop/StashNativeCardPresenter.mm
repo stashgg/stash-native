@@ -67,6 +67,7 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     WKWebView *_webView;
     id _escapeMonitor;
     id _resizeObserver;
+    id _hostCloseObserver;
     stash::desktop::SurfaceConfig _config;
     BOOL _dark;
 }
@@ -116,15 +117,21 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
 
 #pragma mark - Chrome
 
+// Esc dismisses only from the presenting window itself, and not while a JavaScript panel sheet
+// is attached to it (the sheet owns Esc then). Other windows of the app keep their own Esc.
 - (void)installEscapeMonitor {
     __weak StashNativeCardPresenter *weakSelf = self;
     _escapeMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskKeyDown handler:^NSEvent *(NSEvent *event) {
         StashNativeCardPresenter *strongSelf = weakSelf;
-        if (event.keyCode == kEscapeKeyCode && strongSelf && strongSelf.isLive) {
-            [strongSelf->_core requestUserDismiss];
-            return nil;
+        if (event.keyCode != kEscapeKeyCode || !strongSelf || !strongSelf.isLive) {
+            return event;
         }
-        return event;
+        NSWindow *presenting = strongSelf.sheetWindow;
+        if (!presenting || event.window != presenting || presenting.attachedSheet != nil) {
+            return event;
+        }
+        [strongSelf->_core requestUserDismiss];
+        return nil;
     }];
 }
 
@@ -230,6 +237,18 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
         (void)note;
         [weakSelf layoutCard];
     }];
+    // The overlay lives in the host's content view: when that window closes the presentation
+    // is gone, and the session has to know or every later open would be refused as "presented".
+    _hostCloseObserver = [[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillCloseNotification
+                                                                           object:hostWindow
+                                                                            queue:[NSOperationQueue mainQueue]
+                                                                       usingBlock:^(NSNotification *note) {
+        (void)note;
+        StashNativeCardPresenter *strongSelf = weakSelf;
+        if (strongSelf) {
+            [strongSelf->_core hostWindowWillClose];
+        }
+    }];
 
     // Entrance: fade the backdrop, slide the card up into place.
     NSRect target = _card.frame;
@@ -327,6 +346,10 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     if (_resizeObserver) {
         [[NSNotificationCenter defaultCenter] removeObserver:_resizeObserver];
         _resizeObserver = nil;
+    }
+    if (_hostCloseObserver) {
+        [[NSNotificationCenter defaultCenter] removeObserver:_hostCloseObserver];
+        _hostCloseObserver = nil;
     }
     [_spinner stopAnimation:nil];
     [_webView removeFromSuperview];
