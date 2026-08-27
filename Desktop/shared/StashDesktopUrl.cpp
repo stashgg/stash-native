@@ -334,8 +334,10 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
     } else {
         s = "https://" + s;
     }
-    // A URL parser would reject these; mobile returns nil / null for them.
-    if (containsControlOrSpace(s)) {
+    // A URL parser would reject these; mobile returns nil / null for them. A backslash is a
+    // path separator to a browser, so it could end the authority earlier than this validator
+    // sees it; it is refused outright.
+    if (containsControlOrSpace(s) || s.find('\\') != std::string::npos) {
         return false;
     }
     std::string sch = scheme(s);
