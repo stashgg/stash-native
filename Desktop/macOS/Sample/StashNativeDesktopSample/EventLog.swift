@@ -32,9 +32,11 @@ final class EventLog {
             }
         }
 
-        /// scheme://host[:port], matching url::origin in the shared contract.
+        /// scheme://host[:port] for hierarchical URLs, "scheme:" otherwise (about:, data:),
+        /// matching url::origin in the shared contract.
         static func origin(of url: String) -> String {
             guard let parsed = URL(string: url), let scheme = parsed.scheme else { return "" }
+            guard url.hasPrefix("\(scheme)://") else { return "\(scheme):" }
             let port = parsed.port.map { ":\($0)" } ?? ""
             return "\(scheme)://\(parsed.host ?? "")\(port)"
         }

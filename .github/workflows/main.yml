@@ -408,33 +408,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build sample
+      # Universal, like the bundle: the arm64 runner alone would publish a binary Intel Macs
+      # cannot run under an architecture-neutral artifact name.
+      - name: Build sample (universal)
         working-directory: Desktop
-        run: swift build -c release --product StashNativeDesktopSample
+        run: |
+          swift build -c release --arch arm64 --arch x86_64 --product StashNativeDesktopSample
+          lipo -archs .build/apple/Products/Release/StashNativeDesktopSample
 
       - name: Run WKWebView smoke test (offline checkout page)
         working-directory: Desktop
         run: |
           set -o pipefail
-          ./.build/release/StashNativeDesktopSample -stash-auto local 2>&1 | tee smoke-local.log | grep STASH-PROOF
+          ./.build/apple/Products/Release/StashNativeDesktopSample -stash-auto local 2>&1 | tee smoke-local.log | grep STASH-PROOF
           grep -q "STASH-PROOF local: RESULT: PASS" smoke-local.log
 
       - name: Run navigation policy smoke test
         working-directory: Desktop
         run: |
           set -o pipefail
-          ./.build/release/StashNativeDesktopSample -stash-auto secure 2>&1 | tee smoke-secure.log | grep STASH-PROOF
+          ./.build/apple/Products/Release/StashNativeDesktopSample -stash-auto secure 2>&1 | tee smoke-secure.log | grep STASH-PROOF
           grep -q "STASH-PROOF secure: RESULT: PASS" smoke-secure.log
 
+      # A tarball keeps the executable bit; upload-artifact alone normalizes modes to 0644.
       - name: Stage sample artifact
         run: |
           mkdir -p artifact/test-pages
-          cp Desktop/.build/release/StashNativeDesktopSample artifact/
+          cp Desktop/.build/apple/Products/Release/StashNativeDesktopSample artifact/
           cp Desktop/shared/test-pages/* artifact/test-pages/
+          tar -czf macos-desktop-sample.tar.gz -C artifact .
 
       - name: Upload sample artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-desktop-sample
-          path: artifact
+          path: macos-desktop-sample.tar.gz
           retention-days: 7
