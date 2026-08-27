@@ -14,6 +14,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 #include <cstring>
 #include <string>
 
@@ -95,39 +96,65 @@ inline std::string jsonEscape(const std::string &text) {
     return out;
 }
 
+// Locale-independent: the host may have set a decimal-comma LC_NUMERIC, and the parser reads
+// JSON, not the process locale.
 inline std::string number(float v) {
     char buf[32];
     std::snprintf(buf, sizeof(buf), "%g", static_cast<double>(v));
+    for (char *p = buf; *p != '\0'; p++) {
+        if (*p == ',') {
+            *p = '.';
+        }
+    }
     return buf;
+}
+
+inline void appendField(std::string &json, const char *key, const std::string &valueText) {
+    json += json.size() > 1 ? ",\"" : "\"";
+    json += key;
+    json += "\":";
+    json += valueText;
+}
+
+inline void appendBool(std::string &json, const char *key, bool v) {
+    appendField(json, key, v ? "true" : "false");
+}
+
+// A non-finite ratio is left out so the parser applies the mobile default for that key instead
+// of the whole config being rejected as malformed JSON.
+inline void appendRatio(std::string &json, const char *key, float v) {
+    if (std::isfinite(v)) {
+        appendField(json, key, number(v));
+    }
 }
 
 inline std::string cardConfigJson(const StashNativeCardConfig &c) {
     std::string json = "{";
-    json += "\"forcePortrait\":" + std::string(c.forcePortrait ? "true" : "false");
-    json += ",\"cardHeightRatioPortrait\":" + number(c.cardHeightRatioPortrait);
-    json += ",\"cardWidthRatioLandscape\":" + number(c.cardWidthRatioLandscape);
-    json += ",\"cardHeightRatioLandscape\":" + number(c.cardHeightRatioLandscape);
-    json += ",\"tabletWidthRatioPortrait\":" + number(c.tabletWidthRatioPortrait);
-    json += ",\"tabletHeightRatioPortrait\":" + number(c.tabletHeightRatioPortrait);
-    json += ",\"tabletWidthRatioLandscape\":" + number(c.tabletWidthRatioLandscape);
-    json += ",\"tabletHeightRatioLandscape\":" + number(c.tabletHeightRatioLandscape);
-    json += ",\"autoClose\":" + std::string(c.autoClose ? "true" : "false");
-    json += ",\"backgroundColor\":\"" + jsonEscape(c.backgroundColor) + "\"";
+    appendBool(json, "forcePortrait", c.forcePortrait);
+    appendRatio(json, "cardHeightRatioPortrait", c.cardHeightRatioPortrait);
+    appendRatio(json, "cardWidthRatioLandscape", c.cardWidthRatioLandscape);
+    appendRatio(json, "cardHeightRatioLandscape", c.cardHeightRatioLandscape);
+    appendRatio(json, "tabletWidthRatioPortrait", c.tabletWidthRatioPortrait);
+    appendRatio(json, "tabletHeightRatioPortrait", c.tabletHeightRatioPortrait);
+    appendRatio(json, "tabletWidthRatioLandscape", c.tabletWidthRatioLandscape);
+    appendRatio(json, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
+    appendBool(json, "autoClose", c.autoClose);
+    appendField(json, "backgroundColor", "\"" + jsonEscape(c.backgroundColor) + "\"");
     json += "}";
     return json;
 }
 
 inline std::string modalConfigJson(const StashNativeModalConfig &c) {
     std::string json = "{";
-    json += "\"phoneWidthRatioPortrait\":" + number(c.phoneWidthRatioPortrait);
-    json += ",\"phoneHeightRatioPortrait\":" + number(c.phoneHeightRatioPortrait);
-    json += ",\"phoneWidthRatioLandscape\":" + number(c.phoneWidthRatioLandscape);
-    json += ",\"phoneHeightRatioLandscape\":" + number(c.phoneHeightRatioLandscape);
-    json += ",\"tabletWidthRatioPortrait\":" + number(c.tabletWidthRatioPortrait);
-    json += ",\"tabletHeightRatioPortrait\":" + number(c.tabletHeightRatioPortrait);
-    json += ",\"tabletWidthRatioLandscape\":" + number(c.tabletWidthRatioLandscape);
-    json += ",\"tabletHeightRatioLandscape\":" + number(c.tabletHeightRatioLandscape);
-    json += ",\"allowDismiss\":" + std::string(c.allowDismiss ? "true" : "false");
+    appendRatio(json, "phoneWidthRatioPortrait", c.phoneWidthRatioPortrait);
+    appendRatio(json, "phoneHeightRatioPortrait", c.phoneHeightRatioPortrait);
+    appendRatio(json, "phoneWidthRatioLandscape", c.phoneWidthRatioLandscape);
+    appendRatio(json, "phoneHeightRatioLandscape", c.phoneHeightRatioLandscape);
+    appendRatio(json, "tabletWidthRatioPortrait", c.tabletWidthRatioPortrait);
+    appendRatio(json, "tabletHeightRatioPortrait", c.tabletHeightRatioPortrait);
+    appendRatio(json, "tabletWidthRatioLandscape", c.tabletWidthRatioLandscape);
+    appendRatio(json, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
+    appendBool(json, "allowDismiss", c.allowDismiss);
     json += ",\"autoClose\":" + std::string(c.autoClose ? "true" : "false");
     json += ",\"backgroundColor\":\"" + jsonEscape(c.backgroundColor) + "\"";
     json += "}";

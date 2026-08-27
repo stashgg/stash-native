@@ -1,9 +1,13 @@
 // Windows-side checks: web message parsing, the per-game user data folder, the header-only
 // facade (config serialization and listener dispatch) and the ABI version through the DLL.
 // The shared contract vectors run in Desktop/shared/tests on every platform.
+#include <clocale>
 #include <cstdio>
+#include <limits>
 #include <string>
 
+#include "StashDesktopConfig.h"
+#include "StashDesktopJson.h"
 #include "StashDesktopWebMessage.hpp"
 #include "StashNativeCard.hpp"
 
@@ -72,6 +76,29 @@ static void testFacade() {
     CHECK(json.find("\"cardHeightRatioPortrait\":0.68") != std::string::npos);
     CHECK(json.find("\"backgroundColor\":\"#1e1e1e\"") != std::string::npos);
     CHECK(json.find("\"forcePortrait\":false") != std::string::npos);
+
+    // A non-finite ratio is omitted (the parser applies its default) instead of producing a
+    // malformed object that would reset every other field.
+    stash::StashNativeCardConfig nan;
+    nan.autoClose = false;
+    nan.cardHeightRatioPortrait = std::numeric_limits<float>::quiet_NaN();
+    nan.tabletWidthRatioPortrait = std::numeric_limits<float>::infinity();
+    std::string nanJson = stash::detail::cardConfigJson(nan);
+    CHECK(stash::desktop::json::isObject(nanJson));
+    CHECK(nanJson.find("cardHeightRatioPortrait") == std::string::npos);
+    CHECK(nanJson.find("tabletWidthRatioPortrait") == std::string::npos);
+    CHECK(nanJson.find("\"cardWidthRatioLandscape\":") != std::string::npos);
+    stash::desktop::SurfaceConfig parsed = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, nanJson);
+    CHECK(!parsed.autoClose);
+    CHECK(parsed.cardHeightRatioPortrait == stash::desktop::SurfaceConfig().cardHeightRatioPortrait);
+
+    // Serialization ignores a decimal-comma process locale.
+    if (std::setlocale(LC_NUMERIC, "de-DE") != nullptr) {
+        std::string localized = stash::detail::cardConfigJson(card);
+        CHECK(localized.find("\"cardHeightRatioPortrait\":0.68") != std::string::npos);
+        CHECK(stash::desktop::json::isObject(localized));
+        std::setlocale(LC_NUMERIC, "C");
+    }
 
     stash::StashNativeModalConfig modal;
     modal.allowDismiss = false;
