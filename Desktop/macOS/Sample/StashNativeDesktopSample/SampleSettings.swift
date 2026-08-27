@@ -2,9 +2,9 @@
 //  SampleSettings.swift
 //  StashNativeDesktopSample
 //
-//  Credentials and last-used values. The app id, environment and last URL live in UserDefaults;
-//  the ingress secret is a server secret that must never ship in a real client, so the sample
-//  keeps it in memory for the session only and never writes it to disk.
+//  Credentials and last-used values. The app id and environment live in UserDefaults. The
+//  ingress secret is a server secret that must never ship in a real client, and a generated
+//  checkout URL carries a signed token: both stay in memory for the session only.
 //
 
 import Foundation
@@ -55,10 +55,17 @@ enum SampleSettings {
         set { defaults.set(newValue.rawValue, forKey: "stash.environment") }
     }
 
+    /// Session-only: a generated checkout URL carries a signed token, so it is never written to
+    /// disk. A value an earlier build saved to defaults is removed on first access.
     static var lastUrl: String {
-        get { defaults.string(forKey: "stash.lastUrl") ?? "" }
-        set { defaults.set(newValue, forKey: "stash.lastUrl") }
+        get {
+            _ = purgeLegacyUrl
+            return sessionUrl
+        }
+        set { sessionUrl = newValue }
     }
+    private static var sessionUrl = ""
+    private static let purgeLegacyUrl: Void = defaults.removeObject(forKey: "stash.lastUrl")
 
     /// Default body for /sdk/server/checkout_links/generate_quick_pay_url. No `platform`: the enum
     /// only knows IOS / ANDROID and desktop is correctly UNDEFINED. Saved payment methods are keyed

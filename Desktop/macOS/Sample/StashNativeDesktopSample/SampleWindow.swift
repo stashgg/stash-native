@@ -202,13 +202,13 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
 
     @objc private func openLocalPage() {
         let url = ProofRunner.testPageUrl("stash_test_checkout.html")
-        appendLog("openCard (local) \(url)")
+        appendLog("openCard stash_test_checkout.html")
         StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: localConfigJSON())
     }
 
     @objc private func openMatrixPage() {
         let url = ProofRunner.testPageUrl("stash_validation_matrix.html") + "?auto=1"
-        appendLog("openCard (matrix) \(url)")
+        appendLog("openCard stash_validation_matrix.html?auto=1")
         StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: localConfigJSON())
     }
 
@@ -257,6 +257,7 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
     }
 
     func stashNativeCardDidRequestExternalPayment(with url: String) {
-        setStatus("External payment: \(url)")
+        // The URL can carry session parameters: the status names the origin only.
+        setStatus("External payment: \(EventLog.Entry.origin(of: url))")
     }
 }
