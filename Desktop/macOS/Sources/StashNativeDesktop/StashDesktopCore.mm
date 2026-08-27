@@ -356,7 +356,10 @@ private:
     }
     std::string payload;
     if ([body isKindOfClass:[NSString class]]) {
-        payload = ((NSString *)body).UTF8String ?: "";
+        // As bytes, not as a C string: an embedded U+0000 must reach the session, which
+        // replaces it with U+FFFD instead of letting it truncate the ABI payload.
+        NSData *data = [(NSString *)body dataUsingEncoding:NSUTF8StringEncoding];
+        payload = data ? std::string(static_cast<const char *>(data.bytes), data.length) : "";
     } else if ([body isKindOfClass:[NSNumber class]]) {
         payload = ((NSNumber *)body).stringValue.UTF8String ?: "";
     } else if (body && body != [NSNull null] && [NSJSONSerialization isValidJSONObject:body]) {
