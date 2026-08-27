@@ -74,6 +74,12 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://[::1/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example]/x", out));
+    // A malformed explicit scheme is rejected, never reinterpreted as a scheme-less host.
+    CHECK(!url::normalizeExternalPaymentUrl("https:/pay.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("http:pay.example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("HTTPS:/pay.example", out));
+    CHECK(url::normalizeExternalPaymentUrl("pay.example/x", out));
+    CHECK_EQ(out, std::string("https://pay.example/x"));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.%ZZ/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%4/x", out));
@@ -637,6 +643,32 @@ static void testReentrantDismissFromOptIn() {
     CHECK(!s.isPresented());
 }
 
+// The surface is already closed and the session finished when the opt-in callback runs, so the
+// next checkout can be opened from inside it.
+struct PresentedDuringOptInHost : RecordingHost {
+    Session *session = nullptr;
+    bool presentedDuringOptIn = true;
+    int closesDuringOptIn = -1;
+    void emitEvent(const std::string &type, const std::string &payload) override {
+        RecordingHost::emitEvent(type, payload);
+        if (type == STASH_NATIVE_DESKTOP_EVENT_OPT_IN_RESPONSE && session != nullptr) {
+            presentedDuringOptIn = session->isPresented();
+            closesDuringOptIn = closes;
+        }
+    }
+};
+
+static void testOptInFinishesBeforeCallback() {
+    PresentedDuringOptInHost h;
+    Session s(h, cardConfig(), false);
+    h.session = &s;
+    s.handleMessage(STASH_SDK_MSG_OPTIN, "email");
+    CHECK(!h.presentedDuringOptIn);
+    CHECK_EQ(h.closesDuringOptIn, 1);
+    CHECK_EQ(h.events.size(), size_t(2));
+    CHECK_EQ(h.events[1].first, std::string(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED));
+}
+
 static void testOptIn() {
     RecordingHost h;
     Session s(h, cardConfig(), false);
@@ -878,6 +910,7 @@ int main() {
     testModalAllowDismiss();
     testOptIn();
     testReentrantDismissFromOptIn();
+    testOptInFinishesBeforeCallback();
     testExternalPayment();
     testExternalPaymentRejected();
     testEmbeddedNulPayload();

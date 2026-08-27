@@ -130,12 +130,19 @@ void Session::handleProcessingCompleted() {
     host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_PROCESSING_COMPLETED, "");
 }
 
+// The session is finished and its surface closed before the opt-in callback runs, so an
+// integrator may open the next checkout from inside it; dialogDismissed follows once (the
+// Android ordering: optInResponse, then dialogDismissed).
 void Session::handleOptIn(const std::string &optInType) {
     if (finished_) {
         return;
     }
+    finishWithoutDismissEvent();
     host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_OPT_IN_RESPONSE, optInType);
-    finishWithDismissEvent();
+    if (!dismissEmitted_) {
+        dismissEmitted_ = true;
+        host_.emitEvent(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED, "");
+    }
 }
 
 // window.close honours the processing lock but not modal allowDismiss, as on mobile.

@@ -297,7 +297,13 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
     if (startsWith(lower, "javascript:") || startsWith(lower, "file:") || startsWith(lower, "data:")) {
         return false;
     }
-    if (!startsWith(lower, "http://") && !startsWith(lower, "https://")) {
+    if (startsWith(lower, "http:") || startsWith(lower, "https:")) {
+        // Explicitly schemed: it must be well-formed. "https:/pay.example" is not a scheme-less
+        // host to prefix; prefixing would open https://https:/pay.example.
+        if (!startsWith(lower, "http://") && !startsWith(lower, "https://")) {
+            return false;
+        }
+    } else {
         s = "https://" + s;
     }
     // A URL parser would reject these; mobile returns nil / null for them.
