@@ -27,10 +27,12 @@ bool containsControlOrSpace(const std::string &s) {
     return false;
 }
 
+// Plain (non-bracketed) hosts only: brackets and colons belong to IPv6 literals, which are
+// validated structurally instead.
 bool validHostChars(const std::string &h) {
     for (unsigned char c : h) {
         bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' ||
-                  c == '[' || c == ']' || c == ':' || c == '%' || c >= 0x80;
+                  c == '%' || c >= 0x80;
         if (!ok) {
             return false;
         }
@@ -286,7 +288,7 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
         return false;
     }
     h = toLower(h);
-    if (h.empty() || !validHostChars(h)) {
+    if (h.empty() || (h[0] != '[' && !validHostChars(h))) {
         return false;
     }
     out = s;

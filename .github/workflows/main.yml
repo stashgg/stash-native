@@ -127,6 +127,9 @@ jobs:
           retention-days: 7
       
       - name: Upload APK to BrowserStack
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         id: browserstack-android
         run: |
           APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
@@ -148,6 +151,9 @@ jobs:
           echo "$RESPONSE"
 
       - name: Upload APK to Appetize
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         run: |
           # Appetize requires a signed APK; use debug build (signed with debug keystore)
           APK_PATH=$(find Android/sample/build/outputs/apk/debug -name "*.apk" -type f 2>/dev/null | head -1)
@@ -289,6 +295,9 @@ jobs:
           if-no-files-found: error
       
       - name: Upload IPA to BrowserStack
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         id: browserstack-ios
         run: |
           IPA_PATH="iOS/Sample/StashNativeSample/build/StashNativeSample.ipa"
@@ -343,6 +352,9 @@ jobs:
           echo "Simulator zip created at build/StashNativeDemo-simulator.zip"
 
       - name: Upload iOS Simulator build to Appetize
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         run: |
           SIM_ZIP="iOS/Sample/StashNativeSample/build/StashNativeSample-simulator.zip"
           if [ ! -f "$SIM_ZIP" ]; then

@@ -73,6 +73,9 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:70000/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[::1/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.[example/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:8443]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[zz::1]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[1]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[:::]/x", out));
