@@ -98,6 +98,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 - Load failures before the first load: `networkError`; afterwards: dismiss (`dialogDismissed`), as on iOS. `NSURLErrorCancelled` and frame-load-interrupted are ignored.
 - Web-content process death: one reload, then `networkError`.
 - A main-frame navigation blocked by policy (`http://`, `file://` without `allowFileUrls`) before the first load: `navigationBlocked` then `networkError`; afterwards the loaded page stays.
+- Sub-frames follow the same scheme policy (`http://` never, `file://` only with `allowFileUrls`): a refused frame reports `navigationBlocked` and the parent page stays, before or after the first load.
 
 ## Theming And Appearance
 
