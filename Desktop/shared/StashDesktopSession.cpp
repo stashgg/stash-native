@@ -36,7 +36,27 @@ std::string Session::themedUrl(const std::string &u) const {
     return url::appendThemeQueryParameter(u, dark_);
 }
 
-void Session::handleMessage(const std::string &name, const std::string &payload) {
+// Bridge payloads cross the C ABI as NUL-terminated strings: an embedded U+0000 (a WebKit
+// string message can carry one; WebView2 JSON is decoded the same way) would truncate what the
+// integrator sees, so it becomes U+FFFD on every transport.
+static std::string withoutEmbeddedNul(const std::string &payload) {
+    if (payload.find('\0') == std::string::npos) {
+        return payload;
+    }
+    std::string out;
+    out.reserve(payload.size() + 2);
+    for (char c : payload) {
+        if (c == '\0') {
+            out += "\xEF\xBF\xBD";
+        } else {
+            out += c;
+        }
+    }
+    return out;
+}
+
+void Session::handleMessage(const std::string &name, const std::string &rawPayload) {
+    std::string payload = withoutEmbeddedNul(rawPayload);
     if (name == STASH_SDK_MSG_PAYMENT_SUCCESS) {
         handlePaymentSuccess(payload);
     } else if (name == STASH_SDK_MSG_PAYMENT_FAILURE) {

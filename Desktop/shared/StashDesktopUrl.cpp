@@ -27,12 +27,23 @@ bool containsControlOrSpace(const std::string &s) {
     return false;
 }
 
+bool isHexDigit(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
 // Plain (non-bracketed) hosts only: brackets and colons belong to IPv6 literals, which are
-// validated structurally instead.
+// validated structurally instead. A '%' must be a complete hexadecimal escape.
 bool validHostChars(const std::string &h) {
-    for (unsigned char c : h) {
-        bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' ||
-                  c == '%' || c >= 0x80;
+    for (size_t i = 0; i < h.size(); i++) {
+        unsigned char c = static_cast<unsigned char>(h[i]);
+        if (c == '%') {
+            if (i + 2 >= h.size() || !isHexDigit(h[i + 1]) || !isHexDigit(h[i + 2])) {
+                return false;
+            }
+            i += 2;
+            continue;
+        }
+        bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' || c >= 0x80;
         if (!ok) {
             return false;
         }
@@ -90,10 +101,6 @@ static std::string authority(const std::string &u) {
         auth = auth.substr(at + 1);
     }
     return auth;
-}
-
-static bool isHexDigit(char c) {
-    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
 
 // Dotted quad: four decimal octets.

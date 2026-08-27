@@ -74,6 +74,10 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://[::1/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.%ZZ/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%4/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://pay.%41example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.[example/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example:8443]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[zz::1]/x", out));
@@ -624,6 +628,19 @@ static void testExternalPayment() {
     CHECK_EQ(h.browser[0], themed);
 }
 
+static void testEmbeddedNulPayload() {
+    // A string message with U+0000 inside (WebKit posts strings verbatim) reaches the ABI as
+    // U+FFFD, the same as the WebView2 JSON path, instead of truncating at the NUL.
+    RecordingHost h;
+    Session s(h, cardConfig(), false);
+    std::string payload("order", 5);
+    payload += '\0';
+    payload += "1";
+    s.handleMessage(STASH_SDK_MSG_PAYMENT_SUCCESS, payload);
+    CHECK_EQ(h.events[0].first, std::string(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS));
+    CHECK_EQ(h.events[0].second, std::string("order\xEF\xBF\xBD" "1"));
+}
+
 static void testExternalPaymentRejected() {
     RecordingHost h;
     Session s(h, cardConfig(), false);
@@ -826,6 +843,7 @@ int main() {
     testOptIn();
     testExternalPayment();
     testExternalPaymentRejected();
+    testEmbeddedNulPayload();
     testOpenLink();
     testNewWindow();
     testNavigationPolicy();
