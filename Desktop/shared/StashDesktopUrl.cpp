@@ -27,6 +27,35 @@ bool containsControlOrSpace(const std::string &s) {
     return false;
 }
 
+// Dotted quad: four decimal octets.
+bool validIpv4(const std::string &s) {
+    int octets = 0;
+    size_t pos = 0;
+    while (pos <= s.size()) {
+        size_t dot = s.find('.', pos);
+        std::string part = s.substr(pos, dot == std::string::npos ? std::string::npos : dot - pos);
+        if (part.empty() || part.size() > 3) {
+            return false;
+        }
+        int value = 0;
+        for (char c : part) {
+            if (c < '0' || c > '9') {
+                return false;
+            }
+            value = value * 10 + (c - '0');
+        }
+        if (value > 255) {
+            return false;
+        }
+        octets++;
+        if (dot == std::string::npos) {
+            break;
+        }
+        pos = dot + 1;
+    }
+    return octets == 4;
+}
+
 bool isHexDigit(char c) {
     return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
 }
@@ -61,6 +90,7 @@ bool validHostChars(const std::string &h) {
             decoded += c;
         }
     }
+    bool numeric = !decoded.empty();
     for (char ch : decoded) {
         unsigned char c = static_cast<unsigned char>(ch);
         bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' ||
@@ -68,8 +98,12 @@ bool validHostChars(const std::string &h) {
         if (!ok) {
             return false;
         }
+        if (!((c >= '0' && c <= '9') || c == '.')) {
+            numeric = false;
+        }
     }
-    return true;
+    // Digits and dots only: a browser parses that as an IPv4 address, so it must be one.
+    return !numeric || validIpv4(decoded);
 }
 
 }  // namespace
@@ -122,35 +156,6 @@ static std::string authority(const std::string &u) {
         auth = auth.substr(at + 1);
     }
     return auth;
-}
-
-// Dotted quad: four decimal octets.
-static bool validIpv4(const std::string &s) {
-    int octets = 0;
-    size_t pos = 0;
-    while (pos <= s.size()) {
-        size_t dot = s.find('.', pos);
-        std::string part = s.substr(pos, dot == std::string::npos ? std::string::npos : dot - pos);
-        if (part.empty() || part.size() > 3) {
-            return false;
-        }
-        int value = 0;
-        for (char c : part) {
-            if (c < '0' || c > '9') {
-                return false;
-            }
-            value = value * 10 + (c - '0');
-        }
-        if (value > 255) {
-            return false;
-        }
-        octets++;
-        if (dot == std::string::npos) {
-            break;
-        }
-        pos = dot + 1;
-    }
-    return octets == 4;
 }
 
 // Groups of 1-4 hex digits separated by ':', counted into groups; an IPv4 dotted quad may end

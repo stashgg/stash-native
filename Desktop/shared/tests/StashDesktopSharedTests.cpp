@@ -93,6 +93,11 @@ static void testUrlNormalization() {
     CHECK_EQ(out, std::string("https://localhost:8080/x"));
     // Numeric opaque URIs are not hosts with ports.
     CHECK(!url::normalizeExternalPaymentUrl("tel:12345", out));
+    // A digits-and-dots host is an IPv4 address and must be a valid one.
+    CHECK(!url::normalizeExternalPaymentUrl("https://256.1.1.1/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://999.999.999.999/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://1.2.3/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://10.0.0.1:8443/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("sms:12345", out));
     CHECK(!url::normalizeExternalPaymentUrl("custom:123/path", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.%ZZ/x", out));
