@@ -312,11 +312,14 @@ bool normalizeExternalPaymentUrl(const std::string &raw, std::string &out) {
             }
             portOnly = rest[i] >= '0' && rest[i] <= '9';
         }
+        // "host:port" only when the part before the colon reads as a host (a dotted name or
+        // localhost); "tel:12345" is an opaque URI, not a host with a port.
+        bool hostLike = explicitScheme.find('.') != std::string::npos || explicitScheme == "localhost";
         if (hierarchical) {
             if (explicitScheme != "http" && explicitScheme != "https") {
                 return false;
             }
-        } else if (portOnly) {
+        } else if (portOnly && hostLike) {
             s = "https://" + s;
         } else {
             return false;

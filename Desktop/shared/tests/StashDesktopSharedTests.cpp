@@ -89,6 +89,12 @@ static void testUrlNormalization() {
     CHECK_EQ(out, std::string("https://pay.example:8443/x"));
     CHECK(url::normalizeExternalPaymentUrl("pay.example:8443", out));
     CHECK_EQ(out, std::string("https://pay.example:8443"));
+    CHECK(url::normalizeExternalPaymentUrl("localhost:8080/x", out));
+    CHECK_EQ(out, std::string("https://localhost:8080/x"));
+    // Numeric opaque URIs are not hosts with ports.
+    CHECK(!url::normalizeExternalPaymentUrl("tel:12345", out));
+    CHECK(!url::normalizeExternalPaymentUrl("sms:12345", out));
+    CHECK(!url::normalizeExternalPaymentUrl("custom:123/path", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.%ZZ/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://pay.example%4/x", out));
