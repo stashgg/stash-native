@@ -74,7 +74,18 @@ static void testUrlNormalization() {
     CHECK(!url::normalizeExternalPaymentUrl("https://[::1/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[]/x", out));
     CHECK(!url::normalizeExternalPaymentUrl("https://[zz::1]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[1]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[:::]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[1:2:3:4:5:6:7:8:9]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[1:2:3:4:5:6:7]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[12345::1]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[::ffff:300.1.1.1]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[::1%25eth0]/x", out));
+    CHECK(!url::normalizeExternalPaymentUrl("https://[1::2::3]/x", out));
     CHECK(url::normalizeExternalPaymentUrl("https://[::ffff:10.0.0.1]:8443/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://[2001:db8::1]:8443/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://[1:2:3:4:5:6:7:8]/x", out));
+    CHECK(url::normalizeExternalPaymentUrl("https://[::]/x", out));
     CHECK(url::normalizeExternalPaymentUrl("https://pay.example:8443/x?a=1", out));
     CHECK_EQ(out, std::string("https://pay.example:8443/x?a=1"));
     // Mobile parses "https://mailto:a@b.c" as userinfo + host b.c and accepts it; same here.

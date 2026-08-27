@@ -90,8 +90,96 @@ static std::string authority(const std::string &u) {
     return auth;
 }
 
-// Host and port of an authority. False when a bracketed IPv6 literal is unterminated or the
-// port is not 1-5 digits within 0..65535 ("host:" counts as no port).
+static bool isHexDigit(char c) {
+    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+}
+
+// Dotted quad: four decimal octets.
+static bool validIpv4(const std::string &s) {
+    int octets = 0;
+    size_t pos = 0;
+    while (pos <= s.size()) {
+        size_t dot = s.find('.', pos);
+        std::string part = s.substr(pos, dot == std::string::npos ? std::string::npos : dot - pos);
+        if (part.empty() || part.size() > 3) {
+            return false;
+        }
+        int value = 0;
+        for (char c : part) {
+            if (c < '0' || c > '9') {
+                return false;
+            }
+            value = value * 10 + (c - '0');
+        }
+        if (value > 255) {
+            return false;
+        }
+        octets++;
+        if (dot == std::string::npos) {
+            break;
+        }
+        pos = dot + 1;
+    }
+    return octets == 4;
+}
+
+// Groups of 1-4 hex digits separated by ':', counted into groups; an IPv4 dotted quad may end
+// the sequence (two groups). False on an empty group or bad digits.
+static bool countIpv6Groups(const std::string &part, bool allowIpv4Tail, int &groups) {
+    groups = 0;
+    if (part.empty()) {
+        return true;
+    }
+    size_t pos = 0;
+    while (true) {
+        size_t colon = part.find(':', pos);
+        std::string group = part.substr(pos, colon == std::string::npos ? std::string::npos : colon - pos);
+        bool last = colon == std::string::npos;
+        if (last && allowIpv4Tail && group.find('.') != std::string::npos) {
+            if (!validIpv4(group)) {
+                return false;
+            }
+            groups += 2;
+            return true;
+        }
+        if (group.empty() || group.size() > 4) {
+            return false;
+        }
+        for (char c : group) {
+            if (!isHexDigit(c)) {
+                return false;
+            }
+        }
+        groups++;
+        if (last) {
+            return true;
+        }
+        pos = colon + 1;
+    }
+}
+
+// The text between the brackets of an IPv6 literal: eight groups, or fewer around one "::",
+// optionally ending in an IPv4 dotted quad. No zone ids.
+static bool validIpv6Literal(const std::string &s) {
+    size_t dc = s.find("::");
+    if (dc != std::string::npos && s.find("::", dc + 1) != std::string::npos) {
+        return false;
+    }
+    std::string head = dc == std::string::npos ? s : s.substr(0, dc);
+    std::string tail = dc == std::string::npos ? "" : s.substr(dc + 2);
+    int headGroups = 0;
+    int tailGroups = 0;
+    if (!countIpv6Groups(head, dc == std::string::npos, headGroups) || !countIpv6Groups(tail, true, tailGroups)) {
+        return false;
+    }
+    if (dc == std::string::npos) {
+        return headGroups == 8;
+    }
+    return headGroups + tailGroups <= 7;
+}
+
+// Host and port of an authority. False when a bracketed IPv6 literal is unterminated or not an
+// IPv6 address, or the port is not 1-5 digits within 0..65535 ("host:" counts as no port).
 static bool splitAuthority(const std::string &auth, std::string &hostOut, std::string &portOut) {
     portOut.clear();
     std::string rest;
@@ -102,16 +190,8 @@ static bool splitAuthority(const std::string &auth, std::string &hostOut, std::s
             return false;
         }
         hostOut = auth.substr(0, close + 1);
-        // A literal needs content, and only what an IPv6 address is made of.
-        if (close < 2) {
+        if (!validIpv6Literal(auth.substr(1, close - 1))) {
             return false;
-        }
-        for (size_t i = 1; i < close; i++) {
-            char c = auth[i];
-            bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-            if (!hex && c != ':' && c != '.') {
-                return false;
-            }
         }
         rest = auth.substr(close + 1);
         if (!rest.empty() && rest[0] != ':') {
