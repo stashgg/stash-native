@@ -22,6 +22,8 @@ std::wstring widen(const std::string &utf8);
 std::string narrow(const std::wstring &utf16);
 
 // -- Settings (HKCU\Software\Stash\StashNativeDesktopSample) ----------------------------------
+// The ingress secret is session-only: a server secret must never ship in a real client, so the
+// sample never writes it to the registry and removes a value an earlier build stored there.
 
 enum class Environment { Test, Production, Staging };
 
@@ -57,7 +59,14 @@ bool generateCheckoutUrl(const Settings &settings, const std::string &payload, s
 struct EventEntry {
     std::string type;
     std::string payload;
+
+    // What the window shows and the proof runner prints. Payloads can carry the checkout URL
+    // (navigation) or order data (paymentSuccess): only safe fields are rendered, the rest by size.
+    std::string summary() const;
 };
+
+// scheme://host of a URL, "" when it has no scheme.
+std::string urlOrigin(const std::string &url);
 
 class EventLog {
 public:
@@ -72,6 +81,7 @@ public:
 
 // -- Proof runner (ProofRunner.cpp) ------------------------------------------------------------
 
+// file:// URL of an offline test page: next to the executable when packaged, else the source tree.
 std::string testPageUrl(const char *name);
 void startProof(const std::string &mode, const std::string &remoteUrl, HWND hostWindow);
 

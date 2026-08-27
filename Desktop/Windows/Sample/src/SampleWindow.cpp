@@ -7,6 +7,9 @@
 
 #include <cstdio>
 
+#include "StashDesktopJson.h"
+#include "StashDesktopUrl.h"
+
 namespace sample {
 
 // -- Strings ---------------------------------------------------------------------------------
@@ -57,11 +60,12 @@ Settings Settings::load() {
         return s;
     }
     s.appId = readValue(key, L"appId");
-    s.ingressSecret = readValue(key, L"ingressSecret");
     std::string env = readValue(key, L"environment");
     s.environment = env == "production" ? Environment::Production : env == "staging" ? Environment::Staging : Environment::Test;
     s.lastUrl = readValue(key, L"lastUrl");
     RegCloseKey(key);
+    // Earlier builds stored the secret; it is never read back and the value is removed.
+    RegDeleteKeyValueW(HKEY_CURRENT_USER, kSettingsKey, L"ingressSecret");
     return s;
 }
 
@@ -71,7 +75,6 @@ void Settings::save() const {
         return;
     }
     writeValue(key, L"appId", appId);
-    writeValue(key, L"ingressSecret", ingressSecret);
     writeValue(key, L"environment", environment == Environment::Production ? "production"
                                     : environment == Environment::Staging ? "staging" : "test");
     writeValue(key, L"lastUrl", lastUrl);
@@ -96,6 +99,30 @@ static void STASH_NATIVE_DESKTOP_CALL onAbiEvent(const char *type, const char *p
 
 void EventLog::install() {
     StashNativeDesktop_SetEventCallback(onAbiEvent, nullptr);
+}
+
+std::string urlOrigin(const std::string &url) {
+    std::string sch = stash::desktop::url::scheme(url);
+    if (sch.empty()) {
+        return "";
+    }
+    return sch + "://" + stash::desktop::url::host(url);
+}
+
+std::string EventEntry::summary() const {
+    if (type == "pageLoaded" || type == "webProcessCrashed") {
+        return type + " " + payload;
+    }
+    if (type == "navigation") {
+        return type + " " + urlOrigin(payload);
+    }
+    if (type == "navigationBlocked") {
+        return type + " " + stash::desktop::json::getString(payload, "reason", "");
+    }
+    if (payload.empty()) {
+        return type;
+    }
+    return type + " (" + std::to_string(payload.size()) + " bytes)";
 }
 
 std::vector<std::string> EventLog::types() const {
@@ -297,13 +324,13 @@ void onCommand(int id, int notification) {
             break;
         case kLocalPage: {
             std::string url = testPageUrl("stash_test_checkout.html");
-            appendLog("openCard (local) " + url);
+            appendLog("openCard stash_test_checkout.html");
             card.openCard(url, configJson(true));
             break;
         }
         case kMatrixPage: {
             std::string url = testPageUrl("stash_validation_matrix.html") + "?auto=1";
-            appendLog("openCard (matrix) " + url);
+            appendLog("openCard stash_validation_matrix.html?auto=1");
             card.openCard(url, configJson(true));
             break;
         }
@@ -383,7 +410,7 @@ HWND createSampleWindow(HINSTANCE instance) {
     // The listener replaced the ABI callback; the log needs it back, so chain through the log.
     EventLog::shared().install();
     EventLog::shared().onEvent = [](const EventEntry &entry) {
-        appendLog("event " + entry.type + " " + entry.payload);
+        appendLog("event " + entry.summary());
         stash::detail::dispatchEvent(&g_listener, entry.type.c_str(), entry.payload.c_str());
     };
 

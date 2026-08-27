@@ -68,8 +68,21 @@ void evaluateSecure(const std::vector<std::string> &types, bool presented) {
     }
 }
 
+// Adjacent navigation entries collapse into one (a redirect chain reports several); every other
+// event stays, so duplicates cannot pass as the expected sequence.
+std::vector<std::string> collapsedTypes() {
+    std::vector<std::string> out;
+    for (const std::string &type : EventLog::shared().types()) {
+        if (type == "navigation" && !out.empty() && out.back() == "navigation") {
+            continue;
+        }
+        out.push_back(type);
+    }
+    return out;
+}
+
 void evaluate() {
-    std::vector<std::string> types = EventLog::shared().types();
+    std::vector<std::string> types = collapsedTypes();
     bool presented = stash::StashNativeCard::getInstance().isCurrentlyPresented();
     if (g_proof.mode == "local") {
         std::vector<std::string> expected = {"navigation", "pageLoaded", "purchaseProcessing", "paymentSuccess"};
@@ -107,7 +120,20 @@ void CALLBACK onTimeout(HWND, UINT, UINT_PTR, DWORD) {
 }  // namespace
 
 std::string testPageUrl(const char *name) {
-    std::string dir = STASH_TEST_PAGES_DIR;
+    wchar_t module[MAX_PATH] = L"";
+    DWORD length = GetModuleFileNameW(nullptr, module, MAX_PATH);
+    std::string dir;
+    if (length > 0 && length < MAX_PATH) {
+        std::string exe = narrow(module);
+        size_t slash = exe.find_last_of("\\/");
+        std::string packaged = exe.substr(0, slash == std::string::npos ? 0 : slash) + "\\test-pages";
+        if (GetFileAttributesW(widen(packaged).c_str()) != INVALID_FILE_ATTRIBUTES) {
+            dir = packaged;
+        }
+    }
+    if (dir.empty()) {
+        dir = STASH_TEST_PAGES_DIR;
+    }
     for (char &c : dir) {
         if (c == '\\') {
             c = '/';
@@ -121,25 +147,26 @@ void startProof(const std::string &mode, const std::string &remoteUrl, HWND host
     g_proof.remoteUrl = remoteUrl;
     g_proof.host = hostWindow;
     EventLog::shared().onEvent = [](const EventEntry &entry) {
-        log("event " + entry.type + " " + entry.payload);
+        log("event " + entry.summary());
         evaluate();
     };
     SetTimer(hostWindow, kProofTimeoutTimer, kProofTimeoutMs, onTimeout);
     stash::StashNativeCard &card = stash::StashNativeCard::getInstance();
     if (mode == "local") {
         std::string url = testPageUrl("stash_test_checkout.html") + "?auto=1";
-        log("opening " + url);
+        log("opening stash_test_checkout.html?auto=1 with allowFileUrls");
         card.openCard(url, std::string("{\"allowFileUrls\":true}"));
     } else if (mode == "remote") {
         if (remoteUrl.empty()) {
             finish(false, "pass -stash-url <https://checkout url>");
         }
-        log("opening " + remoteUrl);
+        // The generated link carries a signed token: name the origin only.
+        log("opening " + urlOrigin(remoteUrl));
         card.openCard(remoteUrl);
     } else if (mode == "secure") {
         g_proof.phase = 1;
         std::string url = testPageUrl("stash_test_checkout.html");
-        log("opening " + url + " without allowFileUrls");
+        log("opening stash_test_checkout.html without allowFileUrls");
         card.openCard(url);
     } else {
         finish(false, "unknown mode, use local | remote | secure");

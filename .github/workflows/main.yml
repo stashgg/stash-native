@@ -514,4 +514,5 @@ jobs:
           path: |
             Desktop/Windows/build/Sample/Release/StashNativeDesktopSample.exe
             Desktop/Windows/build/Sample/Release/StashNativeDesktop.dll
+            Desktop/Windows/build/Sample/Release/test-pages
           retention-days: 7

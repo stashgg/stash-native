@@ -2,6 +2,8 @@
 
 #include <winhttp.h>
 
+#include "StashDesktopJson.h"
+
 namespace sample {
 
 const char *environmentTitle(Environment env) {
@@ -41,20 +43,12 @@ const char *const kDefaultCheckoutPayload =
     "  \"regionCode\": \"US\"\n"
     "}\n";
 
+// The response must be an object whose root "url" is a non-empty string; escapes are decoded.
 static std::string extractUrlField(const std::string &json) {
-    size_t key = json.find("\"url\"");
-    if (key == std::string::npos) {
+    if (!stash::desktop::json::isObject(json)) {
         return "";
     }
-    size_t quote = json.find('"', json.find(':', key) + 1);
-    if (quote == std::string::npos) {
-        return "";
-    }
-    size_t end = json.find('"', quote + 1);
-    if (end == std::string::npos) {
-        return "";
-    }
-    return json.substr(quote + 1, end - quote - 1);
+    return stash::desktop::json::getString(json, "url", "");
 }
 
 bool generateCheckoutUrl(const Settings &settings, const std::string &payload, std::string &urlOut, std::string &errorOut) {
