@@ -195,8 +195,10 @@ void Core::setHostWindow(HWND hwnd) {
     explicitHost_ = hwnd;
 }
 
+// Null once the session has finished as well as for a stale id: WebView2 completions that
+// arrive after a dismiss, reset, failure or host window destruction must not act on it.
 Session *Core::sessionForId(unsigned long sessionId) {
-    if (!session_ || sessionId != sessionId_) {
+    if (!session_ || sessionId != sessionId_ || !session_->isPresented()) {
         return nullptr;
     }
     return session_.get();

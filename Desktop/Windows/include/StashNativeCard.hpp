@@ -205,6 +205,7 @@ public:
     // set directly through StashNativeDesktop_SetEventCallback.
     void setListener(StashNativeCardListener *listener) {
         listener_ = listener;
+        callbackCleared_ = false;
         StashNativeDesktop_SetEventCallback(listener != nullptr ? &StashNativeCard::trampoline : nullptr, this);
     }
 
@@ -252,18 +253,23 @@ public:
 
     // Releases the WebView2 environment and clears the C callback. Call at exit; the SDK can
     // be used again afterwards and the listener is re-attached by the next open.
-    void shutdown() { StashNativeDesktop_Shutdown(); }
-
-private:
-    // Shutdown clears the C callback but the listener is kept: every open re-attaches it so
-    // reuse after shutdown does not lose the callbacks silently.
-    void ensureCallback() {
-        if (listener_ != nullptr) {
-            StashNativeDesktop_SetEventCallback(&StashNativeCard::trampoline, this);
-        }
+    void shutdown() {
+        StashNativeDesktop_Shutdown();
+        callbackCleared_ = true;
     }
 
-    StashNativeCard() : listener_(nullptr) {}
+private:
+    // Shutdown clears the C callback but the listener is kept, so the next open re-attaches
+    // it. Only then: a callback installed directly through the ABI in the meantime (a host's
+    // own event log) is respected, exactly as setListener documents.
+    void ensureCallback() {
+        if (callbackCleared_ && listener_ != nullptr) {
+            StashNativeDesktop_SetEventCallback(&StashNativeCard::trampoline, this);
+        }
+        callbackCleared_ = false;
+    }
+
+    StashNativeCard() : listener_(nullptr), callbackCleared_(false) {}
     StashNativeCard(const StashNativeCard &) = delete;
     StashNativeCard &operator=(const StashNativeCard &) = delete;
 
@@ -275,6 +281,7 @@ private:
     }
 
     StashNativeCardListener *listener_;
+    bool callbackCleared_;
 };
 
 }  // namespace stash

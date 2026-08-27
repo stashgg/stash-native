@@ -204,15 +204,24 @@ void registerScript(ICoreWebView2 *webView, const std::string &script, bool isSd
                                        scriptRegistrationSettled();
                                        return S_OK;
                                    }));
-    webView->AddScriptToExecuteOnDocumentCreated(widen(script).c_str(), handler);
+    HRESULT hr = webView->AddScriptToExecuteOnDocumentCreated(widen(script).c_str(), handler);
     handler->Release();
+    if (FAILED(hr)) {
+        // Failed synchronously: the completion never runs, so settle the registration here.
+        debugLog("%s script registration refused hr=0x%08X", isSdk ? "bridge" : "dark sheet", static_cast<unsigned>(hr));
+        g.pendingScripts--;
+        if (isSdk) {
+            g.sdkScriptRegistered = false;
+        }
+        scriptRegistrationSettled();
+    }
 }
 
 void wireWebView(ICoreWebView2 *webView) {
     EventRegistrationToken token;
     unsigned long id = g.sessionId;
 
-    webView->add_WebMessageReceived(
+    addHandler(&ICoreWebView2::add_WebMessageReceived, webView,
         STASH_CALLBACK(ICoreWebView2WebMessageReceivedEventHandler, ICoreWebView2 *, ICoreWebView2WebMessageReceivedEventArgs *,
                        ([id](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -248,7 +257,7 @@ void wireWebView(ICoreWebView2 *webView) {
                        })),
         &token);
 
-    webView->add_NavigationStarting(
+    addHandler(&ICoreWebView2::add_NavigationStarting, webView,
         STASH_CALLBACK(ICoreWebView2NavigationStartingEventHandler, ICoreWebView2 *, ICoreWebView2NavigationStartingEventArgs *,
                        ([id](ICoreWebView2 *, ICoreWebView2NavigationStartingEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -272,7 +281,7 @@ void wireWebView(ICoreWebView2 *webView) {
                        })),
         &token);
 
-    webView->add_FrameNavigationStarting(
+    addHandler(&ICoreWebView2::add_FrameNavigationStarting, webView,
         STASH_CALLBACK(ICoreWebView2NavigationStartingEventHandler, ICoreWebView2 *, ICoreWebView2NavigationStartingEventArgs *,
                        ([id](ICoreWebView2 *, ICoreWebView2NavigationStartingEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -291,7 +300,7 @@ void wireWebView(ICoreWebView2 *webView) {
         &token);
 
     // Document bytes arrived for the main frame: the stall / deadline timers are done.
-    webView->add_ContentLoading(
+    addHandler(&ICoreWebView2::add_ContentLoading, webView,
         STASH_CALLBACK(ICoreWebView2ContentLoadingEventHandler, ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *,
                        ([id](ICoreWebView2 *, ICoreWebView2ContentLoadingEventArgs *args) -> HRESULT {
                            UINT64 navigationId = 0;
@@ -305,7 +314,7 @@ void wireWebView(ICoreWebView2 *webView) {
                        })),
         &token);
 
-    webView->add_NavigationCompleted(
+    addHandler(&ICoreWebView2::add_NavigationCompleted, webView,
         STASH_CALLBACK(ICoreWebView2NavigationCompletedEventHandler, ICoreWebView2 *, ICoreWebView2NavigationCompletedEventArgs *,
                        ([id](ICoreWebView2 *sender, ICoreWebView2NavigationCompletedEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -359,7 +368,7 @@ void wireWebView(ICoreWebView2 *webView) {
                        })),
         &token);
 
-    webView->add_SourceChanged(
+    addHandler(&ICoreWebView2::add_SourceChanged, webView,
         STASH_CALLBACK(ICoreWebView2SourceChangedEventHandler, ICoreWebView2 *, ICoreWebView2SourceChangedEventArgs *,
                        ([id](ICoreWebView2 *sender, ICoreWebView2SourceChangedEventArgs *) -> HRESULT {
                            if (Core::instance().sessionForId(id) == nullptr) {
@@ -375,7 +384,7 @@ void wireWebView(ICoreWebView2 *webView) {
         &token);
 
     // target=_blank / window.open: external browser, the checkout stays presented.
-    webView->add_NewWindowRequested(
+    addHandler(&ICoreWebView2::add_NewWindowRequested, webView,
         STASH_CALLBACK(ICoreWebView2NewWindowRequestedEventHandler, ICoreWebView2 *, ICoreWebView2NewWindowRequestedEventArgs *,
                        ([id](ICoreWebView2 *, ICoreWebView2NewWindowRequestedEventArgs *args) -> HRESULT {
                            args->put_Handled(TRUE);
@@ -389,7 +398,7 @@ void wireWebView(ICoreWebView2 *webView) {
                        })),
         &token);
 
-    webView->add_WindowCloseRequested(
+    addHandler(&ICoreWebView2::add_WindowCloseRequested, webView,
         STASH_CALLBACK(ICoreWebView2WindowCloseRequestedEventHandler, ICoreWebView2 *, IUnknown *,
                        ([id](ICoreWebView2 *, IUnknown *) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -402,7 +411,7 @@ void wireWebView(ICoreWebView2 *webView) {
         &token);
 
     // Renderer crashes are isolated from the game: one reload, then a network error.
-    webView->add_ProcessFailed(
+    addHandler(&ICoreWebView2::add_ProcessFailed, webView,
         STASH_CALLBACK(ICoreWebView2ProcessFailedEventHandler, ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *,
                        ([id](ICoreWebView2 *sender, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
@@ -472,7 +481,7 @@ void finishControllerSetup() {
 
     EventRegistrationToken token;
     unsigned long id = g.sessionId;
-    g.controller->add_AcceleratorKeyPressed(
+    addHandler(&ICoreWebView2Controller::add_AcceleratorKeyPressed, g.controller,
         STASH_CALLBACK(ICoreWebView2AcceleratorKeyPressedEventHandler, ICoreWebView2Controller *, ICoreWebView2AcceleratorKeyPressedEventArgs *,
                        ([id](ICoreWebView2Controller *, ICoreWebView2AcceleratorKeyPressedEventArgs *args) -> HRESULT {
                            COREWEBVIEW2_KEY_EVENT_KIND kind;

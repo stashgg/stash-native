@@ -74,6 +74,14 @@ private:
 // Created with one reference; the callee AddRefs, the caller releases after handing it over.
 #define STASH_CALLBACK(TIface, TA, TB, lambda) (new stash::desktop::win::Callback2<TIface, TA, TB>(IID_##TIface, (lambda)))
 
+// Registers an event handler created by STASH_CALLBACK and releases the creation reference;
+// the source keeps its own. Without this every registered handler would leak per checkout.
+template <typename Sink, typename Add, typename Handler>
+void addHandler(Add add, Sink *sink, Handler *handler, EventRegistrationToken *token) {
+    (sink->*add)(handler, token);
+    handler->Release();
+}
+
 template <typename T>
 void safeRelease(T *&p) {
     if (p != nullptr) {
