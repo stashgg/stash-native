@@ -126,7 +126,7 @@ visual artefacts.
 | Architecture | x64 |
 | Toolchain to build | Visual Studio 2019/2022 C++ workload, CMake 3.20+; consumers need neither (one DLL, static CRT, static WebView2 loader) |
 
-The checkout is presented as a child window of the game window (dimmed backdrop, card, native trust header). It renders over windowed and borderless-fullscreen games; exclusive fullscreen must be switched to borderless for the flow (the Unity and Unreal wrappers do this and restore it). The WebView2 processes run out of process under `%LOCALAPPDATA%\Stash\<executable name>\WebView2`, one profile per game.
+The checkout is presented as a child window of the game window (dimmed backdrop, card, native trust header). It renders over windowed and borderless-fullscreen games; exclusive fullscreen must be switched to borderless for the flow (the Unity and Unreal wrappers do this and restore it). The WebView2 processes run out of process under `%LOCALAPPDATA%\Stash\<executable name>\WebView2`, one profile per executable name (two products whose executables share a name share cookies and local storage).
 
 - Apple Pay renders (QR handoff to an iPhone), Google Pay, PayPal (full-page redirect inside the card) and cards are available.
 - Anti-cheat: the host injects nothing into the game and only creates child windows and out-of-process WebView2 processes; validation on a protected title is tracked in [`docs/desktop-validation-matrix.md`](docs/desktop-validation-matrix.md).
