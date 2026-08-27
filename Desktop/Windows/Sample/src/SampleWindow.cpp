@@ -165,6 +165,9 @@ struct Window {
     HFONT font = nullptr;
     Settings settings;
     double scale = 1.0;
+    // SetWindowText on an edit control sends EN_CHANGE; while the saved values are being
+    // restored those notifications must not write half-initialized settings back.
+    bool initializing = false;
 };
 
 Window g_window;
@@ -284,6 +287,9 @@ void buildControls() {
 }
 
 void onCommand(int id, int notification) {
+    if (g_window.initializing) {
+        return;
+    }
     stash::StashNativeCard &card = stash::StashNativeCard::getInstance();
     if ((id == kAppId || id == kSecret || id == kUrl) && notification == EN_CHANGE) {
         saveSettings();
@@ -401,7 +407,9 @@ HWND createSampleWindow(HINSTANCE instance) {
     metrics.cbSize = sizeof(metrics);
     SystemParametersInfoW(SPI_GETNONCLIENTMETRICS, sizeof(metrics), &metrics, 0);
     g_window.font = CreateFontIndirectW(&metrics.lfMessageFont);
+    g_window.initializing = true;
     buildControls();
+    g_window.initializing = false;
 
     // The window is both the UI and the host the card is presented over.
     stash::StashNativeCard &card = stash::StashNativeCard::getInstance();
