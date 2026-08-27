@@ -52,6 +52,8 @@ let package = Package(
             cxxSettings: [
                 .headerSearchPath("../../../include"),
                 .headerSearchPath("../../../shared"),
+                // The tests drive the core's message ingress directly.
+                .headerSearchPath("../../Sources/StashNativeDesktop"),
             ],
             linkerSettings: [
                 .linkedFramework("XCTest"),

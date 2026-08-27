@@ -23,6 +23,9 @@ using stash::desktop::Session;
     BOOL _allowFileUrls;
     BOOL _invalidated;
     BOOL _initialLoadComplete;
+    // First didFinishNavigation of the presentation seen: failures before it are network
+    // errors (nothing was ever shown), failures after it dismiss.
+    BOOL _pageFinished;
     int _stallReloadCount;
     BOOL _processTerminateRecoveryUsed;
     NSTimer *_stallTimer;
@@ -130,6 +133,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     _allowFileUrls = allowFileUrls;
     _pageLoadStartTime = CFAbsoluteTimeGetCurrent();
     _initialLoadComplete = NO;
+    _pageFinished = NO;
     _stallReloadCount = 0;
     [self loadCheckoutURL];
     if (_invalidated) {
@@ -218,6 +222,17 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         decisionHandler(WKNavigationResponsePolicyCancel);
         return;
     }
+    if (navigationResponse.isForMainFrame && !navigationResponse.canShowMIMEType) {
+        // A download or plugin response has no page to show. WebKit would report it as error
+        // 102, which handleLoadFailure ignores, so it is decided here: before the first page
+        // it is a network error, afterwards the shown page stays.
+        decisionHandler(WKNavigationResponsePolicyCancel);
+        if (!_pageFinished) {
+            session->handleNetworkError();
+            [_core refreshStateMirrors];
+        }
+        return;
+    }
     // Main-frame HTTP: 4xx / 5xx fail the load; redirect hops keep the stall timers armed; any
     // other status means document bytes arrived.
     if (!_initialLoadComplete && navigationResponse.isForMainFrame &&
@@ -256,6 +271,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     }
     [[_core presenter] setLoading:NO];
     [[_core presenter] updateTrustHeaderForURL:webView.URL];
+    _pageFinished = YES;
     double loadTimeMs = (CFAbsoluteTimeGetCurrent() - _pageLoadStartTime) * 1000.0;
     session->handlePageFinished(loadTimeMs);
 }
@@ -267,11 +283,14 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     }
     if (error.code == NSURLErrorCancelled ||
         ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 102)) {
-        // Cancelled by our own policy or superseded; frame-load-interrupted is a download / plugin.
+        // Cancelled by our own policy or superseded; frame-load-interrupted follows a response
+        // the response policy already refused (download / plugin) and decided.
         return;
     }
     STASH_DESKTOP_LOG(@"StashNativeDesktop: load failed %@ (%ld)", error.domain, (long)error.code);
-    if (!_initialLoadComplete) {
+    // Until a page finished there is nothing on screen to keep: a body that fails while it is
+    // still arriving is a network error, not a dismissal.
+    if (!_pageFinished) {
         session->handleNetworkError();
     } else {
         session->dismiss();

@@ -7,12 +7,22 @@
 
 #import <XCTest/XCTest.h>
 #import "StashNativeCard.h"
+#import "StashNativeCardPrivate.h"
 
 #include <string>
 
 #include "StashDesktopConfig.h"
 #include "StashNativeDesktop.h"
 #include "StashSdkScript.h"
+
+static std::string gLastEventType;
+static std::string gLastEventPayload;
+
+static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *payload, void *userData) {
+    (void)userData;
+    gLastEventType = type ?: "";
+    gLastEventPayload = payload ?: "";
+}
 
 @interface StashNativeDesktopTests : XCTestCase
 @end
@@ -143,6 +153,39 @@
     XCTAssertFalse(card.isCurrentlyPresented);
     card.hostWindow = nil;
     [second close];
+}
+
+// A WebKit string message with U+0000 inside goes through the core as bytes and reaches the
+// ABI callback as U+FFFD followed by the rest, not truncated at the NUL.
+- (void)testEmbeddedNulInStringMessageReachesCallbackAsReplacementCharacter {
+    [NSApplication sharedApplication];
+    NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 900, 700)
+                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    window.releasedWhenClosed = NO;
+    StashNativeCard *card = [StashNativeCard sharedInstance];
+    card.hostWindow = window;
+    gLastEventType.clear();
+    gLastEventPayload.clear();
+    StashNativeDesktop_SetEventCallback(RecordEvent, nullptr);
+    [card openCardWithURL:@"data:text/html,<p>stash</p>" config:nil];
+    XCTAssertTrue(card.isCurrentlyPresented);
+
+    StashDesktopCore *core = [StashDesktopCore sharedInstance];
+    NSString *body = [NSString stringWithFormat:@"order%C1", (unichar)0];
+    XCTAssertEqual(body.length, (NSUInteger)7);
+    [core handleMessageNamed:@STASH_SDK_MSG_PAYMENT_SUCCESS body:body fromWebView:core.liveWebView];
+    [[NSRunLoop mainRunLoop] runUntilDate:[NSDate dateWithTimeIntervalSinceNow:0.3]];
+
+    XCTAssertEqual(gLastEventType, std::string(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS));
+    XCTAssertEqual(gLastEventPayload, std::string("order\xEF\xBF\xBD" "1"));
+    XCTAssertFalse(card.isCurrentlyPresented);
+
+    StashNativeDesktop_SetEventCallback(nullptr, nullptr);
+    [card resetPresentationState];
+    card.hostWindow = nil;
+    [window close];
 }
 
 - (void)testShutdownClearsState {
