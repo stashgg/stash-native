@@ -233,18 +233,19 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         }
         return;
     }
-    // Main-frame HTTP: 4xx / 5xx fail the load; redirect hops keep the stall timers armed; any
-    // other status means document bytes arrived.
-    if (!_initialLoadComplete && navigationResponse.isForMainFrame &&
-        [navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+    // Main-frame HTTP before a page has finished (the first document or anything it navigates
+    // to on its own): 4xx / 5xx are a network error; redirect hops keep the stall timers
+    // armed; any other status means document bytes arrived. After a finished page an HTTP
+    // error document is shown like any other page.
+    if (navigationResponse.isForMainFrame && [navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
         NSInteger status = ((NSHTTPURLResponse *)navigationResponse.response).statusCode;
-        if (status >= 400) {
-            STASH_DESKTOP_LOG(@"StashNativeDesktop: HTTP %ld on the main frame during initial load", (long)status);
+        if (status >= 400 && !_pageFinished) {
+            STASH_DESKTOP_LOG(@"StashNativeDesktop: HTTP %ld on the main frame before the first page", (long)status);
             decisionHandler(WKNavigationResponsePolicyCancel);
             session->handleNetworkError();
             return;
         }
-        if (!stash::desktop::url::isRedirectStatus((int)status)) {
+        if (!_initialLoadComplete && !stash::desktop::url::isRedirectStatus((int)status)) {
             [self markInitialLoadComplete];
         }
     }
@@ -325,6 +326,9 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     }
     _processTerminateRecoveryUsed = YES;
     _initialLoadComplete = NO;
+    // The rendered page died with its process: until the reload finishes, nothing is on screen
+    // to keep, so a failure of the recovery load is a network error again.
+    _pageFinished = NO;
     STASH_DESKTOP_LOG(@"StashNativeDesktop: web content process terminated, reloading");
     [_core dispatchEventType:STASH_NATIVE_DESKTOP_EVENT_WEB_PROCESS_CRASHED payload:"reloading"];
     [self loadCheckoutURL];

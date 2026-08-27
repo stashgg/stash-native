@@ -169,6 +169,13 @@ NS_ASSUME_NONNULL_BEGIN
  * stashNative.delegate = self;
  * [stashNative openCardWithURL:@"https://your-checkout-url.com" config:nil];
  * @endcode
+ *
+ * Threading and callback contract: every call goes on the main thread. Delegate methods and
+ * the C ABI callback are delivered on the main thread through a dispatch_async, so they arrive
+ * after the WebKit callback that produced them has unwound, never re-entrantly. target=_blank,
+ * window.open and openLink open the system browser and the checkout stays presented;
+ * externalPayment closes it. A non-web URL from the page goes to the OS as a deeplink.
+ * Full guide: docs/macos.md in the stash-native repository.
  */
 @interface StashNativeCard : NSObject
 
