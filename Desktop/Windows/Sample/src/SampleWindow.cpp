@@ -102,11 +102,7 @@ void EventLog::install() {
 }
 
 std::string urlOrigin(const std::string &url) {
-    std::string sch = stash::desktop::url::scheme(url);
-    if (sch.empty()) {
-        return "";
-    }
-    return sch + "://" + stash::desktop::url::host(url);
+    return stash::desktop::url::origin(url);
 }
 
 std::string EventEntry::summary() const {
