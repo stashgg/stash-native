@@ -18,7 +18,7 @@ Download both from the [stash-native releases](https://github.com/stashgg/stash-
 
 ## Enabling desktop in an existing integration
 
-If you already integrate Stash Pay on mobile through Unity or Unreal, update the package: the same `OpenCard` / `OpenModal` / `OpenBrowser` calls and the same callbacks now work in Windows and macOS players. Config objects are unchanged; the ratio fields are ignored on desktop (the card is a fixed 480 x 720 pt surface, the modal 480 x 600 pt, both clamped to the game window).
+If you already integrate Stash Pay on mobile through Unity or Unreal, update to the first desktop-enabled package versions, stash-unity 2.4.0 and stash-unreal 2.4.0 (earlier packages ship Android and iOS bindings only): from those versions the same `OpenCard` / `OpenModal` / `OpenBrowser` calls and the same callbacks work in Windows and macOS players. Until your project is on them, use the C ABI below. Config objects are unchanged; the ratio fields are ignored on desktop (the card is a fixed 480 x 720 pt surface, the modal 480 x 600 pt, both clamped to the game window).
 
 For native apps and custom engines the desktop hosts expose two layers:
 

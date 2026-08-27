@@ -81,7 +81,7 @@ Host window: `SetHostWindow`, else the active window, else the foreground window
 
 ## Environment, Prewarm, And Data
 
-- User data folder: `%LOCALAPPDATA%\Stash\<executable name>\WebView2`, one profile per game (`userDataFolderFor`), so saved payment methods stay per game.
+- User data folder: `%LOCALAPPDATA%\Stash\<executable name>\WebView2` (`userDataFolderFor`): browser state (cookies, local storage) is kept per executable name, not per product, so two games or editor projects whose executables share a name share it. Saved payment methods are keyed per shop and user on the backend and do not depend on this folder.
 - Missing runtime: `GetAvailableCoreWebView2BrowserVersionString` fails, the host emits `error` and the session ends with `networkError`.
 - Prewarm creates the environment and a hidden controller navigated to `about:blank`; the first open reparents it into the card.
 - Controller settings: DevTools only when inspectable, no default context menus, no status bar, no zoom control.
@@ -90,7 +90,7 @@ Host window: `SetHostWindow`, else the active window, else the foreground window
 ## Loading, Timeout, Retry, And Error Semantics
 
 - `ContentLoading` marks the initial load complete and ends the stall and deadline timers (`TIMER_STALL` 1.25 s, up to 2 re-navigations, not armed for `file://`; `TIMER_DEADLINE` 15 s on the message window).
-- `NavigationCompleted`: cancelled navigations are ignored; a failure or an HTTP status >= 400 (`ICoreWebView2NavigationCompletedEventArgs2`) before the first successful load is `networkError`, afterwards `dismiss`; success updates the trust header, hides the spinner and emits `pageLoaded` once.
+- `NavigationCompleted` (checkout navigation id only): a transport failure (`IsSuccess` false) before the first successful load is `networkError`, afterwards `dismiss`. An HTTP status >= 400 (`ICoreWebView2NavigationCompletedEventArgs2`) is treated as a failure on the first load only; after the initial load a completed HTTP error page stays presented, as on macOS. Success updates the trust header, hides the spinner and emits `pageLoaded` once.
 - `ProcessFailed`: renderer exit or unresponsive reloads once, then `networkError`; browser process exit is terminal and releases the environment.
 - `NewWindowRequested` (`target=_blank`, `window.open`): handled, external browser, checkout stays.
 - Policy blocks (`http://`, `file://` without `allowFileUrls`) before the first load fail fast (`navigationBlocked`, `networkError`); afterwards the loaded page stays. `FrameNavigationStarting` applies the same scheme policy to sub-frames, where a refused frame only reports `navigationBlocked`.

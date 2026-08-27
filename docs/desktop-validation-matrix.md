@@ -9,7 +9,8 @@ Each cell is one flow through one engine on one OS, against a real staging check
 | Flow | Unity / Windows | Unity / macOS | Unreal / Windows | Unreal / macOS |
 |------|-----------------|---------------|------------------|----------------|
 | Card purchase (sandbox card) | | | | |
-| Google Pay | | n/a (see notes) | | n/a (see notes) |
+| Google Pay | | | | |
+| Apple Pay (Windows only; needs an iPhone or Mac signed into the same Apple ID to complete) | | n/a (WKWebView, see notes) | | n/a (WKWebView, see notes) |
 | PayPal redirect and return | | | | |
 | 3DS2 challenge | blocked (see notes) | blocked | blocked | blocked |
 | Saved-card preselect (repeat purchase, same user id) | | | | |

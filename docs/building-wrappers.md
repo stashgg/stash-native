@@ -62,7 +62,7 @@ flowchart LR
 ### Callbacks
 
 - Map `StashNativeCardListener` (Android) and `StashNativeCardDelegate` (iOS) to engine-native constructs (Unity events, Unreal dynamic delegates, signals, and so on). Preserve ordering and semantics documented in the [README](../README.md) callback sections.
-- Desktop: one C callback `(type, payload, userData)` carries every event; the types map 1:1 to the mobile callbacks (`paymentSuccess`, `paymentFailure`, `dialogDismissed`, `optInResponse`, `pageLoaded`, `networkError`, `externalPayment`, `purchaseProcessing`, `processingCompleted`) plus diagnostics to log (`navigation`, `navigationBlocked`, `webProcessCrashed`, `error`). Clear per-call callback slots on `dialogDismissed`, as the mobile wrappers do; success and failure with `autoClose` close the card without it.
+- Desktop: one C callback `(type, payload, userData)` carries every event. Common with mobile, same ordering and semantics: `paymentSuccess`, `paymentFailure`, `dialogDismissed`, `optInResponse`, `pageLoaded`, `networkError`, `externalPayment`. Desktop-only: `purchaseProcessing` / `processingCompleted` (mobile exposes this state through `isPurchaseProcessing` only; mirror them into the wrapper's processing flag rather than publishing new callbacks) and the diagnostics to log (`navigation`, `navigationBlocked`, `webProcessCrashed`, `error`). Mobile-only: `browserClosed` (there is no browser-closed callback on desktop). Clear per-call callback slots on `dialogDismissed`, as the mobile wrappers do; success and failure with `autoClose` close the card without it.
 
 ### JavaScript contract
 
