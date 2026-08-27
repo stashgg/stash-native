@@ -142,8 +142,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stashNativeCardDidLoadPage:(double)loadTimeMs;
 
 /**
- * Called when a network error occurs during initial page load.
- * This includes: no network connection, page load failure, or timeout (15 seconds).
+ * Called when the checkout could not be shown: no network connection, a load failure, an HTTP
+ * error or a download response before the first page finished, the 15 second timeout, a
+ * policy block before the first page, or a web-content process death that the one automatic
+ * reload could not recover from (which can happen after stashNativeCardDidLoadPage:).
  * The dialog is automatically dismissed before this callback is invoked.
  */
 - (void)stashNativeCardDidEncounterNetworkError;

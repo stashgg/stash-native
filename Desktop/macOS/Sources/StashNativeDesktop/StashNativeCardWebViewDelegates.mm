@@ -26,6 +26,8 @@ using stash::desktop::Session;
     // First didFinishNavigation of the presentation seen: failures before it are network
     // errors (nothing was ever shown), failures after it dismiss.
     BOOL _pageFinished;
+    // A main-frame response this delegate refused: the WebKit error 102 that follows is ours.
+    BOOL _refusedResponse;
     int _stallReloadCount;
     BOOL _processTerminateRecoveryUsed;
     NSTimer *_stallTimer;
@@ -134,6 +136,7 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     _pageLoadStartTime = CFAbsoluteTimeGetCurrent();
     _initialLoadComplete = NO;
     _pageFinished = NO;
+    _refusedResponse = NO;
     _stallReloadCount = 0;
     [self loadCheckoutURL];
     if (_invalidated) {
@@ -222,10 +225,16 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
         decisionHandler(WKNavigationResponsePolicyCancel);
         return;
     }
-    if (navigationResponse.isForMainFrame && !navigationResponse.canShowMIMEType) {
-        // A download or plugin response has no page to show. WebKit would report it as error
-        // 102, which handleLoadFailure ignores, so it is decided here: before the first page
-        // it is a network error, afterwards the shown page stays.
+    BOOL attachment = NO;
+    if ([navigationResponse.response isKindOfClass:[NSHTTPURLResponse class]]) {
+        NSString *disposition = ((NSHTTPURLResponse *)navigationResponse.response).allHeaderFields[@"Content-Disposition"];
+        attachment = [disposition.lowercaseString hasPrefix:@"attachment"];
+    }
+    if (navigationResponse.isForMainFrame && (!navigationResponse.canShowMIMEType || attachment)) {
+        // A download (unshowable type or Content-Disposition: attachment) or plugin response has
+        // no page to show. Decided here rather than from the error 102 WebKit reports after it:
+        // before the first page it is a network error, afterwards the shown page stays.
+        _refusedResponse = YES;
         decisionHandler(WKNavigationResponsePolicyCancel);
         if (!_pageFinished) {
             session->handleNetworkError();
@@ -282,10 +291,24 @@ static void StashAddTimerToMainRunLoop(NSTimer *timer) {
     if (!session) {
         return;
     }
-    if (error.code == NSURLErrorCancelled ||
-        ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 102)) {
-        // Cancelled by our own policy or superseded; frame-load-interrupted follows a response
-        // the response policy already refused (download / plugin) and decided.
+    if (error.code == NSURLErrorCancelled) {
+        // Cancelled by our own policy or superseded.
+        return;
+    }
+    if ([error.domain isEqualToString:@"WebKitErrorDomain"] && error.code == 102) {
+        // Frame load interrupted: after a response this delegate refused it is already decided.
+        // Otherwise WebKit turned the load into a download on its own: with no page finished
+        // there is nothing on screen, so it is a network error; a shown page stays.
+        if (_refusedResponse) {
+            _refusedResponse = NO;
+            return;
+        }
+        if (_pageFinished) {
+            return;
+        }
+        STASH_DESKTOP_LOG(@"StashNativeDesktop: main-frame load became a download before the first page");
+        session->handleNetworkError();
+        [_core refreshStateMirrors];
         return;
     }
     STASH_DESKTOP_LOG(@"StashNativeDesktop: load failed %@ (%ld)", error.domain, (long)error.code);

@@ -18,6 +18,16 @@ static void StashRunOnMain(dispatch_block_t block) {
     }
 }
 
+// Lifetime barriers: the caller relies on the effect once the call returns (a managed domain
+// about to unload, a callback about to become invalid), so an off-main call waits.
+static void StashRunOnMainSync(dispatch_block_t block) {
+    if ([NSThread isMainThread]) {
+        block();
+    } else {
+        dispatch_sync(dispatch_get_main_queue(), block);
+    }
+}
+
 static NSString *StashStringFromC(const char *s) {
     if (s == nullptr) {
         return @"";
@@ -29,7 +39,7 @@ static NSString *StashStringFromC(const char *s) {
 extern "C" {
 
 void StashNativeDesktop_SetEventCallback(StashNativeDesktopEventCallback callback, void *userData) {
-    StashRunOnMain(^{
+    StashRunOnMainSync(^{
         [[StashDesktopCore sharedInstance] setEventCallback:callback userData:userData];
     });
 }
@@ -102,7 +112,7 @@ const char *StashNativeDesktop_GetVersion(void) {
 }
 
 void StashNativeDesktop_Shutdown(void) {
-    StashRunOnMain(^{
+    StashRunOnMainSync(^{
         [[StashDesktopCore sharedInstance] shutdown];
     });
 }
