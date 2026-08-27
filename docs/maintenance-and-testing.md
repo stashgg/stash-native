@@ -123,7 +123,7 @@ The workflow is driven by the first `CHANGELOG.md` header and gates it against t
   - [`Android/sample/`](../Android/sample/)
   - [`iOS/Sample/StashNativeSample/`](../iOS/Sample/StashNativeSample/)
   - [`Desktop/macOS/Sample/`](../Desktop/macOS/Sample/), [`Desktop/Windows/Sample/`](../Desktop/Windows/Sample/)
-- Offline desktop test pages: [`Desktop/shared/test-pages/`](../Desktop/shared/test-pages/) (`stash_test_checkout.html?auto=1` drives the bridge round trip; `stash_validation_matrix.html` exercises a 3DS-style iframe and a PSP popup)
+- Offline desktop test pages: [`Desktop/shared/test-pages/`](../Desktop/shared/test-pages/) (`stash_test_checkout.html?auto=1` drives the bridge round trip; `stash_validation_matrix.html` exercises a 3DS-style iframe and the PSP popup handoff: window.open returns null and the checkout stays presented)
 - Desktop manual gates: [Desktop Validation Matrix](./desktop-validation-matrix.md)
 
 ## Documentation
