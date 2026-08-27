@@ -22,8 +22,9 @@ std::wstring widen(const std::string &utf8);
 std::string narrow(const std::wstring &utf16);
 
 // -- Settings (HKCU\Software\Stash\StashNativeDesktopSample) ----------------------------------
-// The ingress secret is session-only: a server secret must never ship in a real client, so the
-// sample never writes it to the registry and removes a value an earlier build stored there.
+// The ingress secret and the last checkout URL are session-only: a server secret must never
+// ship in a real client and a generated link carries a signed token, so the sample never writes
+// them to the registry and removes values an earlier build stored there.
 
 enum class Environment { Test, Production, Staging };
 

@@ -62,10 +62,11 @@ Settings Settings::load() {
     s.appId = readValue(key, L"appId");
     std::string env = readValue(key, L"environment");
     s.environment = env == "production" ? Environment::Production : env == "staging" ? Environment::Staging : Environment::Test;
-    s.lastUrl = readValue(key, L"lastUrl");
     RegCloseKey(key);
-    // Earlier builds stored the secret; it is never read back and the value is removed.
+    // Earlier builds stored the secret and the generated checkout URL (a signed token); neither
+    // is read back and both values are removed.
     RegDeleteKeyValueW(HKEY_CURRENT_USER, kSettingsKey, L"ingressSecret");
+    RegDeleteKeyValueW(HKEY_CURRENT_USER, kSettingsKey, L"lastUrl");
     return s;
 }
 
@@ -77,7 +78,6 @@ void Settings::save() const {
     writeValue(key, L"appId", appId);
     writeValue(key, L"environment", environment == Environment::Production ? "production"
                                     : environment == Environment::Staging ? "staging" : "test");
-    writeValue(key, L"lastUrl", lastUrl);
     RegCloseKey(key);
 }
 
@@ -359,7 +359,8 @@ struct StatusListener : stash::StashNativeCardListener {
     void onOptInResponse(const std::string &type) override { setStatus("Opt-in: " + type); }
     void onPageLoaded(double ms) override { setStatus("Page loaded in " + std::to_string(static_cast<int>(ms)) + " ms"); }
     void onNetworkError() override { setStatus("Network error"); }
-    void onExternalPayment(const std::string &url) override { setStatus("External payment: " + url); }
+    // The URL can carry session parameters: the status names the origin only.
+    void onExternalPayment(const std::string &url) override { setStatus("External payment: " + urlOrigin(url)); }
 };
 
 StatusListener g_listener;
