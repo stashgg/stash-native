@@ -32,9 +32,11 @@ final class EventLog {
             }
         }
 
+        /// scheme://host[:port], matching url::origin in the shared contract.
         static func origin(of url: String) -> String {
             guard let parsed = URL(string: url), let scheme = parsed.scheme else { return "" }
-            return "\(scheme)://\(parsed.host ?? "")"
+            let port = parsed.port.map { ":\($0)" } ?? ""
+            return "\(scheme)://\(parsed.host ?? "")\(port)"
         }
 
         private static func field(_ name: String, in json: String) -> String {
