@@ -102,6 +102,17 @@ static bool splitAuthority(const std::string &auth, std::string &hostOut, std::s
             return false;
         }
         hostOut = auth.substr(0, close + 1);
+        // A literal needs content, and only what an IPv6 address is made of.
+        if (close < 2) {
+            return false;
+        }
+        for (size_t i = 1; i < close; i++) {
+            char c = auth[i];
+            bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+            if (!hex && c != ':' && c != '.') {
+                return false;
+            }
+        }
         rest = auth.substr(close + 1);
         if (!rest.empty() && rest[0] != ':') {
             return false;
