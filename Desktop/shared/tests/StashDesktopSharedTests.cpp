@@ -288,6 +288,9 @@ static void testJson() {
     CHECK_EQ(json::unescape("\\udc00"), std::string("\xEF\xBF\xBD"));
     CHECK_EQ(json::unescape("\\ud83d\\ude00"), std::string("\xF0\x9F\x98\x80"));
     CHECK_EQ(json::unescape("\\ud83dx"), std::string("\xEF\xBF\xBDx"));
+    // U+0000 would cut the payload at the C ABI boundary.
+    CHECK_EQ(json::unescape("a\\u0000b"), std::string("a\xEF\xBF\xBD" "b"));
+    CHECK_EQ(json::dataToPayload("\"a\\u0000b\""), std::string("a\xEF\xBF\xBD" "b"));
     CHECK_EQ(json::dataToPayload("{\"id\":1}"), std::string("{\"id\":1}"));
     CHECK_EQ(json::dataToPayload(""), std::string(""));
     CHECK_EQ(json::dataToPayload("null"), std::string(""));
@@ -663,18 +666,15 @@ static void testNewWindow() {
     CHECK(s.isPresented());
     CHECK(h.events.empty());
 
-    // A stash-pay result opened in a new window runs the bridge flow, as from any frame.
+    // Parity pin: Android and iOS hand a new-window deeplink to the OS without reading it, so a
+    // stash-pay result in a new window is not a bridge flow on desktop either.
     RecordingHost h2;
     Session s2(h2, cardConfig(), false);
     s2.handleNewWindow("bankapp://stash-pay/success?order=1");
-    CHECK(h2.has(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS));
-    CHECK(h2.deeplinks.empty());
-    CHECK(!s2.isPresented());
-    RecordingHost h3;
-    Session s3(h3, cardConfig(), false);
-    s3.handleNewWindow("bankapp://stash-pay/cancel");
-    CHECK(h3.has(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED));
-    CHECK(!s3.isPresented());
+    CHECK(!h2.has(STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS));
+    CHECK_EQ(h2.deeplinks.size(), size_t(1));
+    CHECK(s2.isPresented());
+    CHECK(h2.events.empty());
 }
 
 static void testNavigationPolicy() {

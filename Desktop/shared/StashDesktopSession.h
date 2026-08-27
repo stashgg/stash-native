@@ -66,7 +66,7 @@ public:
     // the parent page in place.
     NavigationDecision decideSubFrameNavigation(const std::string &url);
     // target=_blank / window.open: web URLs open the external browser and the checkout stays;
-    // deeplinks are consumed as in the frame policies; empty / about:blank dropped.
+    // any other scheme is handed to the OS unchanged (as on mobile); empty / about:blank dropped.
     void handleNewWindow(const std::string &url);
 
     // First finished main-frame load of the presentation: pageLoaded once, spinner hides.
