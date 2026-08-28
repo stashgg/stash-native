@@ -161,7 +161,7 @@ We test the mobile libraries using BrowserStack App Automate devices. Supported 
 **Windows / macOS**
 
 - No browser-closed callback (`openBrowser` opens the system browser and returns immediately).
-- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, clamped to the window minus a 24 pt margin; it never goes below 400 x 500 pt unless the window itself is smaller, where the absolute floor is 200 x 240 pt); the mobile ratio fields are ignored, `forcePortrait` has no effect.
+- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, 400 x 500 pt minimum when the window has the room, then clamped to the window minus a 24 pt margin on each edge, with a 200 x 240 pt absolute floor for very small windows); the mobile ratio fields are ignored, `forcePortrait` has no effect.
 - Steam builds: follow the store policy for external payments before enabling in-game checkout.
 - Windows: without the WebView2 runtime the host reports `error` and `networkError`; use `openBrowser` as the fallback.
 

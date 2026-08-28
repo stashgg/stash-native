@@ -82,7 +82,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 
 ## Presentation
 
-- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt, modal 480 x 600 pt, clamped to the host minus a 24 pt margin, never below 400 x 500 pt unless the host itself is smaller, with an absolute floor of 200 x 240 pt.
+- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt, modal 480 x 600 pt, a 400 x 500 pt minimum is applied first, then the size is clamped to the host minus a 24 pt margin on each edge (so a 420 x 520 host yields 372 x 472), with a 200 x 240 pt absolute floor for very small hosts.
 - Window (`presentation: "window"` in the JSON config): a titled, resizable `NSWindow` for editor play mode. The title bar close button goes through the session like any other user dismissal.
 - Browser: `NSWorkspace openURL:` with the theme parameter appended.
 
