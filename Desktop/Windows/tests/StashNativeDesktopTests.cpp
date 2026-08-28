@@ -68,8 +68,12 @@ static void testUserDataFolder() {
     CHECK(hasShape(beta, L"C:\\Users\\me\\AppData\\Local\\Stash\\game"));
     // Same basename, different installs: different profiles.
     CHECK(alpha != beta);
-    // Stable for one install, whatever the path's case or separators.
+    // Stable for one install, whatever the path's case or separators, non-ASCII included.
     CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"c:/games/alpha/game.exe") == alpha);
+    CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"C:\\Games\\\u00C4Game.exe") ==
+          userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"c:/games/\u00E4game.exe"));
+    CHECK(hasShape(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"C:\\Games\\\u00C4Game.exe"),
+                   L"C:\\Users\\me\\AppData\\Local\\Stash\\\u00E4game"));
     CHECK(hasShape(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local\\", L"MyGame.exe"),
                    L"C:\\Users\\me\\AppData\\Local\\Stash\\mygame"));
     CHECK(hasShape(userDataFolderFor(L"", L""), L".\\Stash\\game"));

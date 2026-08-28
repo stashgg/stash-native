@@ -1,3 +1,8 @@
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+
 #include "StashDesktopWebMessage.hpp"
 
 #include "StashDesktopJson.h"
@@ -35,9 +40,34 @@ bool parseWebMessage(const std::string &text, std::string &typeOut, std::string 
     return true;
 }
 
+// The executable path with '/' as '\\' and every character lower-cased by the invariant
+// locale, so one install reads the same however its path was spelled at launch (Windows folds
+// non-ASCII names too).
+static std::wstring foldedPath(const std::wstring &path) {
+    std::wstring normalized = path;
+    for (wchar_t &c : normalized) {
+        if (c == L'/') {
+            c = L'\\';
+        }
+    }
+    if (normalized.empty()) {
+        return normalized;
+    }
+    int needed = LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, normalized.c_str(), static_cast<int>(normalized.size()),
+                               nullptr, 0, nullptr, nullptr, 0);
+    if (needed <= 0) {
+        return normalized;
+    }
+    std::wstring folded(static_cast<size_t>(needed), L'\0');
+    LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, normalized.c_str(), static_cast<int>(normalized.size()), &folded[0],
+                  needed, nullptr, nullptr, 0);
+    return folded;
+}
+
 std::wstring userDataFolderFor(const std::wstring &localAppData, const std::wstring &executablePath) {
-    std::wstring name = executablePath;
-    size_t slash = name.find_last_of(L"\\/");
+    std::wstring folded = foldedPath(executablePath);
+    std::wstring name = folded;
+    size_t slash = name.find_last_of(L'\\');
     if (slash != std::wstring::npos) {
         name = name.substr(slash + 1);
     }
@@ -48,20 +78,12 @@ std::wstring userDataFolderFor(const std::wstring &localAppData, const std::wstr
     if (name.empty()) {
         name = L"game";
     }
-    // Lower-cased so the folder text is the same however the path was spelled (the directory
-    // would be anyway on a case-insensitive volume).
-    for (wchar_t &c : name) {
-        if (c >= L'A' && c <= L'Z') {
-            c = static_cast<wchar_t>(c + 32);
-        }
-    }
-    // Per install, not per basename: two titles whose executables are both Game.exe must not
-    // share (or contend for) one profile. FNV-1a over the case-folded full path is stable for
-    // the lifetime of an install and changes only when the game moves.
+    // Per install, not per basename: two titles whose executables are both game.exe must not
+    // share (or contend for) one profile. FNV-1a over the folded full path is stable for the
+    // lifetime of an install and changes only when the game moves.
     unsigned long long hash = 1469598103934665603ULL;
-    for (wchar_t c : executablePath) {
-        wchar_t folded = (c >= L'A' && c <= L'Z') ? static_cast<wchar_t>(c + 32) : (c == L'/' ? L'\\' : c);
-        hash ^= static_cast<unsigned long long>(folded);
+    for (wchar_t c : folded) {
+        hash ^= static_cast<unsigned long long>(c);
         hash *= 1099511628211ULL;
     }
     wchar_t suffix[24];
