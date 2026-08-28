@@ -211,7 +211,6 @@ public:
     // set directly through StashNativeDesktop_SetEventCallback.
     void setListener(StashNativeCardListener *listener) {
         listener_ = listener;
-        callbackCleared_ = false;
         StashNativeDesktop_SetEventCallback(listener != nullptr ? &StashNativeCard::trampoline : nullptr, this);
     }
 
@@ -220,25 +219,21 @@ public:
 
     void openCard(const std::string &url, const StashNativeCardConfig *config = nullptr) {
         std::string json = config != nullptr ? detail::cardConfigJson(*config) : "{}";
-        ensureCallback();
         StashNativeDesktop_OpenCard(url.c_str(), json.c_str());
     }
 
     // The JSON config the game-engine wrappers send (see docs/windows.md); supports the
     // desktop-only keys presentation, width, height and allowFileUrls.
     void openCard(const std::string &url, const std::string &configJson) {
-        ensureCallback();
         StashNativeDesktop_OpenCard(url.c_str(), configJson.c_str());
     }
 
     void openModal(const std::string &url, const StashNativeModalConfig *config = nullptr) {
         std::string json = config != nullptr ? detail::modalConfigJson(*config) : "{}";
-        ensureCallback();
         StashNativeDesktop_OpenModal(url.c_str(), json.c_str());
     }
 
     void openModal(const std::string &url, const std::string &configJson) {
-        ensureCallback();
         StashNativeDesktop_OpenModal(url.c_str(), configJson.c_str());
     }
 
@@ -257,25 +252,17 @@ public:
     // Creates the browser processes ahead of time so the first checkout opens instantly.
     void prewarm() { StashNativeDesktop_Prewarm(); }
 
-    // Releases the WebView2 environment and clears the C callback. Call at exit; the SDK can
-    // be used again afterwards and the listener is re-attached by the next open.
+    // Releases the WebView2 environment and clears the C callback and with it this listener.
+    // Call at exit. To use the SDK again afterwards, call setListener again before the next
+    // open: nothing is re-attached implicitly, so a callback the host installs directly through
+    // the ABI in the meantime is never replaced.
     void shutdown() {
         StashNativeDesktop_Shutdown();
-        callbackCleared_ = true;
+        listener_ = nullptr;
     }
 
 private:
-    // Shutdown clears the C callback but the listener is kept, so the next open re-attaches
-    // it. Only then: a callback installed directly through the ABI in the meantime (a host's
-    // own event log) is respected, exactly as setListener documents.
-    void ensureCallback() {
-        if (callbackCleared_ && listener_ != nullptr) {
-            StashNativeDesktop_SetEventCallback(&StashNativeCard::trampoline, this);
-        }
-        callbackCleared_ = false;
-    }
-
-    StashNativeCard() : listener_(nullptr), callbackCleared_(false) {}
+    StashNativeCard() : listener_(nullptr) {}
     StashNativeCard(const StashNativeCard &) = delete;
     StashNativeCard &operator=(const StashNativeCard &) = delete;
 
@@ -287,7 +274,6 @@ private:
     }
 
     StashNativeCardListener *listener_;
-    bool callbackCleared_;
 };
 
 }  // namespace stash

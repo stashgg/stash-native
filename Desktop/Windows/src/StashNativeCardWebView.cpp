@@ -59,6 +59,9 @@ struct State {
     uint32_t sheetArgb = 0xFF1E1E1E;
     bool initialLoadComplete = false;
     bool firstNavigationDone = false;
+    // Navigate() for the checkout has been called: navigation events before that belong to the
+    // prewarm placeholder, not to the session.
+    bool checkoutNavigateCalled = false;
     int stallReloads = 0;
     bool processFailedRecoveryUsed = false;
     ULONGLONG pageLoadStart = 0;
@@ -114,8 +117,20 @@ void markInitialLoadComplete() {
 }
 
 std::wstring userDataFolder() {
-    wchar_t exePath[MAX_PATH] = L"";
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    // The full image path, however long: a truncated path would hash like another install's.
+    std::vector<wchar_t> buffer(MAX_PATH);
+    while (true) {
+        DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (length == 0) {
+            buffer[0] = L'\0';
+            break;
+        }
+        if (length < buffer.size() - 1 || buffer.size() >= 65536) {
+            break;
+        }
+        buffer.resize(buffer.size() * 2);
+    }
+    std::wstring exePath(buffer.data());
     wchar_t *localAppData = nullptr;
     size_t len = 0;
     std::wstring base;
@@ -149,6 +164,7 @@ void navigateToCheckout() {
     Core::instance().presenter().setLoading(true);
     std::string origin = narrow(g.checkoutUrl.c_str());
     debugLog("navigate %s://%s", stash::desktop::url::scheme(origin).c_str(), stash::desktop::url::host(origin).c_str());
+    g.checkoutNavigateCalled = true;
     HRESULT hr = g.webView->Navigate(g.checkoutUrl.c_str());
     if (FAILED(hr)) {
         // The error payload is wrapper-logged: a code, never the (signed) URL.
@@ -269,8 +285,14 @@ void wireWebView(ICoreWebView2 *webView) {
                            }
                            std::string url = narrow(uri);
                            CoTaskMemFree(uri);
-                           if (url == "about:blank") {
-                               // The prewarm placeholder, never a checkout: no policy, no event.
+                           // The prewarm placeholder is identified by state, not by its URL: anything
+                           // starting before the checkout's Navigate() call, or an about:blank
+                           // arriving before the checkout's own start was recorded when the checkout
+                           // is not about:blank itself. A caller opening about:blank is a checkout.
+                           bool placeholder = !g.checkoutNavigateCalled ||
+                                              (url == "about:blank" && g.checkoutNavigationId == 0 &&
+                                               narrow(g.checkoutUrl.c_str()).compare(0, 11, "about:blank") != 0);
+                           if (placeholder) {
                                return S_OK;
                            }
                            if (session == nullptr || session->decideMainFrameNavigation(url) == NavigationDecision::Cancel) {
@@ -628,6 +650,7 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
     g.sheetArgb = sheetArgb;
     g.initialLoadComplete = false;
     g.firstNavigationDone = false;
+    g.checkoutNavigateCalled = false;
     g.stallReloads = 0;
     g.processFailedRecoveryUsed = false;
     g.pageLoadStart = GetTickCount64();
