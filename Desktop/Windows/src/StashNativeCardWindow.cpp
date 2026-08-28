@@ -452,7 +452,9 @@ void Presenter::onStandaloneResized() {
 }
 
 void Presenter::hide() {
-    if (!live_) {
+    // Idempotent: closeSurface hides at once and the deferred teardown hides again; the focus
+    // restored by the first call must not be moved a second time.
+    if (!live_ || hidden_) {
         return;
     }
     hidden_ = true;

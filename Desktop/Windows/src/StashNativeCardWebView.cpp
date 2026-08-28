@@ -244,26 +244,15 @@ void wireWebView(ICoreWebView2 *webView) {
 
     addHandler(&ICoreWebView2::add_WebMessageReceived, webView,
         STASH_CALLBACK(ICoreWebView2WebMessageReceivedEventHandler, ICoreWebView2 *, ICoreWebView2WebMessageReceivedEventArgs *,
-                       ([id](ICoreWebView2 *sender, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
+                       ([id](ICoreWebView2 *, ICoreWebView2WebMessageReceivedEventArgs *args) -> HRESULT {
                            Session *session = Core::instance().sessionForId(id);
                            if (session == nullptr) {
                                return S_OK;
                            }
-                           // Only the top document may speak to the host.
-                           LPWSTR source = nullptr;
-                           LPWSTR top = nullptr;
-                           bool fromTop = SUCCEEDED(args->get_Source(&source)) && source != nullptr &&
-                                          SUCCEEDED(sender->get_Source(&top)) && top != nullptr && wcscmp(source, top) == 0;
-                           if (source != nullptr) {
-                               CoTaskMemFree(source);
-                           }
-                           if (top != nullptr) {
-                               CoTaskMemFree(top);
-                           }
-                           if (!fromTop) {
-                               debugLog("web message from a sub-frame ignored");
-                               return S_OK;
-                           }
+                           // ICoreWebView2::WebMessageReceived is raised for the top document only (frames
+                           // use the frame event, which is not subscribed), so every message here is the
+                           // checkout's. Delivery is asynchronous: the document may already have moved on,
+                           // which is no reason to drop a payment result it posted.
                            LPWSTR json = nullptr;
                            if (SUCCEEDED(args->get_WebMessageAsJson(&json)) && json != nullptr) {
                                std::string type;
