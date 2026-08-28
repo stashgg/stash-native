@@ -112,7 +112,7 @@ To build locally: `cmake -S Desktop/Windows -B Desktop/Windows/build -A x64 && c
 
 ### macOS
 
-Download `StashNativeDesktop-<tag>-macos.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases). Put `StashNativeDesktop.bundle` inside your app bundle (for example `Contents/PlugIns`), load it with `dlopen` and bind the `StashNativeDesktop_*` exports, or use the Objective-C `StashNativeCard` facade from `StashNativeCard.h`. Native apps can also add the Swift package rooted at `Desktop/` in this repository (`StashNativeDesktop` product). macOS 11+, universal.
+Download `StashNativeDesktop-<tag>-macos.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases). Put `StashNativeDesktop.bundle` inside your app bundle (for example `Contents/PlugIns`), load it with `dlopen` and bind the `StashNativeDesktop_*` exports (the bundle is an `MH_BUNDLE`: it is loaded, not linked, so the Objective-C `StashNativeCard` facade in `StashNativeCard.h` is not reachable from the archive). The facade is for apps that build the host from source: add the Swift package rooted at `Desktop/` or compile `Desktop/macOS/Sources` into the app. Native apps can also add the Swift package rooted at `Desktop/` in this repository (`StashNativeDesktop` product). macOS 11+, universal.
 
 To build locally: `Desktop/macOS/build_bundle.sh` (plain clang, no Xcode project).
 
