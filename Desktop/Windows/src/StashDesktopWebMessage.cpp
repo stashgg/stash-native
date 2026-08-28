@@ -48,11 +48,22 @@ std::wstring userDataFolderFor(const std::wstring &localAppData, const std::wstr
     if (name.empty()) {
         name = L"Game";
     }
+    // Per install, not per basename: two titles whose executables are both Game.exe must not
+    // share (or contend for) one profile. FNV-1a over the case-folded full path is stable for
+    // the lifetime of an install and changes only when the game moves.
+    unsigned long long hash = 1469598103934665603ULL;
+    for (wchar_t c : executablePath) {
+        wchar_t folded = (c >= L'A' && c <= L'Z') ? static_cast<wchar_t>(c + 32) : (c == L'/' ? L'\\' : c);
+        hash ^= static_cast<unsigned long long>(folded);
+        hash *= 1099511628211ULL;
+    }
+    wchar_t suffix[24];
+    swprintf_s(suffix, 24, L"-%08x", static_cast<unsigned int>(hash ^ (hash >> 32)));
     std::wstring base = localAppData.empty() ? std::wstring(L".") : localAppData;
     if (!base.empty() && (base.back() == L'\\' || base.back() == L'/')) {
         base.pop_back();
     }
-    return base + L"\\Stash\\" + name + L"\\WebView2";
+    return base + L"\\Stash\\" + name + suffix + L"\\WebView2";
 }
 
 }  // namespace win

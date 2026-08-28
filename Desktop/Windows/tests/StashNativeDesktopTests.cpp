@@ -45,12 +45,34 @@ static void testWebMessageParsing() {
     CHECK(!parseWebMessage("[1,2]", type, payload));
 }
 
+static bool hasShape(const std::wstring &folder, const std::wstring &prefix) {
+    // <prefix>-<8 hex>\WebView2
+    const std::wstring tail = L"\\WebView2";
+    if (folder.size() != prefix.size() + 9 + tail.size() || folder.compare(0, prefix.size(), prefix) != 0 ||
+        folder[prefix.size()] != L'-' || folder.compare(folder.size() - tail.size(), tail.size(), tail) != 0) {
+        return false;
+    }
+    for (size_t i = prefix.size() + 1; i < prefix.size() + 9; i++) {
+        wchar_t c = folder[i];
+        if (!((c >= L'0' && c <= L'9') || (c >= L'a' && c <= L'f'))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void testUserDataFolder() {
-    CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"D:\\Games\\MyGame\\MyGame.exe") ==
-          L"C:\\Users\\me\\AppData\\Local\\Stash\\MyGame\\WebView2");
-    CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local\\", L"MyGame.exe") ==
-          L"C:\\Users\\me\\AppData\\Local\\Stash\\MyGame\\WebView2");
-    CHECK(userDataFolderFor(L"", L"") == L".\\Stash\\Game\\WebView2");
+    std::wstring alpha = userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"C:\\Games\\Alpha\\Game.exe");
+    std::wstring beta = userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"D:\\Games\\Beta\\Game.exe");
+    CHECK(hasShape(alpha, L"C:\\Users\\me\\AppData\\Local\\Stash\\Game"));
+    CHECK(hasShape(beta, L"C:\\Users\\me\\AppData\\Local\\Stash\\Game"));
+    // Same basename, different installs: different profiles.
+    CHECK(alpha != beta);
+    // Stable for one install, whatever the path's case or separators.
+    CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"c:/games/alpha/game.exe") == alpha);
+    CHECK(hasShape(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local\\", L"MyGame.exe"),
+                   L"C:\\Users\\me\\AppData\\Local\\Stash\\MyGame"));
+    CHECK(hasShape(userDataFolderFor(L"", L""), L".\\Stash\\Game"));
 }
 
 struct RecordingListener : stash::StashNativeCardListener {
