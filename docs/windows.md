@@ -81,7 +81,7 @@ Host window: `SetHostWindow`, else the active window, else the foreground window
 
 ## Environment, Prewarm, And Data
 
-- User data folder: `%LOCALAPPDATA%\Stash\<executable name>-<hash of the executable path>\WebView2` (`userDataFolderFor`): one profile per installed game, stable while the game stays where it is; two titles whose executables share a name get separate profiles. Saved payment methods are keyed per shop and user on the backend and do not depend on this folder.
+- User data folder: `%LOCALAPPDATA%\Stash\<executable name, lower-cased>-<hash of the executable path>\WebView2` (`userDataFolderFor`): one profile per installed game, stable while the game stays where it is; two titles whose executables share a name get separate profiles. Saved payment methods are keyed per shop and user on the backend and do not depend on this folder.
 - Missing runtime: `GetAvailableCoreWebView2BrowserVersionString` fails, the host emits `error` and the session ends with `networkError`.
 - Prewarm creates the environment and a hidden controller navigated to `about:blank`; the first open reparents it into the card.
 - Controller settings: DevTools only when inspectable, no default context menus, no status bar, no zoom control.
