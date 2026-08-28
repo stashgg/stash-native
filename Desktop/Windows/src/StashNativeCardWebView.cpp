@@ -683,7 +683,12 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
 
     auto *handler = STASH_CALLBACK(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler, HRESULT, ICoreWebView2Controller *,
                                    ([sessionId](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
-                                       g.controllerCreating = false;
+                                       // Only the creation this completion belongs to is over: a late completion of
+                                       // a dismissed session must not unblock a prewarm while the current session's
+                                       // own creation is still in flight.
+                                       if (g.sessionId == sessionId) {
+                                           g.controllerCreating = false;
+                                       }
                                        if (Core::instance().sessionForId(sessionId) == nullptr || g.sessionId != sessionId ||
                                            g.controller != nullptr) {
                                            if (controller != nullptr) {
