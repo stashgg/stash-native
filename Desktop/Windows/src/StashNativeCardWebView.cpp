@@ -438,6 +438,30 @@ void wireWebView(ICoreWebView2 *webView) {
         &token);
 
     // Renderer crashes are isolated from the game: one reload, then a network error.
+    // A download never belongs in a checkout: cancelled and its UI hidden. Before the first
+    // finished page nothing is on screen, so it is a network error (as the macOS host reports
+    // a response WebKit would download); afterwards the shown page stays.
+    ICoreWebView2_4 *webView4 = nullptr;
+    if (SUCCEEDED(webView->QueryInterface(IID_ICoreWebView2_4, reinterpret_cast<void **>(&webView4))) && webView4 != nullptr) {
+        addHandler(&ICoreWebView2_4::add_DownloadStarting, webView4,
+            STASH_CALLBACK(ICoreWebView2DownloadStartingEventHandler, ICoreWebView2 *, ICoreWebView2DownloadStartingEventArgs *,
+                           ([id](ICoreWebView2 *, ICoreWebView2DownloadStartingEventArgs *args) -> HRESULT {
+                               args->put_Cancel(TRUE);
+                               args->put_Handled(TRUE);
+                               Session *session = Core::instance().sessionForId(id);
+                               if (session != nullptr && !g.firstNavigationDone) {
+                                   debugLog("download refused before the first page");
+                                   session->handleNetworkError();
+                                   Core::instance().refreshStateMirrors();
+                               } else {
+                                   debugLog("download refused");
+                               }
+                               return S_OK;
+                           })),
+            &token);
+        webView4->Release();
+    }
+
     addHandler(&ICoreWebView2::add_ProcessFailed, webView,
         STASH_CALLBACK(ICoreWebView2ProcessFailedEventHandler, ICoreWebView2 *, ICoreWebView2ProcessFailedEventArgs *,
                        ([id](ICoreWebView2 *sender, ICoreWebView2ProcessFailedEventArgs *args) -> HRESULT {
