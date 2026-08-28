@@ -40,6 +40,9 @@ struct State {
 
     ICoreWebView2Controller *controller = nullptr;
     ICoreWebView2 *webView = nullptr;
+    // A session's own CreateCoreWebView2Controller is in flight: a prewarm completion landing
+    // now must not be kept, or two controllers would share the document-script state.
+    bool controllerCreating = false;
     unsigned long sessionId = 0;
     // Document scripts: the bridge script is requested (registered) and confirmed by WebView2
     // (ready); pendingScripts counts registrations (bridge and dark sheet) whose completion is
@@ -680,6 +683,7 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
 
     auto *handler = STASH_CALLBACK(ICoreWebView2CreateCoreWebView2ControllerCompletedHandler, HRESULT, ICoreWebView2Controller *,
                                    ([sessionId](HRESULT result, ICoreWebView2Controller *controller) -> HRESULT {
+                                       g.controllerCreating = false;
                                        if (Core::instance().sessionForId(sessionId) == nullptr || g.sessionId != sessionId ||
                                            g.controller != nullptr) {
                                            if (controller != nullptr) {
@@ -702,9 +706,11 @@ void startSession(unsigned long sessionId, const std::string &url, const Surface
                                        finishControllerSetup();
                                        return S_OK;
                                    }));
+    g.controllerCreating = true;
     HRESULT hr = g.environment->CreateCoreWebView2Controller(parent, handler);
     handler->Release();
     if (FAILED(hr)) {
+        g.controllerCreating = false;
         emitError("webview controller creation failed to start");
         failSession();
     }
@@ -732,6 +738,7 @@ void closeSessionController() {
     }
     safeRelease(g.webView);
     safeRelease(g.controller);
+    g.controllerCreating = false;
     g.sdkScriptRegistered = false;
     g.sdkScriptReady = false;
     g.pendingScripts = 0;
@@ -762,8 +769,8 @@ void prewarm() {
                                            controller->Close();
                                            return S_OK;
                                        }
-                                       if (g.controller != nullptr || g.prewarmController != nullptr) {
-                                           // An open beat us to it.
+                                       if (g.controller != nullptr || g.controllerCreating || g.prewarmController != nullptr) {
+                                           // An open beat us to it (or is creating its own controller right now).
                                            controller->Close();
                                            return S_OK;
                                        }
