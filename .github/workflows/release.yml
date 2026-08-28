@@ -427,7 +427,7 @@ jobs:
             echo "Download \`StashNativeDesktop-${VERSION}-win64.zip\`: \`StashNativeDesktop.dll\` (ships next to your game executable), \`StashNativeDesktop.lib\` and the headers. Needs the WebView2 Evergreen runtime (preinstalled on Windows 11 and updated Windows 10). Game engines bind to \`StashNativeDesktop.h\`; native apps can use \`StashNativeCard.hpp\`."
             echo ""
             echo "### macOS"
-            echo "Download \`StashNativeDesktop-${VERSION}-macos.zip\`: \`StashNativeDesktop.bundle\` (universal arm64 + x86_64, macOS 11+) and the headers. Game engines load the bundle with dlopen and bind to \`StashNativeDesktop.h\`; native apps can use the \`StashNativeCard\` facade in \`StashNativeCard.h\` or the Swift package at \`Desktop/Package.swift\`."
+            echo "Download \`StashNativeDesktop-${VERSION}-macos.zip\`: \`StashNativeDesktop.bundle\` (universal arm64 + x86_64, macOS 11+) and the headers. Game engines load the bundle with dlopen and bind to \`StashNativeDesktop.h\`; the bundle is an MH_BUNDLE (loaded, not linked), so the \`StashNativeCard\` facade in \`StashNativeCard.h\` is only available to apps that build the host from source (the Swift package rooted at \`Desktop/\`)."
           } > release_body.md
 
       - name: Configure Git
