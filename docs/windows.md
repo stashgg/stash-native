@@ -93,6 +93,7 @@ Host window: `SetHostWindow`, else the active window, else the foreground window
 - `NavigationCompleted` (checkout navigation id only): a transport failure (`IsSuccess` false) before the first successful load is `networkError`, afterwards `dismiss`. An HTTP status >= 400 (`ICoreWebView2NavigationCompletedEventArgs2`) is treated as a failure on the first load only; after the initial load a completed HTTP error page stays presented, as on macOS. Success updates the trust header, hides the spinner and emits `pageLoaded` once.
 - `ProcessFailed`: renderer exit or unresponsive reloads once, then `networkError`; browser process exit is terminal and releases the environment.
 - `NewWindowRequested` (`target=_blank`, `window.open`): handled, external browser, checkout stays.
+- `DownloadStarting`: every download is cancelled and its UI hidden; before the first finished page that is `networkError` (as on macOS), afterwards the shown page stays.
 - Policy blocks (`http://`, `file://` without `allowFileUrls`) before the first load fail fast (`navigationBlocked`, `networkError`); afterwards the loaded page stays. `FrameNavigationStarting` applies the same scheme policy to sub-frames, where a refused frame only reports `navigationBlocked`.
 
 ## Building And Testing
