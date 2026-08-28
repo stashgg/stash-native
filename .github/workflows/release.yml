@@ -125,6 +125,28 @@ jobs:
           fi
           echo "Android SDK_VERSION matches CHANGELOG: $VERSION"
 
+      - name: Verify iOS framework CFBundleShortVersionString matches
+        if: steps.check-tag.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          FILE="iOS/StashNative/Info.plist"
+          if [ ! -f "$FILE" ]; then
+            echo "Error: $FILE not found"
+            exit 1
+          fi
+          # The XCFramework embeds this plist; integrators reading the bundle version must see the release version.
+          PLIST_VERSION=$(awk '/CFBundleShortVersionString/ { getline; print }' "$FILE" | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+          if [ -z "$PLIST_VERSION" ]; then
+            echo "Error: Could not parse CFBundleShortVersionString in $FILE"
+            exit 1
+          fi
+          if [ "$PLIST_VERSION" != "$VERSION" ]; then
+            echo "Error: iOS CFBundleShortVersionString ($PLIST_VERSION) does not match CHANGELOG ($VERSION)."
+            echo "Update CFBundleShortVersionString in $FILE before releasing."
+            exit 1
+          fi
+          echo "iOS CFBundleShortVersionString matches CHANGELOG: $VERSION"
+
       - name: Verify desktop STASH_NATIVE_DESKTOP_VERSION matches
         if: steps.check-tag.outputs.skip != 'true'
         run: |
