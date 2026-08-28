@@ -64,15 +64,15 @@ static bool hasShape(const std::wstring &folder, const std::wstring &prefix) {
 static void testUserDataFolder() {
     std::wstring alpha = userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"C:\\Games\\Alpha\\Game.exe");
     std::wstring beta = userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"D:\\Games\\Beta\\Game.exe");
-    CHECK(hasShape(alpha, L"C:\\Users\\me\\AppData\\Local\\Stash\\Game"));
-    CHECK(hasShape(beta, L"C:\\Users\\me\\AppData\\Local\\Stash\\Game"));
+    CHECK(hasShape(alpha, L"C:\\Users\\me\\AppData\\Local\\Stash\\game"));
+    CHECK(hasShape(beta, L"C:\\Users\\me\\AppData\\Local\\Stash\\game"));
     // Same basename, different installs: different profiles.
     CHECK(alpha != beta);
     // Stable for one install, whatever the path's case or separators.
     CHECK(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local", L"c:/games/alpha/game.exe") == alpha);
     CHECK(hasShape(userDataFolderFor(L"C:\\Users\\me\\AppData\\Local\\", L"MyGame.exe"),
-                   L"C:\\Users\\me\\AppData\\Local\\Stash\\MyGame"));
-    CHECK(hasShape(userDataFolderFor(L"", L""), L".\\Stash\\Game"));
+                   L"C:\\Users\\me\\AppData\\Local\\Stash\\mygame"));
+    CHECK(hasShape(userDataFolderFor(L"", L""), L".\\Stash\\game"));
 }
 
 struct RecordingListener : stash::StashNativeCardListener {

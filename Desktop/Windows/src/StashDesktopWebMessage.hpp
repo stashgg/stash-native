@@ -14,8 +14,8 @@ namespace win {
 // unwrapped one level. False when there is no type.
 bool parseWebMessage(const std::string &json, std::string &typeOut, std::string &payloadOut);
 
-// %LOCALAPPDATA%\Stash\<executable name>-<hash of the executable path>\WebView2: one WebView2
-// profile per installed game, so same-named executables of different titles never share one.
+// %LOCALAPPDATA%\Stash\<executable name, lower-cased>-<hash of the executable path>\WebView2: one
+// WebView2 profile per installed game, so same-named executables of different titles never share one.
 std::wstring userDataFolderFor(const std::wstring &localAppData, const std::wstring &executablePath);
 
 }  // namespace win

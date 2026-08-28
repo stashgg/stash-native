@@ -46,7 +46,14 @@ std::wstring userDataFolderFor(const std::wstring &localAppData, const std::wstr
         name = name.substr(0, dot);
     }
     if (name.empty()) {
-        name = L"Game";
+        name = L"game";
+    }
+    // Lower-cased so the folder text is the same however the path was spelled (the directory
+    // would be anyway on a case-insensitive volume).
+    for (wchar_t &c : name) {
+        if (c >= L'A' && c <= L'Z') {
+            c = static_cast<wchar_t>(c + 32);
+        }
     }
     // Per install, not per basename: two titles whose executables are both Game.exe must not
     // share (or contend for) one profile. FNV-1a over the case-folded full path is stable for
