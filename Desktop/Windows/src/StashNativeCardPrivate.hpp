@@ -124,6 +124,8 @@ public:
     // True while destroyWindows() runs, so the backdrop's WM_DESTROY can tell our own teardown
     // from the host window being destroyed underneath it.
     bool destroying() const { return destroying_; }
+    // Sheet colour of the current presentation, for painting the standalone client area.
+    uint32_t sheetArgb() const { return sheetArgb_; }
 
     // Window-procedure hooks.
     void paintCard(HWND hwnd);
@@ -148,6 +150,8 @@ private:
 
     Core &core_;
     HWND host_ = nullptr;
+    // Keyboard focus before the overlay took it, restored when the overlay goes away.
+    HWND previousFocus_ = nullptr;
     bool hostStyleModified_ = false;
     bool destroying_ = false;
     HWND backdrop_ = nullptr;

@@ -150,6 +150,18 @@ static LRESULT CALLBACK StandaloneProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         case WM_SIZE:
             Core::instance().presenter().onStandaloneResized();
             return 0;
+        case WM_ERASEBKGND: {
+            // The window shows before the WebView2 controller exists: paint the sheet colour
+            // until the webview covers the client area, never a blank or stale surface.
+            uint32_t argb = Core::instance().presenter().sheetArgb();
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            RECT client;
+            GetClientRect(hwnd, &client);
+            HBRUSH brush = CreateSolidBrush(RGB((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF));
+            FillRect(dc, &client, brush);
+            DeleteObject(brush);
+            return 1;
+        }
         case WM_CLOSE:
             // The session decides; teardown destroys the window when it agrees.
             Core::instance().requestUserDismiss();
@@ -319,6 +331,10 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
     lastClientHeight_ = clientH;
     lastCard_ = m.card;
     live_ = true;
+    // Keyboard input belongs to the checkout from this moment, not once the asynchronous
+    // WebView2 controller has been created and moved focus; the game's focus comes back on hide.
+    previousFocus_ = GetFocus();
+    SetFocus(card_);
     setLoading(true);
     return true;
 }
@@ -454,9 +470,13 @@ void Presenter::hide() {
     if (standalone_ != nullptr) {
         ShowWindow(standalone_, SW_HIDE);
     }
+    // Give focus (and keyboard input) back to whatever had it before the overlay, else the host.
+    HWND focusTarget = (previousFocus_ != nullptr && IsWindow(previousFocus_)) ? previousFocus_ : host_;
+    previousFocus_ = nullptr;
+    if (focusTarget != nullptr && IsWindow(focusTarget)) {
+        SetFocus(focusTarget);
+    }
     if (host_ != nullptr && IsWindow(host_)) {
-        // Give focus (and keyboard input) back to the game.
-        SetFocus(host_);
         InvalidateRect(host_, nullptr, TRUE);
     }
 }
@@ -501,6 +521,7 @@ void Presenter::teardown() {
     }
     hostStyleModified_ = false;
     host_ = nullptr;
+    previousFocus_ = nullptr;
     live_ = false;
     hidden_ = false;
     headerHost_.clear();
