@@ -85,7 +85,7 @@ Host window: `SetHostWindow`, else the active window, else the foreground window
 - Missing runtime: `GetAvailableCoreWebView2BrowserVersionString` fails, the host emits `error` and the session ends with `networkError`.
 - Prewarm creates the environment and a hidden controller navigated to `about:blank`; the first open reparents it into the card.
 - Controller settings: DevTools only when inspectable, no default context menus, no status bar, no zoom control.
-- Shutdown closes the session and prewarm controllers, releases the environment and clears the callback. The DLL is never unloaded by the engines.
+- Shutdown closes the session and prewarm controllers, releases the environment and clears the C callback; the header-only facade also drops its listener, so call `setListener` again before reusing the SDK (nothing is re-attached implicitly, and a callback the host installs directly through the ABI is never replaced). The DLL is never unloaded by the engines.
 
 ## Loading, Timeout, Retry, And Error Semantics
 
