@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+    # desktop/** so every PR of a stacked desktop branch set gets CI, not only the bottom one.
+    branches: [ main, master, 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
@@ -141,3 +142,16 @@ jobs:
         run: |
           swiftlint lint iOS/Sample/StashNativeSample --strict --config .swiftlint.yml
         continue-on-error: false
+
+  test-desktop-shared:
+    name: Test Desktop Shared Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and run shared contract tests
+        run: |
+          cmake -S Desktop/shared -B Desktop/shared/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build Desktop/shared/build
+          ctest --test-dir Desktop/shared/build --output-on-failure
