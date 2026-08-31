@@ -152,6 +152,41 @@ jobs:
 
       - name: Build and run shared contract tests
         run: |
-          cmake -S Desktop/shared -B Desktop/shared/build -DCMAKE_BUILD_TYPE=Release
-          cmake --build Desktop/shared/build
-          ctest --test-dir Desktop/shared/build --output-on-failure
+          cmake -S Desktop/shared -B Desktop/shared-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build Desktop/shared-build
+          ctest --test-dir Desktop/shared-build --output-on-failure
+
+  lint-macos:
+    name: Lint macOS Desktop Host (Clang Static Analyzer)
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build package
+        working-directory: Desktop
+        run: swift build -Xcc -Werror
+
+      - name: Run Static Analysis on macOS host
+        run: |
+          set -e
+          for f in Desktop/macOS/Sources/StashNativeDesktop/*.mm Desktop/shared/*.cpp; do
+            clang++ --analyze -x objective-c++ -std=c++17 -fobjc-arc \
+              -DSTASH_NATIVE_DESKTOP_BUILDING \
+              -I Desktop/include -I Desktop/shared -I Desktop/macOS/Sources/StashNativeDesktop/include \
+              -Xanalyzer -analyzer-output=text -Werror "$f"
+          done
+
+  test-macos:
+    name: Test macOS Desktop Host
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        working-directory: Desktop
+        run: swift test
+
+      - name: Build bundle and verify exports
+        run: Desktop/macOS/build_bundle.sh
