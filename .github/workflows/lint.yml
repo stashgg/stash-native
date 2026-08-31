@@ -190,3 +190,18 @@ jobs:
 
       - name: Build bundle and verify exports
         run: Desktop/macOS/build_bundle.sh
+
+  lint-macos-sample:
+    name: Lint macOS Desktop Sample (SwiftLint)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint on Sample
+        run: |
+          swiftlint lint Desktop/macOS/Sample/StashNativeDesktopSample --strict --config .swiftlint.yml
+        continue-on-error: false
