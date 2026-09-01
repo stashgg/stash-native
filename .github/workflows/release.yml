@@ -336,8 +336,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Signs the bundle with the Developer ID certificate from the repository secrets when they
+      # are configured; without them the bundle ships unsigned, loudly. Integrators re-sign the
+      # bundle with their own Team ID either way (hardened-runtime library validation only
+      # accepts the host app's identity; see COMPATIBILITY.md), but a signed archive passes
+      # Gatekeeper assessment intact and proves provenance.
+      - name: Import signing certificate
+        id: cert
+        env:
+          CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_PASSWORD }}
+        run: |
+          if [ -z "$CERT_P12_BASE64" ]; then
+            echo "::warning::No Developer ID certificate configured (APPLE_DEVELOPER_ID_APPLICATION_P12 / _PASSWORD): the macOS bundle ships unsigned."
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/stash-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 900 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | awk -F'"' 'NR==1 {print $2}')
+          if [ -z "$IDENTITY" ]; then
+            echo "Certificate imported but no codesigning identity was found"
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+
       - name: Build StashNativeDesktop.bundle
+        env:
+          STASH_SIGN_IDENTITY: ${{ steps.cert.outputs.identity }}
         run: Desktop/macOS/build_bundle.sh
+
+      - name: Verify bundle signature
+        if: steps.cert.outputs.identity != ''
+        run: codesign --verify --strict --verbose=2 Desktop/macOS/build/StashNativeDesktop.bundle
 
       - name: Package
         run: |
