@@ -2,11 +2,11 @@
 
 ## What The Library Does
 
-Stash Native is a mobile checkout SDK that embeds checkout web content in native UI and exposes a native-JavaScript bridge for payment events and UI actions.
+Stash Native is a checkout SDK for Android, iOS, Windows and macOS that embeds checkout web content in native UI and exposes a native-JavaScript bridge for payment events and UI actions.
 
 Primary responsibilities:
 
-- Render checkout content in native containers (`WebView` on Android, `WKWebView` on iOS).
+- Render checkout content in native containers (`WebView` on Android, `WKWebView` on iOS and macOS, WebView2 on Windows).
 - Inject `window.stash_sdk` bridge functions into the checkout page.
 - Forward checkout events to host application callbacks/delegates.
 - Support card, modal, and browser-based flows.
@@ -27,11 +27,16 @@ Primary responsibilities:
 | iOS navigation and load errors | [`iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) |
 | iOS presentation controllers | [`iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) |
 | iOS SPM package | [`iOS/StashNative/Package.swift`](../iOS/StashNative/Package.swift) |
+| Desktop C ABI (both OSes) | [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h) |
+| Desktop shared contract (script, URL, theme, config, `Session`) | [`Desktop/shared/`](../Desktop/shared/) |
+| macOS host (AppKit facade, WKWebView) | [`Desktop/macOS/Sources/StashNativeDesktop/`](../Desktop/macOS/Sources/StashNativeDesktop/) |
+| Windows host (WebView2, C++ facade) | [`Desktop/Windows/`](../Desktop/Windows/) |
+| Desktop SPM package | [`Desktop/Package.swift`](../Desktop/Package.swift) |
 | Root integration notes | [`README.md`](../README.md) |
 
-## High-Level Runtime (Both Platforms)
+## High-Level Runtime (All Platforms)
 
-One mental model applies to Android and iOS: the host app drives the SDK; the SDK owns the embedded web surface and forwards page events back to the app.
+One mental model applies to Android, iOS, Windows and macOS: the host app drives the SDK; the SDK owns the embedded web surface and forwards page events back to the app. On desktop the surface is a card over the game's own window and the host may be a game engine bound to the C ABI instead of a native app.
 
 ```mermaid
 flowchart TB
@@ -45,7 +50,7 @@ flowchart TB
     Sdk -->|listener or delegate| Host
 ```
 
-Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) plus [`StashNativeCardPlugin`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and, for the default card path, [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java). iOS implements it in [`StashNativeCard`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (Objective-C singleton) with presentation split into [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m).
+Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) plus [`StashNativeCardPlugin`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and, for the default card path, [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java). iOS implements it in [`StashNativeCard`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (Objective-C singleton) with presentation split into [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m). Desktop implements it as one shared [`Session`](../Desktop/shared/StashDesktopSession.cpp) (the callback contract) driven by a per-OS core: [`StashDesktopCore.mm`](../Desktop/macOS/Sources/StashNativeDesktop/StashDesktopCore.mm) on macOS, [`StashNativeCard.cpp`](../Desktop/Windows/src/StashNativeCard.cpp) on Windows, both exporting the C ABI in [`StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h).
 
 ## Injection Model Per Platform
 
@@ -66,6 +71,13 @@ Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/
 - Injected namespace: `window.stash_sdk`.
 - Handler name constants (for example `kMessageHandlerExternalPayment`) are defined near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
+### Desktop (Windows and macOS)
+
+- Bridge script: [`Desktop/shared/StashSdkScript.h`](../Desktop/shared/StashSdkScript.h), one body with a per-OS transport prelude: `window.webkit.messageHandlers[name].postMessage` (WKWebView, `WKUserScript` at document start, main frame only) or `window.chrome.webview.postMessage({type, data})` (WebView2, `AddScriptToExecuteOnDocumentCreated`, the script returns outside the top document).
+- Native side: `Session::handleMessage` in [`StashDesktopSession.cpp`](../Desktop/shared/StashDesktopSession.cpp), reached through the macOS message proxy or the Windows `WebMessageReceived` handler.
+- Injected namespace: `window.stash_sdk`.
+- Message names: `STASH_SDK_MSG_*` in [`StashSdkScript.h`](../Desktop/shared/StashSdkScript.h).
+
 ## Shared Feature Surface
 
 - Payment result callbacks.
@@ -73,7 +85,7 @@ Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/
 - Opt-in or payment channel signal (`setPaymentChannel`).
 - Presentation controls (`expand`, `collapse`, `window.close` override).
 - External browser launch (`openExternalBrowser(url)`).
-- Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
+- Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m), [`StashDesktopUrl.cpp`](../Desktop/shared/StashDesktopUrl.cpp)).
 
 Authoritative reference for page-side calls: [JavaScript `stash_sdk` API](./stash-sdk-js.md).
 
@@ -110,4 +122,6 @@ Listener or delegate notification and dismissal ordering are specified in [`Stas
 - [JavaScript `stash_sdk` API](./stash-sdk-js.md) — checkout page contract (`onPaymentSuccess`, `openExternalBrowser`, and so on).
 - [Android Implementation](./android.md) — file-by-file map, process model, bridge tables.
 - [iOS Implementation](./ios.md) — handlers, presentation entry points, load delegate.
+- [Windows Implementation](./windows.md) — C ABI, WebView2 layer, Win32 surface.
+- [macOS Implementation](./macos.md) — AppKit facade, WKWebView delegates, bundle.
 - [Maintenance and Testing](./maintenance-and-testing.md) — CI, local commands, QA harnesses.

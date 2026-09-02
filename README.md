@@ -1,4 +1,4 @@
-# Stash for Android / iOS [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
+# Stash for Android / iOS / Windows / macOS [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
 
 <p align="left">
@@ -6,7 +6,7 @@
 </p>
 
 
-The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS through lightweight embedded webviews, while providing direct callbacks to your application. Library is delivered as AAR for Android and xcframework for iOS.
+The stash-native package makes it simple to add Stash in-app purchases (IAPs) and webshops to your game or app. It delivers seamless, native-like payment flows and selection dialogs, which appear as system dialogs on Android and iOS and as a card over the game window on Windows and macOS, through lightweight embedded webviews, while providing direct callbacks to your application. Library is delivered as AAR for Android, xcframework for iOS, a DLL for Windows and a bundle for macOS.
 
 ---
 
@@ -23,6 +23,8 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 - [Installation](#installation)
   - [Android](#android)
   - [iOS](#ios)
+  - [Windows](#windows)
+  - [macOS](#macos)
 
 **API**
 
@@ -63,12 +65,14 @@ Latest pre-built binaries are always available on [Releases Page](https://github
 
 - **Android**: `stashnative-release.aar` (or `StashNative-<tag>.aar` from releases)
 - **iOS**: `StashNative.xcframework.zip`
+- **Windows**: `StashNativeDesktop-<tag>-win64.zip` (`StashNativeDesktop.dll`, import library, headers)
+- **macOS**: `StashNativeDesktop-<tag>-macos.zip` (`StashNativeDesktop.bundle`, universal arm64 + x86_64, headers)
 
 ---
 
 ## Sample apps & Testing
 
-Both platforms include sample apps under `./Android/sample/` and `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory.
+All platforms include sample apps: `./Android/sample/`, `./iOS/Sample/` (open `StashNativeSample.xcodeproj` in Xcode), `./Desktop/macOS/Sample/` (`cd Desktop && swift run StashNativeDesktopSample`) and `./Desktop/Windows/Sample/` (built by the Windows CMake project). Run the Android sample with `./gradlew :sample:installDebug` from the `Android/` directory. The desktop samples generate checkout links, exercise every presentation mode against the offline test pages, and run hands-free proofs with `-stash-auto local|remote|secure`.
 
 > **Note: Android emulator (Apple Silicon):** On arm64-v8a AVDs, the default GPU mode (`auto`) can yield an empty `GL_VERSION` and crash the WebView GPU thread. Use **`swangle`** (`-gpu swangle` or `hw.gpu.mode=swangle` in `~/.android/avd/<your-avd>.avd/config.ini`).
 
@@ -100,11 +104,23 @@ To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease`
 
 **Swift Package Manager:** In Xcode choose File → Add Packages... and add `https://github.com/stashgg/stash-native.git`, then select the StashNative package for your target.
 
+### Windows
+
+Download `StashNativeDesktop-<tag>-win64.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases). Ship `StashNativeDesktop.dll` next to your executable and either link `StashNativeDesktop.lib` with the header-only C++ facade `StashNativeCard.hpp`, or load the DLL at run time and bind the `StashNativeDesktop_*` exports from `StashNativeDesktop.h` (what the game-engine wrappers do). Requires the WebView2 Evergreen runtime on the player's machine (preinstalled on Windows 11 and updated Windows 10; otherwise bundle the [Evergreen bootstrapper](https://developer.microsoft.com/microsoft-edge/webview2/)). Call every API from the thread that owns your window's message loop.
+
+To build locally: `cmake -S Desktop/Windows -B Desktop/Windows/build -A x64 && cmake --build Desktop/Windows/build --config Release` (Visual Studio C++ workload; the WebView2 SDK is fetched from NuGet).
+
+### macOS
+
+Download `StashNativeDesktop-<tag>-macos.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases). Put `StashNativeDesktop.bundle` inside your app bundle (for example `Contents/PlugIns`), load it with `dlopen` and bind the `StashNativeDesktop_*` exports (the bundle is an `MH_BUNDLE`: it is loaded, not linked, so the Objective-C `StashNativeCard` facade in `StashNativeCard.h` is not reachable from the archive). The facade is for apps that build the host from source: add the Swift package rooted at `Desktop/` in this repository (`StashNativeDesktop` product), which builds the shared C++ contract (`Desktop/shared`) together with the Objective-C++ host; a manual build has to do the same (`Desktop/shared/*.cpp` plus `Desktop/macOS/Sources`, C++17, both include paths), which is exactly what `Desktop/macOS/build_bundle.sh` does. macOS 11+, universal.
+
+To build locally: `Desktop/macOS/build_bundle.sh` (plain clang, no Xcode project).
+
 ---
 
 ## Presentation modes
 
-The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (in-app sheet / drawer), **openModal** (in-app centered popup), and **openBrowser** (Open in Chrome Custom Tabs on Android & SFSafariViewController on iOS).
+The library exposes three ways to open Stash URLs (Stash Pay & Stash Webshop): **openCard** (in-app sheet / drawer; on desktop a card over the game window), **openModal** (in-app centered popup), and **openBrowser** (Chrome Custom Tabs on Android, SFSafariViewController on iOS, the system browser on Windows and macOS).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/stashgg/stash-native/refs/heads/main/.github/assets/presentations.png" alt="Presentation Modes" width="840" />
@@ -137,6 +153,22 @@ StashNativeCard.sharedInstance().openCard(withURL: "https://test.stashpreview.co
 StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];  // or nil for defaults
 [[StashNativeCard sharedInstance] openCardWithURL:@"https://test.stashpreview.com" config:config];
 ```
+
+**Windows (C++)**
+
+```cpp
+stash::StashNativeCardConfig config;  // or omit for defaults
+stash::StashNativeCard::getInstance().openCard("https://test.stashpreview.com", &config);
+```
+
+**macOS (Swift)**
+
+```swift
+let config = StashNativeCardConfig()  // or nil for defaults
+StashNativeCard.sharedInstance().openCard(withURL: "https://test.stashpreview.com", config: config)
+```
+
+On desktop the card is a fixed 480 x 720 pt surface centred over the game window (400 x 500 pt minimum when the window has the room, then clamped to the window minus a 24 pt margin on each edge, with a 200 x 240 pt absolute floor for very small windows) with a native trust header showing the checkout host; the ratio fields below are accepted and ignored, `forcePortrait` has no effect.
 
 ### Config
 
@@ -246,10 +278,11 @@ stashNative.Call("openCard", url, config);
 | Event            | Description                                                                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | Payment Success  | Called when the payment completes successfully. Includes detail about order in the callback payload.                                          |
+| Purchase Processing / Processing Completed | Desktop only (C ABI and `StashNativeCardListener`): the page reported that a purchase is processing / finished processing. On mobile this state is exposed through `isPurchaseProcessing`. |
 | Payment Failure  | Called when the payment fails.                                                                                                                |
 | Dialog Dismissed | Called when the user dismisses the dialog.                                                                                                    |
 | External payment | Called when external payment browser has started (CCT / Safari view controller). |
-| Browser Closed   | Called when external payment browser was closed (CCT / Safari view controller). |
+| Browser Closed   | Called when external payment browser was closed (CCT / Safari view controller). Not available on desktop (the system browser reports no close). |
 | Opt-In Response  | Called when a channel selection response is received.                                                                                         |
 | Page Loaded      | Called when the page finishes loading (with load time in ms).                                                                                 |
 | Network Error    | Called when the page load fails (no connection, HTTP error, timeout).                                                                         |
@@ -309,6 +342,20 @@ extension YourViewController: StashNativeCardDelegate {
 ....
 ```
 
+**Windows (C++)** — implement `StashNativeCardListener` (every method has an empty default):
+
+```cpp
+class Listener : public stash::StashNativeCardListener {
+    void onPaymentSuccess(const std::string &order) override { /* Handle successful payment */ }
+    void onPaymentFailure() override { /* Handle failed payment */ }
+    // ...
+};
+Listener listener;
+stash::StashNativeCard::getInstance().setListener(&listener);
+```
+
+**macOS** — the same `StashNativeCardDelegate` as iOS (minus the browser-closed method); set `StashNativeCard.sharedInstance().delegate`. Game engines get every callback through the single C event callback of `StashNativeDesktop.h` instead.
+
 ---
 
 ## openModal
@@ -335,6 +382,21 @@ StashNativeCard.sharedInstance().openModal(withURL: "https://test.stashpreview.c
 StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or nil for defaults
 [[StashNativeCard sharedInstance] openModalWithURL:@"https://test.stashpreview.com" config:config];
 ```
+
+**Windows (C++)**
+
+```cpp
+stash::StashNativeModalConfig config;
+stash::StashNativeCard::getInstance().openModal("https://test.stashpreview.com", &config);
+```
+
+**macOS (Swift)**
+
+```swift
+StashNativeCard.sharedInstance().openModal(withURL: "https://test.stashpreview.com", config: StashNativeModalConfig())
+```
+
+On desktop the modal is a fixed 480 x 600 pt surface over the game window; `allowDismiss = false` removes the close button and ignores backdrop clicks and Esc (`window.close()` from the page still closes it). Ratios are ignored.
 
 ### Config
 
@@ -402,6 +464,18 @@ StashNativeCard.sharedInstance().closeBrowser()
 
 On iOS, **closeBrowser()** dismisses the Safari view. On Android, **closeBrowser()** is a no-op (Chrome Custom Tabs cannot be closed by the app).
 
+**Windows / macOS**
+
+```cpp
+stash::StashNativeCard::getInstance().openBrowser("https://test.stashpreview.com");   // Windows
+```
+
+```swift
+StashNativeCard.sharedInstance().openBrowser(withURL: "https://test.stashpreview.com")   // macOS
+```
+
+Desktop opens the system browser and has no browser-closed callback and no `closeBrowser`.
+
 ### **Android Keep-alive service (Optional)**
 
 When the user leaves your app for Chrome Custom Tabs or the system browser, Android may kill your app on memory pressure. You can opt in to a short **foreground service** that shows a low-priority notification and improves survival on budget / Android Go–class devices:
@@ -442,6 +516,18 @@ StashNativeCard.setInspectableWebViewsEnabled(true)
 
 On iOS 16.4+ the SDK's `WKWebView`s are created with `inspectable = true`.
 
+**Windows / macOS**
+
+```cpp
+stash::StashNativeCard::setInspectableWebViewsEnabled(true);   // Windows: Edge DevTools on the checkout webview
+```
+
+```swift
+StashNativeCard.setInspectableWebViewsEnabled(true)   // macOS 13.3+: Safari Web Inspector
+```
+
+Game engines use `StashNativeDesktop_SetInspectableWebViewsEnabled(1)`.
+
 > **Do not enable this in production.** It exposes the checkout webview contents to remote inspection. Gate it behind a debug/QA build flag; the sample apps enable it only for local testing.
 
 ---
@@ -473,6 +559,16 @@ let version = StashNativeCard.sdkVersion()
 ```objc
 // iOS (Objective-C)
 NSString *version = [StashNativeCard sdkVersion];
+```
+
+```cpp
+// Windows (C++), or StashNativeDesktop_GetVersion() from the C ABI on either desktop OS
+const char *version = stash::StashNativeCard::getVersion();
+```
+
+```swift
+// macOS (Swift)
+let version = StashNativeCard.sdkVersion()
 ```
 
 ---

@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-08-26
+
+### Added
+- Windows and macOS desktop hosts (`Desktop/`): the same in-game webview checkout as mobile, presented as a card over the game's own window on WebView2 (Windows 10 1809+ / 11 with the Evergreen runtime) and WKWebView (macOS 11+, universal). Same `openCard` / `openModal` / `openBrowser` API, the same callbacks and config objects, and the same `window.stash_sdk` bridge as 2.3.0 mobile. Two public layers: a C ABI (`Desktop/include/StashNativeDesktop.h`) that is identical on both OSes for game engines, and typed facades for native apps (`StashNativeCard` on macOS, header-only `StashNativeCard.hpp` on Windows). Release artifacts `StashNativeDesktop-<version>-win64.zip` and `StashNativeDesktop-<version>-macos.zip`.
+- Desktop samples (`Desktop/macOS/Sample`, `Desktop/Windows/Sample`) with HMAC link generation and `-stash-auto` proof modes; CI builds, tests and smoke-runs both hosts on every push and PR.
+
+### Changed
+- Version 2.4.0 on iOS and Android as well; no mobile code changes in this release.
+
 ## [2.3.0] - 2026-07-16
 
 ### Added

@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+    # desktop/** so every PR of a stacked desktop branch set gets CI, not only the bottom one.
+    branches: [ main, master, 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
@@ -126,6 +127,9 @@ jobs:
           retention-days: 7
       
       - name: Upload APK to BrowserStack
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         id: browserstack-android
         run: |
           APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
@@ -147,6 +151,9 @@ jobs:
           echo "$RESPONSE"
 
       - name: Upload APK to Appetize
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         run: |
           # Appetize requires a signed APK; use debug build (signed with debug keystore)
           APK_PATH=$(find Android/sample/build/outputs/apk/debug -name "*.apk" -type f 2>/dev/null | head -1)
@@ -288,6 +295,9 @@ jobs:
           if-no-files-found: error
       
       - name: Upload IPA to BrowserStack
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         id: browserstack-ios
         run: |
           IPA_PATH="iOS/Sample/StashNativeSample/build/StashNativeSample.ipa"
@@ -342,6 +352,9 @@ jobs:
           echo "Simulator zip created at build/StashNativeDemo-simulator.zip"
 
       - name: Upload iOS Simulator build to Appetize
+        # Stacked desktop PRs build and test only; the shared BrowserStack / Appetize targets are
+        # replaced from pushes and PRs to main, as before.
+        if: ${{ !startsWith(github.base_ref, 'desktop/') }}
         run: |
           SIM_ZIP="iOS/Sample/StashNativeSample/build/StashNativeSample-simulator.zip"
           if [ ! -f "$SIM_ZIP" ]; then
@@ -364,3 +377,142 @@ jobs:
             echo "Failed to upload iOS simulator sample to Appetize (HTTP $HTTP_CODE)"
             exit 1
           fi
+
+  build-macos-library:
+    name: Build macOS desktop library only
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build package
+        working-directory: Desktop
+        run: swift build -c release
+
+      - name: Build bundle and verify exports
+        run: Desktop/macOS/build_bundle.sh
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-desktop-bundle
+          path: Desktop/macOS/build/StashNativeDesktop.bundle
+          retention-days: 7
+          if-no-files-found: error
+
+  build-macos-sample:
+    name: Build macOS desktop sample
+    runs-on: macos-15
+    needs: [build-macos-library]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Universal, like the bundle: the arm64 runner alone would publish a binary Intel Macs
+      # cannot run under an architecture-neutral artifact name.
+      - name: Build sample (universal)
+        working-directory: Desktop
+        run: |
+          swift build -c release --arch arm64 --arch x86_64 --product StashNativeDesktopSample
+          lipo -archs .build/apple/Products/Release/StashNativeDesktopSample
+
+      - name: Run WKWebView smoke test (offline checkout page)
+        working-directory: Desktop
+        run: |
+          set -o pipefail
+          ./.build/apple/Products/Release/StashNativeDesktopSample -stash-auto local 2>&1 | tee smoke-local.log | grep STASH-PROOF
+          grep -q "STASH-PROOF local: RESULT: PASS" smoke-local.log
+
+      - name: Run navigation policy smoke test
+        working-directory: Desktop
+        run: |
+          set -o pipefail
+          ./.build/apple/Products/Release/StashNativeDesktopSample -stash-auto secure 2>&1 | tee smoke-secure.log | grep STASH-PROOF
+          grep -q "STASH-PROOF secure: RESULT: PASS" smoke-secure.log
+
+      # A tarball keeps the executable bit; upload-artifact alone normalizes modes to 0644.
+      - name: Stage sample artifact
+        run: |
+          mkdir -p artifact/test-pages
+          cp Desktop/.build/apple/Products/Release/StashNativeDesktopSample artifact/
+          cp Desktop/shared/test-pages/* artifact/test-pages/
+          tar -czf macos-desktop-sample.tar.gz -C artifact .
+
+      - name: Upload sample artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-desktop-sample
+          path: macos-desktop-sample.tar.gz
+          retention-days: 7
+
+  build-windows-library:
+    name: Build Windows desktop library only
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release --target StashNativeDesktop
+
+      - name: Collect library artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact/include | Out-Null
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.dll artifact/
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.lib artifact/
+          Copy-Item Desktop/include/*.h artifact/include/
+          Copy-Item Desktop/Windows/include/StashNativeCard.hpp artifact/include/
+
+      - name: Upload library artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-library
+          path: artifact
+          retention-days: 7
+          if-no-files-found: error
+
+  build-windows-sample:
+    name: Build Windows desktop sample
+    runs-on: windows-latest
+    needs: [build-windows-library]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+      - name: Run WebView2 smoke test (offline checkout page)
+        shell: pwsh
+        working-directory: Desktop/Windows/build/Sample/Release
+        env:
+          STASH_NATIVE_DESKTOP_LOG: stderr
+        run: |
+          $lines = & .\StashNativeDesktopSample.exe -stash-auto local 2>&1 | ForEach-Object { "$_" }
+          $lines
+          if (-not ($lines -match "STASH-PROOF local: RESULT: PASS")) { exit 1 }
+
+      - name: Run navigation policy smoke test
+        shell: pwsh
+        working-directory: Desktop/Windows/build/Sample/Release
+        env:
+          STASH_NATIVE_DESKTOP_LOG: stderr
+        run: |
+          $lines = & .\StashNativeDesktopSample.exe -stash-auto secure 2>&1 | ForEach-Object { "$_" }
+          $lines
+          if (-not ($lines -match "STASH-PROOF secure: RESULT: PASS")) { exit 1 }
+
+      - name: Upload sample artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-sample
+          path: |
+            Desktop/Windows/build/Sample/Release/StashNativeDesktopSample.exe
+            Desktop/Windows/build/Sample/Release/StashNativeDesktop.dll
+            Desktop/Windows/build/Sample/Release/test-pages
+          retention-days: 7

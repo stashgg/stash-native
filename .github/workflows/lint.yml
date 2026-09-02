@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
-    branches: [ main, master ]
+    # desktop/** so every PR of a stacked desktop branch set gets CI, not only the bottom one.
+    branches: [ main, master, 'desktop/**' ]
   workflow_dispatch:
 
 jobs:
@@ -141,3 +142,93 @@ jobs:
         run: |
           swiftlint lint iOS/Sample/StashNativeSample --strict --config .swiftlint.yml
         continue-on-error: false
+
+  test-desktop-shared:
+    name: Test Desktop Shared Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and run shared contract tests
+        run: |
+          cmake -S Desktop/shared -B Desktop/shared-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build Desktop/shared-build
+          ctest --test-dir Desktop/shared-build --output-on-failure
+
+  lint-macos:
+    name: Lint macOS Desktop Host (Clang Static Analyzer)
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build package
+        working-directory: Desktop
+        run: swift build -Xcc -Werror
+
+      - name: Run Static Analysis on macOS host
+        run: |
+          set -e
+          for f in Desktop/macOS/Sources/StashNativeDesktop/*.mm Desktop/shared/*.cpp; do
+            clang++ --analyze -x objective-c++ -std=c++17 -fobjc-arc \
+              -DSTASH_NATIVE_DESKTOP_BUILDING \
+              -I Desktop/include -I Desktop/shared -I Desktop/macOS/Sources/StashNativeDesktop/include \
+              -Xanalyzer -analyzer-output=text -Werror "$f"
+          done
+
+  test-macos:
+    name: Test macOS Desktop Host
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        working-directory: Desktop
+        run: swift test
+
+      - name: Build bundle and verify exports
+        run: Desktop/macOS/build_bundle.sh
+
+  lint-macos-sample:
+    name: Lint macOS Desktop Sample (SwiftLint)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint on Sample
+        run: |
+          swiftlint lint Desktop/macOS/Sample/StashNativeDesktopSample --strict --config .swiftlint.yml
+        continue-on-error: false
+
+  lint-windows:
+    name: Lint Windows Desktop Host (warnings as errors)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure and build with /WX
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+  test-windows:
+    name: Test Windows Desktop Host
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release
+
+      - name: Run tests
+        run: ctest --test-dir Desktop/Windows/build -C Release --output-on-failure --no-tests=error

@@ -125,6 +125,49 @@ jobs:
           fi
           echo "Android SDK_VERSION matches CHANGELOG: $VERSION"
 
+      - name: Verify iOS framework CFBundleShortVersionString matches
+        if: steps.check-tag.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          FILE="iOS/StashNative/Info.plist"
+          if [ ! -f "$FILE" ]; then
+            echo "Error: $FILE not found"
+            exit 1
+          fi
+          # The XCFramework embeds this plist; integrators reading the bundle version must see the release version.
+          PLIST_VERSION=$(awk '/CFBundleShortVersionString/ { getline; print }' "$FILE" | sed -E 's/.*<string>([^<]+)<\/string>.*/\1/')
+          if [ -z "$PLIST_VERSION" ]; then
+            echo "Error: Could not parse CFBundleShortVersionString in $FILE"
+            exit 1
+          fi
+          if [ "$PLIST_VERSION" != "$VERSION" ]; then
+            echo "Error: iOS CFBundleShortVersionString ($PLIST_VERSION) does not match CHANGELOG ($VERSION)."
+            echo "Update CFBundleShortVersionString in $FILE before releasing."
+            exit 1
+          fi
+          echo "iOS CFBundleShortVersionString matches CHANGELOG: $VERSION"
+
+      - name: Verify desktop STASH_NATIVE_DESKTOP_VERSION matches
+        if: steps.check-tag.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          FILE="Desktop/include/StashNativeDesktopVersion.h"
+          if [ ! -f "$FILE" ]; then
+            echo "Error: $FILE not found"
+            exit 1
+          fi
+          DESKTOP_VERSION=$(grep -E '^#define[[:space:]]+STASH_NATIVE_DESKTOP_VERSION[[:space:]]+"' "$FILE" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$DESKTOP_VERSION" ]; then
+            echo "Error: Could not parse STASH_NATIVE_DESKTOP_VERSION in $FILE"
+            exit 1
+          fi
+          if [ "$DESKTOP_VERSION" != "$VERSION" ]; then
+            echo "Error: desktop STASH_NATIVE_DESKTOP_VERSION ($DESKTOP_VERSION) does not match CHANGELOG ($VERSION)."
+            echo "Update STASH_NATIVE_DESKTOP_VERSION in $FILE before releasing."
+            exit 1
+          fi
+          echo "Desktop STASH_NATIVE_DESKTOP_VERSION matches CHANGELOG: $VERSION"
+
   build-android:
     name: Build Android AAR
     needs: parse-changelog
@@ -244,10 +287,119 @@ jobs:
           path: iOS/StashNative/build/StashNative.xcframework.zip
           retention-days: 7
 
+  build-windows:
+    name: Build Windows desktop library
+    needs: parse-changelog
+    if: needs.parse-changelog.outputs.skip != 'true'
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.parse-changelog.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build StashNativeDesktop.dll
+        run: |
+          cmake -S Desktop/Windows -B Desktop/Windows/build -A x64
+          cmake --build Desktop/Windows/build --config Release --target StashNativeDesktop
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $dir = "StashNativeDesktop-$env:VERSION-win64"
+          New-Item -ItemType Directory -Force -Path "$dir/include" | Out-Null
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.dll $dir/
+          Copy-Item Desktop/Windows/build/Release/StashNativeDesktop.lib $dir/
+          Copy-Item Desktop/include/*.h $dir/include/
+          Copy-Item Desktop/Windows/include/StashNativeCard.hpp $dir/include/
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip"
+          Get-ChildItem "$dir.zip"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stashnative-desktop-win64
+          path: StashNativeDesktop-${{ needs.parse-changelog.outputs.version }}-win64.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS desktop library
+    needs: parse-changelog
+    if: needs.parse-changelog.outputs.skip != 'true'
+    runs-on: macos-15
+    env:
+      VERSION: ${{ needs.parse-changelog.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Signs the bundle with the Developer ID certificate from the repository secrets when they
+      # are configured; without them the bundle ships unsigned, loudly. Integrators re-sign the
+      # bundle with their own Team ID either way (hardened-runtime library validation only
+      # accepts the host app's identity; see COMPATIBILITY.md), but a signed archive passes
+      # Gatekeeper assessment intact and proves provenance.
+      - name: Import signing certificate
+        id: cert
+        env:
+          CERT_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_P12 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_PASSWORD }}
+        run: |
+          if [ -z "$CERT_P12_BASE64" ]; then
+            echo "::warning::No Developer ID certificate configured (APPLE_DEVELOPER_ID_APPLICATION_P12 / _PASSWORD): the macOS bundle ships unsigned."
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/stash-signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 900 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | awk -F'"' 'NR==1 {print $2}')
+          if [ -z "$IDENTITY" ]; then
+            echo "Certificate imported but no codesigning identity was found"
+            exit 1
+          fi
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+
+      - name: Build StashNativeDesktop.bundle
+        env:
+          STASH_SIGN_IDENTITY: ${{ steps.cert.outputs.identity }}
+        run: Desktop/macOS/build_bundle.sh
+
+      - name: Verify bundle signature
+        if: steps.cert.outputs.identity != ''
+        run: codesign --verify --strict --verbose=2 Desktop/macOS/build/StashNativeDesktop.bundle
+
+      - name: Package
+        run: |
+          DIR="StashNativeDesktop-${VERSION}-macos"
+          mkdir -p "$DIR/include"
+          cp -R Desktop/macOS/build/StashNativeDesktop.bundle "$DIR/"
+          cp Desktop/include/*.h "$DIR/include/"
+          cp Desktop/macOS/Sources/StashNativeDesktop/include/StashNativeCard.h "$DIR/include/"
+          zip -r "$DIR.zip" "$DIR"
+          ls -la "$DIR.zip"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stashnative-desktop-macos
+          path: StashNativeDesktop-${{ needs.parse-changelog.outputs.version }}-macos.zip
+          retention-days: 7
+          if-no-files-found: error
+
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [parse-changelog, build-android, build-ios]
+    needs: [parse-changelog, build-android, build-ios, build-windows, build-macos]
     if: needs.parse-changelog.outputs.skip != 'true'
     permissions:
       contents: write
@@ -270,6 +422,18 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: stashnative-ios-xcframework
+          path: release-artifacts
+
+      - name: Download Windows desktop library
+        uses: actions/download-artifact@v4
+        with:
+          name: stashnative-desktop-win64
+          path: release-artifacts
+
+      - name: Download macOS desktop library
+        uses: actions/download-artifact@v4
+        with:
+          name: stashnative-desktop-macos
           path: release-artifacts
 
       - name: List artifacts
@@ -319,6 +483,12 @@ jobs:
             echo "Download \`StashNative-${VERSION}.xcframework.zip\`, unzip, and add \`StashNative.xcframework\` to your Xcode project."
             echo ""
             echo "Alternatively, use Swift Package Manager with this repository URL."
+            echo ""
+            echo "### Windows"
+            echo "Download \`StashNativeDesktop-${VERSION}-win64.zip\`: \`StashNativeDesktop.dll\` (ships next to your game executable), \`StashNativeDesktop.lib\` and the headers. Needs the WebView2 Evergreen runtime (preinstalled on Windows 11 and updated Windows 10). Game engines bind to \`StashNativeDesktop.h\`; native apps can use \`StashNativeCard.hpp\`."
+            echo ""
+            echo "### macOS"
+            echo "Download \`StashNativeDesktop-${VERSION}-macos.zip\`: \`StashNativeDesktop.bundle\` (universal arm64 + x86_64, macOS 11+) and the headers. Game engines load the bundle with dlopen and bind to \`StashNativeDesktop.h\`; the bundle is an MH_BUNDLE (loaded, not linked), so the \`StashNativeCard\` facade in \`StashNativeCard.h\` is only available to apps that build the host from source (the Swift package rooted at \`Desktop/\`)."
           } > release_body.md
 
       - name: Configure Git
@@ -344,5 +514,7 @@ jobs:
           files: |
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.aar
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
+            release-artifacts/StashNativeDesktop-${{ needs.parse-changelog.outputs.version }}-win64.zip
+            release-artifacts/StashNativeDesktop-${{ needs.parse-changelog.outputs.version }}-macos.zip
           draft: false
           prerelease: false
