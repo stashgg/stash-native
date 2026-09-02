@@ -41,7 +41,7 @@ Use the sample apps (Generate Checkout URL) or curl. The samples sign with `x-st
 
 Goal: confirm a protected title can present the card. The host creates child windows of the game window, injects no code into the game, and loads `StashNativeDesktop.dll` plus the WebView2 runtime processes (`msedgewebview2.exe`) spawned out of process.
 
-1. Build the Windows sample (`cmake ... --config Release`) and copy `StashNativeDesktopSample.exe` and `StashNativeDesktop.dll` next to the protected title's executable, or load the DLL from the title itself through the C ABI.
+1. Load `StashNativeDesktop.dll` from inside the protected title itself: a Unity or Unreal build of the title with the 2.4.0 package is exactly that, or bind the C ABI from the title's own code. Running the standalone sample next to the title does not count and must not be recorded as a pass: the sample is a separate process presenting over its own window, so neither the title's process restrictions nor its child-window integration are exercised.
 2. Launch under the anti-cheat (EAC, BattlEye, Vanguard as applicable) and open a staging checkout with the card attached to the game window.
 3. Record: whether the DLL loads, whether the WebView2 processes are allowed, whether the card renders over the game and receives input, and any anti-cheat log entries. Repeat with exclusive fullscreen.
 4. If the anti-cheat blocks child windows or the WebView2 processes, note the vendor and the rule hit; the fallback is `openBrowser`.
