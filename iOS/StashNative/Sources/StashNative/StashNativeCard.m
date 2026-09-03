@@ -405,7 +405,7 @@ static void stashInstallOrientationSwizzleIfNeeded(void) {
 }
 
 + (NSString *)sdkVersion {
-    return @"2.3.0";
+    return @"2.3.1";
 }
 
 // Opt-in webview inspection. Off by default; only debug/sample builds should enable it.

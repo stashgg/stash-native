@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.1] - 2026-09-03
+
+### Added
+- iOS/Android: `StashNativeCard.setInspectableWebViewsEnabled(...)` opt-in flag that makes the checkout WebViews inspectable (Safari Web Inspector / `chrome://inspect`) for QA/debug builds and automated UI tests. Off by default; enabled in both sample apps.
+
+### Changed
+- iOS/Android: new-window navigations (anchor `target="_blank"` or `window.open`, main frame or iframe) now open in the external browser instead of being dropped — http/https via the system browser (`openLink` semantics), other schemes via the existing deeplink handling. The checkout stays presented.
+- iOS/Android: deeplink interception extended to sub-frames, not just the main frame. Android parses `intent://` URIs with component/selector stripping and `browser_fallback_url` / Play Store fallback; iOS offers user-tapped https links to a claiming app as universal links; both degrade gracefully when no app is installed.
+
+### Removed
+- Android: Google Pay WebView redirect handling (`checkGooglePayRedirect` / `openGooglePayInBrowser`, the `googlePayRedirectHandled` guard, and the `GOOGLE_PAY_*` constants). No public API change.
+
+### Fixed
+- Android: checkout WebView content is never darkened. Force-dark / algorithmic darkening is now disabled unconditionally instead of keyed to the host theme, fixing near-invisible third-party (Adyen secured-field) input text in device dark mode. The checkout self-themes via the `theme=` URL parameter, so paint-time darkening only ever hurt.
+- Android/iOS: expanded card height is clamped to the real content box, fixing the scroll bug and a keyboard-triggered expand that shrank the card below its collapsed height. Covers phone and tablet, including rotation, and drag-release snap-back.
+- Android: phone sheet height ceilings subtract bottom insets and intersect with the root-layout content box, closing a race where `expand()` ran before the first `onApplyWindowInsets` dispatch; `expand()` is capped so the card can never grow past 100%.
+- Android: `clampRatio` is guarded against NaN/Infinity (parity with iOS `stashClampRatio`), and scheme / provider-detection string matching uses `Locale.ROOT` to avoid Turkish-locale mismatches.
+- Sample apps: both samples bundle a deeplink test harness; iOS sample fixes device-build compilation and the iOS 18 tab bar layout.
+
 ## [2.3.0] - 2026-07-16
 
 ### Added
