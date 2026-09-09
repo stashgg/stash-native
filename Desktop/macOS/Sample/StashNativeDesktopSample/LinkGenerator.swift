@@ -25,10 +25,11 @@ enum LinkGenerator {
         }
         // Sign the exact bytes that go on the wire, then send them unchanged.
         let bodyData = Data(payload.utf8)
-        guard let signature = StashHmac.signature(appId: appId, ingressSecretB64: ingressSecret, body: bodyData) else {
-            completion(.failure(SampleError(message: "Ingress secret is not valid base64")))
+        guard !ingressSecret.isEmpty else {
+            completion(.failure(SampleError(message: "Ingress secret is empty")))
             return
         }
+        let signature = StashHmac.signature(appId: appId, ingressSecret: ingressSecret, body: bodyData)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

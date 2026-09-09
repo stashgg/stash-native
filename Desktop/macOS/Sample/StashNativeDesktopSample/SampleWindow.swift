@@ -58,7 +58,7 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
         appIdField.placeholderString = "App ID"
         appIdField.stringValue = SampleSettings.appId
         appIdField.delegate = self
-        secretField.placeholderString = "Ingress secret (base64)"
+        secretField.placeholderString = "Ingress secret (as issued by Studio)"
         secretField.stringValue = SampleSettings.ingressSecret
         secretField.delegate = self
         for env in StashEnvironment.allCases {

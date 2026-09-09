@@ -54,7 +54,7 @@ static std::string extractUrlField(const std::string &json) {
 bool generateCheckoutUrl(const Settings &settings, const std::string &payload, std::string &urlOut, std::string &errorOut) {
     std::string signature;
     if (!hmacSignature(settings.appId, settings.ingressSecret, payload, signature)) {
-        errorOut = "Ingress secret is not valid base64";
+        errorOut = "Could not sign the request (empty ingress secret or HMAC failure)";
         return false;
     }
     HINTERNET session = WinHttpOpen(L"StashNativeDesktopSample/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME,

@@ -7,15 +7,6 @@
 
 namespace sample {
 
-static bool base64Decode(const std::string &text, std::vector<BYTE> &out) {
-    DWORD size = 0;
-    if (!CryptStringToBinaryA(text.c_str(), 0, CRYPT_STRING_BASE64, nullptr, &size, nullptr, nullptr) || size == 0) {
-        return false;
-    }
-    out.resize(size);
-    return CryptStringToBinaryA(text.c_str(), 0, CRYPT_STRING_BASE64, out.data(), &size, nullptr, nullptr) != FALSE;
-}
-
 static std::string base64Encode(const std::vector<BYTE> &bytes) {
     DWORD size = 0;
     if (!CryptBinaryToStringA(bytes.data(), static_cast<DWORD>(bytes.size()), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &size)) {
@@ -32,11 +23,14 @@ static std::string base64Encode(const std::vector<BYTE> &bytes) {
     return out;
 }
 
-bool hmacSignature(const std::string &appId, const std::string &ingressSecretB64, const std::string &body, std::string &out) {
-    std::vector<BYTE> key;
-    if (!base64Decode(ingressSecretB64, key)) {
+bool hmacSignature(const std::string &appId, const std::string &ingressSecret, const std::string &body, std::string &out) {
+    // The key is the secret's raw bytes exactly as issued by Studio. Do not base64-decode it:
+    // the server verifies with the raw secret string, and Studio keys use the URL-safe
+    // alphabet, which CryptStringToBinaryA rejects.
+    if (ingressSecret.empty()) {
         return false;
     }
+    std::vector<BYTE> key(ingressSecret.begin(), ingressSecret.end());
     long long unixMillis = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
     std::string message = std::to_string(unixMillis) + "." + body;

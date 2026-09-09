@@ -24,7 +24,7 @@ Expected event sequence for a completed purchase: `navigation -> pageLoaded -> p
 
 ## Generating Staging Links
 
-Use the sample apps (Generate Checkout URL) or curl. The samples sign with `x-stash-hmac-signature` (`v1;<appId>;<unixMillis>;<base64 HMAC-SHA256 of "<unixMillis>." + body>`, key = base64-decoded ingress secret); keys created after 2026-08-15 must use HMAC, the `X-Stash-Api-Key` header is deprecated.
+Use the sample apps (Generate Checkout URL) or curl. The samples sign with `x-stash-hmac-signature` (`v1;<appId>;<unixMillis>;<base64 HMAC-SHA256 of "<unixMillis>." + body>`, key = the ingress secret's raw bytes exactly as issued by Studio, never base64-decoded: the server verifies with the raw string, and Studio keys use the URL-safe alphabet). `appId` is the shop id. Sign the exact bytes you send: the gateway forwards the received body to the verifier as-is, so formatting and key order do not matter (a curl user signs the same string they POST). Keys created after 2026-08-15 must use HMAC, the `X-Stash-Api-Key` header is deprecated.
 
 - Staging API: `https://test-api.stashstaging.com`, links on `checkout.stashstaging.com/pay/{uuid}`. `test-api.stash.gg` is the test environment of the production infrastructure, not staging.
 - Omit `platform` in the body: the enum only knows `IOS` / `ANDROID`; desktop is correctly `UNDEFINED` (Adyen Web channel, all wallets enabled).
