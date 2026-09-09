@@ -45,9 +45,9 @@ extern const char *const kDefaultCheckoutPayload;
 // -- HMAC (StashHmac.cpp) ----------------------------------------------------------------------
 
 // x-stash-hmac-signature: v1;<appId>;<unixMillis>;<base64 HMAC-SHA256 of "<unixMillis>." + body>
-// with the base64-decoded ingress secret as the key. In a real integration this belongs on the
-// backend; the sample signs in-process so the flow can be exercised locally.
-bool hmacSignature(const std::string &appId, const std::string &ingressSecretB64, const std::string &body, std::string &out);
+// with the ingress secret's raw bytes as the key (never base64-decoded). In a real integration
+// this belongs on the backend; the sample signs in-process so the flow can be exercised locally.
+bool hmacSignature(const std::string &appId, const std::string &ingressSecret, const std::string &body, std::string &out);
 
 // -- Link generation (LinkGenerator.cpp) ------------------------------------------------------
 
