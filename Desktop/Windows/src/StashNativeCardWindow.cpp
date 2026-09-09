@@ -324,7 +324,12 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
     spinner_ = CreateWindowExW(0, kClassSpinner, L"", WS_CHILD, (w - spin) / 2, m.headerHeight + (h - m.headerHeight - spin) / 2,
                                spin, spin, card_, nullptr, module, nullptr);
 
-    // Dim only what is behind the card: beneath it in z-order and cut out of the backdrop.
+    // The overlay must sit above any pre-existing child windows of the host. A bare game window has
+    // none, so a freshly created child was already on top there; but an embedding host (or this
+    // sample, whose controls live in the same window) does have children, and the card would land
+    // below them and let them intercept the mouse. Raise the card to the top of the sibling z-order,
+    // then place the dim immediately beneath it.
+    SetWindowPos(card_, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     SetWindowPos(backdrop_, card_, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     applyBackdropRegion(m);
     lastClientWidth_ = clientW;
@@ -408,6 +413,9 @@ bool Presenter::layout() {
         core_.resetPresentationState();
         return false;
     }
+    // Keep the overlay above the host's other children even if something reordered them after present.
+    SetWindowPos(card_, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    SetWindowPos(backdrop_, card_, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     Metrics m = computeMetrics();
     int clientW = m.client.right - m.client.left;
     int clientH = m.client.bottom - m.client.top;
