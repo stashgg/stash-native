@@ -296,6 +296,11 @@ NSString *NormalizeExternalPaymentURL(NSString *raw) {
         return nil;
     }
     if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
+        BOOL hasScheme = [s rangeOfString:@"^[A-Za-z][A-Za-z0-9+.-]*:"
+                                 options:NSRegularExpressionSearch].location != NSNotFound;
+        BOOL hostAndPort = [s rangeOfString:@"^[^/?#:@]+:[0-9]+([/?#].*)?$"
+                                   options:NSRegularExpressionSearch].location != NSNotFound;
+        if (hasScheme && !hostAndPort) return nil;
         s = [@"https://" stringByAppendingString:s];
     }
     NSURL *u = [NSURL URLWithString:s];

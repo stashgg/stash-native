@@ -421,6 +421,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
     [self beginDismissStoppingLoadAndTimers];
 
+    NSUInteger dismissToken = self.presentationSessionToken;
     UIViewController *containerVC = self.currentPresentedVC;
     UIView *overlayView = objc_getAssociatedObject(containerVC, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
     
@@ -459,6 +460,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
         
         setOverlayToDismissAppearance(overlayView);
     } completion:^(BOOL finished) {
+        if (self.presentationSessionToken != dismissToken || self.currentPresentedVC != containerVC) return;
         [self setSkipLayoutDuringInitialSetup:NO forViewController:containerVC];
         if (completion) completion();
     }];
@@ -488,6 +490,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
     _safariOpenedViaOpenBrowser = NO;
     _isCardCurrentlyPresented = NO;
     self.currentSafariViewController = nil;
+    self.isDismissingSafari = NO;
 
     // External-payment handoff OR forcePortrait browser -- the portrait window was kept/created so
     // Safari ran in portrait. Tear it down and restore landscape.
@@ -504,6 +507,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
+    if (controller != self.currentSafariViewController || self.isDismissingSafari) return;
     BOOL openedViaOpenBrowser = _safariOpenedViaOpenBrowser;
 
     [self tearDownSafariPresentationState];
@@ -775,63 +779,8 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 
     progress = MAX(0.0, MIN(1.0, progress));
 
-    CGRect screenBounds = self.portraitWindow ? [self referenceScreenBoundsForIPhoneCardLayout] : [UIScreen mainScreen].bounds;
-    CGFloat safeTop = getSafeAreaTopForView(cardView);
-
-    CGFloat collapsedWidth, collapsedHeight, collapsedX, collapsedY;
-    CGFloat expandedWidth, expandedHeight, expandedX, expandedY;
-
-    if (isRunningOniPad()) {
-        CGSize cardSize = calculateiPadCardSize(screenBounds);
-        CGFloat baseW = cardSize.width;
-        CGFloat baseH = cardSize.height;
-        CGFloat expandedH = stashTabletSdkExpandedHeightFromBase(baseH, screenBounds, cardView);
-        collapsedWidth = expandedWidth = baseW;
-        collapsedHeight = baseH;
-        expandedHeight = expandedH;
-        collapsedX = expandedX = (screenBounds.size.width - baseW) / 2.0;
-        collapsedY = (screenBounds.size.height - collapsedHeight) / 2.0;
-        expandedY = (screenBounds.size.height - expandedHeight) / 2.0;
-    } else {
-        // iPhone: use same canonical collapsed frame as initial present (includes min clamp)
-        CGRect collapsedFrame;
-        if (self.portraitWindow && _forcePortraitOnCheckout) {
-            collapsedFrame = [self collapsedPhoneCardFrameForReferenceBounds:screenBounds];
-        } else {
-            collapsedFrame = computePhoneCardFrameForBoundsAndOrientation(screenBounds, [self isIPhoneLandscapeCurrentOrientation]);
-        }
-        collapsedWidth = collapsedFrame.size.width;
-        collapsedHeight = collapsedFrame.size.height;
-        collapsedX = collapsedFrame.origin.x;
-        collapsedY = collapsedFrame.origin.y;
-
-        if ([self isIPhoneLandscapeCurrentOrientation]) {
-            // Height-only expand in landscape: same width, expand = 90% screen height
-            expandedWidth = collapsedWidth;
-            expandedHeight = screenBounds.size.height * kIPhoneLandscapeExpandedHeightRatio;
-            expandedX = collapsedX;
-            expandedY = screenBounds.size.height - expandedHeight;
-            if (expandedY < safeTop) expandedY = safeTop;
-        } else {
-            expandedWidth = screenBounds.size.width;
-            expandedHeight = screenBounds.size.height - safeTop;
-            expandedX = 0;
-            expandedY = safeTop;
-        }
-    }
-
-    CGFloat currentWidth = collapsedWidth + (expandedWidth - collapsedWidth) * progress;
-    CGFloat currentHeight = collapsedHeight + (expandedHeight - collapsedHeight) * progress;
-    CGFloat currentX = collapsedX + (expandedX - collapsedX) * progress;
-    CGFloat currentY;
-    if (isRunningOniPad()) {
-        currentY = collapsedY + (expandedY - collapsedY) * progress;
-    } else {
-        // iPhone: keep bottom of card anchored to bottom of screen every frame (no gap)
-        currentY = screenBounds.size.height - currentHeight;
-    }
-
-    cardView.frame = CGRectMake(currentX, currentY, currentWidth, currentHeight);
+    cardView.frame = [self frameForExpansionProgress:progress cardView:cardView];
+    CGFloat currentWidth = cardView.frame.size.width;
 
     for (UIView *subview in cardView.subviews) {
         if ([subview isKindOfClass:[WKWebView class]]) {
@@ -1232,8 +1181,7 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
             CGRect screenBounds = [UIScreen mainScreen].bounds;
             CGRect targetFrame = stashFrameForIPadSdkCard(screenBounds, cardView);
             CGFloat originalWidth = targetFrame.size.width;
-            CGFloat originalHeight = targetFrame.size.height;
-            
+
             [UIView animateWithDuration:kAnimationDurationFast 
                                   delay:0 
                  usingSpringWithDamping:kSpringDampingSnapBack 
@@ -1341,10 +1289,14 @@ NSUInteger StashNativeCurrentPresentationSessionToken(void) {
 }
 
 - (void)handleWindowCloseSignal {
-    if (self.isPurchaseProcessing) {
+    UIViewController *closingController = self.currentPresentedVC;
+    NSUInteger closingToken = self.presentationSessionToken;
+    if (!closingController || self.isPurchaseProcessing) {
         return;
     }
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.presentationSessionToken != closingToken
+            || self.currentPresentedVC != closingController || self.isPurchaseProcessing) return;
         [self dismissWithAnimation:^{
             [self callDelegateCallbackOnce];
             [self cleanupCardInstance];
@@ -1609,7 +1561,11 @@ static CGRect stashCoerceBoundsToCardOrientationLock(CGRect b, UIViewController 
         dispatch_block_cancel(self.pendingIPhoneCardGeometryRelayoutBlock);
         self.pendingIPhoneCardGeometryRelayoutBlock = nil;
     }
+#if __has_feature(objc_arc)
     __weak typeof(self) weakSelf = self;
+#else
+    __unsafe_unretained typeof(self) weakSelf = self;
+#endif
     dispatch_block_t work = dispatch_block_create(0, ^{
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf || !strongSelf.portraitWindow) {
@@ -1820,88 +1776,82 @@ static void stashRequestPortraitGeometryForIPhoneCardWindow(UIWindow *window) {
     }
 }
 
-/// After opening from landscape, poll until the scene is portrait or timeout, optionally retrying geometry updates (iOS 16+).
+static void stashPollPortraitLayout(UIWindow *cardWindow, NSUInteger sessionToken,
+                                    StashNativeCardInternal *internal, CFAbsoluteTime t0,
+                                    unsigned geometryRetryPhase, void (^onStaleSession)(void),
+                                    void (^onContinueLayout)(void)) {
+    if (internal.presentationSessionToken != sessionToken) {
+        if (onStaleSession) {
+            onStaleSession();
+        }
+        return;
+    }
+    if (stashForcePortraitCardSceneLooksPortrait(cardWindow)) {
+        CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
+        STASH_DEBUG_LOG(@"StashNative portrait settle ok bounds=%@ session=%lu",
+                        NSStringFromCGRect(b), (unsigned long)sessionToken);
+        if (onContinueLayout) {
+            onContinueLayout();
+        }
+        return;
+    }
+
+    CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - t0;
+    if (@available(iOS 16.0, *)) {
+        if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
+            geometryRetryPhase = 1;
+            stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
+        } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
+            geometryRetryPhase = 2;
+            stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
+        }
+    } else {
+        // iOS 15: retry the UIDevice orientation hack at the same intervals.
+        if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
+            geometryRetryPhase = 1;
+            [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                        forKey:@"orientation"];
+            [UIViewController attemptRotationToDeviceOrientation];
+        } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
+            geometryRetryPhase = 2;
+            [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
+                                        forKey:@"orientation"];
+            [UIViewController attemptRotationToDeviceOrientation];
+        }
+    }
+
+    if (elapsed >= kPortraitSettleTimeout) {
+        CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
+        STASH_DEBUG_LOG(@"StashNative portrait settle timeout bounds=%@ session=%lu",
+                        NSStringFromCGRect(b), (unsigned long)sessionToken);
+        if (onContinueLayout) {
+            onContinueLayout();
+        }
+        return;
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPortraitSettlePollInterval * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        stashPollPortraitLayout(cardWindow, sessionToken, internal, t0, geometryRetryPhase,
+                                onStaleSession, onContinueLayout);
+    });
+}
+
 void stashScheduleForcePortraitCardLayoutAfterPortraitSettle(UIWindow *cardWindow,
                                                               BOOL openedFromLandscape,
                                                               NSUInteger sessionToken,
                                                               StashNativeCardInternal *internal,
                                                               void (^onStaleSession)(void),
                                                               void (^onContinueLayout)(void)) {
-    if (!openedFromLandscape) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (onContinueLayout) {
-                onContinueLayout();
-            }
-        });
-        return;
-    }
-
-    __block CFAbsoluteTime t0 = 0;
-    __block unsigned geometryRetryPhase = 0;
-    __block void (^poll)(void);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-retain-cycles"
-    poll = ^{
+    dispatch_async(dispatch_get_main_queue(), ^{
         if (internal.presentationSessionToken != sessionToken) {
-            if (onStaleSession) {
-                onStaleSession();
-            }
-            return;
+            if (onStaleSession) onStaleSession();
+        } else if (openedFromLandscape) {
+            stashPollPortraitLayout(cardWindow, sessionToken, internal, CFAbsoluteTimeGetCurrent(),
+                                    0, onStaleSession, onContinueLayout);
+        } else if (onContinueLayout) {
+            onContinueLayout();
         }
-        if (t0 == 0) {
-            t0 = CFAbsoluteTimeGetCurrent();
-        }
-        if (stashForcePortraitCardSceneLooksPortrait(cardWindow)) {
-            CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
-            STASH_DEBUG_LOG(@"StashNative portrait settle ok bounds=%@ session=%lu",
-                            NSStringFromCGRect(b), (unsigned long)sessionToken);
-            if (onContinueLayout) {
-                onContinueLayout();
-            }
-            return;
-        }
-
-        CFAbsoluteTime elapsed = CFAbsoluteTimeGetCurrent() - t0;
-        if (@available(iOS 16.0, *)) {
-            if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
-                geometryRetryPhase = 1;
-                stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
-            } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
-                geometryRetryPhase = 2;
-                stashRequestPortraitGeometryForIPhoneCardWindow(cardWindow);
-            }
-        } else {
-            // iOS 15: retry the UIDevice orientation hack at the same intervals.
-            if (elapsed >= kPortraitSettleGeometryRetryFirst && geometryRetryPhase == 0) {
-                geometryRetryPhase = 1;
-                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
-                                            forKey:@"orientation"];
-                [UIViewController attemptRotationToDeviceOrientation];
-            } else if (elapsed >= kPortraitSettleGeometryRetrySecond && geometryRetryPhase == 1) {
-                geometryRetryPhase = 2;
-                [[UIDevice currentDevice] setValue:@(UIInterfaceOrientationPortrait)
-                                            forKey:@"orientation"];
-                [UIViewController attemptRotationToDeviceOrientation];
-            }
-        }
-
-        if (elapsed >= kPortraitSettleTimeout) {
-            CGRect b = stashSceneCoordinateBoundsForIPhoneCardWindow(cardWindow);
-            STASH_DEBUG_LOG(@"StashNative portrait settle timeout bounds=%@ session=%lu",
-                            NSStringFromCGRect(b), (unsigned long)sessionToken);
-            if (onContinueLayout) {
-                onContinueLayout();
-            }
-            return;
-        }
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kPortraitSettlePollInterval * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(),
-                       poll);
-    };
-#pragma clang diagnostic pop
-
-    dispatch_async(dispatch_get_main_queue(), poll);
+    });
 }
 
 void stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(CGRect targetBounds, CGFloat forcedCardExpansionProgress) {
