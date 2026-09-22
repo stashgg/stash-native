@@ -13,7 +13,7 @@ This skill adapts selected ideas from [hyhmrright/brooks-lint](https://github.co
 | [Debt guide](https://github.com/hyhmrright/brooks-lint/blob/220fe716c01950966e961e020eda9c457f4dd0a7/skills/brooks-debt/debt-guide.md) | Prioritize demonstrated consequences and spread; distinguish accepted debt without erasing its score cost. |
 | [Source calibration](https://github.com/hyhmrright/brooks-lint/blob/220fe716c01950966e961e020eda9c457f4dd0a7/skills/_shared/source-coverage.md) | Inspect context, exceptions, and tradeoffs before assigning a principle-based finding. |
 
-The upstream MIT notice is preserved in [LICENSE.brooks-lint](../LICENSE.brooks-lint). Adapted instructions are kept here; using the skill does not require installing brooks-lint or downloading it on every audit.
+The upstream MIT notice is preserved [below](#upstream-license-notice). Adapted instructions are kept here; using the skill does not require installing brooks-lint or downloading it on every audit.
 
 The score rubric is Stash-specific. We do not adopt upstream lightweight-dashboard finding caps, diff-only scoring, severity overrides that conceal defects, fixed test ratios, automatic source edits, or automatic history/config writes in the repository. Database/service/organization checks are excluded unless the actual audited code introduces them.
 
@@ -49,3 +49,31 @@ The selected source revision's public contracts, configuration, tests, and compa
 - [Agent Skills in Codex](https://learn.chatgpt.com/docs/build-skills) for repository discovery; agents without that mechanism can read the skill through `AGENTS.md`.
 
 Verify version-sensitive claims when using these sources. If access or evidence is unavailable, state the limitation and keep the claim provisional.
+
+## Upstream license notice
+
+The following notice applies to the material adapted from brooks-lint.
+
+```text
+MIT License
+
+Copyright (c) 2025 hyhmrright
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
