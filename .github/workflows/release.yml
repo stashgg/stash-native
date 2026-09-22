@@ -9,6 +9,9 @@ on:
       - 'CHANGELOG.md'
 
 jobs:
+  validate:
+    uses: ./.github/workflows/lint.yml
+
   parse-changelog:
     name: Parse CHANGELOG
     runs-on: ubuntu-latest
@@ -143,6 +146,8 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: Grant execute permission for gradlew
         run: chmod +x Android/gradlew
@@ -230,6 +235,18 @@ jobs:
           echo "XCFramework created successfully"
           ls -la build/StashNative.xcframework
 
+      - name: Verify packaged framework versions
+        env:
+          EXPECTED_SDK_VERSION: ${{ needs.parse-changelog.outputs.version }}
+        run: |
+          for framework_plist in iOS/StashNative/build/StashNative.xcframework/*/StashNative.framework/Info.plist; do
+            actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$framework_plist")
+            if [ "$actual_version" != "$EXPECTED_SDK_VERSION" ]; then
+              echo "Framework version $actual_version does not match $EXPECTED_SDK_VERSION: $framework_plist"
+              exit 1
+            fi
+          done
+
       - name: Zip XCFramework
         run: |
           cd iOS/StashNative/build
@@ -247,7 +264,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [parse-changelog, build-android, build-ios]
+    needs: [validate, parse-changelog, build-android, build-ios]
     if: needs.parse-changelog.outputs.skip != 'true'
     permissions:
       contents: write

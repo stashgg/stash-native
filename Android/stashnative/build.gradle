@@ -28,9 +28,9 @@ android {
     }
 
     lint {
-        // Surface issues without failing the build; CI runs it as an informational step.
-        abortOnError false
-        checkReleaseBuilds false
+        // Release validation must fail when Android Lint reports errors.
+        abortOnError true
+        checkReleaseBuilds true
         warningsAsErrors false
     }
 

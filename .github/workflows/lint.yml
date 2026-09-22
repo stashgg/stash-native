@@ -1,6 +1,7 @@
 name: Lint
 
 on:
+  workflow_call:
   push:
     branches: [ main, master ]
   pull_request:
@@ -69,12 +70,19 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-      - name: Run unit tests
-        run: cd Android && ./gradlew :stashnative:testDebugUnitTest
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
-      - name: Android Lint (non-blocking)
-        continue-on-error: true
-        run: cd Android && ./gradlew :stashnative:lintRelease
+      - name: Run unit tests and build samples
+        run: cd Android && ./gradlew :stashnative:testDebugUnitTest :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease
+
+      - name: Android Lint
+        run: cd Android && ./gradlew :stashnative:lintRelease :sample:lintDebug
+
+      - name: Build minimal Java AAR consumers with R8
+        run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease
 
   test-ios:
     name: Test iOS Library
