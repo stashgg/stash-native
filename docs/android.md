@@ -34,6 +34,30 @@ Supporting UI helpers: [`TopRoundedFrameLayout.java`](../Android/stashnative/src
 
 Sample integration: [`Android/sample/src/main/java/com/stash/stashnative/sample/MainActivity.java`](../Android/sample/src/main/java/com/stash/stashnative/sample/MainActivity.java).
 
+The [minimal Java consumer](../Android/consumer/build.gradle) builds the release AAR with the
+[documented standalone dependencies](../README.md#android), without the sample's dependency graph
+or a Kotlin plugin. CI builds its R8 release variants with Browser 1.7.0, Browser 1.3.0, and no
+Browser library. Run `./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease
+:consumer:assembleAbsentRelease` from `Android/` to check the same integration contract.
+
+## Dependencies
+
+| Dependency | SDK use |
+|---|---|
+| `androidx.core:core:1.12.0` | System-bar and keyboard insets, compatibility window handling, colors, and keep-alive notifications. |
+| `androidx.webkit:webkit:1.11.0` | Disable algorithmic darkening so checkout and payment iframe colors remain readable across WebView versions. |
+| `androidx.browser:browser:1.7.0` | Optional Custom Tabs support; compiled against but not bundled or required at runtime. Hosts can use the system-browser fallback. |
+
+AppCompat, Material, CoordinatorLayout, RecyclerView and the sample's ViewModel/LiveData
+dependencies belong to the sample app. JUnit and Robolectric are test-only dependencies.
+Neither group is exported by the SDK. Core has its own transitive dependencies, including
+the Kotlin runtime; the SDK's minimal dependency set requires no explicit Kotlin BOM.
+
+A host with older AndroidX or Kotlin dependencies may still resolve incompatible Kotlin
+standard-library artifacts. Align those versions in the host if Gradle reports duplicate
+Kotlin classes; a [Kotlin BOM](https://kotlinlang.org/docs/gradle-configure-project.html#versions-alignment-of-transitive-dependencies)
+is one option for that host-specific conflict. The SDK does not impose it on all consumers.
+
 ## Entry Points And API Surface
 
 Implemented on [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java):
