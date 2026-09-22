@@ -1,1 +1,0 @@
-../../.agents/skills/stash-native-audit/SKILL.md
