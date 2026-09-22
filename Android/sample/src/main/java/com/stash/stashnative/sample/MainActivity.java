@@ -41,6 +41,10 @@ public class MainActivity extends AppCompatActivity {
   private ActivityMainBinding binding;
   private MainViewModel viewModel;
   private SettingsAdapter adapter;
+  private volatile boolean destroyed;
+  private volatile int requestGeneration;
+  private volatile HttpURLConnection activeConnection;
+  private java.util.concurrent.Future<?> pendingRequest;
 
   private final java.util.concurrent.ExecutorService networkExecutor =
       Executors.newSingleThreadExecutor();
@@ -57,6 +61,10 @@ public class MainActivity extends AppCompatActivity {
 
     viewModel = new ViewModelProvider(
         this, AndroidViewModelFactory.getInstance(getApplication())).get(MainViewModel.class);
+    if (viewModel.credentialsAreSessionOnly()) {
+      android.widget.Toast.makeText(this, R.string.credentials_session_only,
+          android.widget.Toast.LENGTH_LONG).show();
+    }
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
       public void onOpenCard() {
@@ -178,7 +186,7 @@ public class MainActivity extends AppCompatActivity {
     stashPayCard.setListener(new StashNativeCard.StashNativeCardListener() {
       @Override
       public void onPaymentSuccess(String order) {
-        Log.i(TAG, "Payment successful order=" + order);
+        Log.i(TAG, "Payment successful");
         String label = order != null && !order.isEmpty()
             ? "Payment Success · " + order
             : "Payment Success";
@@ -199,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onOptInResponse(String optinType) {
-        Log.i(TAG, "Opt-in response: " + optinType);
+        Log.i(TAG, "Opt-in response received");
         runOnUiThread(() -> addCallbackChip("Opt-In: " + optinType));
       }
 
@@ -217,7 +225,7 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onExternalPayment(String url) {
-        Log.i(TAG, "External payment URL: " + url);
+        Log.i(TAG, "External payment requested");
         runOnUiThread(() -> addCallbackChip("External Payment"));
       }
 
@@ -254,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     String url = data.toString();
-    Log.i(TAG, "Deeplink received: " + url);
+    Log.i(TAG, "Deeplink received");
     // singleTask already cleared the Custom Tab above us.
     if (url.contains("stash-pay/success")) {
       addCallbackChip("Deeplink · Payment Success");
@@ -575,7 +583,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     url = url.trim();
-    Log.i(TAG, "Opening card: " + url);
+    Log.i(TAG, "Opening card");
     StashNativeCard.CardConfig config = buildCardConfig();
     StashNativeCard.getInstance().openCard(url, config);
   }
@@ -630,15 +638,28 @@ public class MainActivity extends AppCompatActivity {
     final String appId = viewModel.getActiveAppId();
     final String ingressSecret = viewModel.getActiveApiKey();
 
-    networkExecutor.execute(() -> {
+    final int generation = ++requestGeneration;
+    if (pendingRequest != null) {
+      pendingRequest.cancel(true);
+    }
+    HttpURLConnection previous = activeConnection;
+    if (previous != null) {
+      previous.disconnect();
+    }
+    pendingRequest = networkExecutor.submit(() -> {
       HttpURLConnection conn = null;
       try {
         // Sign the exact bytes that go on the wire, then send them unchanged.
         byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
-        String signature = StashHmac.signature(appId, ingressSecret, bytes);
+        final String signature = StashHmac.signature(appId, ingressSecret, bytes);
 
         URL url = new URL(urlString);
         conn = (HttpURLConnection) url.openConnection();
+        activeConnection = conn;
+        if (destroyed || generation != requestGeneration
+            || Thread.currentThread().isInterrupted()) {
+          return;
+        }
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("x-stash-hmac-signature", signature);
@@ -664,12 +685,15 @@ public class MainActivity extends AppCompatActivity {
             // Re-check after trim: a whitespace-only url passes a pre-trim isEmpty guard.
             if (!finalUrl.isEmpty()) {
               runOnUiThread(() -> {
+                if (destroyed || isFinishing() || generation != requestGeneration) {
+                  return;
+                }
                 if (openInBrowser) {
                   syncKeepAlive();
-                  Log.i(TAG, "Opening browser (" + label + "): " + finalUrl);
+                  Log.i(TAG, "Opening browser");
                   StashNativeCard.getInstance().openBrowser(finalUrl);
                 } else {
-                  Log.i(TAG, "Opening card (" + label + "): " + finalUrl);
+                  Log.i(TAG, "Opening card");
                   StashNativeCard.CardConfig config = buildCardConfig();
                   StashNativeCard.getInstance().openCard(finalUrl, config);
                 }
@@ -679,13 +703,20 @@ public class MainActivity extends AppCompatActivity {
           }
         }
       } catch (Exception e) {
-        Log.e(TAG, "Generate " + label + " failed", e);
+        Log.e(TAG, "Generate " + label + " failed");
       } finally {
         if (conn != null) {
           conn.disconnect();
+          if (activeConnection == conn) {
+            activeConnection = null;
+          }
         }
       }
-      runOnUiThread(() -> showOutcomeDialog("Error", getString(errorRes)));
+      runOnUiThread(() -> {
+        if (!destroyed && !isFinishing() && generation == requestGeneration) {
+          showOutcomeDialog("Error", getString(errorRes));
+        }
+      });
     });
   }
 
@@ -718,7 +749,16 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onDestroy() {
     StashNativeCard.getInstance().setListener(null);
-    networkExecutor.shutdown();
+    destroyed = true;
+    requestGeneration++;
+    if (pendingRequest != null) {
+      pendingRequest.cancel(true);
+    }
+    HttpURLConnection connection = activeConnection;
+    if (connection != null) {
+      connection.disconnect();
+    }
+    networkExecutor.shutdownNow();
     if (activeDialog != null) {
       if (activeDialog.isShowing()) {
         activeDialog.dismiss();

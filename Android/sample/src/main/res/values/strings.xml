@@ -91,4 +91,5 @@
     <string name="error_checkout_url">Please enter a card URL</string>
     <string name="error_modal_url">Please enter a modal URL</string>
     <string name="error_browser_url">Please enter a browser URL</string>
+    <string name="credentials_session_only">Secure storage is unavailable. Credentials are kept for this session only; export them explicitly if needed. Exports contain plaintext secrets.</string>
 </resources>

@@ -21,6 +21,10 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.includeAndroidResources = true
+    }
+
     buildFeatures {
         viewBinding true
     }
@@ -32,6 +36,8 @@ android {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.11.1'
     implementation project(':stashnative')
     // So the sample APK includes Custom Tabs classes; the AAR does not require this for hosts.
     implementation 'androidx.browser:browser:1.7.0'

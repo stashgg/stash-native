@@ -407,11 +407,16 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item, int position) {
       binding.sliderTitle.setText(item.titleRes);
+      binding.sliderTitle.setLabelFor(binding.sliderSeekBar.getId());
+      binding.sliderSeekBar.setContentDescription(
+          binding.getRoot().getContext().getString(item.titleRes));
       binding.sliderValue.setText(item.value);
+      androidx.core.view.ViewCompat.setStateDescription(binding.sliderSeekBar, item.value);
       binding.sliderSeekBar.setProgress(item.progress);
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+          androidx.core.view.ViewCompat.setStateDescription(seekBar, (progress + 10) + "%");
           if (!fromUser) {
             return;
           }
