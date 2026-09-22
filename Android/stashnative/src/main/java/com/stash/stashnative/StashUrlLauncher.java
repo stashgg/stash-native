@@ -91,7 +91,7 @@ public final class StashUrlLauncher {
       startActionView(context, uri);
       return OPEN_EXTERNAL_ACTION_VIEW;
     } catch (ActivityNotFoundException e) {
-      Log.w(TAG, "No application can open URL: " + uri);
+      Log.w(TAG, "No application can open URL");
       return OPEN_EXTERNAL_ACTION_VIEW;
     }
   }
@@ -143,7 +143,7 @@ public final class StashUrlLauncher {
         return;
       }
     } catch (Throwable t) {
-      Log.w(TAG, "Engagement path failed: " + t.getMessage());
+      Log.w(TAG, "Engagement path failed");
     }
     callback.onLaunchMode(openExternalUrl(activity, url, activityRequestCode));
   }
@@ -224,7 +224,7 @@ public final class StashUrlLauncher {
     } catch (ClassNotFoundException e) {
       return false;
     } catch (Throwable t) {
-      Log.w(TAG, "Custom Tabs forResult failed: " + t.getMessage());
+      Log.w(TAG, "Custom Tabs forResult failed");
       return false;
     }
   }
@@ -243,7 +243,7 @@ public final class StashUrlLauncher {
     } catch (ClassNotFoundException e) {
       return false;
     } catch (Throwable t) {
-      Log.w(TAG, "Custom Tabs reflection failed: " + t.getMessage());
+      Log.w(TAG, "Custom Tabs reflection failed");
       return false;
     }
   }
@@ -296,11 +296,11 @@ public final class StashUrlLauncher {
           return true;
         }
       } catch (Throwable t) {
-        Log.w(TAG, "launchUrl(Activity) failed: " + t.getMessage());
+        Log.w(TAG, "launchUrl(Activity) failed");
       }
       return false;
     } catch (Throwable t) {
-      Log.w(TAG, "launchUrl(Context) failed: " + t.getMessage());
+      Log.w(TAG, "launchUrl(Context) failed");
       return false;
     }
   }
@@ -322,7 +322,7 @@ public final class StashUrlLauncher {
       activity.startActivityForResult(intent, requestCode);
       return true;
     } catch (Throwable t) {
-      Log.w(TAG, "Custom Tabs startActivityForResult failed: " + t.getMessage());
+      Log.w(TAG, "Custom Tabs startActivityForResult failed");
       return false;
     }
   }
@@ -343,7 +343,7 @@ public final class StashUrlLauncher {
       context.startActivity(intent);
       return true;
     } catch (Throwable t) {
-      Log.w(TAG, "Custom Tabs intent field launch failed: " + t.getMessage());
+      Log.w(TAG, "Custom Tabs intent field launch failed");
       return false;
     }
   }

@@ -43,7 +43,7 @@ final class StashCheckoutWebViewSupport {
         // WebView creation can fail if running in a separate process (data directory lock),
         // on devices with broken WebView installs, or when Chromium init fails. Report as
         // network error and bail -- do not crash the host app.
-        Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
+        Log.e(TAG, "WebView creation failed");
         activity.handleNetworkError();
         return;
       }
@@ -56,7 +56,7 @@ final class StashCheckoutWebViewSupport {
       try {
         StashWebViewUtils.configureWebViewSettings(activity.webView);
       } catch (Exception e) {
-        Log.w(TAG, "Error configuring WebView settings: " + e.getMessage(), e);
+        Log.w(TAG, "Error configuring WebView settings");
       }
 
       activity.webView.setWebViewClient(new WebViewClient() {
@@ -86,7 +86,7 @@ final class StashCheckoutWebViewSupport {
             injectSDK(view);
             checkProvider(activity, url);
           } catch (Exception e) {
-            Log.w(TAG, "Error in onPageStarted: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onPageStarted");
           }
         }
 
@@ -109,10 +109,11 @@ final class StashCheckoutWebViewSupport {
             injectSDK(view);
             checkProvider(activity, url);
           } catch (Exception e) {
-            Log.w(TAG, "Error in onPageFinished: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onPageFinished");
           }
         }
 
+        @RequiresApi(Build.VERSION_CODES.M)
         @Override
         public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
             android.webkit.WebResourceError error) {
@@ -139,7 +140,7 @@ final class StashCheckoutWebViewSupport {
               }
             }
           } catch (Exception e) {
-            Log.w(TAG, "Error in onReceivedError: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onReceivedError");
           }
         }
 
@@ -157,7 +158,7 @@ final class StashCheckoutWebViewSupport {
               activity.handleNetworkError();
             }
           } catch (Exception e) {
-            Log.w(TAG, "Error in onReceivedHttpError: " + e.getMessage(), e);
+            Log.w(TAG, "Error in onReceivedHttpError");
           }
         }
 
@@ -179,7 +180,7 @@ final class StashCheckoutWebViewSupport {
             }
             view.destroy();
           } catch (Exception e) {
-            Log.w(TAG, "Error removing dead WebView: " + e.getMessage(), e);
+            Log.w(TAG, "Error removing dead WebView");
           }
           activity.webView = null;
           // OS-killed (not a real crash) and not already retried: rebuild the checkout once
@@ -260,7 +261,7 @@ final class StashCheckoutWebViewSupport {
         try {
           urlWithTheme = StashWebViewUtils.appendThemeQueryParameter(activity.url, activity.effectiveIsDarkForContent);
         } catch (Exception e) {
-          Log.w(TAG, "Error appending theme parameter: " + e.getMessage(), e);
+          Log.w(TAG, "Error appending theme parameter");
           urlWithTheme = activity.url;
         }
         activity.webViewCommittedReloadUrl = urlWithTheme;
@@ -271,11 +272,11 @@ final class StashCheckoutWebViewSupport {
         activity.webView.loadUrl(urlWithTheme);
         scheduleInitialLoadTimers(activity);
       } catch (Exception e) {
-        Log.w(TAG, "Error setting up WebView: " + e.getMessage(), e);
+        Log.w(TAG, "Error setting up WebView");
         activity.finish();
       }
     } catch (Exception e) {
-      Log.w(TAG, "Error creating WebView: " + e.getMessage(), e);
+      Log.w(TAG, "Error creating WebView");
       activity.finish();
     }
   }
@@ -304,7 +305,7 @@ final class StashCheckoutWebViewSupport {
       showLoading(activity);
       Log.w(TAG, "StashNative: no HTTP response in "
           + (CardConstants.WEBVIEW_RETRY_TIMEOUT_MS / 1000.0)
-          + "s — retrying " + activity.webViewCommittedReloadUrl);
+          + "s — retrying checkout");
       int prevMode = activity.webView.getSettings().getCacheMode();
       try {
         activity.webView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
@@ -443,7 +444,7 @@ final class StashCheckoutWebViewSupport {
       resultMsg.sendToTarget();
       return true;
     } catch (Throwable t) {
-      Log.w(TAG, "onCreateWindow handling failed: " + t.getMessage());
+      Log.w(TAG, "onCreateWindow handling failed");
       return false;
     }
   }
@@ -482,7 +483,7 @@ final class StashCheckoutWebViewSupport {
       activity.startActivity(intent);
     } catch (Throwable t) {
       // App not installed / no handler: nothing more to try for a bare custom-scheme URL.
-      Log.w(TAG, "No handler for deeplink: " + t.getMessage());
+      Log.w(TAG, "No handler for deeplink");
     }
   }
 
@@ -497,19 +498,17 @@ final class StashCheckoutWebViewSupport {
     try {
       intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME);
     } catch (Throwable t) {
-      Log.w(TAG, "Malformed intent URI: " + t.getMessage());
+      Log.w(TAG, "Malformed intent URI");
       return;
     }
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     intent.setComponent(null);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-      intent.setSelector(null);
-    }
+    intent.setSelector(null);
     try {
       activity.startActivity(intent);
       return;
     } catch (Throwable t) {
-      Log.w(TAG, "No app for intent URI: " + t.getMessage());
+      Log.w(TAG, "No app for intent URI");
     }
     String fallback = intent.getStringExtra("browser_fallback_url");
     if (fallback != null && StashWebViewUtils.isWebScheme(fallback)) {
@@ -537,7 +536,7 @@ final class StashCheckoutWebViewSupport {
       web.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       activity.startActivity(web);
     } catch (Throwable t) {
-      Log.w(TAG, "No Play Store for package " + pkg + ": " + t.getMessage());
+      Log.w(TAG, "No Play Store for package " + pkg + "");
     }
   }
 

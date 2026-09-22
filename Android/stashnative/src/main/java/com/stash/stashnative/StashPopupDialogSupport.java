@@ -101,9 +101,7 @@ final class StashPopupDialogSupport {
       return;
     }
 
-    boolean preserveUseCustomSize = plugin.useCustomSize;
-    plugin.cleanupAllViews();
-    plugin.useCustomSize = preserveUseCustomSize;
+    final long session = plugin.presentationSessionId;
     plugin.paymentSuccessHandled = false;
 
     try {
@@ -192,8 +190,10 @@ final class StashPopupDialogSupport {
           // WebView init can fail in separate processes or broken Chromium installs.
           Log.e(TAG, "WebView creation failed: " + t.getMessage(), t);
           StashNativeCard.StashNativeCardListener l = plugin.listener;
-          if (l != null) l.onNetworkError();
           plugin.cleanupAllViews();
+          if (l != null) {
+            l.onNetworkError();
+          }
           return;
         }
         FrameLayout.LayoutParams webViewParams = new FrameLayout.LayoutParams(
@@ -235,17 +235,16 @@ final class StashPopupDialogSupport {
       plugin.currentDialog.setCancelable(!plugin.isPurchaseProcessing);
 
       plugin.currentDialog.setOnDismissListener(dialog -> {
-        try {
-          StashNativeCard.StashNativeCardListener l = plugin.getListener();
-          if (!plugin.paymentSuccessHandled && l != null) {
-            l.onDialogDismissed();
-          }
-        } catch (Exception e) {
-          Log.d(TAG, "Error in dismiss listener: " + e.getMessage(), e);
+        if (session != plugin.presentationSessionId || dialog != plugin.currentDialog) {
+          return;
         }
+        StashNativeCard.StashNativeCardListener listener = plugin.getListener();
+        boolean notifyDismiss = !plugin.paymentSuccessHandled;
         plugin.cleanupAllViews();
         plugin.presentationUsesIsolatedWebviewProcess = false;
-        plugin.isCurrentlyPresented = false;
+        if (notifyDismiss && listener != null) {
+          listener.onDialogDismissed();
+        }
       });
 
       try {
@@ -288,7 +287,8 @@ final class StashPopupDialogSupport {
       // or a late error callback firing during the 250ms dismiss animation.
       cancelPopupNetworkDeadline(plugin);
       plugin.popupNetworkErrorHandled = true;
-      if (plugin.currentDialog != null && plugin.currentContainer != null) {
+      final Dialog closingDialog = plugin.currentDialog;
+      if (closingDialog != null && plugin.currentContainer != null) {
         plugin.currentContainer.animate()
             .alpha(0.0f)
             .scaleX(0.9f)
@@ -297,9 +297,7 @@ final class StashPopupDialogSupport {
             .setInterpolator(new SpringInterpolator())
             .withEndAction(() -> {
               try {
-                if (plugin.currentDialog != null) {
-                  plugin.currentDialog.dismiss();
-                }
+                closingDialog.dismiss();
               } catch (Exception e) {
                 Log.d(TAG, "Error dismissing dialog in animation: " + e.getMessage(), e);
               }
@@ -374,6 +372,7 @@ final class StashPopupDialogSupport {
       return;
     }
 
+    final long session = plugin.presentationSessionId;
     final int sheetBg = dialogSheetBackgroundArgb(plugin, activity);
     final boolean effDark = dialogEffectiveDarkForWeb(plugin, activity);
 
@@ -384,8 +383,16 @@ final class StashPopupDialogSupport {
     }
 
     webView.setWebViewClient(new WebViewClient() {
+      private boolean ownsView(WebView view) {
+        return session == plugin.presentationSessionId && plugin.webView == view
+            && plugin.isCurrentlyPresented;
+      }
+
       @Override
       public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+        if (!ownsView(view)) {
+          return true;
+        }
         String target = request.getUrl() != null ? request.getUrl().toString() : null;
         // Sub-frame web navigations load in place; a deeplink (non-web scheme) fired from an
         // iframe still has to be handed to the OS -- the WebView cannot load it.
@@ -398,11 +405,17 @@ final class StashPopupDialogSupport {
       @Override
       @SuppressWarnings("deprecation")
       public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        if (!ownsView(view)) {
+          return true;
+        }
         return handleDeeplinkNavigation(plugin, activity, url);
       }
 
       @Override
       public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+        if (!ownsView(view)) {
+          return;
+        }
         try {
           super.onPageStarted(view, url, favicon);
           plugin.pageLoadStartTime = System.currentTimeMillis();
@@ -415,6 +428,9 @@ final class StashPopupDialogSupport {
 
       @Override
       public void onPageFinished(WebView view, String url) {
+        if (!ownsView(view)) {
+          return;
+        }
         try {
           super.onPageFinished(view, url);
           // A failed main-frame load still delivers onPageFinished; keep the deadline armed
@@ -441,6 +457,9 @@ final class StashPopupDialogSupport {
             } catch (Exception e) {
               Log.d(TAG, "Error sending page loaded message: " + e.getMessage(), e);
             }
+            if (!ownsView(view)) {
+              return;
+            }
             plugin.pageLoadStartTime = 0;
           }
 
@@ -449,6 +468,9 @@ final class StashPopupDialogSupport {
             view.removeCallbacks(plugin.pendingHideLoadingRunnable);
           }
           plugin.pendingHideLoadingRunnable = () -> {
+            if (!ownsView(view)) {
+              return;
+            }
             try {
               hideLoadingIndicator(plugin, activity);
               view.setVisibility(View.VISIBLE);
@@ -462,9 +484,13 @@ final class StashPopupDialogSupport {
         }
       }
 
+      @RequiresApi(Build.VERSION_CODES.M)
       @Override
       public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
           android.webkit.WebResourceError error) {
+        if (!ownsView(view)) {
+          return;
+        }
         try {
           super.onReceivedError(view, request, error);
           if (error != null) {
@@ -495,6 +521,9 @@ final class StashPopupDialogSupport {
       @Override
       public void onReceivedHttpError(WebView view, android.webkit.WebResourceRequest request,
           android.webkit.WebResourceResponse errorResponse) {
+        if (!ownsView(view)) {
+          return;
+        }
         try {
           super.onReceivedHttpError(view, request, errorResponse);
           if (request != null && request.isForMainFrame() && !plugin.popupInitialLoadComplete) {
@@ -508,6 +537,9 @@ final class StashPopupDialogSupport {
       @Override
       @RequiresApi(Build.VERSION_CODES.O)
       public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+        if (!ownsView(view)) {
+          return true;
+        }
         handleWebViewRenderProcessGone(plugin, detail);
         return true;
       }
@@ -518,6 +550,9 @@ final class StashPopupDialogSupport {
         @Override
         public boolean onCreateWindow(
             WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+          if (session != plugin.presentationSessionId || plugin.webView != view) {
+            return false;
+          }
           // target=_blank / window.open opens in the external browser, not a second dialog.
           return StashCheckoutWebViewSupport.openTargetBlankWindow(activity, view, resultMsg);
         }
@@ -674,6 +709,10 @@ final class StashPopupDialogSupport {
     }
   }
 
+  static float positiveMultiplier(float value, float fallback) {
+    return Float.isNaN(value) || Float.isInfinite(value) || value <= 0 ? fallback : value;
+  }
+
   static int[] calculatePopupDimensions(StashNativeCardPlugin plugin, Activity activity) {
     if (activity == null) {
       Log.e(TAG, "Activity is null in calculatePopupDimensions");
@@ -708,8 +747,14 @@ final class StashPopupDialogSupport {
           : (plugin.useCustomSize ? plugin.customPortraitHeightMultiplier
               : CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER);
 
-      int popupWidth = (int) (baseSize * widthMultiplier);
-      int popupHeight = (int) (baseSize * heightMultiplier);
+      widthMultiplier = positiveMultiplier(widthMultiplier, isLandscape
+          ? CardConstants.POPUP_LANDSCAPE_WIDTH_MULTIPLIER
+          : CardConstants.POPUP_PORTRAIT_WIDTH_MULTIPLIER);
+      heightMultiplier = positiveMultiplier(heightMultiplier, isLandscape
+          ? CardConstants.POPUP_LANDSCAPE_HEIGHT_MULTIPLIER
+          : CardConstants.POPUP_PORTRAIT_HEIGHT_MULTIPLIER);
+      int popupWidth = Math.max(1, (int) (baseSize * widthMultiplier));
+      int popupHeight = Math.max(1, (int) (baseSize * heightMultiplier));
 
       return new int[]{popupWidth, popupHeight};
     } catch (Exception e) {

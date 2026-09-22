@@ -191,7 +191,23 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    StashNativeCardPlugin.getInstance().setPortraitActivity(this);
+    // Never replay a checkout POST or lose a processing lock during restoration.
+    if (savedInstanceState != null) {
+      callbackSent = true;
+      if (!savedInstanceState.getBoolean("stash.callbackSent", false)) {
+        StashCheckoutBridge.emitDialogDismissed(this);
+      }
+      finish();
+      return;
+    }
+    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    if (!plugin.isCurrentlyPresented()
+        || plugin.presentationSessionId != getPresentationSessionId()) {
+      callbackSent = true;
+      finish();
+      return;
+    }
+    plugin.setPortraitActivity(this);
     
     try {
       Intent intent = getIntent();
@@ -532,7 +548,9 @@ public class StashNativeCardPortraitActivity extends Activity {
       // Cap card height so it never extends behind the status bar / notch.
       int maxCardHeight = metrics.heightPixels
           - StashWindowCompat.getSystemTopInsetPx(getWindow());
-      if (maxCardHeight <= 0) maxCardHeight = metrics.heightPixels;
+      if (maxCardHeight <= 0) {
+        maxCardHeight = metrics.heightPixels;
+      }
 
       if (isLandscape && !forcePortraitOnCheckout) {
         // Phone checkout in landscape without forcing portrait: use landscape ratios
@@ -1705,6 +1723,17 @@ public class StashNativeCardPortraitActivity extends Activity {
     }
   }
 
+  long getPresentationSessionId() {
+    return getIntent() != null
+        ? getIntent().getLongExtra(StashCheckoutBridge.EXTRA_SESSION_ID, 0L) : 0L;
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle outState) {
+    outState.putBoolean("stash.callbackSent", callbackSent);
+    super.onSaveInstanceState(outState);
+  }
+
   @Override
   protected void onDestroy() {
     try {
@@ -1756,7 +1785,7 @@ public class StashNativeCardPortraitActivity extends Activity {
         onBackInvokedCallback = null;
       }
       
-      if (!callbackSent) {
+      if (!callbackSent && !isChangingConfigurations()) {
         callbackSent = true;
         try {
           StashCheckoutBridge.emitDialogDismissed(this);

@@ -71,6 +71,7 @@ public class StashNativeCardPluginBridgeDispatchTest {
         StashNativeCardPlugin.class.getDeclaredMethod(
             "dispatchCheckoutBridgeIntent", String.class, Intent.class);
     method.setAccessible(true);
+    intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, plugin.presentationSessionId);
     method.invoke(plugin, action, intent);
   }
 

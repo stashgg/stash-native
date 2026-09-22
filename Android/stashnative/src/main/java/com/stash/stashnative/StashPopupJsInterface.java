@@ -14,47 +14,61 @@ class StashPopupJsInterface {
   private static final String TAG = "StashNativeCard";
 
   private final StashNativeCardPlugin plugin;
+  private final long session;
+
+  private void onMain(Runnable action) {
+    new Handler(Looper.getMainLooper()).post(() -> {
+      if (plugin.presentationSessionId == session && plugin.isCurrentlyPresented) {
+        action.run();
+      }
+    });
+  }
 
   StashPopupJsInterface(StashNativeCardPlugin plugin) {
     this.plugin = plugin;
+    this.session = plugin.presentationSessionId;
   }
 
   @JavascriptInterface
   public void onPaymentSuccess(String order) {
-    if (plugin.paymentSuccessHandled) {
-      return;
-    }
-    plugin.paymentSuccessHandled = true;
-    plugin.isPurchaseProcessing = false;
-    // Documented contract: no order argument surfaces as null (card path and iOS agree).
-    final String orderPayload = (order != null && !order.isEmpty()) ? order : null;
-    plugin.runOnMainAndDismiss(() -> {
-      StashNativeCard.StashNativeCardListener l = plugin.getListener();
-      if (l != null) {
-        l.onPaymentSuccess(orderPayload);
+    onMain(() -> {
+      if (plugin.paymentSuccessHandled) {
+        return;
       }
+      plugin.paymentSuccessHandled = true;
+      plugin.isPurchaseProcessing = false;
+      // Documented contract: no order argument surfaces as null (card path and iOS agree).
+      final String orderPayload = (order != null && !order.isEmpty()) ? order : null;
+      plugin.runOnMainAndDismiss(() -> {
+        StashNativeCard.StashNativeCardListener l = plugin.getListener();
+        if (l != null) {
+          l.onPaymentSuccess(orderPayload);
+        }
+      });
     });
   }
 
   @JavascriptInterface
   public void onPaymentFailure() {
-    if (plugin.paymentSuccessHandled) {
-      return;
-    }
-    plugin.paymentSuccessHandled = true;
-    plugin.isPurchaseProcessing = false;
-    plugin.runOnMainAndDismiss(() -> {
-      StashNativeCard.StashNativeCardListener l = plugin.getListener();
-      if (l != null) {
-        l.onPaymentFailure();
+    onMain(() -> {
+      if (plugin.paymentSuccessHandled) {
+        return;
       }
+      plugin.paymentSuccessHandled = true;
+      plugin.isPurchaseProcessing = false;
+      plugin.runOnMainAndDismiss(() -> {
+        StashNativeCard.StashNativeCardListener l = plugin.getListener();
+        if (l != null) {
+          l.onPaymentFailure();
+        }
+      });
     });
   }
 
   @JavascriptInterface
   public void onPurchaseProcessing() {
-    plugin.isPurchaseProcessing = true;
-    new Handler(Looper.getMainLooper()).post(() -> {
+    onMain(() -> {
+      plugin.isPurchaseProcessing = true;
       try {
         if (plugin.currentDialog != null && plugin.currentDialog.isShowing()) {
           plugin.currentDialog.setCanceledOnTouchOutside(false);
@@ -68,8 +82,8 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void onProcessingCompleted() {
-    plugin.isPurchaseProcessing = false;
-    new Handler(Looper.getMainLooper()).post(() -> {
+    onMain(() -> {
+      plugin.isPurchaseProcessing = false;
       try {
         if (plugin.currentDialog != null && plugin.currentDialog.isShowing()) {
           plugin.currentDialog.setCanceledOnTouchOutside(true);
@@ -83,12 +97,12 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void setPaymentChannel(String optinType) {
-    plugin.runOnMainAndDismiss(() -> {
+    onMain(() -> plugin.runOnMainAndDismiss(() -> {
       StashNativeCard.StashNativeCardListener l = plugin.getListener();
       if (l != null) {
         l.onOptInResponse(optinType != null ? optinType : "");
       }
-    });
+    }));
   }
 
   @JavascriptInterface
@@ -101,10 +115,10 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void requestCloseFromPage() {
-    if (plugin.isPurchaseProcessing) {
-      return;
-    }
-    new Handler(Looper.getMainLooper()).post(() -> {
+    onMain(() -> {
+      if (plugin.isPurchaseProcessing) {
+        return;
+      }
       try {
         plugin.dismissCurrentDialog();
       } catch (Exception e) {
@@ -115,7 +129,7 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void openExternalBrowser(String url) {
-    new Handler(Looper.getMainLooper()).post(() -> {
+    onMain(() -> {
       try {
         String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
         if (normalized == null) {
@@ -130,8 +144,12 @@ class StashPopupJsInterface {
         plugin.paymentSuccessHandled = true;
         plugin.isPurchaseProcessing = false;
         StashNativeCard.StashNativeCardListener listener = plugin.getListener();
+        plugin.isCurrentlyPresented = false;
         if (listener != null) {
           listener.onExternalPayment(themed);
+        }
+        if (plugin.presentationSessionId != session) {
+          return;
         }
         plugin.dismissCurrentDialog();
         Activity act = plugin.getActivity();
@@ -154,7 +172,7 @@ class StashPopupJsInterface {
   /** Opens the URL in the external browser. No callbacks, no dismissal (terms, misc links). */
   @JavascriptInterface
   public void openLink(String url) {
-    new Handler(Looper.getMainLooper()).post(() -> {
+    onMain(() -> {
       try {
         String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
         if (normalized == null) {

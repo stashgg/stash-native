@@ -3,11 +3,9 @@ package com.stash.stashnative;
 import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Tests for StashWebViewUtils.normalizeExternalPaymentUrl().
- * Tests that depend on android.net.Uri.parse() returning real values
- * require instrumentation tests (androidTest) since Uri is stubbed in local JVM.
- */
+/** Exercises the real Android URI parser under Robolectric. */
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner.class)
+@org.robolectric.annotation.Config(sdk = 28)
 public class UrlNormalizationTest {
 
   @Test
@@ -37,6 +35,13 @@ public class UrlNormalizationTest {
     assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("file:///etc/passwd"));
   }
 
-  // NOTE: Tests for valid http/https URLs require android.net.Uri.parse() which
-  // returns null in local JVM tests. Those belong in androidTest/ (instrumented).
+  @Test
+  public void httpUrlsAndBareHostsNormalizeWithoutAcceptingOtherSchemes() {
+    assertEquals("https://example.invalid/path", StashWebViewUtils.normalizeExternalPaymentUrl(" example.invalid/path "));
+    assertEquals("https://example.invalid/path", StashWebViewUtils.normalizeExternalPaymentUrl("HTTPS://example.invalid/path"));
+    assertEquals("https://localhost:8080/a", StashWebViewUtils.normalizeExternalPaymentUrl("localhost:8080/a"));
+    assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("mailto:a@example.invalid"));
+    assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("ftp://example.invalid"));
+    assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("https://"));
+  }
 }

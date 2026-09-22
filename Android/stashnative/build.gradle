@@ -54,6 +54,7 @@ dependencies {
     // api: hosts that embed the AAR without Gradle POM merging still need this JAR; Gradle consumers inherit it.
     api 'androidx.webkit:webkit:1.11.0'
 
+    testImplementation 'androidx.browser:browser:1.7.0'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.11.1'
 }
