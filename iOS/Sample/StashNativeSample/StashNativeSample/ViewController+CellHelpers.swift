@@ -7,6 +7,14 @@
 
 import UIKit
 
+private final class SampleActionButton: UIButton {
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let horizontal = min(0, (bounds.width - 44) / 2)
+        let vertical = min(0, (bounds.height - 44) / 2)
+        return bounds.insetBy(dx: horizontal, dy: vertical).contains(point)
+    }
+}
+
 // MARK: - Cell Creation Helpers
 
 extension ViewController {
@@ -32,6 +40,7 @@ extension ViewController {
         topRow.addArrangedSubview(titleLabel)
         topRow.addArrangedSubview(valueLabel)
         stack.addArrangedSubview(topRow)
+        slider.accessibilityLabel = title
         stack.addArrangedSubview(slider)
         return stack
     }
@@ -80,7 +89,7 @@ extension ViewController {
         cell.accessoryType = .disclosureIndicator
 
         let isSelected = entry.id == selectedApiKeyId
-        let radio = UIButton(type: .system)
+        let radio = SampleActionButton(type: .system)
         radio.setImage(systemImage(isSelected ? "checkmark.circle.fill" : "circle"), for: .normal)
         radio.tintColor = isSelected ? .systemBlue : .tertiaryLabel
         radio.tag = row
@@ -137,10 +146,12 @@ extension ViewController {
         var fieldTrailing = cell.contentView.trailingAnchor
         var fieldTrailingConstant: CGFloat = -36
         if let openSelector = openSelector {
-            let openButton = UIButton(type: .system)
+            let openButton = SampleActionButton(type: .system)
             openButton.setImage(UIImage(systemName: "chevron.right",
                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)),
                 for: .normal)
+            openButton.accessibilityLabel = openSelector == #selector(openBrowserTapped)
+                ? "Open browser" : (openSelector == #selector(openModalTapped) ? "Open modal" : "Open card")
             openButton.tintColor = .systemBlue
             openButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.12)
             openButton.layer.cornerRadius = 15
