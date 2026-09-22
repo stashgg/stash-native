@@ -55,14 +55,14 @@ Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/
 - JS object exposed to the page: `StashAndroid` via `JS_INTERFACE_NAME` in the same file.
 - Injected namespace: `window.stash_sdk`.
 - `@JavascriptInterface` implementations:
-  - Inner class in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) (`StashJavaScriptInterface`).
-  - Inner class in [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) (`JSInterface`).
+  - [`StashPopupJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupJsInterface.java).
+  - [`StashCheckoutJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutJsInterface.java).
 - Injection call sites: search `evaluateJavascript` / `JS_SDK_SCRIPT` / `injectStashSDK` in the plugin and portrait activity.
 
 ### iOS
 
 - Bridge script: built as an `NSString` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) and installed with `WKUserScript` at document start.
-- Native side: `userContentController:didReceiveScriptMessage:` in the same file registers and handles named handlers (for example `stashExternalPayment`).
+- Native dispatch: `userContentController:didReceiveScriptMessage:` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m); handler registration remains in the WebView factory.
 - Injected namespace: `window.stash_sdk`.
 - Handler name constants (for example `kMessageHandlerExternalPayment`) are defined near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
@@ -73,7 +73,7 @@ Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/
 - Opt-in or payment channel signal (`setPaymentChannel`).
 - Presentation controls (`expand`, `collapse`, `window.close` override).
 - External browser launch (`openExternalBrowser(url)`).
-- Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
+- Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m)).
 
 Authoritative reference for page-side calls: [JavaScript `stash_sdk` API](./stash-sdk-js.md).
 

@@ -13,7 +13,12 @@ Paths relative to repository root.
 | Role | File |
 |------|------|
 | Public API, delegate protocol, config types | [`iOS/StashNative/Sources/StashNative/include/StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) |
-| Singleton, routing, WKWebView factory, JS injection, message handling | [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) |
+| Singleton, routing, WKWebView factory, JS injection, shared state | [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) |
+| Bridge dispatch, dismissal, expansion, keyboard and timers | [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m) |
+| Colors and theme query parameters | [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m) |
+| Frame calculations | [`StashNativeCardGeometry.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardGeometry.m) |
+| Config defaults | [`StashNativeCardConfigs.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardConfigs.m) |
+| View helpers and external URL normalization | [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) |
 | Private shared declarations | [`iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h`](../iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h) |
 | `WKNavigationDelegate` / `WKUIDelegate`, timeouts, retries, errors | [`iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) |
 | Card/modal/popup view controllers, orientation | [`iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) |
@@ -40,9 +45,9 @@ For checkout page authors, see [JavaScript `stash_sdk` API](./stash-sdk-js.md) (
 
 - Script assembly and `WKUserScript` registration: [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (search `stashSDKScript` / `WKUserScript`).
 - Handler registration: `addScriptMessageHandler:name:` for each bridge channel.
-- Dispatch: `userContentController:didReceiveScriptMessage:` in the same file.
+- Dispatch: `userContentController:didReceiveScriptMessage:` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m).
 
-Message handler name constants (examples — verify in source): defined as `static NSString * const kMessageHandler...` near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+Message handler name constants (examples — verify in source): defined as `NSString * const kMessageHandler...` near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 | JS entry | Typical handler name (see source) |
 |----------|-------------------------------------|
@@ -98,8 +103,8 @@ Layout and rotation: [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sou
 
 Pipeline (read implementation for ordering):
 
-1. Normalize: C function `NormalizeExternalPaymentURL` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
-2. Theme: `appendThemeQueryParameter` (same file).
+1. Normalize: C function `NormalizeExternalPaymentURL` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m).
+2. Theme: `appendThemeQueryParameter` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
 3. Delegate: `stashNativeCardDidRequestExternalPaymentWithURL:` ([`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h)).
 4. Dismiss card UI and present Safari (see `openInSafariViewController` / related in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
 
@@ -141,15 +146,15 @@ flowchart TD
 
 ## Theming And Appearance
 
-- URL query `theme`: `appendThemeQueryParameter` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- URL query `theme`: `appendThemeQueryParameter` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
 - Effective dark mode: `stash_effectiveThemeIsDark` and sheet background helpers in the same file.
-- Dark document injection: search `StashNativeDarkSheetBackgroundJavaScript` / `StashNativeSheetUsesDarkWebTheme` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- Dark document injection: search `StashNativeDarkSheetBackgroundJavaScript` / `StashNativeSheetUsesDarkWebTheme` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
 
 ## State Model And Safety
 
 - Presentation guards and flags: search `_isCardCurrentlyPresented`, `_paymentSuccessHandled` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 - Session token: `presentationSessionToken` / `StashNativeCurrentPresentationSessionToken()` to drop stale callbacks after teardown.
-- Centralized teardown: `beginDismissStoppingLoadAndTimers`, `cleanupCardInstance` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- Centralized teardown: `beginDismissStoppingLoadAndTimers`, `cleanupCardInstance` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m).
 
 ## Maintenance Notes
 

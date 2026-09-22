@@ -13,7 +13,7 @@ Current validation is centered on:
 - Sample app artifact generation.
 - Cloud-device distribution for manual validation (BrowserStack/Appetize).
 
-Unit tests run in CI (lint.yml) alongside static analysis. Coverage is focused on pure-logic utilities (URL normalization, theme parameters, config defaults, color parsing). WebView-dependent code is validated through manual testing on device/cloud.
+Unit tests run in CI (lint.yml) alongside static analysis. Coverage includes real URI parsing with Robolectric, presentation lifecycle regressions, Foundation URL handling, config defaults, and color parsing. WebView-dependent code is validated through manual testing on device/cloud.
 
 ## CI Workflows
 
@@ -43,7 +43,7 @@ Reference: [`.github/workflows/lint.yml`](../.github/workflows/lint.yml)
 Includes:
 
 - Android Checkstyle using [`Android/checkstyle.xml`](../Android/checkstyle.xml).
-- Android unit tests (`./gradlew :stashnative:testDebugUnitTest`).
+- Android SDK and sample unit tests, sample builds, and Android Lint.
 - iOS static analysis via `xcodebuild analyze`.
 - iOS unit tests (`xcodebuild test` on iOS Simulator).
 - SwiftLint checks using [`.swiftlint.yml`](../.swiftlint.yml).
@@ -52,37 +52,65 @@ Includes:
 
 Reference: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 
-Produces release artifacts:
+Runs the reusable lint/test workflow for the same revision before publishing release artifacts:
 
 - `StashNative-<tag>.aar`
 - `StashNative-<tag>.xcframework.zip`
 
 ## Local Engineer Command Reference
 
+Run from the repository root. Keep build outputs in a temporary source copy:
+
+```sh
+AUDIT_TEMP="${HS_TEMP:-$HOME/Temp}"
+mkdir -p "$AUDIT_TEMP"
+AUDIT_WORK=$(mktemp -d "$AUDIT_TEMP/stash-validation.XXXXXX")
+mkdir -p "$AUDIT_WORK/source"
+rsync -a --exclude='.git' --exclude='.build' --exclude='build' ./ "$AUDIT_WORK/source/"
+cd "$AUDIT_WORK/source"
+```
+
 ### Android
 
-- Build library:
-  - `cd Android && ./gradlew :stashnative:assembleRelease`
-- Build sample:
-  - `cd Android && ./gradlew :sample:assembleDebug`
-  - `cd Android && ./gradlew :sample:assembleRelease`
-- Install sample to connected device/emulator:
-  - `cd Android && ./gradlew :sample:installDebug`
-- Run unit tests:
-  - `cd Android && ./gradlew :stashnative:testDebugUnitTest`
+Discover an installed JDK 17 (`/usr/libexec/java_home -V` on macOS, or your package manager) and Android SDK. Set `JAVA_HOME` and `ANDROID_HOME` to those locations. Do not assume a Homebrew Cellar version. Use a compatible Android 34 platform/build tools installation.
+
+```sh
+export GRADLE_USER_HOME="$AUDIT_WORK/gradle-home"
+cd Android
+./gradlew :stashnative:assembleRelease :stashnative:testDebugUnitTest \
+  :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease :stashnative:lintRelease
+cd ..
+```
+
+JUnit tests using Android parsing or lifecycle APIs must use Robolectric or instrumentation. Default-returning Android stubs do not verify URI behavior. Device checks still cover browser return, activity recreation, WebView teardown, a differently signed sender APK, and R8 consumers with old/absent AndroidX Browser.
 
 ### iOS
 
-- Build library:
-  - `cd iOS/StashNative && xcodebuild clean build -project StashNative.xcodeproj -scheme StashNative -configuration Release -sdk iphoneos`
-- Analyze library:
-  - `cd iOS/StashNative && xcodebuild analyze -project StashNative.xcodeproj -scheme StashNative -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'`
-- Lint sample:
-  - `swiftlint lint iOS/Sample/StashNativeSample --strict --config .swiftlint.yml`
-- Build sample in simulator:
-  - `cd iOS/Sample/StashNativeSample && xcodebuild -project StashNativeSample.xcodeproj -scheme StashNativeSample -destination 'platform=iOS Simulator,name=iPhone 17' -configuration Debug build`
-- Run unit tests:
-  - `cd iOS/StashNative && xcodebuild test -scheme StashNative -destination 'platform=iOS Simulator,name=iPhone 17 Pro'`
+Discover available destinations with `xcrun simctl list devices available`; set `AUDIT_SIM_ID` to an installed iOS simulator UUID. Use Xcode compatible with the declared iOS minimum. A command-line deployment override for a newer local Xcode is only a smoke check, not evidence for the release minimum.
+
+```sh
+xcodebuild build -project iOS/StashNative/StashNative.xcodeproj -scheme StashNative \
+  -sdk iphoneos -derivedDataPath "$AUDIT_WORK/ios-build" CODE_SIGNING_ALLOWED=NO
+xcodebuild analyze -project iOS/StashNative/StashNative.xcodeproj -scheme StashNative \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath "$AUDIT_WORK/ios-analysis"
+swiftlint lint iOS/Sample/StashNativeSample --strict --no-cache --config .swiftlint.yml
+xcodebuild build -project iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj \
+  -scheme StashNativeSample -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
+  -derivedDataPath "$AUDIT_WORK/ios-sample" CODE_SIGNING_ALLOWED=NO
+```
+
+The root `Package.swift` supports repository-URL SPM installation. To run the nested package tests without selecting the adjacent Xcode project (whose scheme has no tests), copy only the package inputs:
+
+```sh
+mkdir "$AUDIT_WORK/ios-tests"
+cp iOS/StashNative/Package.swift "$AUDIT_WORK/ios-tests/"
+cp -R iOS/StashNative/Sources iOS/StashNative/Tests "$AUDIT_WORK/ios-tests/"
+cd "$AUDIT_WORK/ios-tests"
+xcodebuild test -scheme StashNative -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
+  -derivedDataPath "$AUDIT_WORK/ios-tests-derived"
+```
+
+Compile all Objective-C sources and a public-header consumer in both ARC and non-ARC modes. Check VoiceOver/TalkBack names, escape and adjustable actions, processing locks, rotation, and keyboard behavior on devices. See the [verification reference](../.agents/skills/stash-native-audit/references/verification.md) for additional execution contexts.
 
 ## Manual QA Surfaces
 
@@ -127,6 +155,8 @@ flowchart LR
     Repo --> Build
     Repo --> Rel
     Build --> Out
+    Rel --> Lint
+    Lint --> Out
     Rel --> Out
 ```
 

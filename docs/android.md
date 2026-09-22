@@ -90,8 +90,8 @@ For checkout page authors, see the consolidated web API reference: [JavaScript `
 
 `@JavascriptInterface` implementations:
 
-- [`StashNativeCardPlugin.StashJavaScriptInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) — popup/modal WebView in host process.
-- [`StashNativeCardPortraitActivity.JSInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) — WebView inside portrait activity (same process as host).
+- [`StashPopupJsInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupJsInterface.java) — popup WebView in host process.
+- [`StashCheckoutJsInterface`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutJsInterface.java) — WebView inside portrait activity (same process as host).
 
 Method names on the Java side must match the strings emitted by `JS_SDK_SCRIPT` (for example `.openExternalBrowser(...)` in the script).
 
@@ -176,7 +176,7 @@ sequenceDiagram
 ## Presentation Modes And UX Behavior
 
 - Card and modal layouts, drag, expand/collapse: [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) (`createCard`, `createModal`, `animateExpand`, `animateCollapse`, touch listeners).
-- Popup overlay in host process: [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) (`setupPopupWebView`, overlay drag handling — search `CheckoutOverlay` / `Drag` in that file).
+- Popup overlay in host process: [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java) (`setupPopupWebView`, popup sizing and WebView lifecycle).
 
 ## Error Handling And Recovery
 
@@ -187,7 +187,7 @@ Primary implementation in [`StashNativeCardPortraitActivity`](../Android/stashna
 - `WebViewClient` / `onReceivedError` / `onReceivedHttpError` for main-frame failures.
 - `onRenderProcessGone` — recovery path into `handleNetworkError` or cleanup.
 
-Host-process WebView: `handleWebViewRenderProcessGone` in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java).
+Host-process WebView: `handleWebViewRenderProcessGone` in [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java).
 
 ```mermaid
 flowchart TD
@@ -210,6 +210,18 @@ flowchart TD
 
 - Bridge contract must stay aligned across:
   - [`JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)
-  - `@JavascriptInterface` method names in [`StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and [`StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java)
+  - `@JavascriptInterface` method names in [`StashPopupJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupJsInterface.java) and [`StashCheckoutJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutJsInterface.java)
   - [`.github/test/index.html`](../.github/test/index.html)
 - Broadcast contract: action strings and extras in [`CardConstants.java`](../Android/stashnative/src/main/java/com/stash/stashnative/CardConstants.java) and emit helpers in [`StashCheckoutBridge.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java).
+
+## Presentation lifetime
+
+Opening another card, modal, or popup while checkout is active is ignored before changing configuration. Callback and cleanup work belongs to its admitted session; delayed events cannot close a later checkout. The processing query reflects the active card, modal, or popup.
+
+Activity recreation for an unhandled configuration change cancels checkout once with `onDialogDismissed`; restored instances finish without reloading payment content. The host may offer a fresh checkout after cancellation. Ordinary handled orientation changes retain the current activity. After process death, no in-memory listener survives; restoration still finishes without replaying the checkout.
+
+## Sample credentials and requests
+
+The sample demonstrates signing with test credentials. Production ingress secrets belong on your backend. On API 23+, named instances and payloads are encrypted with an Android Keystore key and stored in the app's no-backup directory. Existing plaintext preferences migrate after a successful encrypted write. Automatic cloud backup and device transfer exclude legacy preferences. On API 21/22, credentials live only for the current process; the sample displays this limitation. A secure-storage failure preserves existing encrypted data and uses session-only edits.
+
+Instance export is an explicit plaintext export containing ingress secrets and payloads. Treat exported files as credentials. Import validates the document before adding any instances. Requests are canceled when the activity is destroyed; stale responses cannot open checkout on a replacement activity.

@@ -74,7 +74,7 @@ Reverses `onPurchaseProcessing`. Signals that the purchase is no longer processi
 Sends opt-in or payment channel selection as a string.
 
 - **Argument:** Coerced with `optinType || ''` (empty string if omitted).
-- **Native result:** Opt-in / payment channel listener (for example `stashNativeCardDidReceiveOptIn:` on iOS).
+- **Native result:** Opt-in / payment channel listener (for example `stashNativeCardDidReceiveOptIn:` on iOS), followed by checkout closure. This is independent of payment `autoClose`.
 
 ### `window.stash_sdk.expand()`
 

@@ -41,9 +41,10 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 
 ### Android integration
 
+- Keep sample UI and test dependencies out of the SDK runtime graph. Check source/resource usage and resolved transitive dependencies before adding libraries or version-alignment platforms; retain only what the SDK's supported behavior needs.
 - Runtime reflection around optional/older dependencies must catch `Throwable` and degrade gracefully. Missing optional libraries must not crash the SDK. Follow `StashWindowCompat` and `StashUrlLauncher`; test reflection used to inspect internals is a different context.
 - Keep consumer shrinking rules narrow and sufficient for the public API and reflection/bridge contracts. Do not add blanket keep rules or assume internal classes are already obfuscated in an unminified AAR.
-- The portrait activity communicates with the plugin through package-local broadcasts in the same process, with a non-exported receiver registered through the compatibility API.
+- The portrait activity communicates with the plugin through package-local broadcasts in the same process, with a non-exported receiver on API 33+ and a host-specific signature permission on API 21–32.
 - `StashNativeBrowserProxyActivity` consumes Custom Tabs results internally. Hosts do not forward `onActivityResult`; `StashCustomTabsEngagement` supplies the browser-close fallback.
 
 ### iOS state and file membership
