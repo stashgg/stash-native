@@ -7,7 +7,11 @@ description: Deep audit of the Stash Native iOS, Android, macOS, and Windows SDK
 
 Audit the full checkout integration, from native entrypoints through web content and callbacks to teardown. Cover all four SDKs and all four samples, including desktop code on a separate development ref. Produce an evidence-backed ledger and a report with reproducible score arithmetic.
 
+Canonical location: `.agents/skills/stash-native-audit/SKILL.md` from the repository root. When opened through a symlink, resolve relative links from this canonical directory, not the symlink's directory.
+
 ## Modes
+
+Command arguments: `$ARGUMENTS`. Use them when the command host expands the placeholder; otherwise use the user's invocation. An empty invocation defaults to `audit`.
 
 | Request | Behavior |
 |---|---|
