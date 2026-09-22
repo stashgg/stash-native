@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stash Robot"
+  short_description: "Test sample apps and debug live checkout WebViews"
+  default_prompt: "Use $stash-robot to launch the sample-app testing interface."
