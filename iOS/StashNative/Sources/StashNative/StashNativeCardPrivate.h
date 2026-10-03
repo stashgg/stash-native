@@ -306,6 +306,7 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 @property (nonatomic, assign) BOOL isObservingKeyboard;
 @property (nonatomic, assign) BOOL isPurchaseProcessing;
 @property (nonatomic, strong) SFSafariViewController *currentSafariViewController;
+@property (nonatomic, assign) BOOL isDismissingSafari;
 @property (nonatomic, strong) CADisplayLink *collapseDisplayLink;
 @property (nonatomic, assign) CFTimeInterval collapseStartTime;
 @property (nonatomic, assign) NSTimeInterval collapseDuration;

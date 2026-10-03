@@ -25,9 +25,9 @@ import java.lang.ref.WeakReference;
  * EngagementSignalsCallback} when Chrome exposes it, and {@link CustomTabsCallback} {@code
  * NAVIGATION_ABORTED} as a fallback when {@code onActivityResult} is delayed (e.g. floating tab).
  */
-final class StashCustomTabsEngagement {
+public final class StashCustomTabsEngagement {
 
-  private static final String TAG = "StashCustomTabsEngagement";
+  private static final String TAG = "StashCustomTabs";
   /** Slow devices / OEM Chrome can connect late; short timeouts caused session-less fallback. */
   private static final long BIND_TIMEOUT_MS = 2500L;
   private static final long NAV_ABORT_NOTIFY_DELAY_MS = 400L;
@@ -45,7 +45,7 @@ final class StashCustomTabsEngagement {
    * @return true if bind was started (launch mode is delivered asynchronously); false to use the
    *     synchronous {@link StashUrlLauncher#openExternalUrl} path immediately
    */
-  static boolean tryLaunchForResult(
+  public static boolean tryLaunchForResult(
       Activity activity,
       Uri uri,
       int requestCode,
@@ -94,7 +94,8 @@ final class StashCustomTabsEngagement {
     }
   }
 
-  static void unbindIfBound(Context context) {
+  /** Releases the active optional Custom Tabs service binding. */
+  public static void unbindIfBound(Context context) {
     if (context == null) {
       return;
     }

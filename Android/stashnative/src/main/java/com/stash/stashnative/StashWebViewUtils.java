@@ -179,7 +179,7 @@ public class StashWebViewUtils {
         controller.setAppearanceLightNavigationBars(!darkBg);
       }
     } catch (Exception e) {
-      Log.e(TAG, "applySystemBarAppearanceForSheet: " + e.getMessage(), e);
+      Log.e(TAG, "applySystemBarAppearanceForSheet");
     }
   }
 
@@ -210,7 +210,7 @@ public class StashWebViewUtils {
         }
       }
     } catch (Exception e) {
-      Log.e(TAG, "applySystemBarAppearance: " + e.getMessage(), e);
+      Log.e(TAG, "applySystemBarAppearance");
     }
   }
 
@@ -313,8 +313,8 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Validates and normalizes a URL for {@code window.stash_sdk.openExternalBrowser(url)}: {@code http} or
-   * {@code https} only. Trims input; prepends {@code https://} when no scheme is present.
+   * Validates checkout and browser URLs: {@code http} or {@code https} only.
+   * Trims input and prepends {@code https://} when no scheme is present.
    *
    * @return canonical URL string, or {@code null} if invalid
    */
@@ -330,7 +330,12 @@ public class StashWebViewUtils {
     if (lower.startsWith("javascript:") || lower.startsWith("file:") || lower.startsWith("data:")) {
       return null;
     }
-    if (!s.startsWith("http://") && !s.startsWith("https://")) {
+    if (!lower.startsWith("http://") && !lower.startsWith("https://")) {
+      boolean hasScheme = s.matches("^[A-Za-z][A-Za-z0-9+.-]*:.*");
+      boolean hostAndPort = s.matches("^[^/?#:@]+:[0-9]+([/?#].*)?$");
+      if (hasScheme && !hostAndPort) {
+        return null;
+      }
       s = "https://" + s;
     }
     try {
@@ -346,9 +351,10 @@ public class StashWebViewUtils {
       if (uri.getHost() == null || uri.getHost().isEmpty()) {
         return null;
       }
-      return uri.toString();
+      // Android intent filters match schemes case-sensitively.
+      return uri.buildUpon().scheme(scheme).build().toString();
     } catch (Exception e) {
-      Log.w(TAG, "normalizeExternalPaymentUrl: " + e.getMessage());
+      Log.w(TAG, "Invalid external payment URL");
       return null;
     }
   }
@@ -367,7 +373,7 @@ public class StashWebViewUtils {
       builder.appendQueryParameter(QUERY_PARAM_THEME, theme);
       return builder.build().toString();
     } catch (Exception e) {
-      Log.w(TAG, "Error appending theme parameter: " + e.getMessage());
+      Log.w(TAG, "Error appending theme parameter");
       String fragment = "";
       String head = base;
       int hash = base.indexOf('#');
@@ -473,7 +479,7 @@ public class StashWebViewUtils {
 
       return loadingContainer;
     } catch (Exception e) {
-      Log.w(TAG, "Error showing loading: " + e.getMessage());
+      Log.w(TAG, "Error showing loading");
       return null;
     }
   }

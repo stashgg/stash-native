@@ -11,4 +11,7 @@
 }
 
 # Engagement + Custom Tabs bind helper (loaded via reflection from StashUrlLauncher)
--keep class com.stash.stashnative.StashCustomTabsEngagement { *; }
+-keep class com.stash.stashnative.StashCustomTabsEngagement {
+    public static boolean tryLaunchForResult(android.app.Activity, android.net.Uri, int, com.stash.stashnative.StashUrlLauncher$LaunchModeCallback, java.lang.Runnable);
+    public static void unbindIfBound(android.content.Context);
+}

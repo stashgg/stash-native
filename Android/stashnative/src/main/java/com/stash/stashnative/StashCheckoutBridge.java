@@ -8,6 +8,7 @@ import android.content.Intent;
  * {@link StashNativeCardPlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
+  static final String EXTRA_SESSION_ID = "com.stash.stashnative.SESSION_ID";
 
   private StashCheckoutBridge() {}
 
@@ -15,6 +16,10 @@ final class StashCheckoutBridge {
     Context app = context.getApplicationContext();
     Intent intent = new Intent(action);
     intent.setPackage(app.getPackageName());
+    if (context instanceof StashNativeCardPortraitActivity) {
+      intent.putExtra(EXTRA_SESSION_ID,
+          ((StashNativeCardPortraitActivity) context).getPresentationSessionId());
+    }
     return intent;
   }
 

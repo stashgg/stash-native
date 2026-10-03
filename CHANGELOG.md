@@ -5,11 +5,43 @@ All notable changes to this project will be documented in this file. Format foll
 ## [2.4.0] - 2026-08-26
 
 ### Added
+- iOS: repository-root `Package.swift`, so Swift Package Manager can add the package from the repository URL.
 - Windows and macOS desktop hosts (`Desktop/`): the same in-game webview checkout as mobile, presented as a card over the game's own window on WebView2 (Windows 10 1809+ / 11 with the Evergreen runtime) and WKWebView (macOS 11+, universal). Same `openCard` / `openModal` / `openBrowser` API, the same callbacks and config objects, and the same `window.stash_sdk` bridge as 2.3.0 mobile. Two public layers: a C ABI (`Desktop/include/StashNativeDesktop.h`) that is identical on both OSes for game engines, and typed facades for native apps (`StashNativeCard` on macOS, header-only `StashNativeCard.hpp` on Windows). Release artifacts `StashNativeDesktop-<version>-win64.zip` and `StashNativeDesktop-<version>-macos.zip`.
 - Desktop samples (`Desktop/macOS/Sample`, `Desktop/Windows/Sample`) with HMAC link generation and `-stash-auto` proof modes; CI builds, tests and smoke-runs both hosts on every push and PR.
 
 ### Changed
-- Version 2.4.0 on iOS and Android as well; no mobile code changes in this release.
+- Version 2.4.0 on iOS and Android as well.
+- Android: checkout and browser URLs accept `http` and `https` only; other schemes are rejected, and the scheme is lowercased for intent-filter matching. iOS applies the same scheme check to `openBrowser`.
+- Android: internal broadcasts are protected by a signature permission (`${applicationId}.permission.STASH_NATIVE_INTERNAL`) declared in the AAR manifest. Log messages no longer include URLs or exception text, and the R8 keep rule for the Custom Tabs helper is narrowed to the two methods reached by reflection.
+- Android: dropped the AppCompat dependency from the SDK. Standalone AAR integrations now declare `androidx.core` and `androidx.webkit` (see README); `androidx.browser` stays optional. CI builds minimal AAR consumers with R8 against current, older, and absent Browser libraries.
+- iOS: `openCard` with a `nil` config uses the default `StashNativeCardConfig` values instead of keeping the previous session's sizing and flags.
+- iOS: framework `CFBundleShortVersionString` is derived from `MARKETING_VERSION`, kept at 2.4.0.
+- iOS: the overlay dismiss area exposes a "Close checkout" accessibility label.
+- Android sample: credentials are stored encrypted with Android Keystore and excluded from backup, imports are validated before saving, stale requests are cancelled, and sliders are labelled for accessibility.
+- iOS sample: sliders expose labels and values to VoiceOver, and action buttons have accessible names and touch targets of at least 44 points.
+
+### Fixed
+- Android: bridge events, popup callbacks, and cleanup are bound to their own checkout session, so a replaced or dismissed checkout no longer receives or fires callbacks for a later one.
+- iOS: queued closes and Safari dismissal are guarded against a replacement checkout, and the portrait-poll retention is removed.
+
+## [2.3.1] - 2026-09-03
+
+### Added
+- iOS/Android: `StashNativeCard.setInspectableWebViewsEnabled(...)` opt-in flag that makes the checkout WebViews inspectable (Safari Web Inspector / `chrome://inspect`) for QA/debug builds and automated UI tests. Off by default; enabled in both sample apps.
+
+### Changed
+- iOS/Android: new-window navigations (anchor `target="_blank"` or `window.open`, main frame or iframe) now open in the external browser instead of being dropped — http/https via the system browser (`openLink` semantics), other schemes via the existing deeplink handling. The checkout stays presented.
+- iOS/Android: deeplink interception extended to sub-frames, not just the main frame. Android parses `intent://` URIs with component/selector stripping and `browser_fallback_url` / Play Store fallback; iOS offers user-tapped https links to a claiming app as universal links; both degrade gracefully when no app is installed.
+
+### Removed
+- Android: Google Pay WebView redirect handling (`checkGooglePayRedirect` / `openGooglePayInBrowser`, the `googlePayRedirectHandled` guard, and the `GOOGLE_PAY_*` constants). No public API change.
+
+### Fixed
+- Android: checkout WebView content is never darkened. Force-dark / algorithmic darkening is now disabled unconditionally instead of keyed to the host theme, fixing near-invisible third-party (Adyen secured-field) input text in device dark mode. The checkout self-themes via the `theme=` URL parameter, so paint-time darkening only ever hurt.
+- Android/iOS: expanded card height is clamped to the real content box, fixing the scroll bug and a keyboard-triggered expand that shrank the card below its collapsed height. Covers phone and tablet, including rotation, and drag-release snap-back.
+- Android: phone sheet height ceilings subtract bottom insets and intersect with the root-layout content box, closing a race where `expand()` ran before the first `onApplyWindowInsets` dispatch; `expand()` is capped so the card can never grow past 100%.
+- Android: `clampRatio` is guarded against NaN/Infinity (parity with iOS `stashClampRatio`), and scheme / provider-detection string matching uses `Locale.ROOT` to avoid Turkish-locale mismatches.
+- Sample apps: both samples bundle a deeplink test harness; iOS sample fixes device-build compilation and the iOS 18 tab bar layout.
 
 ## [2.3.0] - 2026-07-16
 

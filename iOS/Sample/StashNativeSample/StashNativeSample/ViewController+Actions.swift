@@ -97,7 +97,9 @@ extension ViewController {
     }
 
     @objc func sliderValueChanged(_ sender: UISlider) {
-        sliderLabels[sender]?.text = "\(Int(sender.value))%"
+        let value = "\(Int(sender.value))%"
+        sliderLabels[sender]?.text = value
+        sender.accessibilityValue = value
     }
 
     @objc func dismissKeyboard() {

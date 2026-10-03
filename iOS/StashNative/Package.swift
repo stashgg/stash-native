@@ -21,9 +21,15 @@ let package = Package(
             path: "Sources/StashNative",
             publicHeadersPath: "include"
         ),
+        .target(
+            name: "RegressionSupport",
+            dependencies: ["StashNative"],
+            path: "Tests/RegressionSupport",
+            publicHeadersPath: "include"
+        ),
         .testTarget(
             name: "StashNativeTests",
-            dependencies: ["StashNative"],
+            dependencies: ["StashNative", "RegressionSupport"],
             path: "Tests/StashNativeTests"
         ),
     ]

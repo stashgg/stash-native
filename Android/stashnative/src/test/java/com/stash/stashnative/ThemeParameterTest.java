@@ -3,10 +3,9 @@ package com.stash.stashnative;
 import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Tests for StashWebViewUtils.appendThemeQueryParameter().
- * Uri-dependent assertions require instrumented tests (androidTest).
- */
+/** Exercises the real Android URI parser under Robolectric. */
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner.class)
+@org.robolectric.annotation.Config(sdk = 28)
 public class ThemeParameterTest {
 
   @Test
@@ -20,8 +19,7 @@ public class ThemeParameterTest {
   }
 
   @Test
-  public void fallbackPathAppendsThemeWithQuestionMark() {
-    // Uri.parse returns null in JVM, so the catch block runs the string fallback path.
+  public void httpUrlAppendsThemeWithQuestionMark() {
     String result = StashWebViewUtils.appendThemeQueryParameter("https://pay.stash.gg", true);
     assertNotNull(result);
     assertTrue(result.contains("theme=dark"));
@@ -29,14 +27,14 @@ public class ThemeParameterTest {
   }
 
   @Test
-  public void fallbackPathAppendsLightTheme() {
+  public void httpUrlAppendsLightTheme() {
     String result = StashWebViewUtils.appendThemeQueryParameter("https://pay.stash.gg", false);
     assertNotNull(result);
     assertTrue(result.contains("theme=light"));
   }
 
   @Test
-  public void fallbackPathUsesAmpersandWhenQueryExists() {
+  public void queryUsesAmpersand() {
     String result = StashWebViewUtils.appendThemeQueryParameter(
         "https://pay.stash.gg?token=abc", true);
     assertNotNull(result);
@@ -74,5 +72,11 @@ public class ThemeParameterTest {
     assertNotNull(result);
     assertTrue(result.endsWith("#section"));
     assertTrue(result.indexOf("theme=dark") < result.indexOf("#section"));
+  }
+  @Test
+  public void signedQueryEncodingAndFragmentSurviveRetheming() {
+    String url = "https://example.invalid/?token=a%2Bb%26c&theme=light&theme=light#section";
+    assertEquals("https://example.invalid/?token=a%2Bb%26c&theme=dark#section",
+        StashWebViewUtils.appendThemeQueryParameter(url, true));
   }
 }
