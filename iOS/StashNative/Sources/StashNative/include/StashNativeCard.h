@@ -190,6 +190,8 @@ NS_ASSUME_NONNULL_BEGIN
 /**
  * Called when \c SFSafariViewController is dismissed after \c -openBrowserWithURL: or external
  * payment (same browser path), either by the user (Done) or programmatically via \c -closeBrowser.
+ * Also called, once, when \c -closeBrowser cancels a Safari view that had not appeared yet; the
+ * browser session never started in that case.
  */
 - (void)stashNativeCardDidCloseBrowser;
 
@@ -333,7 +335,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openBrowserWithURL:(NSString *)url;
 
 /**
- * Dismisses the currently presented SFSafariViewController.
+ * Dismisses the currently presented SFSafariViewController. Called before the Safari view has
+ * appeared, it cancels that pending presentation instead; \c stashNativeCardDidDismiss and
+ * \c stashNativeCardDidCloseBrowser still fire once, as for a dismissal.
  * iOS-only: has no effect on Android (Chrome Custom Tabs cannot be closed programmatically).
  */
 - (void)closeBrowser;

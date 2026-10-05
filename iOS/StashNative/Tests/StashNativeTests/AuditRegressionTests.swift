@@ -41,6 +41,21 @@ final class AuditRegressionTests: XCTestCase {
         wait(for: [done], timeout: 5)
     }
 
+    func testEarlyCloseBrowserCancelsQueuedSafari() {
+        let done = expectation(description: "early close cancels queued Safari")
+        DispatchQueue.main.async {
+            AuditEarlyCloseBrowser { latchCleared, controllerCleared, dismissCallbacks, closeCallbacks, secondCycleOK in
+                XCTAssertTrue(latchCleared)
+                XCTAssertTrue(controllerCleared)
+                XCTAssertEqual(dismissCallbacks, 1)
+                XCTAssertEqual(closeCallbacks, 1)
+                XCTAssertTrue(secondCycleOK)
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 5)
+    }
+
     func testOldDismissCompletionCannotClearReplacement() {
         let done = expectation(description: "dismiss completion")
         DispatchQueue.main.async {

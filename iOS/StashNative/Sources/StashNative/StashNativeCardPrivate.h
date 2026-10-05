@@ -307,6 +307,8 @@ NSString *StashNativeDarkSheetBackgroundJavaScript(void);
 @property (nonatomic, assign) BOOL isPurchaseProcessing;
 @property (nonatomic, strong) SFSafariViewController *currentSafariViewController;
 @property (nonatomic, assign) BOOL isDismissingSafari;
+/// YES from storing currentSafariViewController until the deferred present hands it to UIKit; closeBrowser in that window cancels instead of dismissing.
+@property (nonatomic, assign) BOOL isSafariPresentationQueued;
 @property (nonatomic, strong) CADisplayLink *collapseDisplayLink;
 @property (nonatomic, assign) CFTimeInterval collapseStartTime;
 @property (nonatomic, assign) NSTimeInterval collapseDuration;
