@@ -124,6 +124,36 @@ public class PresentationRegressionTest {
     assertFalse(plugin.isPurchaseProcessing());
   }
 
+  @Test public void popupExternalPaymentLaunchesBrowserWhenCallbackReopens() {
+    plugin.openPopup("https://example.invalid");
+    StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
+    java.util.List<String> externalUrls = new java.util.ArrayList<>();
+    int[] dismissed = {0};
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        externalUrls.add(url);
+        plugin.openCard("https://example.invalid/next", null);
+      }
+      @Override public void onDialogDismissed() { dismissed[0]++; }
+    });
+    bridge.openExternalBrowser("https://pay.example.invalid/x");
+    ShadowLooper.idleMainLooper();
+    ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+    assertEquals(1, externalUrls.size());
+    assertTrue(externalUrls.get(0).contains("theme="));
+    assertEquals(0, dismissed[0]);
+    assertTrue(plugin.isCurrentlyPresented());
+    boolean browserLaunched = false;
+    Intent started;
+    while ((started = Shadows.shadowOf(host).getNextStartedActivity()) != null) {
+      if (externalUrls.get(0).equals(started.getStringExtra(StashNativeBrowserProxyActivity.EXTRA_URL))
+          || externalUrls.get(0).equals(String.valueOf(started.getData()))) {
+        browserLaunched = true;
+      }
+    }
+    assertTrue(browserLaunched);
+  }
+
   @Test public void popupProcessingLocksBeforeQueuedBackdropTap() {
     plugin.openPopup("https://example.invalid");
     StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
