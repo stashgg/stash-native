@@ -14,9 +14,9 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 **Overview**
 
-- [Game engine wrappers](#wrappers)
+- [Game engine wrappers](#game-engine-wrappers)
 - [Downloads](#downloads)
-- [Sample apps](#sample-apps)
+- [Sample apps](#sample-apps--testing)
 
 **Setup**
 

@@ -21,7 +21,7 @@ The following repositories are maintained as first-party wrappers around this li
 | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal) | Unreal Engine 5.0+ |
 | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27+ |
 
-The same table appears under [Game Engine Wrappers](../README.md#wrappers) in the root README.
+The same table appears under [Game Engine Wrappers](../README.md#game-engine-wrappers) in the root README.
 
 ## End-to-End Flow
 
