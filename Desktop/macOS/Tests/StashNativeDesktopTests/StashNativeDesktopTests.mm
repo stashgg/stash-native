@@ -48,14 +48,6 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
 
 - (void)testCardConfigDefaults {
     StashNativeCardConfig *cfg = [[StashNativeCardConfig alloc] init];
-    XCTAssertFalse(cfg.forcePortrait);
-    XCTAssertEqualWithAccuracy(cfg.cardHeightRatioPortrait, 0.68, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.cardWidthRatioLandscape, 0.7, 0.01);
-    XCTAssertEqualWithAccuracy(cfg.cardHeightRatioLandscape, 0.9, 0.01);
-    XCTAssertEqualWithAccuracy(cfg.tabletWidthRatioPortrait, 0.4, 0.01);
-    XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioPortrait, 0.5, 0.01);
-    XCTAssertEqualWithAccuracy(cfg.tabletWidthRatioLandscape, 0.3, 0.01);
-    XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioLandscape, 0.6, 0.01);
     XCTAssertTrue(cfg.autoClose);
     XCTAssertNil(cfg.backgroundColor);
     XCTAssertTrue(cfg.allowDismiss);
@@ -82,37 +74,6 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
     XCTAssertEqual(c.height, 0);
 }
 
-- (void)testModalConfigDefaults {
-    StashNativeModalConfig *cfg = [[StashNativeModalConfig alloc] init];
-    XCTAssertTrue(cfg.allowDismiss);
-    XCTAssertTrue(cfg.autoClose);
-    XCTAssertEqualWithAccuracy(cfg.phoneWidthRatioPortrait, 0.80, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.phoneHeightRatioPortrait, 0.50, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.phoneWidthRatioLandscape, 0.50, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.phoneHeightRatioLandscape, 0.80, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.tabletWidthRatioPortrait, 0.40, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioPortrait, 0.30, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.tabletWidthRatioLandscape, 0.30, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioLandscape, 0.40, 0.001);
-    XCTAssertNil(cfg.backgroundColor);
-}
-
-- (void)testModalConfigCustomInit {
-    StashNativeModalConfig *cfg = [[StashNativeModalConfig alloc] initWithPhoneWidthPortrait:0.5
-                                                                          phoneHeightPortrait:0.6
-                                                                          phoneWidthLandscape:0.7
-                                                                         phoneHeightLandscape:0.8
-                                                                          tabletWidthPortrait:0.3
-                                                                         tabletHeightPortrait:0.4
-                                                                         tabletWidthLandscape:0.2
-                                                                        tabletHeightLandscape:0.9
-                                                                                 allowDismiss:NO];
-    XCTAssertFalse(cfg.allowDismiss);
-    XCTAssertTrue(cfg.autoClose);
-    XCTAssertEqualWithAccuracy(cfg.phoneWidthRatioPortrait, 0.5, 0.001);
-    XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioLandscape, 0.9, 0.001);
-}
-
 - (void)testInitialStateNotPresentedNotProcessing {
     StashNativeCard *card = [StashNativeCard sharedInstance];
     XCTAssertFalse(card.isCurrentlyPresented);
@@ -124,10 +85,8 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
 - (void)testEmptyUrlsDoNotCrashOrPresent {
     StashNativeCard *card = [StashNativeCard sharedInstance];
     [card openCardWithURL:@"" config:nil];
-    [card openModalWithURL:@"" config:nil];
     [card openBrowserWithURL:@""];
     StashNativeDesktop_OpenCard("", "{}");
-    StashNativeDesktop_OpenModal(nullptr, nullptr);
     StashNativeDesktop_OpenBrowser(nullptr);
     XCTAssertFalse(card.isCurrentlyPresented);
 }

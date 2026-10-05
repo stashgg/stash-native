@@ -30,7 +30,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class StashDesktopCore;
 
-/// Card / modal surface over the host window, or a standalone window (editor play mode).
+/// Card surface over the host window, or a standalone window (editor play mode).
 /// User actions (close button, backdrop click, Esc, window close) go to the core, which asks the
 /// session; the surface itself never emits events.
 @interface StashNativeCardPresenter : NSObject <NSWindowDelegate>
@@ -120,11 +120,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setEventCallback:(nullable StashNativeDesktopEventCallback)callback userData:(nullable void *)userData;
 
 /// From the presenter: close button, backdrop, Esc, window close. Refused while processing or
-/// when a modal disallows dismissal.
+/// when allowDismiss is false.
 - (void)requestUserDismiss;
 
 /// From the presenter: the attached host window is closing. The presentation cannot outlive
-/// it, so the session ends with dialogDismissed regardless of processing or modal rules.
+/// it, so the session ends with dialogDismissed regardless of processing or allowDismiss.
 - (void)hostWindowWillClose;
 
 /// From the message proxy.
@@ -148,8 +148,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)deliverEventType:(NSString *)type payload:(NSString *)payload;
 @end
 
-/// Config object -> shared SurfaceConfig (ratios clamped, nil -> defaults).
+/// Config object -> shared SurfaceConfig (nil -> defaults).
 stash::desktop::SurfaceConfig StashSurfaceConfigFromCardConfig(StashNativeCardConfig *_Nullable config);
-stash::desktop::SurfaceConfig StashSurfaceConfigFromModalConfig(StashNativeModalConfig *_Nullable config);
 
 NS_ASSUME_NONNULL_END

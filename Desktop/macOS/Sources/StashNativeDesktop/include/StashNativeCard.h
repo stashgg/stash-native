@@ -2,65 +2,14 @@
 //  StashNativeCard.h
 //  StashNativeDesktop
 //
-//  Native macOS SDK for Stash Native checkout integration. Same class, delegate and config
-//  shapes as the iOS SDK (iOS/StashNative/.../StashNativeCard.h) minus the UIKit-only members.
+//  Native macOS SDK for Stash Native checkout integration. Same class and delegate as the iOS SDK
+//  (iOS/StashNative/.../StashNativeCard.h) minus the UIKit-only members, with one desktop card config.
 //
 
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
-
-/**
- * Configuration for modal presentation.
- *
- * The ratio fields exist for API parity with the mobile SDKs and are ignored on desktop, where
- * the modal is a fixed 480 x 600 pt surface clamped to the host window.
- */
-@interface StashNativeModalConfig : NSObject
-
-/** Phone width ratio for portrait (0.1-1.0). Default 0.80. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat phoneWidthRatioPortrait;
-/** Phone height ratio for portrait (0.1-1.0). Default 0.50. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat phoneHeightRatioPortrait;
-/** Phone width ratio for landscape (0.1-1.0). Default 0.50. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat phoneWidthRatioLandscape;
-/** Phone height ratio for landscape (0.1-1.0). Default 0.80. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat phoneHeightRatioLandscape;
-/** Tablet width ratio for portrait (0.1-1.0). Default 0.40. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
-/** Tablet height ratio for portrait (0.1-1.0). Default 0.30. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
-/** Tablet width ratio for landscape (0.1-1.0). Default 0.30. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
-/** Tablet height ratio for landscape (0.1-1.0). Default 0.40. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
-/** Whether the close button, backdrop click and Esc can dismiss the modal. Default YES. */
-@property (nonatomic, assign) BOOL allowDismiss;
-/** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure (callbacks still fire). Default YES. */
-@property (nonatomic, assign) BOOL autoClose;
-/** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for sheet background. Omit for default Stash theme. */
-@property (nonatomic, copy, nullable) NSString *backgroundColor;
-
-/**
- * Creates a default modal configuration.
- */
-- (instancetype)init;
-
-/**
- * Creates a modal configuration with all sizing and behavior options.
- */
-- (instancetype)initWithPhoneWidthPortrait:(CGFloat)phoneWidthPortrait
-                         phoneHeightPortrait:(CGFloat)phoneHeightPortrait
-                         phoneWidthLandscape:(CGFloat)phoneWidthLandscape
-                        phoneHeightLandscape:(CGFloat)phoneHeightLandscape
-                        tabletWidthPortrait:(CGFloat)tabletWidthPortrait
-                       tabletHeightPortrait:(CGFloat)tabletHeightPortrait
-                       tabletWidthLandscape:(CGFloat)tabletWidthLandscape
-                      tabletHeightLandscape:(CGFloat)tabletHeightLandscape
-                              allowDismiss:(BOOL)allowDismiss;
-
-@end
 
 /** How a card is presented on desktop. */
 typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
@@ -71,29 +20,11 @@ typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
 };
 
 /**
- * Configuration for card presentation (openCard).
- *
- * The ratio fields exist for API parity with the mobile SDKs and are ignored on desktop; width
- * and height size the card (480 x 720 pt by default), clamped to the host window.
+ * Configuration for card presentation (openCard). Width and height size the card (480 x 720 pt
+ * by default), clamped to the host window.
  */
 @interface StashNativeCardConfig : NSObject
 
-/** Accepted for parity with mobile; has no effect on desktop. Default NO. */
-@property (nonatomic, assign) BOOL forcePortrait;
-/** Phone card height ratio in portrait (0.1-1.0). Default 0.68. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat cardHeightRatioPortrait;
-/** Phone card width ratio in landscape (0.1-1.0). Default 0.7. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat cardWidthRatioLandscape;
-/** Phone card height ratio in landscape (0.1-1.0). Default 0.9. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat cardHeightRatioLandscape;
-/** Tablet width ratio in portrait (0.1-1.0). Default 0.4. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletWidthRatioPortrait;
-/** Tablet height ratio in portrait (0.1-1.0). Default 0.5. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletHeightRatioPortrait;
-/** Tablet width ratio in landscape (0.1-1.0). Default 0.3. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletWidthRatioLandscape;
-/** Tablet height ratio in landscape (0.1-1.0). Default 0.6. Ignored on desktop. */
-@property (nonatomic, assign) CGFloat tabletHeightRatioLandscape;
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure (callbacks still fire). Default YES. */
 @property (nonatomic, assign) BOOL autoClose;
 /** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for sheet background. Omit for default Stash theme. */
@@ -213,7 +144,7 @@ typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
 @property (nonatomic, weak, nullable) NSWindow *hostWindow;
 
 /**
- * Checks if a checkout card or modal is currently displayed.
+ * Checks if a checkout card is currently displayed.
  */
 @property (nonatomic, readonly) BOOL isCurrentlyPresented;
 
@@ -260,31 +191,11 @@ typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
 - (void)openCardWithURL:(NSString *)url config:(nullable StashNativeCardConfig *)config NS_SWIFT_NAME(openCard(withURL:config:));
 
 /**
- * Opens a URL in a centered modal dialog with default configuration.
- *
- * @param url The URL to load in the modal
- */
-- (void)openModalWithURL:(NSString *)url;
-
-/**
- * Opens a URL in a centered modal dialog with custom configuration.
- *
- * @param url The URL to load in the modal
- * @param config Configuration for dismiss behavior (nil for defaults)
- */
-- (void)openModalWithURL:(NSString *)url config:(nullable StashNativeModalConfig *)config;
-
-/**
- * Opens a card with the JSON config the game-engine wrappers send (see docs/macos.md). Same keys
- * as \c StashNativeCardConfig plus the desktop-only \c presentation ("attached" or "window"),
- * \c width, \c height and \c allowFileUrls. nil or empty for defaults.
+ * Opens a card with the JSON config the game-engine wrappers send (see docs/macos.md). Keys:
+ * \c autoClose, \c allowDismiss, \c backgroundColor, \c presentation ("attached" or "window"),
+ * \c width, \c height and \c allowFileUrls. Unknown keys are ignored. nil or empty for defaults.
  */
 - (void)openCardWithURL:(NSString *)url configJSON:(nullable NSString *)configJSON NS_SWIFT_NAME(openCard(withURL:configJSON:));
-
-/**
- * Opens a modal with the JSON config the game-engine wrappers send. nil or empty for defaults.
- */
-- (void)openModalWithURL:(NSString *)url configJSON:(nullable NSString *)configJSON NS_SWIFT_NAME(openModal(withURL:configJSON:));
 
 /**
  * Dismisses any currently displayed checkout dialog. Invokes \c stashNativeCardDidDismiss.

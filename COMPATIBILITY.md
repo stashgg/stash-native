@@ -156,12 +156,12 @@ We test the mobile libraries using BrowserStack App Automate devices. Supported 
 - Huawei (2019+ without GMS): openBrowser uses system browser instead of Chrome Custom Tabs; other features work normally.
 - Android Go: Performance may vary on low-memory devices (<1GB RAM), please use the [keep-alive service](README.md#openbrowser) (see **Optional: Keep-alive service** under openBrowser).
 - WebView updates: Devices without Play Store may have outdated WebView.
-- Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](README.md#sample-apps) (GPU / `swangle` note)
+- Android emulator (arm64-v8a, Apple Silicon): see [Sample apps](README.md#sample-apps--testing) (GPU / `swangle` note)
 
 **Windows / macOS**
 
 - No browser-closed callback (`openBrowser` opens the system browser and returns immediately).
-- The card is a fixed logical size (card 480 x 720 pt, modal 480 x 600 pt, 400 x 500 pt minimum when the window has the room, then clamped to the window minus a 24 pt margin on each edge, with a 200 x 240 pt absolute floor for very small windows); the mobile ratio fields are ignored, `forcePortrait` has no effect.
+- The card is 480 x 720 pt by default and `width` / `height` set it, then a 400 x 500 pt minimum applies when the window has the room, then it is clamped to the window minus a 24 pt margin on each edge, with a 200 x 240 pt absolute floor for very small windows.
 - Steam builds: follow the store policy for external payments before enabling in-game checkout.
 - Windows: without the WebView2 runtime the host reports `error` and `networkError`; use `openBrowser` as the fallback.
 

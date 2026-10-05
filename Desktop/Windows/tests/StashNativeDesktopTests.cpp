@@ -99,24 +99,22 @@ static void testFacade() {
     card.backgroundColor = "#1e1e1e";
     std::string json = stash::detail::cardConfigJson(card);
     CHECK(json.find("\"autoClose\":false") != std::string::npos);
-    CHECK(json.find("\"cardHeightRatioPortrait\":0.68") != std::string::npos);
     CHECK(json.find("\"backgroundColor\":\"#1e1e1e\"") != std::string::npos);
-    CHECK(json.find("\"forcePortrait\":false") != std::string::npos);
 
-    // A non-finite ratio is omitted (the parser applies its default) instead of producing a
-    // malformed object that would reset every other field.
+    // A non-finite dimension is omitted (the parser applies the default size) instead of producing
+    // a malformed object that would reset every other field.
     stash::StashNativeCardConfig nan;
     nan.autoClose = false;
-    nan.cardHeightRatioPortrait = std::numeric_limits<float>::quiet_NaN();
-    nan.tabletWidthRatioPortrait = std::numeric_limits<float>::infinity();
+    nan.width = std::numeric_limits<float>::quiet_NaN();
+    nan.height = std::numeric_limits<float>::infinity();
     std::string nanJson = stash::detail::cardConfigJson(nan);
     CHECK(stash::desktop::json::isObject(nanJson));
-    CHECK(nanJson.find("cardHeightRatioPortrait") == std::string::npos);
-    CHECK(nanJson.find("tabletWidthRatioPortrait") == std::string::npos);
-    CHECK(nanJson.find("\"cardWidthRatioLandscape\":") != std::string::npos);
-    stash::desktop::SurfaceConfig parsed = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, nanJson);
+    CHECK(nanJson.find("\"width\"") == std::string::npos);
+    CHECK(nanJson.find("\"height\"") == std::string::npos);
+    CHECK(nanJson.find("\"allowDismiss\":") != std::string::npos);
+    stash::desktop::SurfaceConfig parsed = stash::desktop::parseSurfaceConfig(nanJson);
     CHECK(!parsed.autoClose);
-    CHECK(parsed.cardHeightRatioPortrait == stash::desktop::SurfaceConfig().cardHeightRatioPortrait);
+    CHECK(parsed.width == 0 && parsed.height == 0);
 
     stash::StashNativeCardConfig typed;
     typed.allowDismiss = false;
@@ -128,8 +126,7 @@ static void testFacade() {
     CHECK(typedJson.find("\"presentation\":\"window\"") != std::string::npos);
     CHECK(typedJson.find("\"width\":640") != std::string::npos);
     CHECK(typedJson.find("\"height\":700") != std::string::npos);
-    stash::desktop::SurfaceConfig typedParsed =
-        stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, typedJson);
+    stash::desktop::SurfaceConfig typedParsed = stash::desktop::parseSurfaceConfig(typedJson);
     CHECK(!typedParsed.allowDismiss);
     CHECK(typedParsed.presentation == stash::desktop::Presentation::Window);
     CHECK(typedParsed.width == 640 && typedParsed.height == 700);
@@ -149,18 +146,13 @@ static void testFacade() {
 
     // Serialization ignores a decimal-comma process locale.
     if (std::setlocale(LC_NUMERIC, "de-DE") != nullptr) {
-        std::string localized = stash::detail::cardConfigJson(card);
-        CHECK(localized.find("\"cardHeightRatioPortrait\":0.68") != std::string::npos);
+        stash::StashNativeCardConfig fractional;
+        fractional.width = 640.5f;
+        std::string localized = stash::detail::cardConfigJson(fractional);
+        CHECK(localized.find("\"width\":640.5") != std::string::npos);
         CHECK(stash::desktop::json::isObject(localized));
         std::setlocale(LC_NUMERIC, "C");
     }
-
-    stash::StashNativeModalConfig modal;
-    modal.allowDismiss = false;
-    std::string modalJson = stash::detail::modalConfigJson(modal);
-    CHECK(modalJson.find("\"allowDismiss\":false") != std::string::npos);
-    CHECK(modalJson.find("\"phoneWidthRatioPortrait\":0.8") != std::string::npos);
-    CHECK(modalJson.find("\"backgroundColor\":\"\"") != std::string::npos);
 
     RecordingListener listener;
     stash::detail::dispatchEvent(&listener, STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS, "o1");
@@ -186,7 +178,6 @@ static void testAbiThroughDll() {
     card.dismiss();
     card.resetPresentationState();
     card.openCard("");
-    card.openModal("");
     CHECK(!card.isCurrentlyPresented());
     stash::StashNativeCard::setInspectableWebViewsEnabled(true);
     stash::StashNativeCard::setInspectableWebViewsEnabled(false);

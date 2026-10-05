@@ -67,32 +67,11 @@ static void StashRunOnMain(dispatch_block_t block) {
     });
 }
 
-- (void)openModalWithURL:(NSString *)url {
-    [self openModalWithURL:url config:nil];
-}
-
-- (void)openModalWithURL:(NSString *)url config:(StashNativeModalConfig *)config {
-    stash::desktop::SurfaceConfig surface = StashSurfaceConfigFromModalConfig(config);
-    NSString *urlCopy = [url copy];
-    StashRunOnMain(^{
-        [[StashDesktopCore sharedInstance] openURL:urlCopy ?: @"" config:surface];
-    });
-}
-
 - (void)openCardWithURL:(NSString *)url configJSON:(NSString *)configJSON {
     std::string json = configJSON.UTF8String ?: "";
     NSString *urlCopy = [url copy];
     StashRunOnMain(^{
-        stash::desktop::SurfaceConfig surface = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, json);
-        [[StashDesktopCore sharedInstance] openURL:urlCopy ?: @"" config:surface];
-    });
-}
-
-- (void)openModalWithURL:(NSString *)url configJSON:(NSString *)configJSON {
-    std::string json = configJSON.UTF8String ?: "";
-    NSString *urlCopy = [url copy];
-    StashRunOnMain(^{
-        stash::desktop::SurfaceConfig surface = stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Modal, json);
+        stash::desktop::SurfaceConfig surface = stash::desktop::parseSurfaceConfig(json);
         [[StashDesktopCore sharedInstance] openURL:urlCopy ?: @"" config:surface];
     });
 }
