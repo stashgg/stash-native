@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] - 2026-08-26
+
+### Added
+- iOS: repository-root `Package.swift`, so Swift Package Manager can add the package from the repository URL.
+- Windows and macOS desktop hosts (`Desktop/`): the same in-game webview checkout as mobile, presented as a card over the game's own window on WebView2 (Windows 10 1809+ / 11 with the Evergreen runtime) and WKWebView (macOS 11+, universal). One card surface (`openCard`, `openBrowser`) configured by seven keys (`autoClose`, `allowDismiss`, `backgroundColor`, `allowFileUrls`, `presentation`, `width`, `height`; the card is 480 x 720 pt unless `width` / `height` say otherwise), the same callbacks and the same `window.stash_sdk` bridge as 2.3.0 mobile. Two public layers: a C ABI of 12 functions (`Desktop/include/StashNativeDesktop.h`) that is identical on both OSes for game engines, and typed facades for native apps (`StashNativeCard` on macOS, header-only `StashNativeCard.hpp` on Windows). Release artifacts `StashNativeDesktop-<version>-win64.zip` and `StashNativeDesktop-<version>-macos.zip`.
+- Desktop samples (`Desktop/macOS/Sample`, `Desktop/Windows/Sample`) with HMAC link generation and `-stash-auto` proof modes; CI builds, tests and smoke-runs both hosts on every push and PR.
+
+### Changed
+- Version 2.4.0 on iOS and Android as well.
+- Android: checkout and browser URLs accept `http` and `https` only; other schemes are rejected, and the scheme is lowercased for intent-filter matching. iOS applies the same scheme check to `openBrowser`.
+- Android: internal broadcasts are protected by a signature permission (`${applicationId}.permission.STASH_NATIVE_INTERNAL`) declared in the AAR manifest. Log messages no longer include URLs or exception text, and the R8 keep rule for the Custom Tabs helper is narrowed to the two methods reached by reflection.
+- Android: dropped the AppCompat dependency from the SDK. Standalone AAR integrations now declare `androidx.core` and `androidx.webkit` (see README); `androidx.browser` stays optional. CI builds minimal AAR consumers with R8 against current, older, and absent Browser libraries.
+- iOS: `openCard` with a `nil` config uses the default `StashNativeCardConfig` values instead of keeping the previous session's sizing and flags.
+- iOS: framework `CFBundleShortVersionString` is derived from `MARKETING_VERSION`, kept at 2.4.0.
+- iOS: the overlay dismiss area exposes a "Close checkout" accessibility label.
+- Android sample: credentials are stored encrypted with Android Keystore and excluded from backup, imports are validated before saving, stale requests are cancelled, and sliders are labelled for accessibility.
+- iOS sample: sliders expose labels and values to VoiceOver, and action buttons have accessible names and touch targets of at least 44 points.
+
+### Fixed
+- Android: bridge events, popup callbacks, and cleanup are bound to their own checkout session, so a replaced or dismissed checkout no longer receives or fires callbacks for a later one.
+- iOS: queued closes and Safari dismissal are guarded against a replacement checkout, and the portrait-poll retention is removed.
+
 ## [2.3.1] - 2026-09-03
 
 ### Added

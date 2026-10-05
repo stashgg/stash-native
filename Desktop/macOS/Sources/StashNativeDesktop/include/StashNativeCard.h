@@ -1,0 +1,232 @@
+//
+//  StashNativeCard.h
+//  StashNativeDesktop
+//
+//  Native macOS SDK for Stash Native checkout integration: one card surface, opened with
+//  openCard or openBrowser, configured by StashNativeCardConfig, with the same delegate callbacks
+//  as the iOS SDK.
+//
+
+#import <Foundation/Foundation.h>
+#import <AppKit/AppKit.h>
+
+NS_ASSUME_NONNULL_BEGIN
+
+/** How a card is presented on desktop. */
+typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
+    /** Overlaid on the host window. */
+    StashNativeCardPresentationAttached = 0,
+    /** A standalone top-level window. */
+    StashNativeCardPresentationWindow = 1,
+};
+
+/**
+ * Configuration for card presentation (openCard). Width and height size the card (480 x 720 pt
+ * by default), clamped to the host window.
+ */
+@interface StashNativeCardConfig : NSObject
+
+/** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure (callbacks still fire). Default YES. */
+@property (nonatomic, assign) BOOL autoClose;
+/** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for card background. Omit for default Stash theme. */
+@property (nonatomic, copy, nullable) NSString *backgroundColor;
+/** Whether the close button, backdrop click, Esc and the standalone window's close control can dismiss the card. Default YES. */
+@property (nonatomic, assign) BOOL allowDismiss;
+/** Attached over the host window or a standalone window. Default Attached. */
+@property (nonatomic, assign) StashNativeCardPresentation presentation;
+/** Card width in points. 0, non-positive or non-finite means the 480 pt default. */
+@property (nonatomic, assign) CGFloat width;
+/** Card height in points. 0, non-positive or non-finite means the 720 pt default. */
+@property (nonatomic, assign) CGFloat height;
+
+/**
+ * Creates a default card configuration.
+ */
+- (instancetype)init;
+
+@end
+
+/**
+ * Protocol for receiving StashNativeCard events. All methods are called on the main thread.
+ */
+@protocol StashNativeCardDelegate <NSObject>
+
+@optional
+
+/**
+ * Called when a payment completes successfully.
+ *
+ * @param order Optional string from \c window.stash_sdk.onPaymentSuccess(order) (plain or JSON
+ *     string). \c nil when the page omits the argument or passes an empty string.
+ */
+- (void)stashNativeCardDidCompletePaymentWithOrder:(nullable NSString *)order
+    NS_SWIFT_NAME(stashNativeCardDidCompletePayment(withOrder:));
+
+/**
+ * Called when a payment completes successfully (legacy; prefer \c stashNativeCardDidCompletePaymentWithOrder: when you need order data).
+ */
+- (void)stashNativeCardDidCompletePayment;
+
+/**
+ * Called when a payment fails.
+ */
+- (void)stashNativeCardDidFailPayment;
+
+/**
+ * Called when the checkout dialog is dismissed by the user, or when the embedded page calls window.close().
+ */
+- (void)stashNativeCardDidDismiss;
+
+/**
+ * Called when an opt-in response is received.
+ * @param optinType The type of opt-in response
+ */
+- (void)stashNativeCardDidReceiveOptIn:(NSString *)optinType;
+
+/**
+ * Called when the checkout page finishes loading.
+ * @param loadTimeMs The page load time in milliseconds
+ */
+- (void)stashNativeCardDidLoadPage:(double)loadTimeMs;
+
+/**
+ * Called when the checkout could not be shown: no network connection, a load failure, an HTTP
+ * error or a download response before the first page finished, the 15 second timeout, a
+ * policy block before the first page, or a web-content process death that the one automatic
+ * reload could not recover from (which can happen after stashNativeCardDidLoadPage:).
+ * The dialog is automatically dismissed before this callback is invoked.
+ */
+- (void)stashNativeCardDidEncounterNetworkError;
+
+/**
+ * Called when the checkout page calls \c window.stash_sdk.openExternalBrowser(url). The SDK closes the
+ * checkout without invoking \c stashNativeCardDidDismiss, then opens the URL in the system browser
+ * (same behavior as \c -openBrowserWithURL:). The \c url string includes the theme query parameter.
+ */
+- (void)stashNativeCardDidRequestExternalPaymentWithURL:(NSString *)url
+    NS_SWIFT_NAME(stashNativeCardDidRequestExternalPayment(with:));
+
+@end
+
+/**
+ * StashNativeCard - Native macOS SDK for Stash Native checkout integration.
+ *
+ * The checkout is presented as a card over the host window's content, with the app still
+ * rendering underneath. Use the shared instance from the main thread.
+ *
+ * @code
+ * StashNativeCard *stashNative = [StashNativeCard sharedInstance];
+ * stashNative.delegate = self;
+ * [stashNative openCardWithURL:@"https://your-checkout-url.com" config:nil];
+ * @endcode
+ *
+ * Threading and callback contract: every call goes on the main thread. Delegate methods and
+ * the C ABI callback are delivered on the main thread through a dispatch_async, so they arrive
+ * after the WebKit callback that produced them has unwound, never re-entrantly. target=_blank,
+ * window.open and openLink open the system browser and the checkout stays presented;
+ * externalPayment closes it. A non-web URL from the page goes to the OS as a deeplink.
+ * Full guide: docs/macos.md in the stash-native repository.
+ */
+@interface StashNativeCard : NSObject
+
+/**
+ * The delegate to receive StashNativeCard events.
+ */
+#if __has_feature(objc_arc)
+@property (nonatomic, weak, nullable) id<StashNativeCardDelegate> delegate;
+#else
+@property (nonatomic, assign, nullable) id<StashNativeCardDelegate> delegate;
+#endif
+
+/**
+ * Window the card is presented over. Optional: when nil the key window (then the main window)
+ * is used. Set it when the app has several windows or presents from a non-key window.
+ */
+@property (nonatomic, weak, nullable) NSWindow *hostWindow;
+
+/**
+ * Checks if a checkout card is currently displayed.
+ */
+@property (nonatomic, readonly) BOOL isCurrentlyPresented;
+
+/**
+ * Checks if a purchase is currently being processed.
+ * When YES, the checkout dialog cannot be dismissed by the user.
+ */
+@property (nonatomic, readonly) BOOL isPurchaseProcessing;
+
+/**
+ * Gets the shared singleton instance of StashNativeCard.
+ */
++ (instancetype)sharedInstance;
+
+/**
+ * Returns the SDK version string (e.g. "2.4.0").
+ */
++ (NSString *)sdkVersion;
+
+/**
+ * Enables remote inspection (Safari Web Inspector) of the SDK's checkout webviews. Off by default.
+ * When enabled, checkout WKWebViews are created with \c inspectable = YES on macOS 13.3+.
+ *
+ * Intended for debug/QA builds and automated UI testing only. Do NOT enable in production.
+ * Set before opening any checkout.
+ *
+ * @param enabled YES to make the SDK's webviews inspectable
+ */
++ (void)setInspectableWebViewsEnabled:(BOOL)enabled;
+
+/**
+ * Whether webview inspection is enabled. Default NO.
+ */
++ (BOOL)isInspectableWebViewsEnabled;
+
+/**
+ * Opens a URL in a card over the host window.
+ *
+ * Pass nil for config to use default sizing and behavior.
+ *
+ * @param url The URL to load in the card
+ * @param config Card behavior configuration (nil for defaults)
+ */
+- (void)openCardWithURL:(NSString *)url config:(nullable StashNativeCardConfig *)config NS_SWIFT_NAME(openCard(withURL:config:));
+
+/**
+ * Opens a card with the JSON config the game-engine wrappers send (see docs/macos.md). Keys:
+ * \c autoClose, \c allowDismiss, \c backgroundColor, \c presentation ("attached" or "window"),
+ * \c width, \c height and \c allowFileUrls. Unknown keys are ignored. nil or empty for defaults.
+ */
+- (void)openCardWithURL:(NSString *)url configJSON:(nullable NSString *)configJSON NS_SWIFT_NAME(openCard(withURL:configJSON:));
+
+/**
+ * Dismisses any currently displayed checkout dialog. Invokes \c stashNativeCardDidDismiss.
+ */
+- (void)dismiss;
+
+/**
+ * Resets the presentation state and dismisses any displayed dialog without callbacks.
+ */
+- (void)resetPresentationState;
+
+/**
+ * Opens a URL in the system browser. There is no browser-closed callback on desktop.
+ *
+ * @param url The URL to open in the browser
+ */
+- (void)openBrowserWithURL:(NSString *)url;
+
+/**
+ * Creates the web content processes and a hidden webview ahead of time so the first checkout
+ * opens instantly. Optional; call once at app start.
+ */
+- (void)prewarm;
+
+/**
+ * Releases the prewarmed webview and any presented checkout without callbacks. Call at app
+ * termination. The SDK can be used again afterwards.
+ */
+- (void)shutdown;
+
+@end
+
+NS_ASSUME_NONNULL_END

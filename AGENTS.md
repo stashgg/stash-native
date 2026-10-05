@@ -1,6 +1,6 @@
 # Stash Native SDK project rules
 
-Stash Native hosts checkout web content in native card, modal, and browser presentations. Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
+Stash Native hosts checkout web content in native card, modal, and browser presentations (desktop has the card and browser only). Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
 
 ## Temporary files
 
@@ -10,8 +10,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 - iOS: Objective-C `StashNativeCard` singleton with focused Configs, Geometry, Theme, ViewUtils, Internal, ViewControllers, and WebViewDelegates units. Shared state is defined in `StashNativeCard.m` and declared in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
 - Android: Java `StashNativeCard` facade, internal `StashNativeCardPlugin`, and portrait checkout activity. Package-private `Stash*Support` and sizing helpers contain extracted logic; mutable state stays with its activity/plugin owner. Distribution uses an AAR.
-- Desktop, when present: `Desktop/shared` contains the C++17 session, configuration, URL, theme, JSON, and JS bridge contract. The macOS host uses Objective-C++/AppKit/WKWebView with a Swift sample; Windows uses C++/Win32/WebView2 with a C++ sample. Both export `Desktop/include/StashNativeDesktop.h` through a bundle or DLL.
-- Desktop development currently lives on `desktop/*` branches, with the combined implementation on `desktop/integration`. Discover the actual files and resolve refs before treating desktop as absent or using a branch's documentation.
+- Desktop: `Desktop/shared` contains the C++17 session, configuration, URL, theme, JSON, and JS bridge contract. The macOS host uses Objective-C++/AppKit/WKWebView with a Swift sample; Windows uses C++/Win32/WebView2 with a C++ sample. Both export `Desktop/include/StashNativeDesktop.h` through a bundle or DLL.
 - `window.stash_sdk` is the shared page contract; `docs/stash-sdk-js.md` describes it. Read documentation from the same revision as the implementation being examined.
 
 ## Compatibility requirements
@@ -36,7 +35,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 - Mobile card and modal ratios clamp to `[0.1, 1.0]`, including non-finite inputs. iOS applies runtime normalization; constructor defaults alone are not validation.
 - Popup multipliers legitimately exceed `1.0`. Validate positive, finite values using popup-specific fallbacks instead of the card/modal clamp.
 - Respect iOS safe areas through the view helpers and Android system insets through `StashWindowCompat` and its fallback chain.
-- Desktop accepts mobile configuration fields for wrapper compatibility, but uses its own surface sizing policy. Do not impose mobile ratio-driven layout, portrait behavior, or popup APIs on desktop.
+- Desktop parses seven config keys (`autoClose`, `allowDismiss`, `backgroundColor`, `allowFileUrls`, `presentation`, `width`, `height`) and ignores the rest, which keeps wrappers that still send mobile fields working. It uses its own surface sizing policy (`width` / `height`). Do not impose mobile ratio-driven layout, portrait behavior, modal, or popup APIs on desktop.
 - Android card resize currently uses per-frame layout updates. The previous audit guidance records this as an accepted cost after an unsuccessful pin-and-clip approach. Preserve that context; new regressions still need evidence and measurement.
 
 ### Android integration
@@ -76,7 +75,7 @@ When releasing, keep version declarations and artifacts aligned within that rele
 
 - iOS `+sdkVersion` in `StashNativeCard.m` and relevant bundle metadata.
 - Android `SDK_VERSION` in `StashNativeCard.java`.
-- Desktop `STASH_NATIVE_DESKTOP_VERSION` in `Desktop/include/StashNativeDesktopVersion.h`, when present.
+- Desktop `STASH_NATIVE_DESKTOP_VERSION` in `Desktop/include/StashNativeDesktopVersion.h`.
 - Changelog and release-workflow version gates.
 
 Different development branches may intentionally carry different release versions; a mixed-revision audit must say so.

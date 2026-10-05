@@ -1,0 +1,6 @@
+build/
+build-*/
+webview2/
+*.pdb
+*.obj
+.vs/
