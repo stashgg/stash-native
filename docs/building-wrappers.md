@@ -21,7 +21,7 @@ The following repositories are maintained as first-party wrappers around this li
 | Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal) | Unreal Engine 5.0+ |
 | Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27+ |
 
-The same table appears under [Game Engine Wrappers](../README.md#wrappers) in the root README.
+The same table appears under [Game Engine Wrappers](../README.md#game-engine-wrappers) in the root README.
 
 ## End-to-End Flow
 
@@ -72,7 +72,7 @@ flowchart LR
 
 ### Android
 
-- Package the AAR and add Gradle dependencies required by the host app (for example `androidx.appcompat` as in the [README](../README.md)). `androidx.browser` is optional: add it if you want Chrome Custom Tabs for external URLs; otherwise the SDK opens the system browser.
+- Package the AAR with `androidx.core` and `androidx.webkit` as in the [README](../README.md). AppCompat is not required by the SDK. `androidx.browser` is optional: add it if you want Chrome Custom Tabs for external URLs; otherwise the SDK opens the system browser.
 - Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, and open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`). Custom Tabs results are handled internally by the SDK's proxy activity; no `onActivityResult` forwarding is needed.
 - If the engine launches checkout from native plugin code, ensure the JNI or C# layer obtains the current `Activity` from the engine’s Android entry point.
 

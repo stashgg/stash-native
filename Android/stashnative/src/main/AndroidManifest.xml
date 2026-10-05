@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
+    <permission
+        android:name="${applicationId}.permission.STASH_NATIVE_INTERNAL"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="${applicationId}.permission.STASH_NATIVE_INTERNAL" />
 
     <application>
         <!--

@@ -43,9 +43,34 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         || fabs(a.origin.x - b.origin.x) > 0.5 || fabs(a.origin.y - b.origin.y) > 0.5;
 }
 
+static BOOL stashAccessibilityDismissCheckout(void) {
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    if (internal.isPurchaseProcessing || (_useModalPresentation && !_modalAllowDismiss)) return NO;
+    if (!internal.currentPresentedVC) return NO;
+    [[StashNativeCard sharedInstance] dismiss];
+    return YES;
+}
+
 #pragma mark - DragTrayView
 
 @implementation DragTrayView
+
+- (BOOL)isAccessibilityElement { return YES; }
+- (NSString *)accessibilityLabel { return @"Checkout size"; }
+- (UIAccessibilityTraits)accessibilityTraits { return UIAccessibilityTraitAdjustable; }
+- (NSString *)accessibilityValue { return _isCardExpanded ? @"Expanded" : @"Collapsed"; }
+- (void)accessibilityIncrement {
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    if (!internal.isPurchaseProcessing && !_cardIsInLandscape) {
+        [internal animateExpandWithDuration:kAnimationDurationDefault completion:nil];
+    }
+}
+- (void)accessibilityDecrement {
+    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
+    if (!internal.isPurchaseProcessing && !_cardIsInLandscape) {
+        [internal animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
+    }
+}
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
     UIView *handleView = [self viewWithTag:kDragHandleViewTag];
@@ -65,6 +90,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 #pragma mark - IPhoneCardViewController
 
 @implementation IPhoneCardViewController
+
+- (BOOL)accessibilityPerformEscape {
+    return stashAccessibilityDismissCheckout();
+}
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskPortrait;
@@ -127,6 +156,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 #pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
 
 @implementation IPhoneCardCurrentOrientationViewController
+
+- (BOOL)accessibilityPerformEscape {
+    return stashAccessibilityDismissCheckout();
+}
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
     if (self.lockedOrientationMask != 0) {
@@ -238,6 +271,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 @implementation IPadModalViewController
 
+- (BOOL)accessibilityPerformEscape {
+    return stashAccessibilityDismissCheckout();
+}
+
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskAll;
 }
@@ -282,6 +319,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 #pragma mark - ModalViewController (Window-based modal, no portrait lock; same pattern as iPad checkout)
 
 @implementation ModalViewController
+
+- (BOOL)accessibilityPerformEscape {
+    return stashAccessibilityDismissCheckout();
+}
 
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
     return UIInterfaceOrientationMaskAll;
@@ -349,6 +390,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
 
 @implementation OrientationLockedViewController
 
+- (BOOL)accessibilityPerformEscape {
+    return stashAccessibilityDismissCheckout();
+}
+
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
     [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
     
@@ -381,16 +426,10 @@ static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
         return;
     }
     
-    CGRect containerBounds = self.view.bounds;
     UIWindow *cardWindow = self.view.window;
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
-    
-    if (cardWindow && !CGRectEqualToRect(cardWindow.frame, screenBounds)) {
-        cardWindow.frame = screenBounds;
-    }
-    
-    // Use container view bounds for overlay so it stays in sync during rotation
-    // (screen bounds can swap at a different time than the view hierarchy, causing rotation artifacts)
+    if (!cardWindow) return;
+    CGRect containerBounds = cardWindow.bounds;
+
     UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
     if (overlayView && !CGRectEqualToRect(overlayView.frame, containerBounds)) {
         overlayView.frame = containerBounds;

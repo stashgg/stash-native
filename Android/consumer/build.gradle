@@ -1,0 +1,46 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Minimal Java host for the standalone AAR installation contract.
+android {
+    namespace 'com.stash.stashnative.consumer'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.stash.stashnative.consumer'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    flavorDimensions 'browser'
+    productFlavors {
+        current { dimension 'browser' }
+        legacy { dimension 'browser' }
+        absent { dimension 'browser' }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    // Use the built AAR, so sample or project dependencies cannot hide missing installation steps.
+    implementation files(project(':stashnative').layout.buildDirectory.file('outputs/aar/stashnative-release.aar'))
+        .builtBy(':stashnative:assembleRelease')
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    currentImplementation 'androidx.browser:browser:1.7.0'
+    legacyImplementation 'androidx.browser:browser:1.3.0'
+}

@@ -13,6 +13,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 
 /**
@@ -152,6 +153,7 @@ public class StashKeepAliveService extends Service {
 
   // Android 14+ ends shortService after ~3 minutes via this callback; not stopping here
   // crashes the host app with ForegroundServiceDidNotStopInTimeException.
+  @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
   @Override
   public void onTimeout(int startId) {
     try {

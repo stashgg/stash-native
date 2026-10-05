@@ -1,3 +1,4 @@
 rootProject.name = 'StashNative'
 include ':stashnative'
 include ':sample'
+include ':consumer'

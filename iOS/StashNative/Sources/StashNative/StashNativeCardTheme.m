@@ -68,6 +68,8 @@ static UIColor *stash_parseHTMLHexColor(NSString *hex) {
     if ([s hasPrefix:@"#"]) {
         s = [s substringFromIndex:1];
     }
+    NSCharacterSet *nonHex = [[NSCharacterSet characterSetWithCharactersInString:@"0123456789abcdef"] invertedSet];
+    if ([s rangeOfCharacterFromSet:nonHex].location != NSNotFound) return nil;
     unsigned r = 0, g = 0, b = 0, a = 255;
     if (s.length == 3) {
         for (NSInteger i = 0; i < 3; i++) {
@@ -92,7 +94,7 @@ static UIColor *stash_parseHTMLHexColor(NSString *hex) {
     } else if (s.length == 6) {
         unsigned value = 0;
         NSScanner *scanner = [NSScanner scannerWithString:s];
-        if (![scanner scanHexInt:&value] || value > 0xFFFFFF) {
+        if (![scanner scanHexInt:&value] || !scanner.isAtEnd || value > 0xFFFFFF) {
             return nil;
         }
         r = (value >> 16) & 0xFF;

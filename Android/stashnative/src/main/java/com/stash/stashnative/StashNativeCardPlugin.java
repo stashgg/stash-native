@@ -66,6 +66,8 @@ public class StashNativeCardPlugin {
   
   /** Accessed from UI and JS threads; volatile for visibility. */
   volatile boolean isCurrentlyPresented;
+  /** Identifies callbacks and cleanup belonging to the admitted presentation. */
+  volatile long presentationSessionId;
   /**
    * True only when checkout used a separate WebView OS process. With the default manifest,
    * {@link StashNativeCardPortraitActivity} runs in the host app process (required for Unity and
@@ -279,7 +281,8 @@ public class StashNativeCardPlugin {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         app.registerReceiver(checkoutBridgeReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
       } else {
-        app.registerReceiver(checkoutBridgeReceiver, filter);
+        app.registerReceiver(checkoutBridgeReceiver, filter,
+            app.getPackageName() + ".permission.STASH_NATIVE_INTERNAL", null);
       }
       checkoutBridgeReceiverRegistered = true;
       registeredAppContext = app;
@@ -290,6 +293,11 @@ public class StashNativeCardPlugin {
   }
 
   private void dispatchCheckoutBridgeIntent(String action, Intent intent) {
+    if (!isCurrentlyPresented
+        || intent.getLongExtra(StashCheckoutBridge.EXTRA_SESSION_ID, 0L)
+            != presentationSessionId) {
+      return;
+    }
     StashNativeCard.StashNativeCardListener l = getListener();
     try {
       if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
@@ -314,6 +322,7 @@ public class StashNativeCardPlugin {
       if (!isPaymentEvent || willClose) {
         presentationUsesIsolatedWebviewProcess = false;
         isCurrentlyPresented = false;
+        portraitActivityRef = null;
       }
       if (l == null) {
         return;
@@ -352,15 +361,25 @@ public class StashNativeCardPlugin {
    * Used by JS interface handlers to avoid duplicating post + listener + dismiss logic.
    */
   void runOnMainAndDismiss(Runnable beforeDismiss) {
+    final long session = presentationSessionId;
+    final Dialog dialog = currentDialog;
     new Handler(Looper.getMainLooper()).post(() -> {
+      if (presentationSessionId != session || currentDialog != dialog || dialog == null) {
+        return;
+      }
       try {
+        isCurrentlyPresented = false;
         if (beforeDismiss != null) {
           beforeDismiss.run();
         }
-        dismissCurrentDialog();
+        if (presentationSessionId == session && currentDialog == dialog) {
+          dismissCurrentDialog();
+        }
       } catch (Exception e) {
         Log.w(TAG, "Error in runOnMainAndDismiss: " + e.getMessage(), e);
-        cleanupAllViews();
+        if (presentationSessionId == session) {
+          cleanupAllViews();
+        }
       }
     });
   }
@@ -671,6 +690,13 @@ public class StashNativeCardPlugin {
    * @param config card sizing config or null for defaults
    */
   public void openCard(String url, StashNativeCard.CardConfig config) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(() -> openCard(url, config));
+      return;
+    }
+    if (!beginPresentation(url)) {
+      return;
+    }
     try {
       if (config != null) {
         this.forcePortraitOnCheckout = config.forcePortrait;
@@ -715,12 +741,10 @@ public class StashNativeCardPlugin {
   public void openBrowser(String url) {
     try {
       Activity activity = getActivity();
-      if (activity == null || url == null || url.isEmpty()) {
+      url = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+      if (activity == null || url == null) {
         Log.e(TAG, "Invalid activity or URL for openBrowser");
         return;
-      }
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        url = "https://" + url;
       }
       try {
         url = StashWebViewUtils.appendThemeQueryParameter(url,
@@ -751,6 +775,13 @@ public class StashNativeCardPlugin {
    * @param url checkout URL to load
    */
   public void openPopup(String url) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(() -> openPopup(url));
+      return;
+    }
+    if (!beginPresentation(url)) {
+      return;
+    }
     try {
       usePopupPresentation = true;
       useModalPresentation = false;
@@ -774,6 +805,14 @@ public class StashNativeCardPlugin {
   public void openPopupWithSize(String url, float portraitWidthMultiplier,
       float portraitHeightMultiplier, float landscapeWidthMultiplier,
       float landscapeHeightMultiplier) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(() -> openPopupWithSize(url, portraitWidthMultiplier,
+          portraitHeightMultiplier, landscapeWidthMultiplier, landscapeHeightMultiplier));
+      return;
+    }
+    if (!beginPresentation(url)) {
+      return;
+    }
     try {
       usePopupPresentation = true;
       useModalPresentation = false;
@@ -796,6 +835,13 @@ public class StashNativeCardPlugin {
    * @param config modal config or null for defaults
    */
   public void openModal(String url, StashNativeCard.ModalConfig config) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(() -> openModal(url, config));
+      return;
+    }
+    if (!beginPresentation(url)) {
+      return;
+    }
     try {
       usePopupPresentation = false;
       useModalPresentation = true;
@@ -824,7 +870,7 @@ public class StashNativeCardPlugin {
     // directly so teardown does not depend on the host activity still being reachable (it may be
     // GC'd under memory pressure while the checkout is still up).
     StashNativeCardPortraitActivity portrait =
-        portraitActivityRef != null ? portraitActivityRef.get() : null;
+        getPortraitActivity();
     if (portrait != null) {
       portrait.runOnUiThread(portrait::dismissWithAnimation);
     }
@@ -843,6 +889,11 @@ public class StashNativeCardPlugin {
     portraitActivityRef = new WeakReference<>(activity);
   }
 
+  private StashNativeCardPortraitActivity getPortraitActivity() {
+    WeakReference<StashNativeCardPortraitActivity> reference = portraitActivityRef;
+    return reference != null ? reference.get() : null;
+  }
+
   void clearPortraitActivity(StashNativeCardPortraitActivity activity) {
     if (portraitActivityRef != null && portraitActivityRef.get() == activity) {
       portraitActivityRef = null;
@@ -853,14 +904,19 @@ public class StashNativeCardPlugin {
    * Resets presentation state and dismisses any dialog.
    */
   public void resetPresentationState() {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(this::resetPresentationState);
+      return;
+    }
     try {
+      presentationSessionId++;
       // Card/modal: finish the activity WITHOUT emitting onDialogDismissed (reset is silent).
       StashNativeCardPortraitActivity a =
-          portraitActivityRef != null ? portraitActivityRef.get() : null;
+          getPortraitActivity();
       if (a != null) {
         a.runOnUiThread(a::finishForPluginResetWithoutCallbacks);
       }
-      dismissDialog();
+      portraitActivityRef = null;
       paymentSuccessHandled = false;
       presentationUsesIsolatedWebviewProcess = false;
       isCurrentlyPresented = false;
@@ -939,22 +995,39 @@ public class StashNativeCardPlugin {
    * @return true if processing
    */
   public boolean isPurchaseProcessing() {
-    return isPurchaseProcessing;
+    StashNativeCardPortraitActivity portrait =
+        getPortraitActivity();
+    if (!isCurrentlyPresented) {
+      return false;
+    }
+    return portrait != null && portrait.getPresentationSessionId() == presentationSessionId
+        ? portrait.isPurchaseProcessing : isPurchaseProcessing;
+  }
+
+  private boolean beginPresentation(String url) {
+    Activity host = getActivity();
+    if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()
+        || StashWebViewUtils.normalizeExternalPaymentUrl(url) == null) {
+      return false;
+    }
+    // A terminal callback may open again before the previous popup animation finishes.
+    cleanupAllViews();
+    presentationSessionId++;
+    isCurrentlyPresented = true;
+    return true;
   }
   
   private void openUrlInternal(String url) {
     try {
       Activity activity = getActivity();
-      if (activity == null || url == null || url.isEmpty()) {
+      url = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+      if (activity == null || url == null) {
         Log.e(TAG, "Invalid activity or URL");
+        isCurrentlyPresented = false;
         return;
       }
 
       ensureCheckoutBridgeReceiver(activity);
-
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        url = "https://" + url;
-      }
 
       try {
         String bgHex = backgroundColorHexForPresentation();
@@ -1004,6 +1077,7 @@ public class StashNativeCardPlugin {
       Intent intent = new Intent();
       intent.setClassName(activity, StashNativeCardPortraitActivity.class.getName());
       intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
+      intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, presentationSessionId);
       intent.putExtra(CardConstants.INTENT_EXTRA_INITIAL_URL, url);
       intent.putExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT,
           cardHeightRatioPortrait);
@@ -1065,6 +1139,7 @@ public class StashNativeCardPlugin {
       isCurrentlyPresented = true;
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch Activity: " + e.getMessage());
+      isCurrentlyPresented = false;
     }
   }
   
@@ -1099,6 +1174,7 @@ public class StashNativeCardPlugin {
       }
       
       if (currentDialog != null) {
+        currentDialog.setOnDismissListener(null);
         if (currentDialog.isShowing()) {
           currentDialog.dismiss();
         }
@@ -1123,6 +1199,7 @@ public class StashNativeCardPlugin {
       
       if (currentContainer != null) {
         try {
+          currentContainer.animate().setListener(null).withEndAction(null).cancel();
           if (orientationChangeListener != null && currentContainer.getParent() != null) {
             View parent = (View) currentContainer.getParent();
             if (parent.getViewTreeObserver().isAlive()) {
@@ -1145,6 +1222,7 @@ public class StashNativeCardPlugin {
     }
 
     paymentSuccessHandled = false;
+    isCurrentlyPresented = false;
     isPurchaseProcessing = false;
     usePopupPresentation = false;
     useModalPresentation = false;

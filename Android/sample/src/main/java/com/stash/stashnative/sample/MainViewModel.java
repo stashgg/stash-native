@@ -44,6 +44,7 @@ public class MainViewModel extends AndroidViewModel {
   };
 
   private final SharedPreferences prefs;
+  private final CredentialStore credentialStore;
   private final MutableLiveData<List<SettingsItem>> items = new MutableLiveData<>();
 
   /** Which list the RecyclerView currently shows: a bottom-nav tab or an options sub-screen. */
@@ -60,7 +61,7 @@ public class MainViewModel extends AndroidViewModel {
   // Lock the whole app (not just the checkout) to landscape.
   private boolean lockLandscape = false;
 
-  // API keys: named, each production or test; persisted as JSON so Auto Backup restores them.
+  // Credentials stay on this device; explicit exports contain plaintext secrets.
   private final List<ApiKeyEntry> apiKeys = new ArrayList<>();
   private String selectedApiKeyId;
   /** Instance whose details screen (and its payload editors) is currently open. */
@@ -104,6 +105,7 @@ public class MainViewModel extends AndroidViewModel {
   public MainViewModel(Application application) {
     super(application);
     prefs = application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE);
+    credentialStore = new CredentialStore(application);
     loadApiKeys();
     String cardBg = prefs.getString(PREF_CARD_BACKGROUND_HEX, "");
     if (cardBg != null) {
@@ -290,7 +292,10 @@ public class MainViewModel extends AndroidViewModel {
 
   private void loadApiKeys() {
     apiKeys.clear();
-    String json = prefs.getString(PREF_API_KEYS, null);
+    String json = credentialStore.read();
+    if (json == null) {
+      json = prefs.getString(PREF_API_KEYS, null);
+    }
     if (json != null && !json.isEmpty()) {
       try {
         JSONArray arr = new JSONArray(json);
@@ -347,12 +352,20 @@ public class MainViewModel extends AndroidViewModel {
       for (ApiKeyEntry e : apiKeys) {
         arr.put(e.toJson());
       }
-      prefs.edit()
-          .putString(PREF_API_KEYS, arr.toString())
-          .putString(PREF_SELECTED_API_KEY, selectedApiKeyId)
-          .apply();
+      boolean wasSessionOnly = credentialStore.isSessionOnly();
+      if (credentialStore.write(arr.toString())) {
+        prefs.edit().remove(PREF_API_KEYS).remove(PREF_STASH_API_KEY)
+            .putString(PREF_SELECTED_API_KEY, selectedApiKeyId).apply();
+      } else if (!wasSessionOnly) {
+        android.widget.Toast.makeText(getApplication(), R.string.credentials_session_only,
+            android.widget.Toast.LENGTH_LONG).show();
+      }
     } catch (JSONException ignored) {
     }
+  }
+
+  public boolean credentialsAreSessionOnly() {
+    return credentialStore.isSessionOnly();
   }
 
   private ApiKeyEntry findApiKey(String id) {
@@ -513,24 +526,38 @@ public class MainViewModel extends AndroidViewModel {
   public int importInstancesJson(String text) {
     try {
       JSONArray arr = new JSONObject(text != null ? text : "").getJSONArray("instances");
-      int added = 0;
+      List<ApiKeyEntry> imported = new ArrayList<>();
       for (int i = 0; i < arr.length(); i++) {
         JSONObject o = arr.getJSONObject(i);
-        String appId = o.optString("appId").trim();
-        String secret = o.optString("ingressSecret").trim();
+        if (!(o.opt("appId") instanceof String)
+            || !(o.opt("ingressSecret") instanceof String)) {
+          return -1;
+        }
+        String appId = o.getString("appId").trim();
+        String secret = o.getString("ingressSecret").trim();
         if (appId.isEmpty() || secret.isEmpty() || findByCredentials(appId, secret) != null) {
           continue;
         }
         String name = o.optString("name").trim();
         String checkout = o.optString("checkoutPayload");
         String webshop = o.optString("webshopPayload");
-        apiKeys.add(new ApiKeyEntry(newId(), name.isEmpty() ? "Untitled" : name, appId, secret,
+        boolean duplicate = false;
+        for (ApiKeyEntry entry : imported) {
+          if (entry.appId.equals(appId) && entry.key.equals(secret)) {
+            duplicate = true;
+          }
+        }
+        if (duplicate) {
+          continue;
+        }
+        imported.add(new ApiKeyEntry(newId(), name.isEmpty() ? "Untitled" : name, appId, secret,
             o.optBoolean("production", false),
             checkout.isEmpty() ? defaultCheckoutPayload() : checkout,
             webshop.isEmpty() ? defaultWebshopPayload() : webshop));
-        added++;
       }
+      int added = imported.size();
       if (added > 0) {
+        apiKeys.addAll(imported);
         saveApiKeys();
         refreshList();
       }

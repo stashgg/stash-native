@@ -463,23 +463,25 @@ static BOOL stashLivePresentationBlocksOpen(void) {
         return;
     }
 
-    _autoCloseOnPaymentEvent = config ? config.autoClose : YES;
-
-    if (config) {
-        _forcePortraitOnCheckout = config.forcePortrait;
-        _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
-        _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
-        _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
-        _tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
-        _tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
-        _tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
-        _tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
-        NSString *ch = config.backgroundColor;
-        ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
-        _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
-    } else {
-        _presentationBackgroundColorHex = nil;
+    if (!config) {
+        config = [[StashNativeCardConfig alloc] init];
+#if !__has_feature(objc_arc)
+        [config autorelease];
+#endif
     }
+    _autoCloseOnPaymentEvent = config.autoClose;
+
+    _forcePortraitOnCheckout = config.forcePortrait;
+    _cardHeightRatioPortrait = stashClampRatio(config.cardHeightRatioPortrait);
+    _cardWidthRatioLandscape = stashClampRatio(config.cardWidthRatioLandscape);
+    _cardHeightRatioLandscape = stashClampRatio(config.cardHeightRatioLandscape);
+    _tabletWidthRatioPortrait = stashClampRatio(config.tabletWidthRatioPortrait);
+    _tabletHeightRatioPortrait = stashClampRatio(config.tabletHeightRatioPortrait);
+    _tabletWidthRatioLandscape = stashClampRatio(config.tabletWidthRatioLandscape);
+    _tabletHeightRatioLandscape = stashClampRatio(config.tabletHeightRatioLandscape);
+    NSString *ch = config.backgroundColor;
+    ch = ch ? [ch stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] : nil;
+    _presentationBackgroundColorHex = (ch.length > 0) ? [ch copy] : nil;
 
     _usePopupPresentation = NO;
     _useModalPresentation = NO;
@@ -491,7 +493,8 @@ static BOOL stashLivePresentationBlocksOpen(void) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self openBrowserWithURL:url]; });
         return;
     }
-    if (url == nil || url.length == 0) {
+    url = NormalizeExternalPaymentURL(url);
+    if (!url) {
         return;
     }
     _safariOpenedViaOpenBrowser = YES;
@@ -638,6 +641,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
     SFSafariViewController *safariVC = [[SFSafariViewController alloc] initWithURL:nsurl];
     safariVC.delegate = [StashNativeCardInternal sharedInstance];
     [StashNativeCardInternal sharedInstance].currentSafariViewController = safariVC;
+    [StashNativeCardInternal sharedInstance].isDismissingSafari = NO;
 
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     // A live card must be torn down before Safari takes the window; keep the window alive for
@@ -1150,6 +1154,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
             // Add tap-to-dismiss on overlay
             UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
             dismissButton.frame = overlayView.bounds;
+            dismissButton.accessibilityLabel = @"Close checkout";
             dismissButton.backgroundColor = [UIColor clearColor];
             dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
             [overlayView addSubview:dismissButton];
@@ -1350,6 +1355,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
     } completion:^(BOOL finished) {
         UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
         dismissButton.frame = overlayView.bounds;
+        dismissButton.accessibilityLabel = @"Close checkout";
         dismissButton.backgroundColor = [UIColor clearColor];
         dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
         [overlayView addSubview:dismissButton];
@@ -1485,6 +1491,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
         } completion:^(BOOL finished) {
             UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
             dismissButton.frame = overlayView.bounds;
+            dismissButton.accessibilityLabel = @"Close checkout";
             dismissButton.backgroundColor = [UIColor clearColor];
             dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
             [overlayView addSubview:dismissButton];
@@ -1609,6 +1616,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
             if (_modalAllowDismiss) {
                 UIButton *dismissButton = [UIButton buttonWithType:UIButtonTypeCustom];
                 dismissButton.frame = overlayView.bounds;
+                dismissButton.accessibilityLabel = @"Close checkout";
                 dismissButton.backgroundColor = [UIColor clearColor];
                 dismissButton.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
                 [overlayView addSubview:dismissButton];
@@ -2040,31 +2048,35 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 
     // Programmatic dismissal does not invoke safariViewControllerDidFinish:; run the shared
     // teardown here so the presentation state and any portrait window/orientation lock are reset.
+    BOOL notifyBrowserClose = _safariBrowserCloseDelegatePending;
+    _safariBrowserCloseDelegatePending = NO;
+    id<StashNativeCardDelegate> delegate = self.delegate;
     [internal tearDownSafariPresentationState];
 
-    if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidDismiss)]) {
-        [self.delegate stashNativeCardDidDismiss];
+    if ([delegate respondsToSelector:@selector(stashNativeCardDidDismiss)]) {
+        [delegate stashNativeCardDidDismiss];
     }
-    if (_safariBrowserCloseDelegatePending) {
-        _safariBrowserCloseDelegatePending = NO;
-        if (self.delegate && [self.delegate respondsToSelector:@selector(stashNativeCardDidCloseBrowser)]) {
-            [self.delegate stashNativeCardDidCloseBrowser];
-        }
+    if (notifyBrowserClose && [delegate respondsToSelector:@selector(stashNativeCardDidCloseBrowser)]) {
+        [delegate stashNativeCardDidCloseBrowser];
     }
 }
 
 - (void)dismissSafariViewController {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (internal.currentSafariViewController) {
-        [internal.currentSafariViewController dismissViewControllerAnimated:YES completion:^{
-            [self didFinishSafariDismiss];
+    SFSafariViewController *closing = internal.currentSafariViewController;
+    if (closing && !internal.isDismissingSafari) {
+        internal.isDismissingSafari = YES;
+        [closing dismissViewControllerAnimated:YES completion:^{
+            if (internal.currentSafariViewController == closing) [self didFinishSafariDismiss];
         }];
     }
 }
 
 - (void)dismissSafariViewControllerWithResult:(BOOL)success {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (internal.currentSafariViewController) {
+    SFSafariViewController *closing = internal.currentSafariViewController;
+    if (closing && !internal.isDismissingSafari) {
+        internal.isDismissingSafari = YES;
         if (success) {
             if ([self.delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
                 [self.delegate stashNativeCardDidCompletePaymentWithOrder:nil];
@@ -2076,8 +2088,9 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
                 [self.delegate stashNativeCardDidFailPayment];
             }
         }
-        [internal.currentSafariViewController dismissViewControllerAnimated:YES completion:^{
-            [self didFinishSafariDismiss];
+        if (internal.currentSafariViewController != closing) return;
+        [closing dismissViewControllerAnimated:YES completion:^{
+            if (internal.currentSafariViewController == closing) [self didFinishSafariDismiss];
         }];
     }
 }

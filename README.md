@@ -14,9 +14,9 @@ The stash-native package makes it simple to add Stash in-app purchases (IAPs) an
 
 **Overview**
 
-- [Game engine wrappers](#wrappers)
+- [Game engine wrappers](#game-engine-wrappers)
 - [Downloads](#downloads)
-- [Sample apps](#sample-apps)
+- [Sample apps](#sample-apps--testing)
 
 **Setup**
 
@@ -90,11 +90,18 @@ Stash also host a test card on https://test.stashpreview.com/ that can be used w
 ```groovy
 dependencies {
     implementation files('libs/StashNative-<tag>.aar')
-    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
     // Also include androidx.browser for Chrome Custom Tabs on external checkout flows.
     // implementation 'androidx.browser:browser:1.7.0'
 }
 ```
+
+Standalone AAR files carry no transitive dependency metadata, so include each dependency above.
+Source-module consumers inherit Core and WebKit from the SDK. AppCompat and Material are used
+by the sample app and are not SDK requirements. Core brings the Kotlin runtime transitively;
+the minimal integration needs no explicit Kotlin BOM or Kotlin plugin. See the
+[dependency notes](docs/android.md#dependencies) for host-app version conflicts.
 
 To build the AAR locally: `cd Android && ./gradlew :stashnative:assembleRelease` (output in `stashnative/build/outputs/aar/`).
 
@@ -577,4 +584,3 @@ let version = StashNativeCard.sdkVersion()
 
 - Documentation: [https://docs.stash.gg](https://docs.stash.gg)
 - Email: [developers@stash.gg](mailto:developers@stash.gg)
-

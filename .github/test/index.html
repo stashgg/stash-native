@@ -960,7 +960,13 @@
                             <input type="text" id="sample-input" class="input-focus-ring" placeholder="Sample text input" />
                         </div>
                     </div>
+                    <div class="input-wrap">
+                        <label class="field-label" for="optin-type">Payment channel / opt-in type</label>
+                        <input type="text" id="optin-type" value="test-channel" class="input-focus-ring" />
+                        <p>Expect the native opt-in callback with this value, then checkout closure.</p>
+                    </div>
                     <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerOptIn()">Send opt-in</button>
                         <button type="button" class="btn btn-primary" onclick="triggerSuccess()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
                             <span class="btn-label">Payment Success</span>
@@ -1425,7 +1431,15 @@
             });
         }
 
-        function triggerSuccess() {
+        function triggerOptIn() {
+        if (window.stash_sdk && typeof window.stash_sdk.setPaymentChannel === 'function') {
+            window.stash_sdk.setPaymentChannel(document.getElementById('optin-type').value);
+        } else {
+            alert('The native Stash bridge is unavailable.');
+        }
+    }
+
+    function triggerSuccess() {
             updateStatus('Called: onPaymentSuccess({})');
             if (window.stash_sdk && window.stash_sdk.onPaymentSuccess) {
                 window.stash_sdk.onPaymentSuccess({ orderId: 'test_order_id' });

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Material 3 theme - Google design guidelines -->
-    <style name="Theme.StashNativeDemo" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Base.Theme.StashNativeDemo" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorOnPrimary">@color/on_primary</item>
         <item name="colorPrimaryContainer">@color/primary_container</item>
@@ -12,8 +12,9 @@
         <item name="colorOutline">@color/outline</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">?attr/colorSurface</item>
-        <item name="android:windowLightStatusBar">false</item>
     </style>
+
+    <style name="Theme.StashNativeDemo" parent="Base.Theme.StashNativeDemo" />
 
     <!-- Modal that fills the screen, so long JSON is comfortable to edit (parity with the iOS
          sheet). windowIsFloating=false is what turns a Dialog full-screen. -->
