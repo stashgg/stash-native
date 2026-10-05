@@ -251,11 +251,11 @@ static void testColors() {
     CHECK(theme::effectiveThemeIsDark("#000000", false));
     CHECK(!theme::effectiveThemeIsDark("#FFFFFF", true));
     CHECK(theme::effectiveThemeIsDark("not-a-color", true));
-    CHECK_EQ(theme::sheetBackgroundArgb("", true), theme::kDarkBackgroundArgb);
-    CHECK_EQ(theme::sheetBackgroundArgb("", false), theme::kLightBackgroundArgb);
-    CHECK_EQ(theme::sheetBackgroundArgb("#123", false), 0xFF112233u);
+    CHECK_EQ(theme::cardBackgroundArgb("", true), theme::kDarkBackgroundArgb);
+    CHECK_EQ(theme::cardBackgroundArgb("", false), theme::kLightBackgroundArgb);
+    CHECK_EQ(theme::cardBackgroundArgb("#123", false), 0xFF112233u);
     CHECK_EQ(theme::cssHex(0x80112233), std::string("#112233"));
-    std::string script = theme::darkSheetScript(0xFF1E1E1E);
+    std::string script = theme::darkCardScript(0xFF1E1E1E);
     CHECK(contains(script, "var BG='#1E1E1E'"));
     CHECK(contains(script, "color-scheme"));
 }

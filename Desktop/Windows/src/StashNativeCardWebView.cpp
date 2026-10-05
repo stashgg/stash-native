@@ -45,7 +45,7 @@ struct State {
     bool controllerCreating = false;
     unsigned long sessionId = 0;
     // Document scripts: the bridge script is requested (registered) and confirmed by WebView2
-    // (ready); pendingScripts counts registrations (bridge and dark sheet) whose completion is
+    // (ready); pendingScripts counts registrations (bridge and dark card) whose completion is
     // still outstanding, and a checkout waits for all of them before its first navigation. The
     // generation retires completions from a webview that has since been closed.
     bool sdkScriptRegistered = false;
@@ -59,7 +59,7 @@ struct State {
     std::wstring checkoutUrl;
     bool allowFileUrls = false;
     bool dark = false;
-    uint32_t sheetArgb = 0xFF1E1E1E;
+    uint32_t cardArgb = 0xFF1E1E1E;
     bool initialLoadComplete = false;
     bool firstNavigationDone = false;
     // Navigate() for the checkout has been called: navigation events before that belong to the
@@ -183,7 +183,7 @@ void startCheckoutNavigation();
 
 // AddScriptToExecuteOnDocumentCreated completes asynchronously and a script is only guaranteed
 // on navigations started after its completion. A checkout must not navigate before every
-// registered script (the bridge, the dark sheet) is confirmed, or its first document would
+// registered script (the bridge, the dark card) is confirmed, or its first document would
 // load without window.stash_sdk or without the theme.
 void scriptRegistrationSettled() {
     if (g.pendingScripts > 0 || !g.navigateWhenScriptReady) {
@@ -212,7 +212,7 @@ void registerScript(ICoreWebView2 *webView, const std::string &script, bool isSd
                                        }
                                        g.pendingScripts--;
                                        if (FAILED(result)) {
-                                           debugLog("%s script registration failed hr=0x%08X", isSdk ? "bridge" : "dark sheet",
+                                           debugLog("%s script registration failed hr=0x%08X", isSdk ? "bridge" : "dark card",
                                                     static_cast<unsigned>(result));
                                            if (isSdk) {
                                                g.sdkScriptRegistered = false;
@@ -229,7 +229,7 @@ void registerScript(ICoreWebView2 *webView, const std::string &script, bool isSd
     handler->Release();
     if (FAILED(hr)) {
         // Failed synchronously: the completion never runs, so settle the registration here.
-        debugLog("%s script registration refused hr=0x%08X", isSdk ? "bridge" : "dark sheet", static_cast<unsigned>(hr));
+        debugLog("%s script registration refused hr=0x%08X", isSdk ? "bridge" : "dark card", static_cast<unsigned>(hr));
         g.pendingScripts--;
         if (isSdk) {
             g.sdkScriptRegistered = false;
@@ -503,8 +503,8 @@ void finishControllerSetup() {
     ICoreWebView2Controller2 *controller2 = nullptr;
     if (SUCCEEDED(g.controller->QueryInterface(IID_ICoreWebView2Controller2, reinterpret_cast<void **>(&controller2))) &&
         controller2 != nullptr) {
-        COREWEBVIEW2_COLOR color = {255, static_cast<BYTE>((g.sheetArgb >> 16) & 0xFF), static_cast<BYTE>((g.sheetArgb >> 8) & 0xFF),
-                                    static_cast<BYTE>(g.sheetArgb & 0xFF)};
+        COREWEBVIEW2_COLOR color = {255, static_cast<BYTE>((g.cardArgb >> 16) & 0xFF), static_cast<BYTE>((g.cardArgb >> 8) & 0xFF),
+                                    static_cast<BYTE>(g.cardArgb & 0xFF)};
         controller2->put_DefaultBackgroundColor(color);
         controller2->Release();
     }
@@ -512,7 +512,7 @@ void finishControllerSetup() {
         registerScript(g.webView, STASH_SDK_SCRIPT_WEBVIEW2, true);
     }
     if (g.dark) {
-        registerScript(g.webView, theme::darkSheetScript(g.sheetArgb), false);
+        registerScript(g.webView, theme::darkCardScript(g.cardArgb), false);
     }
     if (!g.wired) {
         wireWebView(g.webView);
@@ -657,13 +657,13 @@ void ensureEnvironment(std::function<void()> onReady, std::function<void()> onFa
     }
 }
 
-void startSession(unsigned long sessionId, const std::string &url, const SurfaceConfig &config, uint32_t sheetArgb, bool dark) {
+void startSession(unsigned long sessionId, const std::string &url, const SurfaceConfig &config, uint32_t cardArgb, bool dark) {
     closeSessionController();
     g.sessionId = sessionId;
     g.checkoutUrl = widen(url);
     g.allowFileUrls = config.allowFileUrls;
     g.dark = dark;
-    g.sheetArgb = sheetArgb;
+    g.cardArgb = cardArgb;
     g.initialLoadComplete = false;
     g.firstNavigationDone = false;
     g.checkoutNavigateCalled = false;

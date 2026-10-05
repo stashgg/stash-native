@@ -28,7 +28,7 @@ enum class StashNativeCardPresentation { Attached, Window };
 struct StashNativeCardConfig {
     // When false the dialog stays open after onPaymentSuccess / onPaymentFailure.
     bool autoClose = true;
-    // Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for the sheet background; empty for the default theme.
+    // Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for the card background; empty for the default theme.
     std::string backgroundColor;
     // Whether the close button, backdrop click, Esc and the standalone window's close control can dismiss the card.
     bool allowDismiss = true;

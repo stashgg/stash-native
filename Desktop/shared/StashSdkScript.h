@@ -1,6 +1,7 @@
-// window.stash_sdk shim for the desktop hosts. Mirror of the 2.3.0 mobile script
-// (Android StashWebViewUtils.JS_SDK_SCRIPT, iOS stashSDKScript in StashNativeCard.m); spec of
-// record is docs/stash-sdk-js.md. Changes here MUST be mirrored on mobile and documented there.
+// window.stash_sdk shim for the desktop hosts. The bridge is a cross-SDK contract: it must stay
+// in step with the injected scripts of the iOS (stashSDKScript in StashNativeCard.m) and Android
+// (StashWebViewUtils.JS_SDK_SCRIPT) SDKs; spec of record is docs/stash-sdk-js.md. A change here
+// MUST be mirrored in both and documented there.
 //
 // One body, one per-OS transport prelude: WKWebView posts to window.webkit.messageHandlers[name],
 // WebView2 posts {type, data} to window.chrome.webview. Every bridge call is wrapped in try/catch
@@ -74,11 +75,11 @@
 #define STASH_SDK_SCRIPT_WEBKIT   STASH_SDK_SCRIPT_WITH_PRELUDE(STASH_SDK_SCRIPT_PRELUDE_WEBKIT)
 #define STASH_SDK_SCRIPT_WEBVIEW2 STASH_SDK_SCRIPT_WITH_PRELUDE(STASH_SDK_SCRIPT_PRELUDE_WEBVIEW2)
 
-// Dark sheet: pins html/body to the sheet colour and color-scheme like iOS (StashNativeCardTheme.m).
-// %s-free on purpose: hosts splice the hex in with StashDesktopTheme::darkSheetScript().
-#define STASH_SDK_DARK_SHEET_SCRIPT_PREFIX \
+// Dark card: pins html/body to the card colour and color-scheme.
+// %s-free on purpose: hosts splice the hex in with StashDesktopTheme::darkCardScript().
+#define STASH_SDK_DARK_CARD_SCRIPT_PREFIX \
     "(function(){var BG='"
-#define STASH_SDK_DARK_SHEET_SCRIPT_SUFFIX \
+#define STASH_SDK_DARK_CARD_SCRIPT_SUFFIX \
     "';" \
     "function paint(){try{" \
     "var e=document.documentElement;if(e){e.style.setProperty('background-color',BG,'important');e.style.setProperty('color-scheme','dark','important');}" \

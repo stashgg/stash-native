@@ -30,7 +30,7 @@ Sample app (Swift, delegate and C ABI wiring): [`Desktop/macOS/Sample/StashNativ
 
 ## Public API Surface
 
-Declared in [`StashNativeCard.h`](../Desktop/macOS/Sources/StashNativeDesktop/include/StashNativeCard.h): the iOS header minus the UIKit-only members (no popup, no Safari calls, no orientation API), with one desktop card config (`StashNativeCardConfig`: `autoClose`, `backgroundColor`, `allowDismiss`, `presentation`, `width`, `height`) and no modal.
+Declared in [`StashNativeCard.h`](../Desktop/macOS/Sources/StashNativeDesktop/include/StashNativeCard.h): the typed facade with the same delegate as the iOS SDK, one card surface (`openCard`, `openBrowser`; no modal, popup, Safari calls or orientation API) and one desktop card config (`StashNativeCardConfig`: `autoClose`, `allowDismiss`, `backgroundColor`, `presentation`, `width`, `height`; `allowFileUrls` is JSON-only, through `-openCardWithURL:configJSON:`).
 
 - `+sharedInstance`, `+sdkVersion`, `+setInspectableWebViewsEnabled:`
 - `hostWindow` (optional; key window, then main window otherwise)
@@ -82,7 +82,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 
 ## Presentation
 
-- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt by default (`width` / `height` override), a 400 x 500 pt minimum is applied first, then the size is clamped to the host minus a 24 pt margin on each edge (so a 420 x 520 host yields 372 x 472), with a 200 x 240 pt absolute floor for very small hosts.
+- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the card colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt by default (`width` / `height` override), a 400 x 500 pt minimum is applied first, then the size is clamped to the host minus a 24 pt margin on each edge (so a 420 x 520 host yields 372 x 472), with a 200 x 240 pt absolute floor for very small hosts.
 - Window (`presentation: "window"` in the JSON config): a titled, resizable `NSWindow` for editor play mode. The title bar close button goes through the session like any other user dismissal.
 - Browser: `NSWorkspace openURL:` with the theme parameter appended.
 
@@ -104,7 +104,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 
 ## Theming And Appearance
 
-`systemPrefersDark` reads `NSApp.effectiveAppearance`. `theme::effectiveThemeIsDark` (custom `backgroundColor` luminance wins) decides the `theme=` parameter, the sheet colour and whether the dark-sheet script from [`StashSdkScript.h`](../Desktop/shared/StashSdkScript.h) is injected at document start and end (pins `html`/`body` background and `color-scheme`, iOS parity).
+`systemPrefersDark` reads `NSApp.effectiveAppearance`. `theme::effectiveThemeIsDark` (custom `backgroundColor` luminance wins) decides the `theme=` parameter, the card colour and whether the dark-card script from [`StashSdkScript.h`](../Desktop/shared/StashSdkScript.h) is injected at document start and end (pins `html`/`body` background and `color-scheme`).
 
 ## State Model And Safety
 

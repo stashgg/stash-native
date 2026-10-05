@@ -146,11 +146,11 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     return image;
 }
 
-- (void)buildHeaderWithWidth:(CGFloat)width sheetArgb:(uint32_t)sheetArgb {
+- (void)buildHeaderWithWidth:(CGFloat)width cardArgb:(uint32_t)cardArgb {
     _header = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, width, kHeaderHeight)];
     _header.wantsLayer = YES;
     _header.layer.backgroundColor = (_dark ? [NSColor colorWithWhite:1.0 alpha:0.07] : [NSColor colorWithWhite:0.0 alpha:0.05]).CGColor;
-    (void)sheetArgb;
+    (void)cardArgb;
 
     _lockView = [[NSImageView alloc] initWithFrame:NSZeroRect];
     _lockView.image = [self symbolNamed:@"lock.fill"];
@@ -188,14 +188,14 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
 - (BOOL)presentWebView:(WKWebView *)webView
             hostWindow:(NSWindow *)hostWindow
                 config:(const stash::desktop::SurfaceConfig &)config
-        sheetColorArgb:(uint32_t)sheetArgb {
+        cardColorArgb:(uint32_t)cardArgb {
     [self teardown];
     NSView *content = hostWindow.contentView;
     if (!content) {
         return NO;
     }
     _config = config;
-    _dark = stash::desktop::theme::isDarkColor(sheetArgb);
+    _dark = stash::desktop::theme::isDarkColor(cardArgb);
     _hostWindow = hostWindow;
     _webView = webView;
 
@@ -210,7 +210,7 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     NSRect cardFrame = [self cardFrameForBounds:content.bounds];
     _card = [[StashCardView alloc] initWithFrame:cardFrame];
     _card.wantsLayer = YES;
-    _card.layer.backgroundColor = StashColorFromArgb(sheetArgb).CGColor;
+    _card.layer.backgroundColor = StashColorFromArgb(cardArgb).CGColor;
     _card.layer.cornerRadius = kCardCornerRadius;
     _card.layer.masksToBounds = YES;
     _card.layer.borderWidth = 1.0;
@@ -220,7 +220,7 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     [_card addSubview:webView];
 
-    [self buildHeaderWithWidth:cardFrame.size.width sheetArgb:sheetArgb];
+    [self buildHeaderWithWidth:cardFrame.size.width cardArgb:cardArgb];
     [_card addSubview:_header];
 
     [self buildSpinner];
@@ -273,10 +273,10 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
 
 - (void)presentWebView:(WKWebView *)webView
    standaloneWithConfig:(const stash::desktop::SurfaceConfig &)config
-        sheetColorArgb:(uint32_t)sheetArgb {
+        cardColorArgb:(uint32_t)cardArgb {
     [self teardown];
     _config = config;
-    _dark = stash::desktop::theme::isDarkColor(sheetArgb);
+    _dark = stash::desktop::theme::isDarkColor(cardArgb);
     _webView = webView;
 
     stash::desktop::SurfaceSize size = stash::desktop::resolveSurfaceSize(config, 0, 0);
@@ -291,7 +291,7 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     window.title = @"Stash Checkout";
     window.releasedWhenClosed = NO;
     window.delegate = self;
-    window.backgroundColor = StashColorFromArgb(sheetArgb);
+    window.backgroundColor = StashColorFromArgb(cardArgb);
     _standaloneWindow = window;
 
     NSView *content = window.contentView;

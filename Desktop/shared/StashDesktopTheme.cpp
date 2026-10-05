@@ -90,7 +90,7 @@ bool isDarkColor(uint32_t argb) {
     return lum < 0.5;
 }
 
-uint32_t sheetBackgroundArgb(const std::string &backgroundColor, bool systemPrefersDark) {
+uint32_t cardBackgroundArgb(const std::string &backgroundColor, bool systemPrefersDark) {
     uint32_t custom = 0;
     if (parseHexColor(backgroundColor, custom)) {
         return custom;
@@ -112,8 +112,8 @@ std::string cssHex(uint32_t argb) {
     return buf;
 }
 
-std::string darkSheetScript(uint32_t sheetArgb) {
-    return std::string(STASH_SDK_DARK_SHEET_SCRIPT_PREFIX) + cssHex(sheetArgb) + STASH_SDK_DARK_SHEET_SCRIPT_SUFFIX;
+std::string darkCardScript(uint32_t cardArgb) {
+    return std::string(STASH_SDK_DARK_CARD_SCRIPT_PREFIX) + cssHex(cardArgb) + STASH_SDK_DARK_CARD_SCRIPT_SUFFIX;
 }
 
 }  // namespace theme

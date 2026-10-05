@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-// Event types. Names map 1:1 to the mobile listener / delegate callbacks.
+// Event types. Names map 1:1 to the listener / delegate callbacks of the mobile SDKs.
 #define STASH_NATIVE_DESKTOP_EVENT_PAYMENT_SUCCESS      "paymentSuccess"      /* payload: order string or empty */
 #define STASH_NATIVE_DESKTOP_EVENT_PAYMENT_FAILURE      "paymentFailure"      /* payload: empty */
 #define STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED     "dialogDismissed"     /* payload: empty */

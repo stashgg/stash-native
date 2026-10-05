@@ -188,7 +188,7 @@ Pass a `CardConfig` (or `nil`/`null` for defaults) to configure presentation.
 | **Phone Dimensions** | `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, and `cardHeightRatioLandscape` (values from 0.1 to 1.0). All dimensions are within the device's safe area.
 | **Tablet Dimensions**          | `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` (0.1–1.0). All dimensions are within the device's safe area.                                  |
 | **autoClose**       | Default `true`. When `false`, the card stays open after the page reports payment success or failure -- callbacks still fire immediately. Call `dismiss()` (or have the page call `window.close()`) when you're ready to close. Useful if your checkout page shows its own confirmation UI. |
-| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the sheet background follows that color instead of system light/dark. Only for custom UIs, leave unchanged by default.            |
+| **backgroundColor** | Color hex string (e.g. `#RRGGBB`). When set, the card background follows that color instead of system light/dark. Only for custom UIs, leave unchanged by default.            |
 
 
 **Android**

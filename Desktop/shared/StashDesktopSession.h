@@ -1,8 +1,9 @@
 // One checkout presentation, from open to teardown, as a pure state machine. Both desktop hosts
 // drive it: the shim's messages, navigation decisions and user dismiss requests come in, host
-// events and surface commands go out through SessionHost. This is where the mobile callback
-// contract lives (once-guards, which paths emit dialogDismissed, the purchase-processing lock,
-// external-browser handoff), so the two OS cores cannot drift from each other.
+// events and surface commands go out through SessionHost. This is where the callback contract
+// shared with the mobile SDKs lives (once-guards, which paths emit dialogDismissed, the
+// purchase-processing lock, external-browser handoff), so the two OS cores cannot drift from
+// each other.
 #ifndef STASH_DESKTOP_SESSION_H
 #define STASH_DESKTOP_SESSION_H
 
@@ -71,7 +72,7 @@ public:
     // the parent page in place.
     NavigationDecision decideSubFrameNavigation(const std::string &url);
     // target=_blank / window.open: web URLs open the external browser and the checkout stays;
-    // any other scheme is handed to the OS unchanged (as on mobile); empty / about:blank dropped.
+    // any other scheme is handed to the OS unchanged; empty / about:blank dropped.
     void handleNewWindow(const std::string &url);
 
     // First finished main-frame load of the presentation: pageLoaded once, spinner hides.
@@ -82,7 +83,7 @@ public:
     // Close button, backdrop click, Esc, window close button. False when refused (purchase
     // processing, or allowDismiss = false).
     bool requestUserDismiss();
-    // StashNativeDesktop_Dismiss: closes and emits dialogDismissed (mobile dismiss parity).
+    // StashNativeDesktop_Dismiss: closes and emits dialogDismissed.
     void dismiss();
     // StashNativeDesktop_ResetPresentationState: closes with no events.
     void reset();

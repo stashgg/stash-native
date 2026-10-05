@@ -202,14 +202,14 @@ private:
     return webView;
 }
 
-- (void)applySessionScriptsToWebView:(WKWebView *)webView dark:(BOOL)dark sheetArgb:(uint32_t)sheetArgb {
+- (void)applySessionScriptsToWebView:(WKWebView *)webView dark:(BOOL)dark cardArgb:(uint32_t)cardArgb {
     WKUserContentController *controller = webView.configuration.userContentController;
     [controller removeAllUserScripts];
     [controller addUserScript:[[WKUserScript alloc] initWithSource:@STASH_SDK_SCRIPT_WEBKIT
                                                      injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                   forMainFrameOnly:YES]];
     if (dark) {
-        NSString *darkScript = [NSString stringWithUTF8String:stash::desktop::theme::darkSheetScript(sheetArgb).c_str()];
+        NSString *darkScript = [NSString stringWithUTF8String:stash::desktop::theme::darkCardScript(cardArgb).c_str()];
         [controller addUserScript:[[WKUserScript alloc] initWithSource:darkScript
                                                          injectionTime:WKUserScriptInjectionTimeAtDocumentStart
                                                       forMainFrameOnly:YES]];
@@ -273,11 +273,11 @@ private:
     BOOL systemDark = [StashDesktopCore systemPrefersDark];
     _sessionId++;
     _session = std::make_unique<Session>(*_host, config, systemDark);
-    uint32_t sheetArgb = stash::desktop::theme::sheetBackgroundArgb(config.backgroundColor, systemDark);
+    uint32_t cardArgb = stash::desktop::theme::cardBackgroundArgb(config.backgroundColor, systemDark);
     std::string themed = _session->themedUrl(url.UTF8String ?: "");
 
     WKWebView *webView = [self takeWebView];
-    [self applySessionScriptsToWebView:webView dark:_session->themeIsDark() sheetArgb:sheetArgb];
+    [self applySessionScriptsToWebView:webView dark:_session->themeIsDark() cardArgb:cardArgb];
     _loadDelegate = [[StashNativeCardLoadDelegate alloc] initWithCore:self sessionId:_sessionId];
     // stopLoading in takeWebView is not a callback barrier: a placeholder completion already
     // queued must not count as the checkout's.
@@ -291,13 +291,13 @@ private:
     if (config.presentation == Presentation::Attached) {
         NSWindow *host = [self findHostWindow];
         if (host) {
-            presented = [_presenter presentWebView:webView hostWindow:host config:config sheetColorArgb:sheetArgb];
+            presented = [_presenter presentWebView:webView hostWindow:host config:config cardColorArgb:cardArgb];
         } else {
             STASH_DESKTOP_LOG(@"StashNativeDesktop: no host window, presenting in a standalone window");
         }
     }
     if (!presented) {
-        [_presenter presentWebView:webView standaloneWithConfig:config sheetColorArgb:sheetArgb];
+        [_presenter presentWebView:webView standaloneWithConfig:config cardColorArgb:cardArgb];
     }
     [self refreshStateMirrors];
 

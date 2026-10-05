@@ -283,7 +283,7 @@ void Core::open(const std::string &url, const SurfaceConfig &config) {
     bool systemDark = systemPrefersDark();
     sessionId_++;
     session_ = std::make_unique<Session>(*this, config, systemDark);
-    uint32_t sheetArgb = theme::sheetBackgroundArgb(config.backgroundColor, systemDark);
+    uint32_t cardArgb = theme::cardBackgroundArgb(config.backgroundColor, systemDark);
     std::string themed = session_->themedUrl(url);
     bool dark = session_->themeIsDark();
 
@@ -291,22 +291,22 @@ void Core::open(const std::string &url, const SurfaceConfig &config) {
     if (config.presentation == Presentation::Attached) {
         HWND host = findHostWindow();
         if (host != nullptr) {
-            attached = presenter_->presentAttached(host, config, sheetArgb);
+            attached = presenter_->presentAttached(host, config, cardArgb);
         } else {
             debugLog("no host window, presenting in a standalone window");
         }
     }
     if (!attached) {
-        presenter_->presentStandalone(config, sheetArgb);
+        presenter_->presentStandalone(config, cardArgb);
     }
     refreshStateMirrors();
 
     unsigned long id = sessionId_;
     SurfaceConfig configCopy = config;
     webview::ensureEnvironment(
-        [id, themed, configCopy, sheetArgb, dark]() {
+        [id, themed, configCopy, cardArgb, dark]() {
             if (Core::instance().sessionForId(id) != nullptr) {
-                webview::startSession(id, themed, configCopy, sheetArgb, dark);
+                webview::startSession(id, themed, configCopy, cardArgb, dark);
             }
         },
         [id]() {

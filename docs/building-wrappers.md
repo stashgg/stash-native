@@ -79,7 +79,8 @@ flowchart LR
 ### Desktop (Windows and macOS)
 
 - Ship `StashNativeDesktop.dll` next to the game executable (WebView2 Evergreen runtime required at run time) and `StashNativeDesktop.bundle` inside the app bundle (`Contents/PlugIns` for Unity players). Load them with `LoadLibrary` / `dlopen` and bind the `StashNativeDesktop_*` exports, or link the Windows import library. Header of record: [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h).
-- Config is JSON with the mobile field names, so serialize the engine's existing config structs. Wrappers add the desktop-only keys themselves: `presentation: "window"` for editor play mode (a standalone window instead of a card over the editor), `width` / `height` in points for editor device presets, `allowFileUrls` for local test pages. Ratios are ignored on desktop: the card is 480 x 720 pt, the modal 480 x 600 pt, clamped to the host window.
+- Config is JSON with seven keys: `autoClose`, `allowDismiss`, `backgroundColor`, `allowFileUrls`, `presentation`, `width` and `height`. Wrappers may keep sending the engine's existing mobile config structs: unknown keys are ignored, so only those seven take effect. `presentation: "window"` gives editor play mode a standalone window instead of a card over the editor, `width` / `height` in points set editor device presets, `allowFileUrls` enables local test pages. Ratio fields and `forcePortrait` are ignored: the card is 480 x 720 pt unless `width` / `height` say otherwise, then the 400 x 500 pt minimum and the 24 pt host margin apply, with a 200 x 240 pt floor.
+- The C ABI has 12 functions and no `OpenModal`; engine modal calls map to `OpenCard` (`height: 600` gives the former modal shape). The current Unreal plugin's desktop loader still requires `OpenModal`, so it refuses this host until the plugin is updated.
 - Exclusive fullscreen: switch the game to borderless before opening and restore afterwards; the host cannot do this for the engine.
 - `Prewarm` at game start so the first card opens instantly.
 
@@ -112,7 +113,7 @@ Unity and Unreal wrappers often ship editor play-mode tools to exercise flows wi
 ## Checklist for a New Engine Wrapper
 
 1. **Versioning**: Depend on a specific `stash-native` release artifact; document upgrade steps for engine users.
-2. **Minimal bridge**: Expose `openCard` / `openModal` / `openBrowser` (and dismiss/reset if needed) plus listener/delegate mapping.
+2. **Minimal bridge**: Expose `openCard` / `openBrowser`, plus `openModal` on mobile (and dismiss/reset if needed), plus listener/delegate mapping.
 3. **UI thread**: Enforce main-thread marshaling for every SDK entry point.
 4. **Smoke test**: Open card with a known test page; confirm `onPaymentSuccess` or equivalent reaches script/Blueprint.
 5. **External flow**: Trigger `openExternalBrowser` (or host `openBrowser`); confirm return to app and listener behavior.

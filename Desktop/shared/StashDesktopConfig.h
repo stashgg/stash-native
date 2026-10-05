@@ -34,7 +34,7 @@ SurfaceConfig parseSurfaceConfig(const std::string &json);
 // Desktop sizing rule, all values in points (DPI-independent).
 const double kCardDefaultWidth = 480;
 const double kCardDefaultHeight = 720;
-// Mobile tablet minimum.
+// Smallest card the checkout is laid out for; a smaller explicit width or height is raised to it.
 const double kMinSurfaceWidth = 400;
 const double kMinSurfaceHeight = 500;
 // Space kept between the card and the host client edges.
@@ -53,7 +53,7 @@ struct SurfaceSize {
 // floor). Host dimensions <= 0 mean "no host" (window presentation): no clamp.
 SurfaceSize resolveSurfaceSize(const SurfaceConfig &config, double hostClientWidth, double hostClientHeight);
 
-// Load-failure policy shared by both hosts (mobile parity).
+// Load-failure policy shared by both hosts (same policy as the mobile SDKs).
 const double kStallRetrySeconds = 1.25;
 const int kMaxStallReloads = 2;
 const double kNetworkDeadlineSeconds = 15.0;
