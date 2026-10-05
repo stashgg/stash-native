@@ -86,14 +86,14 @@ public class StashNativeCard {
     /**
      * Called when the checkout dialog is dismissed by the user, or when the embedded page calls
      * {@code window.close()}. On Android, a payment-channel selection also closes the checkout and
-     * delivers this after {@link #onOptInResponse}; for a popup this holds even when the host opens
-     * another checkout from {@code onOptInResponse}.
+     * delivers this after {@link #onOptInResponse}; for a card, modal or popup this holds even when
+     * the host opens another checkout from {@code onOptInResponse}.
      */
     void onDialogDismissed();
     
     /**
      * Called when an opt-in response is received. On Android the checkout closes after this
-     * callback; from a popup's opt-in the host may open another checkout here.
+     * callback; for a card, modal or popup the host may open another checkout here.
      *
      * @param optinType The type of opt-in response
      */
