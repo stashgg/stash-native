@@ -44,6 +44,7 @@
 
   function send(handler, data) {
     const sdk = window.stash_sdk;
+    if (sdk && handler === 'stashPurchaseProcessing') return sdk.onPurchaseProcessing();
     if (sdk && handler === 'stashPaymentSuccess') return sdk.onPaymentSuccess(data);
     console.log('stash_sdk unavailable (browser test)', handler, data);
   }
@@ -51,6 +52,7 @@
   function maybeReport() {
     if (reported || !(results.iframeChallenge && results.popupHandoff)) return;
     reported = true;
+    send('stashPurchaseProcessing');
     send('stashPaymentSuccess', { matrix: results, source: 'stash_validation_matrix' });
   }
 

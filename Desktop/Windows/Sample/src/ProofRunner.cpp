@@ -153,8 +153,8 @@ void startProof(const std::string &mode, const std::string &remoteUrl, HWND host
     SetTimer(hostWindow, kProofTimeoutTimer, kProofTimeoutMs, onTimeout);
     stash::StashNativeCard &card = stash::StashNativeCard::getInstance();
     if (mode == "local") {
-        std::string url = testPageUrl("stash_test_checkout.html") + "?auto=1";
-        log("opening stash_test_checkout.html?auto=1 with allowFileUrls");
+        std::string url = testPageUrl("stash_validation_matrix.html") + "?auto=1";
+        log("opening stash_validation_matrix.html?auto=1 with allowFileUrls");
         card.openCard(url, std::string("{\"allowFileUrls\":true}"));
     } else if (mode == "remote") {
         if (remoteUrl.empty()) {
@@ -165,8 +165,8 @@ void startProof(const std::string &mode, const std::string &remoteUrl, HWND host
         card.openCard(remoteUrl);
     } else if (mode == "secure") {
         g_proof.phase = 1;
-        std::string url = testPageUrl("stash_test_checkout.html");
-        log("opening stash_test_checkout.html without allowFileUrls");
+        std::string url = testPageUrl("stash_validation_matrix.html");
+        log("opening stash_validation_matrix.html without allowFileUrls");
         card.openCard(url);
     } else {
         finish(false, "unknown mode, use local | remote | secure");

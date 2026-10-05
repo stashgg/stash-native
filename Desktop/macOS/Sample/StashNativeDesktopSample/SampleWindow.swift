@@ -112,7 +112,7 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
             horizontalRow([button("Open Card", #selector(openCard)),
                            button("Open Browser", #selector(openBrowser)),
                            button("Dismiss", #selector(dismissCard))]),
-            horizontalRow([button("Local Test Page", #selector(openLocalPage)),
+            horizontalRow([button("Hosted Test Page", #selector(openHostedPage)),
                            button("Validation Matrix", #selector(openMatrixPage)),
                            button("Clear Log", #selector(clearLog))]),
             horizontalRow([autoCloseCheck, allowDismissCheck, windowCheck, inspectableCheck]),
@@ -205,10 +205,10 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
         StashNativeCard.sharedInstance().openBrowser(withURL: urlField.stringValue)
     }
 
-    @objc private func openLocalPage() {
-        let url = ProofRunner.testPageUrl("stash_test_checkout.html")
-        appendLog("openCard stash_test_checkout.html")
-        StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: localConfigJSON())
+    @objc private func openHostedPage() {
+        let url = "https://test.stashpreview.com/"
+        appendLog("openCard \(url)")
+        StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: configJSON)
     }
 
     @objc private func openMatrixPage() {

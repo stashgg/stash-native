@@ -151,7 +151,7 @@ Compile all Objective-C sources and a public-header consumer in both ARC and non
   - [`Android/sample/`](../Android/sample/)
   - [`iOS/Sample/StashNativeSample/`](../iOS/Sample/StashNativeSample/)
   - [`Desktop/macOS/Sample/`](../Desktop/macOS/Sample/), [`Desktop/Windows/Sample/`](../Desktop/Windows/Sample/)
-- Offline desktop test pages: [`Desktop/shared/test-pages/`](../Desktop/shared/test-pages/) (`stash_test_checkout.html?auto=1` drives the bridge round trip; `stash_validation_matrix.html` exercises a 3DS-style iframe and the PSP popup handoff: window.open returns null and the checkout stays presented)
+- Offline desktop test pages: [`Desktop/shared/test-pages/`](../Desktop/shared/test-pages/) (`stash_validation_matrix.html?auto=1` drives the `local` proof, and `secure` loads the same page without `allowFileUrls` to check it is refused; the page exercises a 3DS-style iframe served by `matrix_challenge_frame.html` and the PSP popup handoff, where window.open returns null and the checkout stays presented, then reports purchase processing and success). Manual testing uses the hosted page at https://test.stashpreview.com/ (the samples' Hosted Test Page button)
 - Desktop manual gates: [Desktop Validation Matrix](./desktop-validation-matrix.md)
 
 ## Documentation
