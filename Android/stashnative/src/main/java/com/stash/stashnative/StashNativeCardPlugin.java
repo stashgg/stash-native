@@ -70,6 +70,14 @@ public class StashNativeCardPlugin {
   /** Identifies callbacks and cleanup belonging to the admitted presentation. */
   volatile long presentationSessionId;
   /**
+   * Card/modal sessions retired by opt-in whose dismissal is still owed, each with the listener
+   * captured before its opt-in callback (the callback may install another one for a replacement).
+   * Several can be outstanding when a replacement opts in before an older activity finishes
+   * closing. Main thread only.
+   */
+  private final java.util.Map<Long, StashNativeCard.StashNativeCardListener> pendingOptInDismissals =
+      new java.util.HashMap<>();
+  /**
    * True only when checkout used a separate WebView OS process. With the default manifest,
    * {@link StashNativeCardPortraitActivity} runs in the host app process (required for Unity and
    * similar engines), so this stays false and {@link #clearPresentationIfCheckoutProcessDied} is a
@@ -297,14 +305,36 @@ public class StashNativeCardPlugin {
   }
 
   private void dispatchCheckoutBridgeIntent(String action, Intent intent) {
-    if (!isCurrentlyPresented
-        || intent.getLongExtra(StashCheckoutBridge.EXTRA_SESSION_ID, 0L)
-            != presentationSessionId) {
+    long sessionId = intent.getLongExtra(StashCheckoutBridge.EXTRA_SESSION_ID, 0L);
+    if (CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(action)
+        && sessionId != 0L
+        && pendingOptInDismissals.containsKey(sessionId)) {
+      StashNativeCard.StashNativeCardListener pending = pendingOptInDismissals.remove(sessionId);
+      if (sessionId == presentationSessionId) {
+        presentationUsesIsolatedWebviewProcess = false;
+        isCurrentlyPresented = false;
+        portraitActivityRef = null;
+      }
+      if (pending != null) {
+        try {
+          pending.onDialogDismissed();
+        } catch (Exception e) {
+          Log.w(TAG, "Error dispatching checkout bridge: " + e.getMessage(), e);
+        }
+      }
+      return;
+    }
+    if (!isCurrentlyPresented || sessionId != presentationSessionId) {
       return;
     }
     StashNativeCard.StashNativeCardListener l = getListener();
     try {
       if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
+        // Retire the presentation first so the host may open a replacement from the callback; the
+        // closing activity still owes its dismissal, admitted once by the check above.
+        pendingOptInDismissals.put(presentationSessionId, l);
+        presentationUsesIsolatedWebviewProcess = false;
+        isCurrentlyPresented = false;
         if (l != null) {
           String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
           l.onOptInResponse(type != null ? type : "");
@@ -914,6 +944,7 @@ public class StashNativeCardPlugin {
     }
     try {
       presentationSessionId++;
+      pendingOptInDismissals.clear();
       // Card/modal: finish the activity WITHOUT emitting onDialogDismissed (reset is silent).
       StashNativeCardPortraitActivity a =
           getPortraitActivity();

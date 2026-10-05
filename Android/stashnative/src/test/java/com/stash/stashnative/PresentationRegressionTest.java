@@ -317,6 +317,134 @@ public class PresentationRegressionTest {
     assertTrue(plugin.isCurrentlyPresented());
   }
 
+  private void sendBridge(String action, long session) {
+    Intent event = new Intent(action);
+    event.setPackage(host.getPackageName());
+    event.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, session);
+    if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
+      event.putExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE, "channel");
+    }
+    host.sendBroadcast(event);
+    ShadowLooper.idleMainLooper();
+  }
+
+  private void assertOptInReopenDeliversOldDismissalOnce(boolean modal) {
+    final java.util.List<String> events = new java.util.ArrayList<>();
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String type) {
+        events.add("optIn");
+        if (modal) {
+          plugin.openModal("https://example.invalid/next", null);
+        } else {
+          plugin.openCard("https://example.invalid/next", null);
+        }
+      }
+      @Override public void onDialogDismissed() { events.add("dismissed"); }
+      @Override public void onPaymentSuccess(String order) { events.add("payment"); }
+    });
+    if (modal) {
+      plugin.openModal("https://example.invalid", null);
+    } else {
+      plugin.openCard("https://example.invalid", null);
+    }
+    Shadows.shadowOf(host).clearNextStartedActivities();
+    long oldSession = plugin.presentationSessionId;
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, oldSession);
+    assertTrue(plugin.isCurrentlyPresented());
+    assertTrue(plugin.presentationSessionId != oldSession);
+    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, oldSession);
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, oldSession);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS, oldSession);
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    assertTrue(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void cardOptInDismissalGoesToTheListenerThatSawTheOptIn() {
+    final int[] oldDismissed = {0};
+    final int[] newDismissed = {0};
+    final StashNativeCard.StashNativeCardListener replacementListener =
+        new StashNativeCard.StashNativeCardListenerAdapter() {
+          @Override public void onDialogDismissed() { newDismissed[0]++; }
+        };
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String optinType) {
+        plugin.setListener(replacementListener);
+        plugin.openCard("https://example.invalid/next", null);
+      }
+      @Override public void onDialogDismissed() { oldDismissed[0]++; }
+    });
+    plugin.openCard("https://example.invalid", null);
+    long first = plugin.presentationSessionId;
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, first);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, first);
+    assertEquals(1, oldDismissed[0]);
+    assertEquals(0, newDismissed[0]);
+    assertTrue(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void chainedCardOptInKeepsEveryOwedDismissal() {
+    final int[] dismissed = {0};
+    final boolean[] reopen = {true};
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String optinType) {
+        if (reopen[0]) {
+          plugin.openCard("https://example.invalid/next", null);
+        }
+      }
+      @Override public void onDialogDismissed() { dismissed[0]++; }
+    });
+    plugin.openCard("https://example.invalid", null);
+    long first = plugin.presentationSessionId;
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, first);
+    long second = plugin.presentationSessionId;
+    reopen[0] = false;
+    // The replacement opts in before the first activity has finished closing.
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, second);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, first);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, second);
+    assertEquals(2, dismissed[0]);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, first);
+    assertEquals(2, dismissed[0]);
+  }
+
+  @Test public void cardOptInReopenDeliversOldDismissalOnce() {
+    assertOptInReopenDeliversOldDismissalOnce(false);
+  }
+
+  @Test public void modalOptInReopenDeliversOldDismissalOnce() {
+    assertOptInReopenDeliversOldDismissalOnce(true);
+  }
+
+  @Test public void cardOptInWithoutReopenUnchanged() {
+    final java.util.List<String> events = new java.util.ArrayList<>();
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String type) { events.add("optIn"); }
+      @Override public void onDialogDismissed() { events.add("dismissed"); }
+    });
+    plugin.openCard("https://example.invalid", null);
+    long session = plugin.presentationSessionId;
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, session);
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, session);
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    assertFalse(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void cardResetAfterOptInStaysSilent() {
+    final java.util.List<String> events = new java.util.ArrayList<>();
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String type) { events.add("optIn"); }
+      @Override public void onDialogDismissed() { events.add("dismissed"); }
+    });
+    plugin.openCard("https://example.invalid", null);
+    long session = plugin.presentationSessionId;
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_OPT_IN, session);
+    plugin.resetPresentationState();
+    sendBridge(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, session);
+    assertEquals(java.util.Arrays.asList("optIn"), events);
+  }
+
   @Test public void browserFailureLogsOmitCheckoutQuery() {
     org.robolectric.shadows.ShadowLog.clear();
     Shadows.shadowOf(host.getApplication()).checkActivities(true);
