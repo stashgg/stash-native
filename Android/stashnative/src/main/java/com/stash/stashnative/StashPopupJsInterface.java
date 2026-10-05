@@ -1,6 +1,7 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
+import android.app.Dialog;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -107,12 +108,33 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void setPaymentChannel(String optinType) {
-    onMain(() -> plugin.runOnMainAndDismiss(() -> {
-      StashNativeCard.StashNativeCardListener l = plugin.getListener();
-      if (l != null) {
-        l.onOptInResponse(optinType != null ? optinType : "");
+    onMain(() -> {
+      final Dialog dialog = plugin.currentDialog;
+      if (dialog == null) {
+        return;
       }
-    }));
+      final StashNativeCard.StashNativeCardListener listener = plugin.getListener();
+      final boolean notifyDismiss = !plugin.paymentSuccessHandled;
+      try {
+        plugin.isCurrentlyPresented = false;
+        if (listener != null) {
+          listener.onOptInResponse(optinType != null ? optinType : "");
+        }
+        if (plugin.presentationSessionId == session && plugin.currentDialog == dialog) {
+          plugin.dismissCurrentDialog();
+        } else if (notifyDismiss && listener != null && plugin.isCurrentlyPresented) {
+          // A checkout opened by the callback already tore this dialog down and cleared its
+          // dismiss listener, so the closing checkout's dismissal is delivered here. A reset from
+          // the callback presents nothing and stays silent.
+          listener.onDialogDismissed();
+        }
+      } catch (Exception e) {
+        Log.w(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
+        if (plugin.presentationSessionId == session) {
+          plugin.cleanupAllViews();
+        }
+      }
+    });
   }
 
   @JavascriptInterface

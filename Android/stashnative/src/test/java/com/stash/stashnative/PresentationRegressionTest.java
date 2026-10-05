@@ -154,6 +154,66 @@ public class PresentationRegressionTest {
     assertTrue(browserLaunched);
   }
 
+  private java.util.List<String> recordOptInEvents(Runnable inOptIn) {
+    java.util.List<String> events = new java.util.ArrayList<>();
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onOptInResponse(String optinType) {
+        events.add("optIn");
+        if (inOptIn != null) {
+          inOptIn.run();
+        }
+      }
+      @Override public void onDialogDismissed() { events.add("dismissed"); }
+    });
+    return events;
+  }
+
+  private void idleAll() {
+    ShadowLooper.idleMainLooper();
+    ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+  }
+
+  @Test public void popupOptInReopenKeepsOldDismissal() {
+    plugin.openPopup("https://example.invalid");
+    java.util.List<String> events = recordOptInEvents(
+        () -> plugin.openCard("https://example.invalid/next", null));
+    new StashPopupJsInterface(plugin).setPaymentChannel("x");
+    idleAll();
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    assertTrue(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void popupOptInReopenPopupKeepsOldDismissal() {
+    plugin.openPopup("https://example.invalid");
+    java.util.List<String> events = recordOptInEvents(
+        () -> plugin.openPopup("https://example.invalid/next"));
+    new StashPopupJsInterface(plugin).setPaymentChannel("x");
+    // Delayed tasks would fire the replacement's load deadline.
+    ShadowLooper.idleMainLooper();
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    assertTrue(plugin.isCurrentlyPresented());
+    assertNotNull(plugin.currentDialog);
+    assertTrue(plugin.currentDialog.isShowing());
+  }
+
+  @Test public void popupOptInResetFromCallbackStaysSilent() {
+    plugin.openPopup("https://example.invalid");
+    java.util.List<String> events = recordOptInEvents(() -> plugin.resetPresentationState());
+    new StashPopupJsInterface(plugin).setPaymentChannel("x");
+    idleAll();
+    assertEquals(java.util.Arrays.asList("optIn"), events);
+    assertFalse(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void popupOptInWithoutReopenDismissesOnce() {
+    plugin.openPopup("https://example.invalid");
+    java.util.List<String> events = recordOptInEvents(null);
+    new StashPopupJsInterface(plugin).setPaymentChannel("x");
+    idleAll();
+    assertEquals(java.util.Arrays.asList("optIn", "dismissed"), events);
+    assertFalse(plugin.isCurrentlyPresented());
+  }
+
   @Test public void popupProcessingLocksBeforeQueuedBackdropTap() {
     plugin.openPopup("https://example.invalid");
     StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
