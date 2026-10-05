@@ -303,7 +303,7 @@ static void testJson() {
     // Number parsing ignores a decimal-comma process locale.
     if (std::setlocale(LC_NUMERIC, "de_DE.UTF-8") != nullptr || std::setlocale(LC_NUMERIC, "de-DE") != nullptr) {
         CHECK(near(json::getNumber("{\"a\":0.55}", "a", 0), 0.55));
-        CHECK(near(parseSurfaceConfig(SurfaceMode::Card, "{\"width\":640.5}").width, 640.5));
+        CHECK(near(parseSurfaceConfig("{\"width\":640.5}").width, 640.5));
         std::setlocale(LC_NUMERIC, "C");
     }
     CHECK_EQ(json::getString("{\"u\":\"https://x/?a=1\\u0026b=2\\/c\"}", "u", ""), std::string("https://x/?a=1&b=2/c"));
@@ -348,101 +348,56 @@ static void testJson() {
 // -- Config --
 
 static void testConfigDefaults() {
-    SurfaceConfig card = parseSurfaceConfig(SurfaceMode::Card, "");
-    CHECK(card.mode == SurfaceMode::Card);
+    SurfaceConfig card = parseSurfaceConfig("");
     CHECK(card.autoClose);
     CHECK(card.allowDismiss);
-    CHECK(!card.forcePortrait);
     CHECK(card.backgroundColor.empty());
     CHECK(card.presentation == Presentation::Attached);
     CHECK(near(card.width, 0) && near(card.height, 0));
     CHECK(!card.allowFileUrls);
-    CHECK(near(card.cardHeightRatioPortrait, 0.68));
-    CHECK(near(card.cardWidthRatioLandscape, 0.7));
-    CHECK(near(card.cardHeightRatioLandscape, 0.9));
-    CHECK(near(card.tabletWidthRatioPortrait, 0.4));
-    CHECK(near(card.tabletHeightRatioPortrait, 0.5));
-    CHECK(near(card.tabletWidthRatioLandscape, 0.3));
-    CHECK(near(card.tabletHeightRatioLandscape, 0.6));
-
-    SurfaceConfig modal = parseSurfaceConfig(SurfaceMode::Modal, "{}");
-    CHECK(modal.mode == SurfaceMode::Modal);
-    CHECK(modal.allowDismiss);
-    CHECK(modal.autoClose);
-    CHECK(near(modal.phoneWidthRatioPortrait, 0.80));
-    CHECK(near(modal.phoneHeightRatioPortrait, 0.50));
-    CHECK(near(modal.phoneWidthRatioLandscape, 0.50));
-    CHECK(near(modal.phoneHeightRatioLandscape, 0.80));
-    CHECK(near(modal.modalTabletWidthRatioPortrait, 0.40));
-    CHECK(near(modal.modalTabletHeightRatioPortrait, 0.30));
-    CHECK(near(modal.modalTabletWidthRatioLandscape, 0.30));
-    CHECK(near(modal.modalTabletHeightRatioLandscape, 0.40));
 }
 
 static void testConfigParsing() {
+    // Mobile keys the wrappers still send are unknown here and ignored.
     std::string cardJson =
-        "{\"forcePortrait\":true,\"cardHeightRatioPortrait\":5,\"cardWidthRatioLandscape\":0.05,"
-        "\"tabletWidthRatioLandscape\":0.55,\"autoClose\":false,\"backgroundColor\":\" #1e1e1e \","
+        "{\"forcePortrait\":true,\"cardHeightRatioPortrait\":5,\"autoClose\":false,\"backgroundColor\":\" #1e1e1e \","
         "\"presentation\":\"window\",\"width\":640,\"height\":-3,\"allowFileUrls\":true,\"unknownKey\":{\"x\":1}}";
-    SurfaceConfig card = parseSurfaceConfig(SurfaceMode::Card, cardJson);
-    CHECK(card.forcePortrait);
+    SurfaceConfig card = parseSurfaceConfig(cardJson);
+    // Unknown keys (former mobile fields) are ignored without disturbing the known ones.
     CHECK(!card.autoClose);
-    CHECK(near(card.cardHeightRatioPortrait, 1.0));
-    CHECK(near(card.cardWidthRatioLandscape, 0.1));
-    CHECK(near(card.tabletWidthRatioLandscape, 0.55));
     CHECK_EQ(card.backgroundColor, std::string("#1e1e1e"));
     CHECK(card.presentation == Presentation::Window);
     CHECK(near(card.width, 640));
     CHECK(near(card.height, 0));
     CHECK(card.allowFileUrls);
-    SurfaceConfig cardNoDismiss = parseSurfaceConfig(SurfaceMode::Card, "{\"allowDismiss\":false}");
+    SurfaceConfig cardNoDismiss = parseSurfaceConfig("{\"allowDismiss\":false}");
     CHECK(!cardNoDismiss.allowDismiss);
-    CHECK(parseSurfaceConfig(SurfaceMode::Card, "{}").allowDismiss);
-
-    SurfaceConfig modal = parseSurfaceConfig(SurfaceMode::Modal,
-        "{\"allowDismiss\":false,\"phoneWidthRatioPortrait\":\"wide\",\"tabletHeightRatioPortrait\":0.9,\"autoClose\":true}");
-    CHECK(!modal.allowDismiss);
-    CHECK(modal.autoClose);
-    CHECK(near(modal.phoneWidthRatioPortrait, 0.80));
-    CHECK(near(modal.modalTabletHeightRatioPortrait, 0.9));
+    CHECK(parseSurfaceConfig("{}").allowDismiss);
 
     // A truncated or garbled config never leaks a partial read: every field takes its default.
-    SurfaceConfig malformed = parseSurfaceConfig(SurfaceMode::Card, "{\"autoClose\":false");
+    SurfaceConfig malformed = parseSurfaceConfig("{\"autoClose\":false");
     CHECK(malformed.autoClose);
     CHECK(!malformed.allowFileUrls);
-    SurfaceConfig malformedFile = parseSurfaceConfig(SurfaceMode::Card, "{\"allowFileUrls\":true,\"autoClose\":false");
+    SurfaceConfig malformedFile = parseSurfaceConfig("{\"allowFileUrls\":true,\"autoClose\":false");
     CHECK(!malformedFile.allowFileUrls);
     CHECK(malformedFile.autoClose);
-    SurfaceConfig trailing = parseSurfaceConfig(SurfaceMode::Modal, "{\"allowDismiss\":false} extra");
+    SurfaceConfig trailing = parseSurfaceConfig("{\"allowDismiss\":false} extra");
     CHECK(trailing.allowDismiss);
-    SurfaceConfig badLiteral = parseSurfaceConfig(SurfaceMode::Card, "{\"allowFileUrls\":true,\"bad\":tru}");
+    SurfaceConfig badLiteral = parseSurfaceConfig("{\"allowFileUrls\":true,\"bad\":tru}");
     CHECK(!badLiteral.allowFileUrls);
-    SurfaceConfig notObject = parseSurfaceConfig(SurfaceMode::Card, "[1,2]");
+    SurfaceConfig notObject = parseSurfaceConfig("[1,2]");
     CHECK(notObject.autoClose);
-
-    CHECK(near(clampRatio(0.5), 0.5));
-    CHECK(near(clampRatio(0.0), 0.1));
-    CHECK(near(clampRatio(-1), 0.1));
-    CHECK(near(clampRatio(2), 1.0));
-    CHECK(near(clampRatio(std::nan("")), 0.1));
 }
 
 static void testSizingRule() {
-    SurfaceConfig card = parseSurfaceConfig(SurfaceMode::Card, "{}");
-    SurfaceConfig modal = parseSurfaceConfig(SurfaceMode::Modal, "{}");
+    SurfaceConfig card = parseSurfaceConfig("{}");
     SurfaceSize s = resolveSurfaceSize(card, 1920, 1080);
     CHECK(near(s.width, 480) && near(s.height, 720));
-    s = resolveSurfaceSize(modal, 1920, 1080);
-    CHECK(near(s.width, 480) && near(s.height, 600));
-    // Ratios never change the size.
-    SurfaceConfig wide = parseSurfaceConfig(SurfaceMode::Card, "{\"tabletWidthRatioLandscape\":1.0,\"tabletHeightRatioLandscape\":1.0}");
-    s = resolveSurfaceSize(wide, 3840, 2160);
-    CHECK(near(s.width, 480) && near(s.height, 720));
     // Explicit size, raised to the minimum.
-    SurfaceConfig explicitSize = parseSurfaceConfig(SurfaceMode::Card, "{\"width\":300,\"height\":900}");
+    SurfaceConfig explicitSize = parseSurfaceConfig("{\"width\":300,\"height\":900}");
     s = resolveSurfaceSize(explicitSize, 1920, 1080);
     CHECK(near(s.width, 400) && near(s.height, 900));
-    SurfaceConfig typedSize = parseSurfaceConfig(SurfaceMode::Card, "{\"width\":640,\"height\":700}");
+    SurfaceConfig typedSize = parseSurfaceConfig("{\"width\":640,\"height\":700}");
     s = resolveSurfaceSize(typedSize, 1920, 1080);
     CHECK(near(s.width, 640) && near(s.height, 700));
     // Host clamp: 1280x720 host leaves 672 of height.
@@ -519,7 +474,7 @@ struct RecordingHost : SessionHost {
 };
 
 static SurfaceConfig cardConfig(const char *json = "{}") {
-    return parseSurfaceConfig(SurfaceMode::Card, json);
+    return parseSurfaceConfig(json);
 }
 
 static void testSuccessAutoClose() {
@@ -638,20 +593,9 @@ static void testProgrammaticDismissDuringProcessing() {
     CHECK(!s.isPurchaseProcessing());
 }
 
-static void testModalAllowDismiss() {
-    RecordingHost h;
-    Session s(h, parseSurfaceConfig(SurfaceMode::Modal, "{\"allowDismiss\":false}"), false);
-    CHECK(!s.requestUserDismiss());
-    CHECK(s.isPresented());
-    // window.close still works with allowDismiss off.
-    s.handleWindowClose();
-    CHECK(!s.isPresented());
-    CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED), 1);
-}
-
 static void testCardAllowDismiss() {
     RecordingHost h;
-    Session s(h, parseSurfaceConfig(SurfaceMode::Card, "{\"allowDismiss\":false}"), false);
+    Session s(h, parseSurfaceConfig("{\"allowDismiss\":false}"), false);
     CHECK(!s.requestUserDismiss());
     CHECK(s.isPresented());
     // window.close still works with allowDismiss off.
@@ -948,7 +892,6 @@ int main() {
     testUserDismissPaths();
     testProcessingLock();
     testProgrammaticDismissDuringProcessing();
-    testModalAllowDismiss();
     testCardAllowDismiss();
     testOptIn();
     testReentrantDismissFromOptIn();

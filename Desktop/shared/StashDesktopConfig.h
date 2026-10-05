@@ -1,9 +1,8 @@
 // Config JSON contract of the desktop hosts and the desktop sizing rule. Pure C++, unit-tested.
 //
-// Keys use the mobile field names verbatim (StashNativeCardConfig / StashNativeModalConfig) so
-// wrappers serialize their existing structs. Missing keys take the mobile defaults, unknown keys
-// are ignored. Ratios are parsed and clamped to [0.1, 1.0] for parity but ignored for sizing:
-// the card is a fixed logical size on desktop (see resolveSurfaceSize).
+// Seven keys: autoClose, allowDismiss, backgroundColor, allowFileUrls, presentation, width and
+// height. Missing keys take the defaults below. Unknown keys are ignored (wrappers may still send
+// mobile fields). Anything that is not one complete JSON object yields all defaults.
 #ifndef STASH_DESKTOP_CONFIG_H
 #define STASH_DESKTOP_CONFIG_H
 
@@ -12,56 +11,29 @@
 namespace stash {
 namespace desktop {
 
-enum class SurfaceMode { Card, Modal };
 enum class Presentation { Attached, Window };
 
 struct SurfaceConfig {
-    SurfaceMode mode = SurfaceMode::Card;
     bool autoClose = true;
     // When false the user's dismiss paths (close button, backdrop, Escape, standalone window close)
     // are refused; the page's window.close and the host's Dismiss still close.
     bool allowDismiss = true;
-    // Accepted for parity, no effect on desktop.
-    bool forcePortrait = false;
     // Trimmed HTML hex or "" for the default theme.
     std::string backgroundColor;
 
     // Desktop-only keys, set by wrappers.
     Presentation presentation = Presentation::Attached;
-    double width = 0;   // points; 0 = mode default
+    double width = 0;   // points; 0 = 480 x 720 default
     double height = 0;
     bool allowFileUrls = false;
-
-    // Card ratios (mobile defaults).
-    double cardHeightRatioPortrait = 0.68;
-    double cardWidthRatioLandscape = 0.7;
-    double cardHeightRatioLandscape = 0.9;
-    double tabletWidthRatioPortrait = 0.4;
-    double tabletHeightRatioPortrait = 0.5;
-    double tabletWidthRatioLandscape = 0.3;
-    double tabletHeightRatioLandscape = 0.6;
-    // Modal ratios (mobile defaults).
-    double phoneWidthRatioPortrait = 0.80;
-    double phoneHeightRatioPortrait = 0.50;
-    double phoneWidthRatioLandscape = 0.50;
-    double phoneHeightRatioLandscape = 0.80;
-    double modalTabletWidthRatioPortrait = 0.40;
-    double modalTabletHeightRatioPortrait = 0.30;
-    double modalTabletWidthRatioLandscape = 0.30;
-    double modalTabletHeightRatioLandscape = 0.40;
 };
 
-// [0.1, 1.0]; NaN and anything below 0.1 become 0.1 (iOS stashClampRatio).
-double clampRatio(double v);
-
-// Parses the config JSON for the given mode. NULL / empty / malformed JSON yields the defaults.
-SurfaceConfig parseSurfaceConfig(SurfaceMode mode, const std::string &json);
+// Parses the config JSON. NULL / empty / malformed JSON yields the defaults.
+SurfaceConfig parseSurfaceConfig(const std::string &json);
 
 // Desktop sizing rule, all values in points (DPI-independent).
 const double kCardDefaultWidth = 480;
 const double kCardDefaultHeight = 720;
-const double kModalDefaultWidth = 480;
-const double kModalDefaultHeight = 600;
 // Mobile tablet minimum.
 const double kMinSurfaceWidth = 400;
 const double kMinSurfaceHeight = 500;
@@ -76,7 +48,7 @@ struct SurfaceSize {
     double height;
 };
 
-// Explicit width / height when set, else the mode default; raised to the minimum; then clamped to
+// Explicit width / height when set, else the 480 x 720 default; raised to the minimum; then clamped to
 // the host client area minus the margin (the margin wins over the minimum, down to the absolute
 // floor). Host dimensions <= 0 mean "no host" (window presentation): no clamp.
 SurfaceSize resolveSurfaceSize(const SurfaceConfig &config, double hostClientWidth, double hostClientHeight);

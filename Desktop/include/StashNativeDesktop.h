@@ -48,8 +48,8 @@ extern "C" {
 #define STASH_NATIVE_DESKTOP_EVENT_WEB_PROCESS_CRASHED  "webProcessCrashed"   /* payload: "reloading" | "terminal" */
 #define STASH_NATIVE_DESKTOP_EVENT_ERROR                "error"               /* payload: message */
 
-// Config JSON keys (see docs/windows.md / docs/macos.md). Mobile field names are used verbatim so
-// wrappers serialize their existing config structs. Desktop-only keys are set by wrappers.
+// Config JSON keys (see docs/windows.md / docs/macos.md): autoClose, allowDismiss, backgroundColor,
+// allowFileUrls, presentation, width, height. Unknown keys are ignored.
 #define STASH_NATIVE_DESKTOP_CONFIG_PRESENTATION   "presentation"   /* "attached" (default) | "window" */
 #define STASH_NATIVE_DESKTOP_CONFIG_WIDTH          "width"          /* points, optional */
 #define STASH_NATIVE_DESKTOP_CONFIG_HEIGHT         "height"         /* points, optional */
@@ -67,11 +67,9 @@ StashNativeDesktop_SetEventCallback(StashNativeDesktopEventCallback callback, vo
 STASH_NATIVE_DESKTOP_API void STASH_NATIVE_DESKTOP_CALL
 StashNativeDesktop_SetHostWindow(void *nativeWindowHandle);
 
-// The three presentation modes. configJson may be NULL or "{}" for defaults.
+// The two presentation modes: a card over the host window, or the system browser. configJson may be NULL or "{}" for defaults.
 STASH_NATIVE_DESKTOP_API void STASH_NATIVE_DESKTOP_CALL
 StashNativeDesktop_OpenCard(const char *url, const char *configJson);
-STASH_NATIVE_DESKTOP_API void STASH_NATIVE_DESKTOP_CALL
-StashNativeDesktop_OpenModal(const char *url, const char *configJson);
 STASH_NATIVE_DESKTOP_API void STASH_NATIVE_DESKTOP_CALL
 StashNativeDesktop_OpenBrowser(const char *url);
 

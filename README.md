@@ -175,7 +175,7 @@ let config = StashNativeCardConfig()  // or nil for defaults
 StashNativeCard.sharedInstance().openCard(withURL: "https://test.stashpreview.com", config: config)
 ```
 
-On desktop the card is a fixed 480 x 720 pt surface centred over the game window (400 x 500 pt minimum when the window has the room, then clamped to the window minus a 24 pt margin on each edge, with a 200 x 240 pt absolute floor for very small windows) with a native trust header showing the checkout host; the ratio fields below are accepted and ignored, `forcePortrait` has no effect.
+On desktop the card is 480 x 720 pt by default, centred over the game window, and `width` / `height` set it; the same 400 x 500 pt minimum (when the window has the room), 24 pt margin on each edge and 200 x 240 pt absolute floor for very small windows then apply. It has a native trust header showing the checkout host.
 
 ### Config
 
@@ -390,20 +390,7 @@ StashNativeModalConfig *config = [[StashNativeModalConfig alloc] init];  // or n
 [[StashNativeCard sharedInstance] openModalWithURL:@"https://test.stashpreview.com" config:config];
 ```
 
-**Windows (C++)**
-
-```cpp
-stash::StashNativeModalConfig config;
-stash::StashNativeCard::getInstance().openModal("https://test.stashpreview.com", &config);
-```
-
-**macOS (Swift)**
-
-```swift
-StashNativeCard.sharedInstance().openModal(withURL: "https://test.stashpreview.com", config: StashNativeModalConfig())
-```
-
-On desktop the modal is a fixed 480 x 600 pt surface over the game window; `allowDismiss = false` removes the close button and ignores backdrop clicks and Esc (`window.close()` from the page still closes it). Ratios are ignored.
+Modal is not available on desktop: use `openCard` instead (`height: 600` gives the former desktop modal shape).
 
 ### Config
 

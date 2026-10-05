@@ -24,10 +24,10 @@ clang++ -x objective-c++ -std=c++17 -fobjc-arc -O2 \
     -bundle -o "$OUT" \
     "${SOURCES[@]}"
 
-# Every ABI export must be present and visible.
+# Every ABI export must be present and visible, and nothing else under the ABI prefix.
 EXPECTED=(
     StashNativeDesktop_SetEventCallback StashNativeDesktop_SetHostWindow
-    StashNativeDesktop_OpenCard StashNativeDesktop_OpenModal StashNativeDesktop_OpenBrowser
+    StashNativeDesktop_OpenCard StashNativeDesktop_OpenBrowser
     StashNativeDesktop_Dismiss StashNativeDesktop_ResetPresentationState
     StashNativeDesktop_IsCurrentlyPresented StashNativeDesktop_IsPurchaseProcessing
     StashNativeDesktop_Prewarm StashNativeDesktop_SetInspectableWebViewsEnabled
@@ -40,6 +40,17 @@ for symbol in "${EXPECTED[@]}"; do
         exit 1
     fi
 done
+# No other ABI symbol may be exported.
+while IFS= read -r symbol; do
+    case "$symbol" in
+        _StashNativeDesktop_*)
+            if ! printf '%s\n' "${EXPECTED[@]}" | grep -qx "${symbol#_}"; then
+                echo "ERROR: unexpected export $symbol in $OUT" >&2
+                exit 1
+            fi
+            ;;
+    esac
+done <<< "$EXPORTS"
 
 if [ -n "${STASH_SIGN_IDENTITY:-}" ]; then
     codesign --force --timestamp --options runtime --sign "$STASH_SIGN_IDENTITY" "$OUT"

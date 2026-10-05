@@ -1,7 +1,7 @@
 // Typed C++ facade over the Stash Native desktop C ABI for native apps and custom engines on
-// Windows. Same surface as the mobile SDKs: a singleton, a listener with the mobile callbacks,
-// StashNativeCardConfig / StashNativeModalConfig, openCard / openModal / openBrowser, dismiss,
-// resetPresentationState, isCurrentlyPresented, isPurchaseProcessing, prewarm, shutdown.
+// Windows: a singleton, a listener with the checkout callbacks, StashNativeCardConfig,
+// openCard / openBrowser, dismiss, resetPresentationState, isCurrentlyPresented,
+// isPurchaseProcessing, prewarm, shutdown.
 //
 // Header-only on purpose: nothing STL-typed crosses the DLL boundary, so any MSVC version and
 // either CRT can consume StashNativeDesktop.dll. Link the import library (StashNativeDesktop.lib)
@@ -25,16 +25,7 @@ namespace stash {
 
 enum class StashNativeCardPresentation { Attached, Window };
 
-// Ratio fields exist for API parity with mobile and are ignored on desktop; width and height size the card.
 struct StashNativeCardConfig {
-    bool forcePortrait = false;
-    float cardHeightRatioPortrait = 0.68f;
-    float cardWidthRatioLandscape = 0.7f;
-    float cardHeightRatioLandscape = 0.9f;
-    float tabletWidthRatioPortrait = 0.4f;
-    float tabletHeightRatioPortrait = 0.5f;
-    float tabletWidthRatioLandscape = 0.3f;
-    float tabletHeightRatioLandscape = 0.6f;
     // When false the dialog stays open after onPaymentSuccess / onPaymentFailure.
     bool autoClose = true;
     // Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for the sheet background; empty for the default theme.
@@ -46,22 +37,6 @@ struct StashNativeCardConfig {
     // Points; 0 = the 480 x 720 default.
     float width = 0;
     float height = 0;
-};
-
-// Ratio fields exist for API parity with mobile and are ignored on desktop (fixed 480 x 600 pt modal).
-struct StashNativeModalConfig {
-    float phoneWidthRatioPortrait = 0.80f;
-    float phoneHeightRatioPortrait = 0.50f;
-    float phoneWidthRatioLandscape = 0.50f;
-    float phoneHeightRatioLandscape = 0.80f;
-    float tabletWidthRatioPortrait = 0.40f;
-    float tabletHeightRatioPortrait = 0.30f;
-    float tabletWidthRatioLandscape = 0.30f;
-    float tabletHeightRatioLandscape = 0.40f;
-    // Whether the close button, backdrop click and Esc can dismiss the modal.
-    bool allowDismiss = true;
-    bool autoClose = true;
-    std::string backgroundColor;
 };
 
 class StashNativeCardListener {
@@ -125,14 +100,6 @@ inline void appendBool(std::string &json, const char *key, bool v) {
     appendField(json, key, v ? "true" : "false");
 }
 
-// A non-finite ratio is left out so the parser applies the mobile default for that key instead
-// of the whole config being rejected as malformed JSON.
-inline void appendRatio(std::string &json, const char *key, float v) {
-    if (std::isfinite(v)) {
-        appendField(json, key, number(v));
-    }
-}
-
 // A dimension that is not finite and positive is left out so the parser applies the default size.
 inline void appendDimension(std::string &json, const char *key, float v) {
     if (std::isfinite(v) && v > 0) {
@@ -142,14 +109,6 @@ inline void appendDimension(std::string &json, const char *key, float v) {
 
 inline std::string cardConfigJson(const StashNativeCardConfig &c) {
     std::string json = "{";
-    appendBool(json, "forcePortrait", c.forcePortrait);
-    appendRatio(json, "cardHeightRatioPortrait", c.cardHeightRatioPortrait);
-    appendRatio(json, "cardWidthRatioLandscape", c.cardWidthRatioLandscape);
-    appendRatio(json, "cardHeightRatioLandscape", c.cardHeightRatioLandscape);
-    appendRatio(json, "tabletWidthRatioPortrait", c.tabletWidthRatioPortrait);
-    appendRatio(json, "tabletHeightRatioPortrait", c.tabletHeightRatioPortrait);
-    appendRatio(json, "tabletWidthRatioLandscape", c.tabletWidthRatioLandscape);
-    appendRatio(json, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
     appendBool(json, "autoClose", c.autoClose);
     appendField(json, "backgroundColor", "\"" + jsonEscape(c.backgroundColor) + "\"");
     appendBool(json, "allowDismiss", c.allowDismiss);
@@ -157,23 +116,6 @@ inline std::string cardConfigJson(const StashNativeCardConfig &c) {
                 c.presentation == StashNativeCardPresentation::Window ? "\"window\"" : "\"attached\"");
     appendDimension(json, "width", c.width);
     appendDimension(json, "height", c.height);
-    json += "}";
-    return json;
-}
-
-inline std::string modalConfigJson(const StashNativeModalConfig &c) {
-    std::string json = "{";
-    appendRatio(json, "phoneWidthRatioPortrait", c.phoneWidthRatioPortrait);
-    appendRatio(json, "phoneHeightRatioPortrait", c.phoneHeightRatioPortrait);
-    appendRatio(json, "phoneWidthRatioLandscape", c.phoneWidthRatioLandscape);
-    appendRatio(json, "phoneHeightRatioLandscape", c.phoneHeightRatioLandscape);
-    appendRatio(json, "tabletWidthRatioPortrait", c.tabletWidthRatioPortrait);
-    appendRatio(json, "tabletHeightRatioPortrait", c.tabletHeightRatioPortrait);
-    appendRatio(json, "tabletWidthRatioLandscape", c.tabletWidthRatioLandscape);
-    appendRatio(json, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
-    appendBool(json, "allowDismiss", c.allowDismiss);
-    json += ",\"autoClose\":" + std::string(c.autoClose ? "true" : "false");
-    json += ",\"backgroundColor\":\"" + jsonEscape(c.backgroundColor) + "\"";
     json += "}";
     return json;
 }
@@ -243,19 +185,10 @@ public:
         StashNativeDesktop_OpenCard(url.c_str(), json.c_str());
     }
 
-    // The JSON config the game-engine wrappers send (see docs/windows.md); supports the
-    // desktop-only keys presentation, width, height and allowFileUrls.
+    // The JSON config the game-engine wrappers send (see docs/windows.md): autoClose, allowDismiss,
+    // backgroundColor, presentation, width, height and allowFileUrls. Unknown keys are ignored.
     void openCard(const std::string &url, const std::string &configJson) {
         StashNativeDesktop_OpenCard(url.c_str(), configJson.c_str());
-    }
-
-    void openModal(const std::string &url, const StashNativeModalConfig *config = nullptr) {
-        std::string json = config != nullptr ? detail::modalConfigJson(*config) : "{}";
-        StashNativeDesktop_OpenModal(url.c_str(), json.c_str());
-    }
-
-    void openModal(const std::string &url, const std::string &configJson) {
-        StashNativeDesktop_OpenModal(url.c_str(), configJson.c_str());
     }
 
     // System browser. There is no browser-closed callback on desktop.

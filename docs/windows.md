@@ -2,7 +2,7 @@
 
 ## What The Windows Host Does
 
-The Windows host wraps web checkout in WebView2 (Microsoft Edge Evergreen runtime), presents it as a card or modal over the game's own window and exposes the same `window.stash_sdk` bridge as mobile. Native apps and custom engines use the header-only C++ facade [`Desktop/Windows/include/StashNativeCard.hpp`](../Desktop/Windows/include/StashNativeCard.hpp); game engines bind the C ABI in [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h). One DLL ships (`StashNativeDesktop.dll`, static CRT, static WebView2 loader).
+The Windows host wraps web checkout in WebView2 (Microsoft Edge Evergreen runtime), presents it as a card over the game's own window and exposes the same `window.stash_sdk` bridge as mobile. Native apps and custom engines use the header-only C++ facade [`Desktop/Windows/include/StashNativeCard.hpp`](../Desktop/Windows/include/StashNativeCard.hpp); game engines bind the C ABI in [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h). One DLL ships (`StashNativeDesktop.dll`, static CRT, static WebView2 loader).
 
 Minimum platform: Windows 10 1809 or Windows 11 with the WebView2 Evergreen runtime (preinstalled on Windows 11 and updated Windows 10). x64.
 
@@ -31,7 +31,7 @@ Exported from `StashNativeDesktop.dll` and `StashNativeDesktop.bundle`, cdecl, U
 |--------|---------|
 | `StashNativeDesktop_SetEventCallback(cb, userData)` | One callback `(type, payload, userData)` for every event |
 | `StashNativeDesktop_SetHostWindow(handle)` | `HWND` / `NSWindow*`; optional |
-| `StashNativeDesktop_OpenCard(url, configJson)`, `_OpenModal`, `_OpenBrowser(url)` | The three presentation modes |
+| `StashNativeDesktop_OpenCard(url, configJson)`, `_OpenBrowser(url)` | The two presentation modes |
 | `StashNativeDesktop_Dismiss()` | Close with `dialogDismissed` |
 | `StashNativeDesktop_ResetPresentationState()` | Close with no events |
 | `StashNativeDesktop_IsCurrentlyPresented()`, `_IsPurchaseProcessing()` | Atomic state reads |
@@ -42,7 +42,7 @@ Exported from `StashNativeDesktop.dll` and `StashNativeDesktop.bundle`, cdecl, U
 
 Event types: `paymentSuccess` (order or empty), `paymentFailure`, `dialogDismissed`, `optInResponse`, `pageLoaded` (ms), `networkError`, `externalPayment` (themed URL), `purchaseProcessing`, `processingCompleted`; diagnostics `navigation` (origin `scheme://host`, never the URL: it carries the signed token and wrappers log these), `navigationBlocked` (`{"url": origin, "reason"}`), `webProcessCrashed`, `error` (an opaque diagnostic message for logs, never a URL; some include an HRESULT, none are stable codes to switch on).
 
-Config JSON: the mobile field names verbatim (`forcePortrait`, `cardHeightRatioPortrait`, ..., `allowDismiss`, `autoClose`, `backgroundColor`), plus the desktop-only `presentation` (`"attached"` | `"window"`), `width`, `height` (points) and `allowFileUrls`. Missing keys take the mobile defaults, unknown keys are ignored, ratios are clamped for parity and ignored for sizing; anything that is not one complete, well-formed JSON object (truncated, trailing text, a bad literal anywhere) falls back to the defaults entirely rather than a partial read. Parsed by `parseSurfaceConfig` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp).
+Config JSON: seven keys, `autoClose`, `allowDismiss`, `backgroundColor`, `presentation` (`"attached"` | `"window"`), `width`, `height` (points) and `allowFileUrls`. Missing keys take the defaults (the card is 480 x 720 pt unless `width` / `height` say otherwise), unknown keys are ignored (wrappers may still send mobile fields such as ratios or `forcePortrait`); anything that is not one complete, well-formed JSON object (truncated, trailing text, a bad literal anywhere) falls back to the defaults entirely rather than a partial read. Parsed by `parseSurfaceConfig` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp).
 
 Threading: every call must come from the thread that owns the host window's message loop (the game thread in Unity and Unreal). Events are posted through a hidden message window and delivered on that thread after the WebView2 callback that produced them has unwound; wrappers still enqueue and drain on their game loop.
 
@@ -75,7 +75,7 @@ flowchart TB
 - Window: a standalone top-level window for editor play mode; `WM_CLOSE` goes through the session.
 - Browser: `ShellExecuteW` with the theme parameter appended.
 - Esc: `AcceleratorKeyPressed` on the controller and `WM_KEYDOWN` on the card and standalone windows.
-- `allowDismiss = false` applies to cards and modals: no close button, backdrop and Esc are refused by the session, and the standalone window's close control is disabled; `window.close()` from the page still closes.
+- `allowDismiss = false` applies to cards: no close button, backdrop and Esc are refused by the session, and the standalone window's close control is disabled; `window.close()` from the page still closes.
 
 Host window: `SetHostWindow`, else the active window, else the foreground window of the process, else its largest visible window. Without one the card opens in a standalone window.
 

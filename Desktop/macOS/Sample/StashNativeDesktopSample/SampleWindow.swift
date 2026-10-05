@@ -2,7 +2,7 @@
 //  SampleWindow.swift
 //  StashNativeDesktopSample
 //
-//  One window: credentials, checkout URL and the three presentation modes, options, and the
+//  One window: credentials, checkout URL and the two presentation modes (card, browser), options, and the
 //  event log. The window is also the host window the card is presented over.
 //
 
@@ -110,7 +110,6 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
             button("Generate Checkout URL", #selector(generateUrl)),
             labeled("Checkout URL", urlField),
             horizontalRow([button("Open Card", #selector(openCard)),
-                           button("Open Modal", #selector(openModal)),
                            button("Open Browser", #selector(openBrowser)),
                            button("Dismiss", #selector(dismissCard))]),
             horizontalRow([button("Local Test Page", #selector(openLocalPage)),
@@ -200,11 +199,6 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
     @objc private func openCard() {
         appendLog("openCard \(configJSON)")
         StashNativeCard.sharedInstance().openCard(withURL: urlField.stringValue, configJSON: configJSON)
-    }
-
-    @objc private func openModal() {
-        appendLog("openModal \(configJSON)")
-        StashNativeCard.sharedInstance().openModal(withURL: urlField.stringValue, configJSON: configJSON)
     }
 
     @objc private func openBrowser() {

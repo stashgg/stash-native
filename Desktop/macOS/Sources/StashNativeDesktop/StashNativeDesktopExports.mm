@@ -51,21 +51,17 @@ void StashNativeDesktop_SetHostWindow(void *nativeWindowHandle) {
     });
 }
 
-static void StashOpen(const char *url, const char *configJson, stash::desktop::SurfaceMode mode) {
+static void StashOpen(const char *url, const char *configJson) {
     NSString *urlString = StashStringFromC(url);
     std::string json = configJson != nullptr ? configJson : "";
     StashRunOnMain(^{
-        stash::desktop::SurfaceConfig config = stash::desktop::parseSurfaceConfig(mode, json);
+        stash::desktop::SurfaceConfig config = stash::desktop::parseSurfaceConfig(json);
         [[StashDesktopCore sharedInstance] openURL:urlString config:config];
     });
 }
 
 void StashNativeDesktop_OpenCard(const char *url, const char *configJson) {
-    StashOpen(url, configJson, stash::desktop::SurfaceMode::Card);
-}
-
-void StashNativeDesktop_OpenModal(const char *url, const char *configJson) {
-    StashOpen(url, configJson, stash::desktop::SurfaceMode::Modal);
+    StashOpen(url, configJson);
 }
 
 void StashNativeDesktop_OpenBrowser(const char *url) {

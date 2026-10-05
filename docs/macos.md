@@ -2,7 +2,7 @@
 
 ## What The macOS Host Does
 
-The macOS host wraps web checkout in `WKWebView`, presents it as a card or modal over the game's own window (the game keeps rendering underneath), and exposes the same `window.stash_sdk` bridge as mobile. Native apps use the Objective-C `StashNativeCard` facade with `StashNativeCardDelegate`; game engines bind the C ABI in [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h). Both drive one core.
+The macOS host wraps web checkout in `WKWebView`, presents it as a card over the game's own window (the game keeps rendering underneath), and exposes the same `window.stash_sdk` bridge as mobile. Native apps use the Objective-C `StashNativeCard` facade with `StashNativeCardDelegate`; game engines bind the C ABI in [`Desktop/include/StashNativeDesktop.h`](../Desktop/include/StashNativeDesktop.h). Both drive one core.
 
 Minimum platform: macOS 11 (see [`Desktop/Package.swift`](../Desktop/Package.swift)). Universal arm64 + x86_64.
 
@@ -30,12 +30,12 @@ Sample app (Swift, delegate and C ABI wiring): [`Desktop/macOS/Sample/StashNativ
 
 ## Public API Surface
 
-Declared in [`StashNativeCard.h`](../Desktop/macOS/Sources/StashNativeDesktop/include/StashNativeCard.h): the iOS header minus the UIKit-only members (no popup, no Safari calls, no orientation API; `forcePortrait` is accepted and ignored).
+Declared in [`StashNativeCard.h`](../Desktop/macOS/Sources/StashNativeDesktop/include/StashNativeCard.h): the iOS header minus the UIKit-only members (no popup, no Safari calls, no orientation API), with one desktop card config (`StashNativeCardConfig`: `autoClose`, `backgroundColor`, `allowDismiss`, `presentation`, `width`, `height`) and no modal.
 
 - `+sharedInstance`, `+sdkVersion`, `+setInspectableWebViewsEnabled:`
 - `hostWindow` (optional; key window, then main window otherwise)
-- `-openCardWithURL:config:`, `-openModalWithURL:config:`, `-openBrowserWithURL:`
-- `-openCardWithURL:configJSON:`, `-openModalWithURL:configJSON:` (the wrapper JSON contract, including the desktop-only keys)
+- `-openCardWithURL:config:`, `-openBrowserWithURL:`
+- `-openCardWithURL:configJSON:` (the wrapper JSON contract, including the desktop-only keys)
 - `-dismiss`, `-resetPresentationState`, `-prewarm`, `-shutdown`
 
 Delegate callbacks: `stashNativeCardDidCompletePaymentWithOrder:`, `stashNativeCardDidFailPayment`, `stashNativeCardDidDismiss`, `stashNativeCardDidReceiveOptIn:`, `stashNativeCardDidLoadPage:`, `stashNativeCardDidEncounterNetworkError`, `stashNativeCardDidRequestExternalPaymentWithURL:`. There is no browser-closed callback on desktop.
@@ -82,11 +82,11 @@ The core owns one `Session` per presentation; the session keeps living until the
 
 ## Presentation
 
-- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt, modal 480 x 600 pt, a 400 x 500 pt minimum is applied first, then the size is clamped to the host minus a 24 pt margin on each edge (so a 420 x 520 host yields 372 x 472), with a 200 x 240 pt absolute floor for very small hosts.
+- Attached (default): `StashBackdropView` (40% black, click dismisses) over the host window's content view, `StashCardView` centred with 14 pt corners and the sheet colour, a 36 pt trust header (SF Symbol lock for https, host label, close button), spinner until the first load, Esc through a local event monitor, relayout on host resize. Size comes from `resolveSurfaceSize` in [`StashDesktopConfig.cpp`](../Desktop/shared/StashDesktopConfig.cpp): card 480 x 720 pt by default (`width` / `height` override), a 400 x 500 pt minimum is applied first, then the size is clamped to the host minus a 24 pt margin on each edge (so a 420 x 520 host yields 372 x 472), with a 200 x 240 pt absolute floor for very small hosts.
 - Window (`presentation: "window"` in the JSON config): a titled, resizable `NSWindow` for editor play mode. The title bar close button goes through the session like any other user dismissal.
 - Browser: `NSWorkspace openURL:` with the theme parameter appended.
 
-`allowDismiss = false` applies to cards and modals: no close button, backdrop and Esc are refused, and the standalone window's close control is removed; `window.close()` from the page still closes it.
+`allowDismiss = false` applies to cards: no close button, backdrop and Esc are refused, and the standalone window's close control is removed; `window.close()` from the page still closes it.
 
 ## Loading, Timeout, Retry, And Error Semantics
 

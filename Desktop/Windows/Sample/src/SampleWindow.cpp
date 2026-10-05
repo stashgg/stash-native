@@ -1,4 +1,4 @@
-// One window: credentials, checkout URL and the three presentation modes, options, and the
+// One window: credentials, checkout URL and the two presentation modes (card, browser), options, and the
 // event log. The window is also the host window the card is presented over.
 
 #include "Sample.hpp"
@@ -142,7 +142,6 @@ enum ControlId {
     kGenerate,
     kUrl,
     kOpenCard,
-    kOpenModal,
     kOpenBrowser,
     kDismiss,
     kLocalPage,
@@ -261,9 +260,8 @@ void buildControls() {
     make(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 124, y, 480, 24, kUrl);
     y += 34;
     make(L"BUTTON", L"Open Card", BS_PUSHBUTTON, 124, y, 110, 26, kOpenCard);
-    make(L"BUTTON", L"Open Modal", BS_PUSHBUTTON, 240, y, 110, 26, kOpenModal);
-    make(L"BUTTON", L"Open Browser", BS_PUSHBUTTON, 356, y, 110, 26, kOpenBrowser);
-    make(L"BUTTON", L"Dismiss", BS_PUSHBUTTON, 472, y, 110, 26, kDismiss);
+    make(L"BUTTON", L"Open Browser", BS_PUSHBUTTON, 240, y, 110, 26, kOpenBrowser);
+    make(L"BUTTON", L"Dismiss", BS_PUSHBUTTON, 356, y, 110, 26, kDismiss);
     y += 32;
     make(L"BUTTON", L"Local Test Page", BS_PUSHBUTTON, 124, y, 140, 26, kLocalPage);
     make(L"BUTTON", L"Validation Matrix", BS_PUSHBUTTON, 270, y, 140, 26, kMatrixPage);
@@ -326,10 +324,6 @@ void onCommand(int id, int notification) {
         case kOpenCard:
             appendLog("openCard " + configJson(false));
             card.openCard(text(kUrl), configJson(false));
-            break;
-        case kOpenModal:
-            appendLog("openModal " + configJson(false));
-            card.openModal(text(kUrl), configJson(false));
             break;
         case kOpenBrowser:
             card.openBrowser(text(kUrl));
