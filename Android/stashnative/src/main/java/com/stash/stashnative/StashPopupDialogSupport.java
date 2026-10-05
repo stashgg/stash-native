@@ -118,7 +118,7 @@ final class StashPopupDialogSupport {
 
       mainFrame.setOnClickListener(v -> {
         try {
-          if (!plugin.isPurchaseProcessing && plugin.currentDialog != null && plugin.currentDialog.isShowing()
+          if (!plugin.isPopupProcessing() && plugin.currentDialog != null && plugin.currentDialog.isShowing()
               && v == mainFrame) {
             plugin.currentDialog.dismiss();
           }
@@ -231,8 +231,8 @@ final class StashPopupDialogSupport {
 
       plugin.currentContainer.setOnClickListener(v -> {});
 
-      plugin.currentDialog.setCanceledOnTouchOutside(!plugin.isPurchaseProcessing);
-      plugin.currentDialog.setCancelable(!plugin.isPurchaseProcessing);
+      plugin.currentDialog.setCanceledOnTouchOutside(!plugin.isPopupProcessing());
+      plugin.currentDialog.setCancelable(!plugin.isPopupProcessing());
 
       plugin.currentDialog.setOnDismissListener(dialog -> {
         if (session != plugin.presentationSessionId || dialog != plugin.currentDialog) {

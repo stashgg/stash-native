@@ -124,6 +124,65 @@ public class PresentationRegressionTest {
     assertFalse(plugin.isPurchaseProcessing());
   }
 
+  @Test public void popupProcessingLocksBeforeQueuedBackdropTap() {
+    plugin.openPopup("https://example.invalid");
+    StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
+    bridge.onPurchaseProcessing();
+    assertTrue(plugin.isPurchaseProcessing());
+    android.view.View backdrop = (android.view.View) plugin.currentContainer.getParent();
+    backdrop.performClick();
+    ShadowLooper.idleMainLooper();
+    assertTrue(plugin.isCurrentlyPresented());
+    assertNotNull(plugin.currentDialog);
+    assertTrue(plugin.currentDialog.isShowing());
+  }
+
+  @Test public void popupProcessingRestartAfterCompletionKeepsLock() {
+    plugin.openPopup("https://example.invalid");
+    StashPopupJsInterface bridge = new StashPopupJsInterface(plugin);
+    bridge.onPurchaseProcessing();
+    bridge.onProcessingCompleted();
+    bridge.onPurchaseProcessing();
+    ShadowLooper.idleMainLooper();
+    assertTrue(plugin.isPurchaseProcessing());
+    android.view.View backdrop = (android.view.View) plugin.currentContainer.getParent();
+    backdrop.performClick();
+    ShadowLooper.idleMainLooper();
+    assertTrue(plugin.isCurrentlyPresented());
+    assertTrue(plugin.currentDialog.isShowing());
+  }
+
+  @Test public void staleBridgeCannotUnlockReplacementProcessing() {
+    plugin.openPopup("https://example.invalid");
+    StashPopupJsInterface oldBridge = new StashPopupJsInterface(plugin);
+    plugin.resetPresentationState();
+    plugin.setActivity(host);
+    plugin.openPopup("https://example.invalid/next");
+    StashPopupJsInterface newBridge = new StashPopupJsInterface(plugin);
+    newBridge.onPurchaseProcessing();
+    oldBridge.onPurchaseProcessing();
+    ShadowLooper.idleMainLooper();
+    assertTrue(plugin.isPurchaseProcessing());
+  }
+
+  @Test public void staleBridgeCannotLockReplacementEvenMidWrite() {
+    plugin.openPopup("https://example.invalid");
+    StashPopupJsInterface oldBridge = new StashPopupJsInterface(plugin);
+    plugin.resetPresentationState();
+    plugin.setActivity(host);
+    plugin.openPopup("https://example.invalid/next");
+    assertTrue(plugin.isCurrentlyPresented());
+    // The check/write interleaving cannot be forced here; this proves a stale id never matches.
+    oldBridge.onPurchaseProcessing();
+    assertFalse(plugin.isPurchaseProcessing());
+    ShadowLooper.idleMainLooper();
+    assertFalse(plugin.isPurchaseProcessing());
+    android.view.View backdrop = (android.view.View) plugin.currentContainer.getParent();
+    backdrop.performClick();
+    ShadowLooper.idleMainLooper();
+    assertFalse(plugin.isCurrentlyPresented());
+  }
+
   @Test public void oldPopupWebViewCannotChangeReplacementLoadState() {
     plugin.openPopup("https://example.invalid");
     android.webkit.WebView oldView = plugin.webView;

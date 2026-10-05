@@ -36,7 +36,7 @@ class StashPopupJsInterface {
         return;
       }
       plugin.paymentSuccessHandled = true;
-      plugin.isPurchaseProcessing = false;
+      plugin.popupProcessingSession.compareAndSet(session, 0);
       // Documented contract: no order argument surfaces as null (card path and iOS agree).
       final String orderPayload = (order != null && !order.isEmpty()) ? order : null;
       plugin.runOnMainAndDismiss(() -> {
@@ -55,7 +55,7 @@ class StashPopupJsInterface {
         return;
       }
       plugin.paymentSuccessHandled = true;
-      plugin.isPurchaseProcessing = false;
+      plugin.popupProcessingSession.compareAndSet(session, 0);
       plugin.runOnMainAndDismiss(() -> {
         StashNativeCard.StashNativeCardListener l = plugin.getListener();
         if (l != null) {
@@ -67,12 +67,21 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void onPurchaseProcessing() {
+    // Set on the bridge thread so a queued backdrop tap cannot win the race and the page's order of
+    // start/complete is kept. Session ids only grow, so a stale bridge never replaces a newer lock.
+    long held;
+    do {
+      held = plugin.popupProcessingSession.get();
+      if (held > session) {
+        break;
+      }
+    } while (!plugin.popupProcessingSession.compareAndSet(held, session));
     onMain(() -> {
-      plugin.isPurchaseProcessing = true;
       try {
         if (plugin.currentDialog != null && plugin.currentDialog.isShowing()) {
-          plugin.currentDialog.setCanceledOnTouchOutside(false);
-          plugin.currentDialog.setCancelable(false);
+          boolean dismissible = !plugin.isPopupProcessing();
+          plugin.currentDialog.setCanceledOnTouchOutside(dismissible);
+          plugin.currentDialog.setCancelable(dismissible);
         }
       } catch (Exception e) {
         Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
@@ -82,12 +91,13 @@ class StashPopupJsInterface {
 
   @JavascriptInterface
   public void onProcessingCompleted() {
+    plugin.popupProcessingSession.compareAndSet(session, 0);
     onMain(() -> {
-      plugin.isPurchaseProcessing = false;
       try {
         if (plugin.currentDialog != null && plugin.currentDialog.isShowing()) {
-          plugin.currentDialog.setCanceledOnTouchOutside(true);
-          plugin.currentDialog.setCancelable(true);
+          boolean dismissible = !plugin.isPopupProcessing();
+          plugin.currentDialog.setCanceledOnTouchOutside(dismissible);
+          plugin.currentDialog.setCancelable(dismissible);
         }
       } catch (Exception e) {
         Log.w(TAG, "Error updating dialog dismissibility: " + e.getMessage(), e);
@@ -116,7 +126,7 @@ class StashPopupJsInterface {
   @JavascriptInterface
   public void requestCloseFromPage() {
     onMain(() -> {
-      if (plugin.isPurchaseProcessing) {
+      if (plugin.isPopupProcessing()) {
         return;
       }
       try {
@@ -142,7 +152,7 @@ class StashPopupJsInterface {
         boolean effDark = StashPopupDialogSupport.dialogEffectiveDarkForWeb(plugin, activity);
         String themed = StashWebViewUtils.appendThemeQueryParameter(normalized, effDark);
         plugin.paymentSuccessHandled = true;
-        plugin.isPurchaseProcessing = false;
+        plugin.popupProcessingSession.compareAndSet(session, 0);
         StashNativeCard.StashNativeCardListener listener = plugin.getListener();
         plugin.isCurrentlyPresented = false;
         if (listener != null) {
