@@ -140,12 +140,13 @@ class StashPopupJsInterface {
   @JavascriptInterface
   public void openExternalBrowser(String url) {
     onMain(() -> {
+      Activity activity = null;
       try {
         String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
         if (normalized == null) {
           return;
         }
-        Activity activity = plugin.getActivity();
+        activity = plugin.getActivity();
         if (activity == null) {
           return;
         }
@@ -155,24 +156,21 @@ class StashPopupJsInterface {
         plugin.popupProcessingSession.compareAndSet(session, 0);
         StashNativeCard.StashNativeCardListener listener = plugin.getListener();
         plugin.isCurrentlyPresented = false;
+        // Dismissal starts while this popup is still current; a checkout the callback opens
+        // cancels it and owns the singleton afterwards.
+        plugin.dismissCurrentDialog();
         if (listener != null) {
           listener.onExternalPayment(themed);
         }
-        if (plugin.presentationSessionId != session) {
+        if (themed.isEmpty()) {
           return;
         }
-        plugin.dismissCurrentDialog();
-        Activity act = plugin.getActivity();
-        if (act == null || themed.isEmpty()) {
-          return;
-        }
-        plugin.startKeepAliveBeforeBrowser(act);
-        plugin.launchExternalBrowser(act, themed);
+        plugin.startKeepAliveBeforeBrowser(activity);
+        plugin.launchExternalBrowser(activity, themed);
       } catch (Exception e) {
         plugin.cancelBrowserCloseTrackingLaunch();
-        Activity ka = plugin.getActivity();
-        if (ka != null) {
-          plugin.stopKeepAliveForegroundService(ka.getApplicationContext());
+        if (activity != null) {
+          plugin.stopKeepAliveForegroundService(activity.getApplicationContext());
         }
         Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
       }
