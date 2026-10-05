@@ -6,6 +6,8 @@
 #include <windowsx.h>
 
 #include <cstdio>
+#include <cstdlib>
+#include <string>
 
 #include "StashDesktopJson.h"
 #include "StashDesktopUrl.h"
@@ -151,6 +153,8 @@ enum ControlId {
     kWindowMode,
     kInspectable,
     kBackground,
+    kWidth,
+    kHeight,
     kStatus,
     kLog
 };
@@ -219,6 +223,10 @@ std::string configJson(bool localFiles) {
     if (!background.empty()) {
         json += ",\"backgroundColor\":\"" + background + "\"";
     }
+    // Empty, non-positive or non-finite means the default size, so the key is left out. The
+    // facade's appendDimension applies the same rule and formats the number locale-free.
+    stash::detail::appendDimension(json, "width", static_cast<float>(std::atof(text(kWidth).c_str())));
+    stash::detail::appendDimension(json, "height", static_cast<float>(std::atof(text(kHeight).c_str())));
     if (localFiles) {
         json += ",\"allowFileUrls\":true";
     }
@@ -262,7 +270,7 @@ void buildControls() {
     make(L"BUTTON", L"Clear Log", BS_PUSHBUTTON, 416, y, 110, 26, kClearLog);
     y += 34;
     make(L"BUTTON", L"autoClose", BS_AUTOCHECKBOX, 124, y, 100, 22, kAutoClose);
-    make(L"BUTTON", L"allowDismiss (modal)", BS_AUTOCHECKBOX, 230, y, 160, 22, kAllowDismiss);
+    make(L"BUTTON", L"allowDismiss", BS_AUTOCHECKBOX, 230, y, 160, 22, kAllowDismiss);
     make(L"BUTTON", L"Window presentation", BS_AUTOCHECKBOX, 396, y, 150, 22, kWindowMode);
     make(L"BUTTON", L"Inspectable", BS_AUTOCHECKBOX, 550, y, 100, 22, kInspectable);
     Button_SetCheck(control(kAutoClose), BST_CHECKED);
@@ -270,6 +278,11 @@ void buildControls() {
     y += 30;
     label(L"Background", 16, y);
     make(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 124, y, 200, 24, kBackground);
+    y += 32;
+    label(L"Width", 16, y);
+    make(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 124, y, 80, 24, kWidth);
+    label(L"Height", 210, y);
+    make(L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, 318, y, 80, 24, kHeight);
     y += 32;
     make(L"STATIC", L"Ready", SS_LEFT, 124, y, 480, 20, kStatus);
     y += 28;

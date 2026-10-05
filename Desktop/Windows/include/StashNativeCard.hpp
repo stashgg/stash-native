@@ -23,7 +23,9 @@
 
 namespace stash {
 
-// Ratio fields exist for API parity with mobile and are ignored on desktop (fixed 480 x 720 pt card).
+enum class StashNativeCardPresentation { Attached, Window };
+
+// Ratio fields exist for API parity with mobile and are ignored on desktop; width and height size the card.
 struct StashNativeCardConfig {
     bool forcePortrait = false;
     float cardHeightRatioPortrait = 0.68f;
@@ -37,6 +39,13 @@ struct StashNativeCardConfig {
     bool autoClose = true;
     // Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for the sheet background; empty for the default theme.
     std::string backgroundColor;
+    // Whether the close button, backdrop click, Esc and the standalone window's close control can dismiss the card.
+    bool allowDismiss = true;
+    // Attached overlays the host window; Window opens a standalone top-level window.
+    StashNativeCardPresentation presentation = StashNativeCardPresentation::Attached;
+    // Points; 0 = the 480 x 720 default.
+    float width = 0;
+    float height = 0;
 };
 
 // Ratio fields exist for API parity with mobile and are ignored on desktop (fixed 480 x 600 pt modal).
@@ -124,6 +133,13 @@ inline void appendRatio(std::string &json, const char *key, float v) {
     }
 }
 
+// A dimension that is not finite and positive is left out so the parser applies the default size.
+inline void appendDimension(std::string &json, const char *key, float v) {
+    if (std::isfinite(v) && v > 0) {
+        appendField(json, key, number(v));
+    }
+}
+
 inline std::string cardConfigJson(const StashNativeCardConfig &c) {
     std::string json = "{";
     appendBool(json, "forcePortrait", c.forcePortrait);
@@ -136,6 +152,11 @@ inline std::string cardConfigJson(const StashNativeCardConfig &c) {
     appendRatio(json, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
     appendBool(json, "autoClose", c.autoClose);
     appendField(json, "backgroundColor", "\"" + jsonEscape(c.backgroundColor) + "\"");
+    appendBool(json, "allowDismiss", c.allowDismiss);
+    appendField(json, "presentation",
+                c.presentation == StashNativeCardPresentation::Window ? "\"window\"" : "\"attached\"");
+    appendDimension(json, "width", c.width);
+    appendDimension(json, "height", c.height);
     json += "}";
     return json;
 }

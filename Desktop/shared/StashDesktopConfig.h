@@ -18,7 +18,8 @@ enum class Presentation { Attached, Window };
 struct SurfaceConfig {
     SurfaceMode mode = SurfaceMode::Card;
     bool autoClose = true;
-    // Modal only. Cards are always user-dismissable.
+    // When false the user's dismiss paths (close button, backdrop, Escape, standalone window close)
+    // are refused; the page's window.close and the host's Dismiss still close.
     bool allowDismiss = true;
     // Accepted for parity, no effect on desktop.
     bool forcePortrait = false;

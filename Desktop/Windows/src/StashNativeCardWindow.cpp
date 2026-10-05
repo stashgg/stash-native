@@ -312,7 +312,7 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
                             host_, nullptr, module, nullptr);
     SetWindowRgn(card_, CreateRoundRectRgn(0, 0, w + 1, h + 1, radius, radius), TRUE);
 
-    bool dismissable = config.mode != SurfaceMode::Modal || config.allowDismiss;
+    bool dismissable = config.allowDismiss;
     if (dismissable) {
         int btn = static_cast<int>(kCloseButtonPt * m.scale);
         closeButton_ = CreateWindowExW(0, L"BUTTON", L"", WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
@@ -362,6 +362,9 @@ void Presenter::presentStandalone(const SurfaceConfig &config, uint32_t sheetArg
     int y = (GetSystemMetrics(SM_CYSCREEN) - fh) / 2;
     standalone_ = CreateWindowExW(0, kClassStandalone, L"Stash Checkout", WS_OVERLAPPEDWINDOW, x, y, fw, fh, nullptr, nullptr,
                                   core_.moduleInstance(), nullptr);
+    if (!config.allowDismiss) {
+        EnableMenuItem(GetSystemMenu(standalone_, FALSE), SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
+    }
     ShowWindow(standalone_, SW_SHOW);
     SetForegroundWindow(standalone_);
 

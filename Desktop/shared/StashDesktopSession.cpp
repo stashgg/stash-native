@@ -145,7 +145,7 @@ void Session::handleOptIn(const std::string &optInType) {
     }
 }
 
-// window.close honours the processing lock but not modal allowDismiss, as on mobile.
+// window.close honours the processing lock but not allowDismiss, as on mobile.
 void Session::handleWindowClose() {
     if (finished_ || purchaseProcessing_) {
         return;
@@ -287,7 +287,7 @@ bool Session::requestUserDismiss() {
     if (purchaseProcessing_) {
         return false;
     }
-    if (config_.mode == SurfaceMode::Modal && !config_.allowDismiss) {
+    if (!config_.allowDismiss) {
         return false;
     }
     finishWithDismissEvent();

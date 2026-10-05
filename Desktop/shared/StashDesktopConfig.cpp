@@ -41,6 +41,7 @@ SurfaceConfig parseSurfaceConfig(SurfaceMode mode, const std::string &text) {
         return c;
     }
     c.autoClose = json::getBool(text, "autoClose", true);
+    c.allowDismiss = json::getBool(text, "allowDismiss", true);
     c.backgroundColor = url::trim(json::getString(text, "backgroundColor", ""));
     c.allowFileUrls = json::getBool(text, "allowFileUrls", false);
     c.presentation = json::getString(text, "presentation", "attached") == "window" ? Presentation::Window
@@ -49,7 +50,6 @@ SurfaceConfig parseSurfaceConfig(SurfaceMode mode, const std::string &text) {
     c.height = dimension(text, "height");
 
     if (mode == SurfaceMode::Card) {
-        c.allowDismiss = true;
         c.forcePortrait = json::getBool(text, "forcePortrait", false);
         c.cardHeightRatioPortrait = ratio(text, "cardHeightRatioPortrait", c.cardHeightRatioPortrait);
         c.cardWidthRatioLandscape = ratio(text, "cardWidthRatioLandscape", c.cardWidthRatioLandscape);
@@ -59,7 +59,6 @@ SurfaceConfig parseSurfaceConfig(SurfaceMode mode, const std::string &text) {
         c.tabletWidthRatioLandscape = ratio(text, "tabletWidthRatioLandscape", c.tabletWidthRatioLandscape);
         c.tabletHeightRatioLandscape = ratio(text, "tabletHeightRatioLandscape", c.tabletHeightRatioLandscape);
     } else {
-        c.allowDismiss = json::getBool(text, "allowDismiss", true);
         c.phoneWidthRatioPortrait = ratio(text, "phoneWidthRatioPortrait", c.phoneWidthRatioPortrait);
         c.phoneHeightRatioPortrait = ratio(text, "phoneHeightRatioPortrait", c.phoneHeightRatioPortrait);
         c.phoneWidthRatioLandscape = ratio(text, "phoneWidthRatioLandscape", c.phoneWidthRatioLandscape);

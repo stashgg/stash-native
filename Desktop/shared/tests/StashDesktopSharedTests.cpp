@@ -395,9 +395,9 @@ static void testConfigParsing() {
     CHECK(near(card.width, 640));
     CHECK(near(card.height, 0));
     CHECK(card.allowFileUrls);
-    // A card config never carries allowDismiss.
     SurfaceConfig cardNoDismiss = parseSurfaceConfig(SurfaceMode::Card, "{\"allowDismiss\":false}");
-    CHECK(cardNoDismiss.allowDismiss);
+    CHECK(!cardNoDismiss.allowDismiss);
+    CHECK(parseSurfaceConfig(SurfaceMode::Card, "{}").allowDismiss);
 
     SurfaceConfig modal = parseSurfaceConfig(SurfaceMode::Modal,
         "{\"allowDismiss\":false,\"phoneWidthRatioPortrait\":\"wide\",\"tabletHeightRatioPortrait\":0.9,\"autoClose\":true}");
@@ -442,6 +442,9 @@ static void testSizingRule() {
     SurfaceConfig explicitSize = parseSurfaceConfig(SurfaceMode::Card, "{\"width\":300,\"height\":900}");
     s = resolveSurfaceSize(explicitSize, 1920, 1080);
     CHECK(near(s.width, 400) && near(s.height, 900));
+    SurfaceConfig typedSize = parseSurfaceConfig(SurfaceMode::Card, "{\"width\":640,\"height\":700}");
+    s = resolveSurfaceSize(typedSize, 1920, 1080);
+    CHECK(near(s.width, 640) && near(s.height, 700));
     // Host clamp: 1280x720 host leaves 672 of height.
     s = resolveSurfaceSize(card, 1280, 720);
     CHECK(near(s.width, 480) && near(s.height, 672));
@@ -638,6 +641,17 @@ static void testProgrammaticDismissDuringProcessing() {
 static void testModalAllowDismiss() {
     RecordingHost h;
     Session s(h, parseSurfaceConfig(SurfaceMode::Modal, "{\"allowDismiss\":false}"), false);
+    CHECK(!s.requestUserDismiss());
+    CHECK(s.isPresented());
+    // window.close still works with allowDismiss off.
+    s.handleWindowClose();
+    CHECK(!s.isPresented());
+    CHECK_EQ(h.countType(STASH_NATIVE_DESKTOP_EVENT_DIALOG_DISMISSED), 1);
+}
+
+static void testCardAllowDismiss() {
+    RecordingHost h;
+    Session s(h, parseSurfaceConfig(SurfaceMode::Card, "{\"allowDismiss\":false}"), false);
     CHECK(!s.requestUserDismiss());
     CHECK(s.isPresented());
     // window.close still works with allowDismiss off.
@@ -935,6 +949,7 @@ int main() {
     testProcessingLock();
     testProgrammaticDismissDuringProcessing();
     testModalAllowDismiss();
+    testCardAllowDismiss();
     testOptIn();
     testReentrantDismissFromOptIn();
     testOptInFinishesBeforeCallback();

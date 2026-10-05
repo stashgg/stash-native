@@ -80,7 +80,7 @@ public:
     void handleNetworkError();
 
     // Close button, backdrop click, Esc, window close button. False when refused (purchase
-    // processing, or a modal with allowDismiss = false).
+    // processing, or allowDismiss = false).
     bool requestUserDismiss();
     // StashNativeDesktop_Dismiss: closes and emits dialogDismissed (mobile dismiss parity).
     void dismiss();
