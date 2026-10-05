@@ -15,6 +15,14 @@
     self.calls++; self.onMain=[NSThread isMainThread];
 }
 @end
+@interface AuditBrowserCallback : NSObject <StashNativeCardDelegate>
+@property(nonatomic) NSInteger dismissCalls;
+@property(nonatomic) NSInteger closeCalls;
+@end
+@implementation AuditBrowserCallback
+- (void)stashNativeCardDidDismiss { self.dismissCalls++; }
+- (void)stashNativeCardDidCloseBrowser { self.closeCalls++; }
+@end
 @interface AuditSafari : SFSafariViewController
 @end
 @implementation AuditSafari
@@ -91,6 +99,38 @@ void AuditSafariThread(void (^completion)(BOOL, NSInteger)) {
             BOOL onMain=delegate.onMain; NSInteger calls=delegate.calls;
             internal.currentSafariViewController=nil; sdk.delegate=prior;
             [sdk resetPresentationState]; completion(onMain,calls);
+        });
+    });
+}
+// The test host has no key window, so the presenter may be nil; the probe proves the cancel
+// bookkeeping (latch, controller, callbacks, reopen), not on-screen presentation.
+void AuditEarlyCloseBrowser(void (^completion)(BOOL, BOOL, NSInteger, NSInteger, BOOL)) {
+    StashNativeCard *sdk=[StashNativeCard sharedInstance];
+    StashNativeCardInternal *internal=[StashNativeCardInternal sharedInstance];
+    AuditBrowserCallback *delegate=[AuditBrowserCallback new];
+    id prior=sdk.delegate; sdk.delegate=delegate;
+    [sdk resetPresentationState];
+    [sdk openBrowserWithURL:@"https://audit.invalid/"];
+    SFSafariViewController *first=internal.currentSafariViewController;
+    BOOL queued=internal.isSafariPresentationQueued;
+    [sdk closeBrowser];
+    // Outlasts the rotation delay so the deferred present has fired (or been dropped).
+    NSTimeInterval wait=0.6;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(wait*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+        BOOL latchCleared=!internal.isDismissingSafari;
+        BOOL controllerCleared=(first != nil && queued && internal.currentSafariViewController == nil
+                                && !internal.isSafariPresentationQueued && first.presentingViewController == nil);
+        NSInteger dismissCalls=delegate.dismissCalls; NSInteger closeCalls=delegate.closeCalls;
+        [sdk openBrowserWithURL:@"https://audit.invalid/"];
+        SFSafariViewController *second=internal.currentSafariViewController;
+        [sdk closeBrowser];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(wait*NSEC_PER_SEC)),dispatch_get_main_queue(),^{
+            BOOL secondOK=(second != nil && second != first && !internal.isDismissingSafari
+                           && internal.currentSafariViewController == nil
+                           && delegate.dismissCalls == 2 && delegate.closeCalls == 2);
+            sdk.delegate=prior;
+            [sdk resetPresentationState];
+            completion(latchCleared,controllerCleared,dismissCalls,closeCalls,secondOK);
         });
     });
 }

@@ -631,6 +631,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
     if (!nsurl) {
         resetSafariOpenBrowserTrackingFlags();
         StashNativeCardInternal *staleInternal = [StashNativeCardInternal sharedInstance];
+        staleInternal.isSafariPresentationQueued = NO;
         if (staleInternal.isHandingOffPortraitWindowToSafari || staleInternal.safariPresentationWindow) {
             staleInternal.isHandingOffPortraitWindowToSafari = NO;
             [staleInternal tearDownSafariPresentationState];
@@ -642,6 +643,7 @@ static BOOL stashLivePresentationBlocksOpen(void) {
     safariVC.delegate = [StashNativeCardInternal sharedInstance];
     [StashNativeCardInternal sharedInstance].currentSafariViewController = safariVC;
     [StashNativeCardInternal sharedInstance].isDismissingSafari = NO;
+    [StashNativeCardInternal sharedInstance].isSafariPresentationQueued = YES;
 
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     // A live card must be torn down before Safari takes the window; keep the window alive for
@@ -726,6 +728,8 @@ static BOOL stashLivePresentationBlocksOpen(void) {
         if (internal.currentSafariViewController != safariVC) {
             return;
         }
+        // From here the controller is either handed to UIKit or dropped; it is no longer queued.
+        internal.isSafariPresentationQueued = NO;
         if (presenter == nil) {
             resetSafariOpenBrowserTrackingFlags();
             internal.currentSafariViewController = nil;
@@ -2034,6 +2038,7 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
     // means reset, so dismantle any live Safari session and its windows here too.
     if (internal.currentSafariViewController || internal.safariPresentationWindow ||
         internal.portraitWindow) {
+        internal.isSafariPresentationQueued = NO;
         UIViewController *presenting = internal.currentSafariViewController.presentingViewController;
         if (presenting) {
             [presenting dismissViewControllerAnimated:NO completion:nil];
@@ -2064,6 +2069,14 @@ static void stashRemoveFormInputAccessoryView(WKWebView *webView) {
 - (void)dismissSafariViewController {
     StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
     SFSafariViewController *closing = internal.currentSafariViewController;
+    if (closing && internal.isSafariPresentationQueued) {
+        // Never handed to UIKit: cancel through the shared finish path so callbacks fire once
+        // and the deferred present's identity check drops this controller.
+        internal.isSafariPresentationQueued = NO;
+        internal.currentSafariViewController = nil;
+        [self didFinishSafariDismiss];
+        return;
+    }
     if (closing && !internal.isDismissingSafari) {
         internal.isDismissingSafari = YES;
         [closing dismissViewControllerAnimated:YES completion:^{
