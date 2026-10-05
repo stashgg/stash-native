@@ -21,6 +21,7 @@ import android.view.ViewTreeObserver;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import java.lang.ref.WeakReference;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Internal plugin class that handles the WebView and dialog management.
@@ -77,8 +78,11 @@ public class StashNativeCardPlugin {
   volatile boolean presentationUsesIsolatedWebviewProcess;
   /** Accessed from UI and JS threads; volatile for visibility. */
   volatile boolean paymentSuccessHandled;
-  /** Accessed from UI and JS threads; volatile for visibility. */
-  volatile boolean isPurchaseProcessing;
+  /**
+   * Session id holding the popup processing lock; 0 = unlocked. Presentation ids start at 1, and a
+   * stale bridge's id never equals the current session.
+   */
+  final AtomicLong popupProcessingSession = new AtomicLong(0);
   private boolean usePopupPresentation;
   boolean useModalPresentation;
   int lastOrientation = Configuration.ORIENTATION_UNDEFINED;
@@ -1001,7 +1005,11 @@ public class StashNativeCardPlugin {
       return false;
     }
     return portrait != null && portrait.getPresentationSessionId() == presentationSessionId
-        ? portrait.isPurchaseProcessing : isPurchaseProcessing;
+        ? portrait.isPurchaseProcessing : isPopupProcessing();
+  }
+
+  boolean isPopupProcessing() {
+    return isCurrentlyPresented && popupProcessingSession.get() == presentationSessionId;
   }
 
   private boolean beginPresentation(String url) {
@@ -1223,7 +1231,7 @@ public class StashNativeCardPlugin {
 
     paymentSuccessHandled = false;
     isCurrentlyPresented = false;
-    isPurchaseProcessing = false;
+    popupProcessingSession.set(0);
     usePopupPresentation = false;
     useModalPresentation = false;
     try {
