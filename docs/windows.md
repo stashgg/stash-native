@@ -75,7 +75,7 @@ flowchart TB
 - Window: a standalone top-level window for editor play mode; `WM_CLOSE` goes through the session.
 - Browser: `ShellExecuteW` with the theme parameter appended.
 - Esc: `AcceleratorKeyPressed` on the controller and `WM_KEYDOWN` on the card and standalone windows.
-- `allowDismiss = false` modals get no close button; backdrop and Esc are refused by the session.
+- `allowDismiss = false` applies to cards and modals: no close button, backdrop and Esc are refused by the session, and the standalone window's close control is disabled; `window.close()` from the page still closes.
 
 Host window: `SetHostWindow`, else the active window, else the foreground window of the process, else its largest visible window. Without one the card opens in a standalone window.
 

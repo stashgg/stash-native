@@ -7,6 +7,8 @@
 
 #import "StashNativeCardPrivate.h"
 
+#include <cmath>
+
 #include "StashDesktopUrl.h"
 
 @implementation StashNativeModalConfig
@@ -70,6 +72,10 @@
         _tabletHeightRatioPortrait = 0.5f;
         _tabletWidthRatioLandscape = 0.3f;
         _tabletHeightRatioLandscape = 0.6f;
+        _allowDismiss = YES;
+        _presentation = StashNativeCardPresentationAttached;
+        _width = 0;
+        _height = 0;
         _autoClose = YES;
         _backgroundColor = nil;
     }
@@ -90,6 +96,10 @@ stash::desktop::SurfaceConfig StashSurfaceConfigFromCardConfig(StashNativeCardCo
         return c;
     }
     c.autoClose = config.autoClose;
+    c.allowDismiss = config.allowDismiss;
+    c.presentation = config.presentation == StashNativeCardPresentationWindow ? Presentation::Window : Presentation::Attached;
+    c.width = (std::isfinite(config.width) && config.width > 0) ? config.width : 0;
+    c.height = (std::isfinite(config.height) && config.height > 0) ? config.height : 0;
     c.forcePortrait = config.forcePortrait;
     c.backgroundColor = StashTrimmedUTF8(config.backgroundColor ?: @"");
     c.cardHeightRatioPortrait = clampRatio(config.cardHeightRatioPortrait);

@@ -164,11 +164,13 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     _hostLabel.lineBreakMode = NSLineBreakByTruncatingTail;
     [_header addSubview:_hostLabel];
 
-    _closeButton = [NSButton buttonWithImage:[self symbolNamed:@"xmark"] target:self action:@selector(closeButtonPressed:)];
-    _closeButton.bordered = NO;
-    _closeButton.contentTintColor = _hostLabel.textColor;
-    _closeButton.toolTip = @"Close";
-    [_header addSubview:_closeButton];
+    if (_config.allowDismiss) {
+        _closeButton = [NSButton buttonWithImage:[self symbolNamed:@"xmark"] target:self action:@selector(closeButtonPressed:)];
+        _closeButton.bordered = NO;
+        _closeButton.contentTintColor = _hostLabel.textColor;
+        _closeButton.toolTip = @"Close";
+        [_header addSubview:_closeButton];
+    }
 }
 
 - (void)buildSpinner {
@@ -278,8 +280,12 @@ static NSColor *StashColorFromArgb(uint32_t argb) {
     _webView = webView;
 
     stash::desktop::SurfaceSize size = stash::desktop::resolveSurfaceSize(config, 0, 0);
+    NSWindowStyleMask styleMask = NSWindowStyleMaskTitled | NSWindowStyleMaskResizable;
+    if (config.allowDismiss) {
+        styleMask |= NSWindowStyleMaskClosable;
+    }
     NSWindow *window = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, size.width, size.height)
-                                                   styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
+                                                   styleMask:styleMask
                                                      backing:NSBackingStoreBuffered
                                                        defer:NO];
     window.title = @"Stash Checkout";

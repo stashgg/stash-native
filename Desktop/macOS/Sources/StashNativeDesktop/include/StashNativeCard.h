@@ -62,11 +62,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
+/** How a card is presented on desktop. */
+typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
+    /** Overlaid on the host window. */
+    StashNativeCardPresentationAttached = 0,
+    /** A standalone top-level window. */
+    StashNativeCardPresentationWindow = 1,
+};
+
 /**
  * Configuration for card presentation (openCard).
  *
- * The ratio fields exist for API parity with the mobile SDKs and are ignored on desktop, where
- * the card is a fixed 480 x 720 pt surface clamped to the host window.
+ * The ratio fields exist for API parity with the mobile SDKs and are ignored on desktop; width
+ * and height size the card (480 x 720 pt by default), clamped to the host window.
  */
 @interface StashNativeCardConfig : NSObject
 
@@ -90,6 +98,14 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, assign) BOOL autoClose;
 /** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for sheet background. Omit for default Stash theme. */
 @property (nonatomic, copy, nullable) NSString *backgroundColor;
+/** Whether the close button, backdrop click, Esc and the standalone window's close control can dismiss the card. Default YES. */
+@property (nonatomic, assign) BOOL allowDismiss;
+/** Attached over the host window or a standalone window. Default Attached. */
+@property (nonatomic, assign) StashNativeCardPresentation presentation;
+/** Card width in points. 0, non-positive or non-finite means the 480 pt default. */
+@property (nonatomic, assign) CGFloat width;
+/** Card height in points. 0, non-positive or non-finite means the 720 pt default. */
+@property (nonatomic, assign) CGFloat height;
 
 /**
  * Creates a default card configuration.

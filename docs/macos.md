@@ -86,7 +86,7 @@ The core owns one `Session` per presentation; the session keeps living until the
 - Window (`presentation: "window"` in the JSON config): a titled, resizable `NSWindow` for editor play mode. The title bar close button goes through the session like any other user dismissal.
 - Browser: `NSWorkspace openURL:` with the theme parameter appended.
 
-`allowDismiss = false` on a modal makes the close button, backdrop and Esc no-ops; `window.close()` still closes it.
+`allowDismiss = false` applies to cards and modals: no close button, backdrop and Esc are refused, and the standalone window's close control is removed; `window.close()` from the page still closes it.
 
 ## Loading, Timeout, Retry, And Error Semantics
 

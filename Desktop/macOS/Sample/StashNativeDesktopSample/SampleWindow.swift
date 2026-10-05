@@ -15,10 +15,12 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
     private let environmentPopup = NSPopUpButton()
     private let urlField = NSTextField()
     private let autoCloseCheck = NSButton(checkboxWithTitle: "autoClose", target: nil, action: nil)
-    private let allowDismissCheck = NSButton(checkboxWithTitle: "allowDismiss (modal)", target: nil, action: nil)
+    private let allowDismissCheck = NSButton(checkboxWithTitle: "allowDismiss", target: nil, action: nil)
     private let windowCheck = NSButton(checkboxWithTitle: "Window presentation", target: nil, action: nil)
     private let inspectableCheck = NSButton(checkboxWithTitle: "Inspectable webview", target: nil, action: nil)
     private let backgroundField = NSTextField()
+    private let widthField = NSTextField()
+    private let heightField = NSTextField()
     private let statusLabel = NSTextField(labelWithString: "Ready")
     private let logView = NSTextView()
 
@@ -71,6 +73,8 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
         urlField.stringValue = SampleSettings.lastUrl
         urlField.delegate = self
         backgroundField.placeholderString = "#1e1e1e (optional)"
+        widthField.placeholderString = "default 480"
+        heightField.placeholderString = "default 720"
         autoCloseCheck.state = .on
         allowDismissCheck.state = .on
         inspectableCheck.target = self
@@ -114,6 +118,7 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
                            button("Clear Log", #selector(clearLog))]),
             horizontalRow([autoCloseCheck, allowDismissCheck, windowCheck, inspectableCheck]),
             labeled("Background", backgroundField),
+            horizontalRow([labeled("Width", widthField), labeled("Height", heightField)]),
             statusLabel,
             scroll
         ])
@@ -161,6 +166,12 @@ final class SampleWindow: NSWindow, StashNativeCardDelegate, NSTextFieldDelegate
         let background = backgroundField.stringValue.trimmingCharacters(in: .whitespaces)
         if !background.isEmpty {
             fields.append("\"backgroundColor\":\"\(background)\"")
+        }
+        if let width = Double(widthField.stringValue), width.isFinite, width > 0 {
+            fields.append("\"width\":\(width)")
+        }
+        if let height = Double(heightField.stringValue), height.isFinite, height > 0 {
+            fields.append("\"height\":\(height)")
         }
         return "{" + fields.joined(separator: ",") + "}"
     }

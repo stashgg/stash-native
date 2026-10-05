@@ -118,6 +118,35 @@ static void testFacade() {
     CHECK(!parsed.autoClose);
     CHECK(parsed.cardHeightRatioPortrait == stash::desktop::SurfaceConfig().cardHeightRatioPortrait);
 
+    stash::StashNativeCardConfig typed;
+    typed.allowDismiss = false;
+    typed.presentation = stash::StashNativeCardPresentation::Window;
+    typed.width = 640;
+    typed.height = 700;
+    std::string typedJson = stash::detail::cardConfigJson(typed);
+    CHECK(typedJson.find("\"allowDismiss\":false") != std::string::npos);
+    CHECK(typedJson.find("\"presentation\":\"window\"") != std::string::npos);
+    CHECK(typedJson.find("\"width\":640") != std::string::npos);
+    CHECK(typedJson.find("\"height\":700") != std::string::npos);
+    stash::desktop::SurfaceConfig typedParsed =
+        stash::desktop::parseSurfaceConfig(stash::desktop::SurfaceMode::Card, typedJson);
+    CHECK(!typedParsed.allowDismiss);
+    CHECK(typedParsed.presentation == stash::desktop::Presentation::Window);
+    CHECK(typedParsed.width == 640 && typedParsed.height == 700);
+    CHECK(stash::detail::cardConfigJson(stash::StashNativeCardConfig()).find("\"presentation\":\"attached\"") != std::string::npos);
+
+    // Zero, NaN and infinite dimensions are omitted so the default size applies.
+    float badDims[] = {0.0f, -5.0f, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::infinity()};
+    for (float bad : badDims) {
+        stash::StashNativeCardConfig c;
+        c.width = bad;
+        c.height = bad;
+        std::string badJson = stash::detail::cardConfigJson(c);
+        CHECK(stash::desktop::json::isObject(badJson));
+        CHECK(badJson.find("\"width\"") == std::string::npos);
+        CHECK(badJson.find("\"height\"") == std::string::npos);
+    }
+
     // Serialization ignores a decimal-comma process locale.
     if (std::setlocale(LC_NUMERIC, "de-DE") != nullptr) {
         std::string localized = stash::detail::cardConfigJson(card);

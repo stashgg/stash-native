@@ -58,6 +58,28 @@ static void STASH_NATIVE_DESKTOP_CALL RecordEvent(const char *type, const char *
     XCTAssertEqualWithAccuracy(cfg.tabletHeightRatioLandscape, 0.6, 0.01);
     XCTAssertTrue(cfg.autoClose);
     XCTAssertNil(cfg.backgroundColor);
+    XCTAssertTrue(cfg.allowDismiss);
+    XCTAssertEqual(cfg.presentation, StashNativeCardPresentationAttached);
+    XCTAssertEqual(cfg.width, 0);
+    XCTAssertEqual(cfg.height, 0);
+}
+
+- (void)testCardConfigMapsDesktopFields {
+    StashNativeCardConfig *cfg = [[StashNativeCardConfig alloc] init];
+    cfg.allowDismiss = NO;
+    cfg.presentation = StashNativeCardPresentationWindow;
+    cfg.width = 640;
+    cfg.height = 700;
+    stash::desktop::SurfaceConfig c = StashSurfaceConfigFromCardConfig(cfg);
+    XCTAssertFalse(c.allowDismiss);
+    XCTAssertTrue(c.presentation == stash::desktop::Presentation::Window);
+    XCTAssertEqual(c.width, 640);
+    XCTAssertEqual(c.height, 700);
+    cfg.width = NAN;
+    cfg.height = -3;
+    c = StashSurfaceConfigFromCardConfig(cfg);
+    XCTAssertEqual(c.width, 0);
+    XCTAssertEqual(c.height, 0);
 }
 
 - (void)testModalConfigDefaults {
