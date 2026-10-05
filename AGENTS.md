@@ -1,6 +1,6 @@
 # Stash Native SDK project rules
 
-Stash Native hosts checkout web content in native card, modal, and browser presentations. Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
+Stash Native hosts checkout web content in native card, modal, and browser presentations (desktop has the card and browser only). Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
 
 ## Temporary files
 
@@ -35,7 +35,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 - Mobile card and modal ratios clamp to `[0.1, 1.0]`, including non-finite inputs. iOS applies runtime normalization; constructor defaults alone are not validation.
 - Popup multipliers legitimately exceed `1.0`. Validate positive, finite values using popup-specific fallbacks instead of the card/modal clamp.
 - Respect iOS safe areas through the view helpers and Android system insets through `StashWindowCompat` and its fallback chain.
-- Desktop accepts mobile configuration fields for wrapper compatibility, but uses its own surface sizing policy. Do not impose mobile ratio-driven layout, portrait behavior, or popup APIs on desktop.
+- Desktop parses seven config keys (`autoClose`, `allowDismiss`, `backgroundColor`, `allowFileUrls`, `presentation`, `width`, `height`) and ignores the rest, which keeps wrappers that still send mobile fields working. It uses its own surface sizing policy (`width` / `height`). Do not impose mobile ratio-driven layout, portrait behavior, modal, or popup APIs on desktop.
 - Android card resize currently uses per-frame layout updates. The previous audit guidance records this as an accepted cost after an unsuccessful pin-and-clip approach. Preserve that context; new regressions still need evidence and measurement.
 
 ### Android integration

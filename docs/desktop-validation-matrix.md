@@ -14,7 +14,7 @@ Each cell is one flow through one engine on one OS, against a real staging check
 | PayPal redirect and return | | | | |
 | 3DS2 challenge | blocked (see notes) | blocked | blocked | blocked |
 | Saved-card preselect (repeat purchase, same user id) | | | | |
-| Modal, `allowDismiss = false`, `window.close` from the page | | | | |
+| `allowDismiss = false`, `window.close` from the page | | | | |
 | `autoClose = false`: failure then success on one page | | | | |
 | Exclusive fullscreen: card opens, trust header intact, game restored after | | n/a | | n/a |
 | Play mode (editor): window presentation | | | | |

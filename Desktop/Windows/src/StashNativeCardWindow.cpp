@@ -25,7 +25,7 @@ static const int kHeaderHeightPt = 36;
 static const int kCornerRadiusPt = 14;
 static const int kSpinnerSizePt = 44;
 static const int kCloseButtonPt = 26;
-static const int kBackdropTargetAlpha = 102;  // 40% black, same dim as mobile
+static const int kBackdropTargetAlpha = 102;  // 40% black: dim enough to separate the card from the game, light enough to keep it visible
 static const int kIdCloseButton = 100;
 
 bool Presenter::classesRegistered_ = false;
@@ -151,9 +151,9 @@ static LRESULT CALLBACK StandaloneProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
             Core::instance().presenter().onStandaloneResized();
             return 0;
         case WM_ERASEBKGND: {
-            // The window shows before the WebView2 controller exists: paint the sheet colour
+            // The window shows before the WebView2 controller exists: paint the card colour
             // until the webview covers the client area, never a blank or stale surface.
-            uint32_t argb = Core::instance().presenter().sheetArgb();
+            uint32_t argb = Core::instance().presenter().cardArgb();
             HDC dc = reinterpret_cast<HDC>(wParam);
             RECT client;
             GetClientRect(hwnd, &client);
@@ -273,7 +273,7 @@ void Presenter::applyBackdropRegion(const Metrics &m) {
     SetWindowRgn(backdrop_, region, TRUE);
 }
 
-bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t sheetArgb) {
+bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t cardArgb) {
     teardown();
     if (host == nullptr || !IsWindow(host)) {
         return false;
@@ -281,8 +281,8 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
     registerClasses();
     host_ = host;
     config_ = config;
-    sheetArgb_ = sheetArgb;
-    dark_ = theme::isDarkColor(sheetArgb);
+    cardArgb_ = cardArgb;
+    dark_ = theme::isDarkColor(cardArgb);
     hidden_ = false;
 
     // Child overlays need the host to clip them out of its own drawing. Only the one bit is
@@ -344,12 +344,12 @@ bool Presenter::presentAttached(HWND host, const SurfaceConfig &config, uint32_t
     return true;
 }
 
-void Presenter::presentStandalone(const SurfaceConfig &config, uint32_t sheetArgb) {
+void Presenter::presentStandalone(const SurfaceConfig &config, uint32_t cardArgb) {
     teardown();
     registerClasses();
     config_ = config;
-    sheetArgb_ = sheetArgb;
-    dark_ = theme::isDarkColor(sheetArgb);
+    cardArgb_ = cardArgb;
+    dark_ = theme::isDarkColor(cardArgb);
     hidden_ = false;
 
     double scale = dpiScale(nullptr);
@@ -562,8 +562,8 @@ void Presenter::onSpinnerTick(HWND hwnd) {
 
 // Lock glyph drawn with GDI so it renders identically everywhere; the row is native chrome.
 void Presenter::drawTrustHeader(HDC dc, int width, int headerHeight, double scale) {
-    COLORREF sheet = colorFromArgb(sheetArgb_);
-    COLORREF headerBg = blend(sheet, dark_ ? RGB(255, 255, 255) : RGB(0, 0, 0), dark_ ? 0.07 : 0.05);
+    COLORREF card = colorFromArgb(cardArgb_);
+    COLORREF headerBg = blend(card, dark_ ? RGB(255, 255, 255) : RGB(0, 0, 0), dark_ ? 0.07 : 0.05);
     COLORREF text = dark_ ? RGB(190, 196, 206) : RGB(80, 84, 92);
     COLORREF lockGreen = RGB(74, 222, 128);
 
@@ -618,7 +618,7 @@ void Presenter::paintCard(HWND hwnd) {
     HDC dc = BeginPaint(hwnd, &ps);
     RECT rc;
     GetClientRect(hwnd, &rc);
-    HBRUSH bg = CreateSolidBrush(colorFromArgb(sheetArgb_));
+    HBRUSH bg = CreateSolidBrush(colorFromArgb(cardArgb_));
     FillRect(dc, &rc, bg);
     DeleteObject(bg);
     double scale = dpiScale(hwnd);
@@ -627,9 +627,9 @@ void Presenter::paintCard(HWND hwnd) {
 }
 
 void Presenter::drawCloseButton(const DRAWITEMSTRUCT *item) {
-    COLORREF sheet = colorFromArgb(sheetArgb_);
+    COLORREF card = colorFromArgb(cardArgb_);
     bool pressed = (item->itemState & ODS_SELECTED) != 0;
-    COLORREF bg = blend(sheet, dark_ ? RGB(255, 255, 255) : RGB(0, 0, 0), pressed ? 0.22 : 0.12);
+    COLORREF bg = blend(card, dark_ ? RGB(255, 255, 255) : RGB(0, 0, 0), pressed ? 0.22 : 0.12);
     COLORREF fg = dark_ ? RGB(220, 224, 230) : RGB(60, 64, 72);
     HBRUSH brush = CreateSolidBrush(bg);
     FillRect(item->hDC, &item->rcItem, brush);
@@ -652,7 +652,7 @@ void Presenter::paintSpinner(HWND hwnd) {
     HDC dc = BeginPaint(hwnd, &ps);
     RECT rc;
     GetClientRect(hwnd, &rc);
-    HBRUSH bg = CreateSolidBrush(colorFromArgb(sheetArgb_));
+    HBRUSH bg = CreateSolidBrush(colorFromArgb(cardArgb_));
     FillRect(dc, &rc, bg);
     DeleteObject(bg);
     int cx = (rc.right - rc.left) / 2;

@@ -1,5 +1,5 @@
-// URL helpers shared by both desktop hosts. Same algorithms as StashWebViewUtils.java and
-// StashNativeCardViewUtils.m / StashNativeCardTheme.m on mobile; pure C++, unit-tested.
+// URL helpers shared by both desktop hosts: scheme and host parsing, external-link
+// validation, theme query handling. Same results as the mobile SDKs; pure C++, unit-tested.
 #ifndef STASH_DESKTOP_URL_H
 #define STASH_DESKTOP_URL_H
 

@@ -1,5 +1,5 @@
-// Background colour parsing and the light / dark decision, mirroring StashBackgroundColorUtils.java
-// and StashNativeCardTheme.m: a custom backgroundColor's luminance wins over the system appearance.
+// Background colour parsing and the light / dark decision: a custom backgroundColor's luminance
+// wins over the system appearance. Same algorithm as the mobile SDKs.
 #ifndef STASH_DESKTOP_THEME_H
 #define STASH_DESKTOP_THEME_H
 
@@ -23,7 +23,7 @@ bool parseHexColor(const std::string &hex, uint32_t &argbOut);
 bool isDarkColor(uint32_t argb);
 
 // The colour behind the checkout: the custom colour when valid, else the system default.
-uint32_t sheetBackgroundArgb(const std::string &backgroundColor, bool systemPrefersDark);
+uint32_t cardBackgroundArgb(const std::string &backgroundColor, bool systemPrefersDark);
 
 // Dark vs light for theme= and the web content: custom colour luminance if valid, else system.
 bool effectiveThemeIsDark(const std::string &backgroundColor, bool systemPrefersDark);
@@ -31,8 +31,8 @@ bool effectiveThemeIsDark(const std::string &backgroundColor, bool systemPrefers
 // "#RRGGBB" (upper case), alpha dropped.
 std::string cssHex(uint32_t argb);
 
-// Script that pins html/body to the sheet colour and dark color-scheme (iOS parity).
-std::string darkSheetScript(uint32_t sheetArgb);
+// Script that pins html/body to the card colour and dark color-scheme.
+std::string darkCardScript(uint32_t cardArgb);
 
 }  // namespace theme
 }  // namespace desktop

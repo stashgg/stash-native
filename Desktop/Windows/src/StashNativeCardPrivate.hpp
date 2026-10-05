@@ -100,9 +100,9 @@ public:
     ~Presenter();
 
     // Attached card / modal over the host window's client area. False when the host is invalid.
-    bool presentAttached(HWND host, const SurfaceConfig &config, uint32_t sheetArgb);
+    bool presentAttached(HWND host, const SurfaceConfig &config, uint32_t cardArgb);
     // Standalone top-level window (editor play mode / no host window).
-    void presentStandalone(const SurfaceConfig &config, uint32_t sheetArgb);
+    void presentStandalone(const SurfaceConfig &config, uint32_t cardArgb);
 
     // Parent HWND and bounds for the WebView2 controller.
     HWND webViewParent() const;
@@ -124,8 +124,8 @@ public:
     // True while destroyWindows() runs, so the backdrop's WM_DESTROY can tell our own teardown
     // from the host window being destroyed underneath it.
     bool destroying() const { return destroying_; }
-    // Sheet colour of the current presentation, for painting the standalone client area.
-    uint32_t sheetArgb() const { return sheetArgb_; }
+    // Card colour of the current presentation, for painting the standalone client area.
+    uint32_t cardArgb() const { return cardArgb_; }
 
     // Window-procedure hooks.
     void paintCard(HWND hwnd);
@@ -162,7 +162,7 @@ private:
     bool live_ = false;
     bool hidden_ = false;
     SurfaceConfig config_;
-    uint32_t sheetArgb_ = 0xFF1E1E1E;
+    uint32_t cardArgb_ = 0xFF1E1E1E;
     bool dark_ = true;
     std::string headerHost_;
     std::string headerScheme_;
@@ -253,7 +253,7 @@ bool hasEnvironment();
 
 // Creates (or adopts the prewarmed) controller inside the presenter's parent window for the
 // current session, wires events, injects the scripts and starts the load.
-void startSession(unsigned long sessionId, const std::string &url, const SurfaceConfig &config, uint32_t sheetArgb, bool dark);
+void startSession(unsigned long sessionId, const std::string &url, const SurfaceConfig &config, uint32_t cardArgb, bool dark);
 // Reparent / resize after a layout pass.
 void applyBounds();
 // Hides the session's controller now; closeSessionController destroys it later.

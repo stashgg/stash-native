@@ -71,7 +71,7 @@ flowchart TB
 
 ## Presentation
 
-- Attached: layered backdrop child window (40% black, click dismisses) with the card's rounded rect cut out of its region so the card is never dimmed, card child window with the sheet colour, a native trust header painted in `WM_PAINT` (GDI lock glyph for https, host in Segoe UI, close button drawn from two strokes), spinner child window until the first load, the WebView2 controller inside the card below the header. A 250 ms layout timer tracks host resizes and re-applies the header and controller bounds whenever the card rect changes (the exclusive-to-borderless fullscreen switch changes size and DPI at once). The host window gets `WS_CLIPCHILDREN` for the duration.
+- Attached: layered backdrop child window (40% black, click dismisses) with the card's rounded rect cut out of its region so the card is never dimmed, card child window with the card colour, a native trust header painted in `WM_PAINT` (GDI lock glyph for https, host in Segoe UI, close button drawn from two strokes), spinner child window until the first load, the WebView2 controller inside the card below the header. A 250 ms layout timer tracks host resizes and re-applies the header and controller bounds whenever the card rect changes (the exclusive-to-borderless fullscreen switch changes size and DPI at once). The host window gets `WS_CLIPCHILDREN` for the duration.
 - Window: a standalone top-level window for editor play mode; `WM_CLOSE` goes through the session.
 - Browser: `ShellExecuteW` with the theme parameter appended.
 - Esc: `AcceleratorKeyPressed` on the controller and `WM_KEYDOWN` on the card and standalone windows.

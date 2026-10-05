@@ -9,7 +9,7 @@ Primary responsibilities:
 - Render checkout content in native containers (`WebView` on Android, `WKWebView` on iOS and macOS, WebView2 on Windows).
 - Inject `window.stash_sdk` bridge functions into the checkout page.
 - Forward checkout events to host application callbacks/delegates.
-- Support card, modal, and browser-based flows.
+- Support card, modal (mobile only), and browser-based flows.
 - Support controlled handoff to external browser with URL normalization and theme propagation.
 
 ## Repository Map (Where To Read Code)

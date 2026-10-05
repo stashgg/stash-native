@@ -41,12 +41,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)presentWebView:(WKWebView *)webView
             hostWindow:(NSWindow *)hostWindow
                 config:(const stash::desktop::SurfaceConfig &)config
-        sheetColorArgb:(uint32_t)sheetArgb;
+        cardColorArgb:(uint32_t)cardArgb;
 
 /// Standalone window presentation.
 - (void)presentWebView:(WKWebView *)webView
    standaloneWithConfig:(const stash::desktop::SurfaceConfig &)config
-        sheetColorArgb:(uint32_t)sheetArgb;
+        cardColorArgb:(uint32_t)cardArgb;
 
 - (void)updateTrustHeaderForURL:(nullable NSURL *)url;
 - (void)setLoading:(BOOL)loading;

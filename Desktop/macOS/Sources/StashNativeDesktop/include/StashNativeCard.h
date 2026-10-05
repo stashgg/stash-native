@@ -2,8 +2,9 @@
 //  StashNativeCard.h
 //  StashNativeDesktop
 //
-//  Native macOS SDK for Stash Native checkout integration. Same class and delegate as the iOS SDK
-//  (iOS/StashNative/.../StashNativeCard.h) minus the UIKit-only members, with one desktop card config.
+//  Native macOS SDK for Stash Native checkout integration: one card surface, opened with
+//  openCard or openBrowser, configured by StashNativeCardConfig, with the same delegate callbacks
+//  as the iOS SDK.
 //
 
 #import <Foundation/Foundation.h>
@@ -27,7 +28,7 @@ typedef NS_ENUM(NSInteger, StashNativeCardPresentation) {
 
 /** When NO, dialog stays open after onPaymentSuccess/onPaymentFailure (callbacks still fire). Default YES. */
 @property (nonatomic, assign) BOOL autoClose;
-/** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for sheet background. Omit for default Stash theme. */
+/** Optional HTML hex (#RGB, #RRGGBB, #AARRGGBB) for card background. Omit for default Stash theme. */
 @property (nonatomic, copy, nullable) NSString *backgroundColor;
 /** Whether the close button, backdrop click, Esc and the standalone window's close control can dismiss the card. Default YES. */
 @property (nonatomic, assign) BOOL allowDismiss;
