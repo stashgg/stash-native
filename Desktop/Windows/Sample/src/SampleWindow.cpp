@@ -144,7 +144,7 @@ enum ControlId {
     kOpenCard,
     kOpenBrowser,
     kDismiss,
-    kLocalPage,
+    kHostedPage,
     kMatrixPage,
     kClearLog,
     kAutoClose,
@@ -263,7 +263,7 @@ void buildControls() {
     make(L"BUTTON", L"Open Browser", BS_PUSHBUTTON, 240, y, 110, 26, kOpenBrowser);
     make(L"BUTTON", L"Dismiss", BS_PUSHBUTTON, 356, y, 110, 26, kDismiss);
     y += 32;
-    make(L"BUTTON", L"Local Test Page", BS_PUSHBUTTON, 124, y, 140, 26, kLocalPage);
+    make(L"BUTTON", L"Hosted Test Page", BS_PUSHBUTTON, 124, y, 140, 26, kHostedPage);
     make(L"BUTTON", L"Validation Matrix", BS_PUSHBUTTON, 270, y, 140, 26, kMatrixPage);
     make(L"BUTTON", L"Clear Log", BS_PUSHBUTTON, 416, y, 110, 26, kClearLog);
     y += 34;
@@ -331,10 +331,10 @@ void onCommand(int id, int notification) {
         case kDismiss:
             card.dismiss();
             break;
-        case kLocalPage: {
-            std::string url = testPageUrl("stash_test_checkout.html");
-            appendLog("openCard stash_test_checkout.html");
-            card.openCard(url, configJson(true));
+        case kHostedPage: {
+            std::string url = "https://test.stashpreview.com/";
+            appendLog("openCard " + url);
+            card.openCard(url, configJson(false));
             break;
         }
         case kMatrixPage: {

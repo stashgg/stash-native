@@ -5,7 +5,7 @@
 //  -stash-auto <local|remote|secure>: hands-free proof runs for CI and humans. Prints
 //  "STASH-PROOF <mode>: RESULT: PASS|FAIL" and exits with 0 / 1.
 //
-//    local   offline test page over the sample window, expects the full bridge round trip
+//    local   offline validation matrix page over the sample window, expects the full bridge round trip
 //    remote  -stash-url <https://...>: the page must load (navigation, pageLoaded)
 //    secure  file:// without allowFileUrls and http:// are both refused with the checkout closed
 //
@@ -60,8 +60,8 @@ final class ProofRunner {
         }
         switch mode {
         case "local":
-            let url = ProofRunner.testPageUrl("stash_test_checkout.html") + "?auto=1"
-            log("opening stash_test_checkout.html?auto=1 with allowFileUrls")
+            let url = ProofRunner.testPageUrl("stash_validation_matrix.html") + "?auto=1"
+            log("opening stash_validation_matrix.html?auto=1 with allowFileUrls")
             StashNativeCard.sharedInstance().openCard(withURL: url, configJSON: "{\"allowFileUrls\":true}")
         case "remote":
             guard let url = remoteUrl, !url.isEmpty else {
@@ -73,8 +73,8 @@ final class ProofRunner {
             StashNativeCard.sharedInstance().openCard(withURL: url, config: nil)
         case "secure":
             phase = 1
-            let url = ProofRunner.testPageUrl("stash_test_checkout.html")
-            log("opening stash_test_checkout.html without allowFileUrls")
+            let url = ProofRunner.testPageUrl("stash_validation_matrix.html")
+            log("opening stash_validation_matrix.html without allowFileUrls")
             StashNativeCard.sharedInstance().openCard(withURL: url, config: nil)
         default:
             finish(false, "unknown mode, use local | remote | secure")
