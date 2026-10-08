@@ -20,7 +20,7 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @property (nonatomic) CGFloat edgeMargin;
 @property (nonatomic) BOOL allowDismiss;
 @property (nonatomic) BOOL autoClose;
-/** Best-effort request within the host's supported orientations; never locks the host. */
+/** On iPhone, presents portrait checkout in an SDK window, including landscape-only hosts. Ignored on iPad. */
 @property (nonatomic) StashNativeOrientationPreference orientationPreference;
 @end
 
@@ -74,8 +74,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 /**
  * Called when the checkout page calls \c window.stash_sdk.openExternalBrowser(url). The SDK closes the
  * checkout without invoking \c stashNativeCardDidDismiss, then opens the URL in
- * \c SFSafariViewController (same behavior as \c -openBrowserWithURL:fromViewController:). The \c url string includes
- * the theme query parameter when applicable.
+ * \c SFSafariViewController using the OpenBrowser callbacks. The \c url string includes
+ * the theme query parameter when applicable. An iPhone portrait checkout keeps its portrait window
+ * through a native Safari sheet and restores the host orientation when the browser closes.
  */
 - (void)stashNativeCardDidRequestExternalPaymentWithURL:(NSString *)url
     NS_SWIFT_NAME(stashNativeCardDidRequestExternalPayment(with:));

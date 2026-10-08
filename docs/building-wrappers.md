@@ -11,7 +11,7 @@ Pass the initiating host with every UI-open call:
 
 Use the current engine activity or the controller attached to its window. Do not find an arbitrary foreground scene or retain a destroyed activity. Marshal calls to the platform UI thread.
 
-Map the responsive config fields directly: preferred content width/height, maximum content height, edge margin, dismissibility, and auto-close. Dimensions are points/dp. Cards also expose the follow-host/portrait preference. Remove modal bindings, background-color configuration, old device ratios, popup multipliers, `setActivity`, and forced-orientation/backdrop integrations. See [migration](migration-3.0.md).
+Map the responsive config fields directly: preferred content width/height, maximum content height, edge margin, dismissibility, and auto-close. Dimensions are points/dp. Cards also expose the follow-host/portrait preference. Remove modal bindings, background-color configuration, old device ratios, popup multipliers, `setActivity`, and wrapper-owned orientation/backdrop integrations. See [migration](migration-3.0.md).
 
 ## Callbacks and lifetime
 
@@ -25,7 +25,7 @@ The Objective-C delegate property supports both ARC and non-ARC consumers. Valid
 
 Distribute the versioned AAR and all dependencies in the [README](../README.md#android), including WindowManager 1.4.0 and its Java adapter. Do not add sample UI dependencies to the SDK runtime graph. Test the engine's resolved dependency tree and a minified build.
 
-On iOS embed the XCFramework or use SPM. Build the host executable with SDK 27.1 for full Duo behaviour; the framework alone cannot opt an older host into that layout. iOS 15 is the minimum runtime. Portrait requests remain subject to the host's supported orientations and system windowing policy.
+On iOS embed the XCFramework or use SPM. Build the host executable with SDK 27.1 for full Duo behaviour; the framework alone cannot opt an older host into that layout. iOS 15 is the minimum runtime. On iPhone, the SDK hosts portrait checkout in its own UIKit window and manages orientation overrides and restoration, including landscape-only plists. iPad ignores the portrait flag. Validate engine reactions to scene geometry notifications, keyboard entry, browser handoff, cancellation, and return to the game. System windowing restrictions still apply.
 
 ## Checkout contract
 

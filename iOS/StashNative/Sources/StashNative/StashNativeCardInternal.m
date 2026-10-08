@@ -28,10 +28,34 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 @implementation StashCheckoutSession
 - (BOOL)isActive { return self.owner.session == self && !self.closing; }
 - (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing; }
+- (UIViewController *)presentationPresenter { return self.portraitPresentation.presenter ?: self.presenter; }
 
 - (void)presentCheckout {
     if (![self isActive] || self.webView) return;
     if (!self.presenter.view.window || self.presenter.isBeingDismissed || self.presenter.presentedViewController) {
+        [self finishWithUserDismiss:NO completion:nil];
+        return;
+    }
+    if (self.config.orientationPreference == StashNativeOrientationPreferencePortrait &&
+        self.presenter.view.window.traitCollection.userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
+        if (self.portraitPresentation) return;
+        StashPortraitPresentation *presentation = [[StashPortraitPresentation alloc] initWithPresenter:self.presenter];
+        self.portraitPresentation = presentation;
+        [presentation prepareWithCompletion:^(BOOL ready) {
+            if (![self isActive]) return;
+            if (!ready) self.portraitPresentation = nil;
+            [self presentCheckoutContent];
+        }];
+#if !__has_feature(objc_arc)
+        [presentation release];
+#endif
+    } else [self presentCheckoutContent];
+}
+- (void)presentCheckoutContent {
+    if (![self isActive] || self.webView) return;
+    UIViewController *presenter = self.presentationPresenter;
+    if (!presenter.view.window || presenter.isBeingDismissed || presenter.presentedViewController ||
+        !self.presenter.viewIfLoaded.window || self.presenter.isBeingDismissed) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
     }
@@ -75,25 +99,10 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.observingPageBackground = YES;
     [web addObserver:self forKeyPath:@"underPageBackgroundColor" options:NSKeyValueObservingOptionNew
         context:StashPageBackgroundContext];
-    [self.presenter.view endEditing:YES];
-    [self.presenter presentViewController:controller animated:YES completion:^{
+    [presenter.view endEditing:YES];
+    [presenter presentViewController:controller animated:YES completion:^{
         if (![self isActive]) return;
         [self.controller updatePresentationAnimated:NO];
-        StashNativeCardConfig *card = self.config;
-        if (card.orientationPreference == StashNativeOrientationPreferencePortrait &&
-            (self.presenter.supportedInterfaceOrientations & UIInterfaceOrientationMaskPortrait)) {
-            if (@available(iOS 16.0, *)) {
-                UIWindowScene *scene = self.presenter.view.window.windowScene;
-                UIWindowSceneGeometryPreferencesIOS *preference = [[UIWindowSceneGeometryPreferencesIOS alloc]
-                    initWithInterfaceOrientations:UIInterfaceOrientationMaskPortrait];
-                [scene requestGeometryUpdateWithPreferences:preference errorHandler:^(NSError *error) {
-                    // Unsupported geometry keeps the current responsive presentation.
-                }];
-#if !__has_feature(objc_arc)
-                [preference release];
-#endif
-            }
-        }
     }];
     self.loadStart = CFAbsoluteTimeGetCurrent();
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(loadActivityChanged:)
@@ -292,13 +301,39 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }
 }
 - (void)presentBrowser {
+    UIViewController *presenter = self.presentationPresenter;
+    if (![self isActive] || !presenter.viewIfLoaded.window || presenter.isBeingDismissed || presenter.presentedViewController) {
+        [self finishWithUserDismiss:NO completion:nil];
+        return;
+    }
     SFSafariViewController *browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:self.url]];
     self.browser = browser;
     browser.delegate = self;
-    [self.presenter presentViewController:browser animated:YES completion:nil];
+    // A native sheet inherits the portrait host's orientation through Safari handoff.
+    if (self.portraitPresentation.presenter) {
+        browser.modalPresentationStyle = UIModalPresentationPageSheet;
+    }
+    [presenter presentViewController:browser animated:YES completion:^{
+        if ([self isActive] && self.browser == browser && self.portraitPresentation)
+            browser.presentationController.delegate = self;
+    }];
 #if !__has_feature(objc_arc)
     [browser release];
 #endif
+}
+- (void)dismissPresentedSurfaceAnimated:(BOOL)animated completion:(void (^)(void))completion {
+    UIViewController *surface = self.browser ?: self.controller;
+    id<UIViewControllerTransitionCoordinator> transition = surface.transitionCoordinator;
+    if ((surface.isBeingPresented || surface.isBeingDismissed) && transition) {
+        BOOL waiting = [transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [self dismissPresentedSurfaceAnimated:animated completion:completion];
+            });
+        }];
+        if (waiting) return;
+    }
+    if (surface.presentingViewController) [surface dismissViewControllerAnimated:animated completion:completion];
+    else if (completion) completion();
 }
 - (void)finishWithUserDismiss:(BOOL)userDismiss completion:(void (^)(void))completion {
     if (![self isActive]) return;
@@ -312,7 +347,6 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [self.loadTimer invalidate];
     self.loadTimer = nil;
     [self.webView stopLoading];
-    UIViewController *surface = self.browser ?: self.controller;
     void (^finished)(void) = ^{
         StashNativeCard *owner = self.owner;
         BOOL owned = owner.session == self;
@@ -326,10 +360,12 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self release];
 #endif
     };
-    if (surface.presentingViewController) [surface dismissViewControllerAnimated:YES completion:finished];
-    else finished();
+    [self dismissPresentedSurfaceAnimated:YES completion:^{
+        if (self.portraitPresentation) [self.portraitPresentation restoreWithCompletion:finished];
+        else finished();
+    }];
 }
-- (void)cleanup {
+- (void)cleanupCheckout {
     [self stopObservingRootScroll];
     [self invalidateTopChrome];
     [self.webView evaluateJavaScript:@"window.__stashTopEdgeProbe&&window.__stashTopEdgeProbe.stop()"
@@ -360,9 +396,38 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.controller.session = nil;
     self.controller = nil;
     self.webView = nil;
+    self.processing = NO;
+}
+- (void)cleanup {
+    [self cleanupCheckout];
     self.browser.delegate = nil;
     self.browser = nil;
-    self.processing = NO;
+    self.browserHandoff = NO;
+    [self.portraitPresentation restoreWithCompletion:nil];
+    self.portraitPresentation = nil;
+}
+- (void)handoffToBrowserWithURL:(NSString *)url {
+    if (![self isActive] || self.browserHandoff) return;
+    StashNativeCard *owner = self.owner;
+    if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
+        [owner.delegate stashNativeCardDidRequestExternalPaymentWithURL:url];
+    }
+    if (![self isActive]) return;
+    self.browserHandoff = YES;
+    self.webView.navigationDelegate = nil;
+    self.webView.UIDelegate = nil;
+    [self.webView stopLoading];
+    [self cancelInitialContentReveal];
+    [self.loadTimer invalidate]; self.loadTimer = nil;
+    [self completeDialog:nil];
+    [self dismissPresentedSurfaceAnimated:YES completion:^{
+        if (![self isActive] || !self.browserHandoff) return;
+        [self cleanupCheckout];
+        self.config = StashNormalizedConfig(nil);
+        self.url = url;
+        self.browserHandoff = NO;
+        [self presentBrowser];
+    }];
 }
 - (void)paymentSucceeded:(BOOL)success order:(NSString *)order {
     if (![self isActive] || (self.config.autoClose && self.paymentHandled)) return;
@@ -409,7 +474,9 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (BOOL)presentationControllerShouldDismiss:(UIPresentationController *)presentationController { return [self canUserDismiss]; }
 - (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController {
     if (![self isActive]) return;
-    [self finishWithUserDismiss:YES completion:nil];
+    if (self.browser && presentationController.presentedViewController == self.browser) [self browserClosed];
+    else if (!self.browserHandoff && presentationController.presentedViewController == self.controller)
+        [self finishWithUserDismiss:YES completion:nil];
 }
 - (void)sheetPresentationControllerDidChangeSelectedDetentIdentifier:(UISheetPresentationController *)sheet {
     if (!self.keyboardVisible && !self.controller.updatingLayout && !self.controller.singleDetent) {
@@ -426,7 +493,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [self.controller updatePresentationAnimated:animated];
 }
 - (void)handleMessage:(NSString *)name body:(id)body {
-    if (![self isActive]) return;
+    if (![self isActive] || self.browserHandoff) return;
 #if !__has_feature(objc_arc)
     [[self retain] autorelease];
 #endif
@@ -438,7 +505,11 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         self.processing = [name isEqualToString:@"stashPurchaseProcessing"];
         [self.controller updateDismissalPolicy];
     } else if ([name isEqualToString:@"stashWindowClose"]) {
-        dispatch_async(dispatch_get_main_queue(), ^{ if ([self canUserDismiss]) [self finishWithUserDismiss:YES completion:nil]; });
+        WKWebView *web = self.webView;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if ([self canUserDismiss] && !self.browserHandoff && self.webView == web)
+                [self finishWithUserDismiss:YES completion:nil];
+        });
     } else if ([name isEqualToString:@"stashExpand"]) {
         [self setExpanded:YES animated:YES];
     } else if ([name isEqualToString:@"stashCollapse"]) {
@@ -456,13 +527,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         if ([name isEqualToString:@"stashOpenLink"]) {
             [UIApplication.sharedApplication openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
         } else {
-            url = appendThemeQueryParameter(url);
-            StashNativeCard *owner = self.owner;
-            UIViewController *presenter = self.presenter;
-            if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
-                [owner.delegate stashNativeCardDidRequestExternalPaymentWithURL:url];
-            }
-            [self finishWithUserDismiss:NO completion:^{ [owner openBrowserWithURL:url fromViewController:presenter]; }];
+            [self handoffToBrowserWithURL:appendThemeQueryParameter(url)];
         }
     }
 }

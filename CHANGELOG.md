@@ -12,11 +12,12 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 - Require the presenting activity or view controller for card and browser calls.
 - Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
 - Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
-- Replace forced portrait with a best-effort orientation preference. Remove orientation hooks, popup sizing APIs, and screenshot-backdrop workarounds.
+- Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and screenshot-backdrop workarounds.
 - Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
 
 ### Presentation
 
+- Restore portrait checkout for landscape-only iPhone games using an SDK-owned UIKit window and the shared native card. Preserve game controller restrictions, keep portrait through Safari payment handoff, and restore orientation before returning focus. Support the iOS 15 rotation path; ignore the portrait flag on iPad.
 - Use card defaults of 400 × 560 points/dp with a 720-point/dp expansion cap on iOS and Android. Explicit zero still removes the height cap.
 - Fade from a native initial loading cover into rendered iOS checkout content, with bounded foreground readiness and Reduced Motion support.
 

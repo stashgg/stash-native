@@ -61,3 +61,8 @@ NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGF
 
 NSDictionary *StashKeyboardRectangleResolutionProbe(void);
 void StashSetKeyboardNotificationContext(id controller, UIWindow *window);
+
+NSDictionary *StashPortraitHooksProbe(void);
+NSDictionary *StashPortraitCancellationProbe(void);
+NSDictionary *StashPortraitFinishProbe(void);
+NSDictionary *StashPortraitBrowserDismissProbe(void);

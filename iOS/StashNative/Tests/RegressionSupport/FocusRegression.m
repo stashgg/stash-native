@@ -114,6 +114,8 @@ NSDictionary *StashRootScrollOffsetProbe(void) {
     controller.probeDockedKeyboard = CGRectNull;
     BOOL undockedKeyboard = ![controller normalizeIdleRootScrollOffset] && fabs(scroll.contentOffset.y - 177.6666667) < 0.5;
     controller.probeDockedKeyboard = CGRectMake(0, 425, 375, 337); scroll.contentSize = CGSizeMake(375, 800);
+    // Changing contentSize can adjust the offset before the normalization under test.
+    scroll.contentOffset = CGPointMake(0, 177.6666667);
     BOOL genuineRootScroll = ![controller normalizeIdleRootScrollOffset] && fabs(scroll.contentOffset.y - 177.6666667) < 0.5;
     session.webView = nil; owner.session = nil; window.hidden = YES;
     return @{@"negative":@(negative), @"positive":@(positive), @"valid":@(valid), @"safeMinimum":@(safeMinimum),

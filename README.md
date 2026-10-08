@@ -96,7 +96,7 @@ config.orientationPreference = .portrait
 config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
 ```
 
-The host and OS may decline this request. Checkout continues to fit the actual window; the SDK does not force orientation with app-delegate hooks or a separate overlay window.
+On iPhone, portrait checkout uses a separate UIKit window, including when the game's plist and controllers allow only landscape. The SDK keeps the same native card and WebView, leaves the game controller's orientation restrictions unchanged, and restores the previous orientation before returning focus. External-payment Safari handoff keeps that portrait window until the browser closes. iPad ignores this preference. Android requests portrait through the checkout activity. System windowing restrictions can still limit rotation; checkout always fits the available space.
 
 ### openBrowser
 

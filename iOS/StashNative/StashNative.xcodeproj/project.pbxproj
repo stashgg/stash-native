@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		STN03A /* StashNativeCardOrientation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03B /* StashNativeCardOrientation.m */; };
 		STN001 /* StashNativeCard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN002 /* StashNativeCard.m */; };
 		STN030 /* StashNativeCardConfigs.m in Sources */ = {isa = PBXBuildFile; fileRef = STN031 /* StashNativeCardConfigs.m */; };
 		STN032 /* StashNativeCardGeometry.m in Sources */ = {isa = PBXBuildFile; fileRef = STN033 /* StashNativeCardGeometry.m */; };
@@ -22,6 +23,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		STN03B /* StashNativeCardOrientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardOrientation.m; sourceTree = "<group>"; };
 		STN00F /* StashNative.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StashNative.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		STN002 /* StashNativeCard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCard.m; sourceTree = "<group>"; };
 		STN031 /* StashNativeCardConfigs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardConfigs.m; sourceTree = "<group>"; };
@@ -68,6 +70,7 @@
 				STN002 /* StashNativeCard.m */,
 				STN031 /* StashNativeCardConfigs.m */,
 				STN039 /* StashNativeCardInternal.m */,
+				STN03B /* StashNativeCardOrientation.m */,
 				STN033 /* StashNativeCardGeometry.m */,
 				STN016 /* StashNativeCardPrivate.h */,
 				STN035 /* StashNativeCardTheme.m */,
@@ -177,6 +180,7 @@
 				STN001 /* StashNativeCard.m in Sources */,
 				STN030 /* StashNativeCardConfigs.m in Sources */,
 				STN038 /* StashNativeCardInternal.m in Sources */,
+				STN03A /* StashNativeCardOrientation.m in Sources */,
 				STN032 /* StashNativeCardGeometry.m in Sources */,
 				STN034 /* StashNativeCardTheme.m in Sources */,
 				STN003 /* StashNativeCardViewControllers.m in Sources */,

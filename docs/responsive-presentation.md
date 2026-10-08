@@ -15,7 +15,7 @@ Preferred width is bounded by usable space. Preferred height is the card's resti
 
 `allowDismiss` defaults to `true` and permits user dismissal while payment processing is inactive. `autoClose` defaults to `true` and closes on a payment success/failure signal. Native background matching is automatic; card configuration has no color override.
 
-A card also has `orientationPreference`, either `followHost` (default) or `portrait`. Portrait is a best-effort request, not a lock. A host or operating system can decline it, and checkout then fits the actual window. The SDK does not override a host's orientation policy.
+A card also has `orientationPreference`, either `followHost` (default) or `portrait`. On iPhone, portrait uses a separate UIKit window with scoped orientation overrides, allowing checkout in landscape-only games while preserving the game controller's restrictions. The same native card and WebView handle layout in that window. iPad ignores the flag. Android requests portrait through its checkout activity. System windowing constraints still take precedence over rotation requests.
 
 Configuration is copied when a presentation opens. Later mutations of the caller's object do not change an active checkout. Non-finite or invalid dimensions use defaults. The actual available area always wins over requested dimensions, including in very small windows.
 

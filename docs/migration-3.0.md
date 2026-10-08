@@ -54,9 +54,9 @@ There is no ratio-to-dimension conversion that preserves every former device lay
 
 ## Orientation
 
-Replace `forcePortrait` with the card's `orientationPreference`. The default follows the host window. The portrait preference requests portrait only where the host and OS allow it. It does not force a foldable or multitasking window into a portrait-shaped viewport.
+Replace `forcePortrait` with the card's `orientationPreference`. The default follows the host window. On iPhone, `.portrait` uses SDK-managed orientation overrides and a separate UIKit window, including landscape-only hosts. iPad ignores this flag. System windowing restrictions still apply.
 
-Remove SDK orientation swizzles, orientation-unlock integration, and screenshot-backdrop workarounds. The presentation now follows its host rather than creating a separate orientation-locked overlay window.
+Remove wrapper-owned orientation-unlock integration and screenshot-backdrop workarounds. The iPhone SDK owns portrait preparation, external-payment handoff, and orientation restoration. It keeps one native card implementation and leaves the game's view-controller orientation policy unchanged. Engines that react directly to scene geometry notifications still require device validation.
 
 ## Checkout pages and callbacks
 

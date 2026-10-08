@@ -60,7 +60,7 @@ extension ViewController {
         switch row {
         case .preferPortrait:
             return switchCell(title: "Prefer portrait",
-                              subtitle: "Best effort within the host's supported orientations",
+                              subtitle: "Portrait checkout on iPhone, including landscape games; ignored on iPad",
                               switchView: cardPreferPortraitSwitch)
         case .allowDismiss:
             return switchCell(title: "Allow dismissal", subtitle: "Swipe or tap outside to close",

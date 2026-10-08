@@ -26,7 +26,11 @@ On iOS 27 and later, the SDK requests centered sheet placement before opening an
 
 Use the actual container and scene, independent safe-area edges, keyboard overlap, and available reserved-region information. A width/height change must preserve the WebView, document, input, scroll position, and selected semantic card state. UIKit controls floating-card placement and its presentation animation. Native sheet chrome remains UIKit-owned, and the content width constraint is not an exact outer-sheet width promise.
 
-Portrait is a best-effort preference within the host's orientation policy. The old AppDelegate swizzle, orientation KVC, separate alert-level card window, and device/orientation ratio matrix are removed.
+`orientationPreference = .portrait` presents the existing native card in a separate UIKit window on iPhone, including landscape-only games. The SDK scopes AppDelegate orientation overrides to its own window and, on iOS 27+, temporarily adds its requested orientation to the owning scene's policy. It never changes the game controller's orientation mask or autorotation method. iPad ignores the flag.
+
+The card opens after portrait geometry settles. On dismissal, the SDK restores the previous permitted orientation before returning key-window status to the game. External-payment handoff presents Safari as a native sheet in the same portrait window until the browser closes. iOS 16+ uses scene geometry requests; iOS 15 retains the legacy device-orientation fallback and UIKit autorotation. System windowing restrictions may prevent rotation, in which case the card uses the available host geometry.
+
+The owning scene reports the checkout orientation while that window is active, even when the landscape game window retains its dimensions. Engines that react directly to scene notifications need integration testing. Default Follow Host and standalone OpenBrowser do not install portrait hosting.
 
 Native compact resting detents keep the entire surface below top status occlusions. Expanded native sheets can extend their background behind those regions; the WebView uses an unobstructed content pane. Resolve the two detents independently of the selected state, preserve UIKit's selection during a drag, and update the content pane as the surface moves. The interaction script maintains the mobile viewport when pages replace metadata or the document head, while preserving field editing. Observe WebKit's public `underPageBackgroundColor` for native surface colors; do not rewrite checkout's background CSS.
 

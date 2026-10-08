@@ -11,6 +11,15 @@
 #endif
 
 @class StashCheckoutSession, StashCheckoutViewController;
+@interface StashPortraitPresentation : NSObject
+@property (nonatomic, readonly) UIViewController *presenter;
+- (instancetype)initWithPresenter:(UIViewController *)presenter;
+- (void)prepareWithCompletion:(void (^)(BOOL ready))completion;
+- (void)restoreWithCompletion:(void (^)(void))completion;
+@end
+
+void StashInstallPortraitOrientationHooks(id applicationDelegate, UIWindowScene *scene);
+
 @interface StashNativeCard ()
 @property (nonatomic, strong) StashCheckoutSession *session;
 @end
@@ -49,6 +58,9 @@ NSString *StashContentMeasurementScript(NSString *documentID);
     SFSafariViewControllerDelegate, UISheetPresentationControllerDelegate>
 @property (nonatomic, STASH_WEAK) StashNativeCard *owner;
 @property (nonatomic, STASH_WEAK) UIViewController *presenter;
+@property (nonatomic, readonly) UIViewController *presentationPresenter;
+@property (nonatomic, strong) StashPortraitPresentation *portraitPresentation;
+@property (nonatomic) BOOL browserHandoff;
 @property (nonatomic, strong) StashNativeCardConfig *config;
 @property (nonatomic, strong) StashCheckoutViewController *controller;
 @property (nonatomic, strong) WKWebView *webView;
@@ -102,6 +114,7 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 - (void)scheduleRootOffsetRepair;
 - (void)retryRootOffsetRepair;
 - (void)presentBrowser;
+- (void)dismissPresentedSurfaceAnimated:(BOOL)animated completion:(void (^)(void))completion;
 - (void)finishWithUserDismiss:(BOOL)userDismiss completion:(void (^)(void))completion;
 - (void)cleanup;
 - (void)paymentSucceeded:(BOOL)success order:(NSString *)order;

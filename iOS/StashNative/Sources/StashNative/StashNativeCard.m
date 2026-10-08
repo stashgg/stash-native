@@ -59,12 +59,12 @@ NSString *const StashTopChromeHandlerName = @"stashTopChrome";
 #endif
     session.closing = YES;
     self.session = nil;
-    UIViewController *surface = session.browser ?: session.controller;
-    [surface dismissViewControllerAnimated:NO completion:nil];
-    [session cleanup];
+    [session dismissPresentedSurfaceAnimated:NO completion:^{
+        [session cleanup];
 #if !__has_feature(objc_arc)
-    [session release];
+        [session release];
 #endif
+    }];
 }
 - (void)closeBrowser {
     if (!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(), ^{ [self closeBrowser]; }); return; }

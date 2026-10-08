@@ -37,7 +37,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 
 - Mobile 3.0 uses logical content dimensions and current window geometry. Normalize configuration and copy it at the opening boundary; constructor defaults alone are not validation. Available space wins over requested dimensions.
 - Cards may use validated intrinsic hints or an eligible `data-stash-content` wrapper; never infer intrinsic height from generic document `scrollHeight`.
-- Preserve the live WebView, document, form state, and semantic resting/expanded selection across resizing. Keyboard accommodation is temporary. Portrait is a best-effort host-compatible preference.
+- Preserve the live WebView, document, form state, and semantic resting/expanded selection across resizing. Keyboard accommodation is temporary. On iPhone, portrait checkout uses an SDK-owned UIKit window and scoped orientation overrides, preserving game controller restrictions. Reuse the same native card and WebView, restore orientation before key-window handoff, and ignore the portrait flag on iPad.
 - Respect iOS safe areas through the view helpers and Android system insets through `StashWindowCompat` and its fallback chain.
 - Desktop accepts mobile configuration fields for wrapper compatibility, but uses its own surface sizing policy. Do not impose mobile ratio-driven layout, portrait behavior, or popup APIs on desktop.
 - Android card resize currently uses per-frame layout updates. The previous audit guidance records this as an accepted cost after an unsuccessful pin-and-clip approach. Preserve that context; new regressions still need evidence and measurement.

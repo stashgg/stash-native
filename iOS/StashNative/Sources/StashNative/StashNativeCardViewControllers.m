@@ -44,7 +44,7 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
 
 @implementation StashCheckoutViewController
 - (UIView *)layoutContainer {
-    return self.session.presenter.view.window ?: self.session.presenter.view;
+    return self.session.presentationPresenter.view.window ?: self.session.presentationPresenter.view;
 }
 - (BOOL)usesFloatingNativeSizing {
     UITraitCollection *traits = [self layoutContainer].traitCollection;
@@ -347,7 +347,7 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     return YES;
 }
 - (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    return self.session.presenter ? self.session.presenter.supportedInterfaceOrientations : UIInterfaceOrientationMaskAll;
+    return self.session.presentationPresenter ? self.session.presentationPresenter.supportedInterfaceOrientations : UIInterfaceOrientationMaskAll;
 }
 - (BOOL)shouldAutorotate { return YES; }
 - (CGRect)availableBoundsInView:(UIView *)view {
@@ -401,8 +401,8 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
             bounds.size.height = MAX(0, CGRectGetMinY(intersection) - CGRectGetMinY(bounds));
         }
     }
-    CGPoint preferred = [self.session.presenter.view convertPoint:CGPointMake(CGRectGetMidX(self.session.presenter.view.bounds),
-        CGRectGetMidY(self.session.presenter.view.bounds)) toView:view];
+    CGPoint preferred = [self.session.presentationPresenter.view convertPoint:CGPointMake(CGRectGetMidX(self.session.presentationPresenter.view.bounds),
+        CGRectGetMidY(self.session.presentationPresenter.view.bounds)) toView:view];
     if (bottomAttached) {
         CGRect attached = StashChooseBottomAttachedRegion(bounds, regions);
         if (!CGRectIsEmpty(attached) && !CGRectIsNull(attached)) return attached;
