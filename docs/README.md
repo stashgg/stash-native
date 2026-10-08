@@ -5,6 +5,8 @@ This folder contains implementation-level documentation for maintaining the Stas
 ## Document Map
 
 - [Architecture Overview](./architecture-overview.md)
+- [Responsive Presentation](./responsive-presentation.md)
+- [Migration to 3.0](./migration-3.0.md)
 - [JavaScript `stash_sdk` API](./stash-sdk-js.md)
 - [Android Implementation](./android.md)
 - [iOS Implementation](./ios.md)

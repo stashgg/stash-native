@@ -30,14 +30,13 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   private final MainViewModel viewModel;
   private final Callbacks callbacks;
 
-  /** Callbacks for user actions (open card, browser, modal, generate checkout). */
+  /** Callbacks for user actions (open card, browser, generate checkout). */
   public interface Callbacks {
 
     void onOpenCard();
 
     void onOpenBrowser();
 
-    void onOpenModal();
 
     void onGenerateCheckout();
 
@@ -234,8 +233,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       // setInputType resets the KeyListener and clobbers selection, so set it before setText.
       int t = item.titleRes;
       boolean isUrl = t == R.string.hint_checkout_url
-          || t == R.string.hint_browser_url
-          || t == R.string.hint_modal_url;
+          || t == R.string.hint_browser_url;
       int inputType;
       if (isUrl) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
@@ -255,18 +253,15 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         binding.urlEditText.setText(item.value);
       }
       binding.urlEditText.addTextChangedListener(watcher);
-      // Card/Modal/Browser URL rows carry an inline Open button.
+      // Card/Browser URL rows carry an inline Open button.
       int titleRes = item.titleRes;
       boolean hasOpen = titleRes == R.string.hint_checkout_url
-          || titleRes == R.string.hint_modal_url
           || titleRes == R.string.hint_browser_url;
       binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
       // Stable ids for UI tests; rows are recycled, so null out non-open rows.
       String tag = null;
       if (titleRes == R.string.hint_checkout_url) {
         tag = "card";
-      } else if (titleRes == R.string.hint_modal_url) {
-        tag = "modal";
       } else if (titleRes == R.string.hint_browser_url) {
         tag = "browser";
       }
@@ -275,8 +270,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.urlOpenButton.setOnClickListener(v -> {
         if (titleRes == R.string.hint_checkout_url) {
           callbacks.onOpenCard();
-        } else if (titleRes == R.string.hint_modal_url) {
-          callbacks.onOpenModal();
         } else if (titleRes == R.string.hint_browser_url) {
           callbacks.onOpenBrowser();
         }
@@ -297,12 +290,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setCheckoutUrl(text);
         } else if (boundTitleRes == R.string.hint_browser_url) {
           viewModel.setBrowserUrl(text);
-        } else if (boundTitleRes == R.string.hint_modal_url) {
-          viewModel.setModalUrl(text);
-        } else if (boundTitleRes == R.string.hint_card_background_color) {
-          viewModel.setCardBackgroundColorHex(text);
-        } else if (boundTitleRes == R.string.hint_modal_background_color) {
-          viewModel.setModalBackgroundColorHex(text);
         } else if (boundTitleRes == R.string.instance_name) {
           viewModel.setEditingName(text);
         } else if (boundTitleRes == R.string.instance_app_id) {
@@ -331,15 +318,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
               : com.google.android.material.R.attr.colorPrimary));
       // Navigation rows carry a chevron; action buttons are text-only.
       boolean isNav = item.titleRes == R.string.nav_card_options
-          || item.titleRes == R.string.nav_modal_options
           || item.titleRes == R.string.nav_checkout_payload
           || item.titleRes == R.string.nav_webshop_payload;
       binding.actionChevron.setVisibility(isNav ? View.VISIBLE : View.GONE);
       binding.actionRow.setOnClickListener(v -> {
         if (item.titleRes == R.string.nav_card_options) {
           viewModel.navigateTo(MainViewModel.Screen.CARD_OPTIONS);
-        } else if (item.titleRes == R.string.nav_modal_options) {
-          viewModel.navigateTo(MainViewModel.Screen.MODAL_OPTIONS);
         } else if (item.titleRes == R.string.nav_checkout_payload) {
           viewModel.navigateTo(MainViewModel.Screen.CHECKOUT_PAYLOAD);
         } else if (item.titleRes == R.string.nav_webshop_payload) {
@@ -380,12 +364,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
         if (item.titleRes == R.string.option_force_portrait_on_checkout) {
           viewModel.setForcePortraitOnCheckout(isChecked);
-        } else if (item.titleRes == R.string.option_allow_dismiss) {
-          viewModel.setModalAllowDismiss(isChecked);
+        } else if (item.titleRes == R.string.option_card_allow_dismiss) {
+          viewModel.setCardAllowDismiss(isChecked);
         } else if (item.titleRes == R.string.option_card_auto_close) {
           viewModel.setCardAutoClose(isChecked);
-        } else if (item.titleRes == R.string.option_modal_auto_close) {
-          viewModel.setModalAutoClose(isChecked);
         } else if (item.titleRes == R.string.option_keep_alive) {
           viewModel.setKeepAliveEnabled(isChecked);
         } else if (item.titleRes == R.string.option_lock_landscape) {
@@ -412,46 +394,19 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           binding.getRoot().getContext().getString(item.titleRes));
       binding.sliderValue.setText(item.value);
       androidx.core.view.ViewCompat.setStateDescription(binding.sliderSeekBar, item.value);
+      binding.sliderSeekBar.setOnSeekBarChangeListener(null);
+      binding.sliderSeekBar.setMax(item.titleRes == R.string.edge_margin ? 64 : 1200);
       binding.sliderSeekBar.setProgress(item.progress);
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          androidx.core.view.ViewCompat.setStateDescription(seekBar, (progress + 10) + "%");
+          androidx.core.view.ViewCompat.setStateDescription(seekBar, progress + " dp");
           if (!fromUser) {
             return;
           }
-          int titleRes = item.titleRes;
-          if (titleRes == R.string.phone_card_height) {
-            viewModel.setPhoneCardHeight(progress);
-          } else if (titleRes == R.string.checkout_phone_landscape_width) {
-            viewModel.setCheckoutPhoneLandscapeWidth(progress);
-          } else if (titleRes == R.string.checkout_phone_landscape_height) {
-            viewModel.setCheckoutPhoneLandscapeHeight(progress);
-          } else if (titleRes == R.string.tablet_portrait_width) {
-            viewModel.setCheckoutTabletPortraitWidth(progress);
-          } else if (titleRes == R.string.tablet_portrait_height) {
-            viewModel.setCheckoutTabletPortraitHeight(progress);
-          } else if (titleRes == R.string.tablet_landscape_width) {
-            viewModel.setCheckoutTabletLandscapeWidth(progress);
-          } else if (titleRes == R.string.tablet_landscape_height) {
-            viewModel.setCheckoutTabletLandscapeHeight(progress);
-          } else if (titleRes == R.string.phone_portrait_width) {
-            viewModel.setModalPhonePortraitWidth(progress);
-          } else if (titleRes == R.string.phone_portrait_height) {
-            viewModel.setModalPhonePortraitHeight(progress);
-          } else if (titleRes == R.string.phone_landscape_width) {
-            viewModel.setModalPhoneLandscapeWidth(progress);
-          } else if (titleRes == R.string.phone_landscape_height) {
-            viewModel.setModalPhoneLandscapeHeight(progress);
-          } else if (titleRes == R.string.tablet_portrait_width_modal) {
-            viewModel.setModalTabletPortraitWidth(progress);
-          } else if (titleRes == R.string.tablet_portrait_height_modal) {
-            viewModel.setModalTabletPortraitHeight(progress);
-          } else if (titleRes == R.string.tablet_landscape_width_modal) {
-            viewModel.setModalTabletLandscapeWidth(progress);
-          } else if (titleRes == R.string.tablet_landscape_height_modal) {
-            viewModel.setModalTabletLandscapeHeight(progress);
-          }
+          String label = progress == 0 && item.titleRes == R.string.maximum_content_height ? "Available" : progress + " dp";
+          binding.sliderValue.setText(label);
+          viewModel.setDimension(item.titleRes, progress);
         }
 
         @Override

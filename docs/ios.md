@@ -1,165 +1,61 @@
-# iOS Implementation
+# iOS implementation
 
-## What The iOS Library Does
+The SDK exposes `StashNativeCard` and `StashNativeCardConfig` through `StashNativeCard.h`. The singleton owns one active `StashCheckoutSession`. All presentations receive the initiating view controller explicitly; the SDK does not select an arbitrary connected scene.
 
-The iOS library wraps web checkout in `WKWebView`, presents it in card, modal, or popup containers, and exposes a JavaScript bridge under `window.stash_sdk`. Host apps implement `StashNativeCardDelegate` for payment, dismissal, load metrics, external payment, and network errors.
+## Ownership
 
-Minimum platform: see [`iOS/StashNative/Package.swift`](../iOS/StashNative/Package.swift) (`platforms`).
+`StashNativeCard.m` dispatches public operations and creates the session. `StashNativeCardPrivate.h` declares internal interfaces. `StashNativeCardInternal.m` implements the session's WebView, callbacks, processing state, loading deadline, dismissal, and document-height handling.
 
-## Source Files (Target StashNative)
+Configuration is normalized and copied by `StashNativeCardConfigs.m`. Geometry calculations live in `StashNativeCardGeometry.m`. Presentation controllers live in `StashNativeCardViewControllers.m`; URL and view helpers and injected scripts live in `StashNativeCardViewUtils.m`. Navigation delegates are implemented in `StashNativeCardWebViewDelegates.m`, with shared color/theme helpers in `StashNativeCardTheme.m`.
 
-Paths relative to repository root.
+Keep retained state on its session/controller owner. Teardown must invalidate timers, unregister message handlers, detach delegates, and make queued callbacks harmless. A callback that opens a new session must not let an older session tear it down.
 
-| Role | File |
-|------|------|
-| Public API, delegate protocol, config types | [`iOS/StashNative/Sources/StashNative/include/StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) |
-| Singleton, routing, WKWebView factory, JS injection, shared state | [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) |
-| Bridge dispatch, dismissal, expansion, keyboard and timers | [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m) |
-| Colors and theme query parameters | [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m) |
-| Frame calculations | [`StashNativeCardGeometry.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardGeometry.m) |
-| Config defaults | [`StashNativeCardConfigs.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardConfigs.m) |
-| View helpers and external URL normalization | [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) |
-| Private shared declarations | [`iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h`](../iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h) |
-| `WKNavigationDelegate` / `WKUIDelegate`, timeouts, retries, errors | [`iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) |
-| Card/modal/popup view controllers, orientation | [`iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) |
-| Xcode project (library) | [`iOS/StashNative/StashNative.xcodeproj`](../iOS/StashNative/StashNative.xcodeproj) |
+Initial loading allows one retry after 10 seconds without a usable main-frame response, within a 15-second foreground-time budget. Background time does not consume that budget. A usable response cancels these timers; slow subresources must not trigger a replay of checkout. This replaces the shorter repeated retry cadence in 2.x.
 
-Sample app (Swift delegate wiring): [`iOS/Sample/StashNativeSample/StashNativeSample/ViewController+StashNativeDelegate.swift`](../iOS/Sample/StashNativeSample/StashNativeSample/ViewController+StashNativeDelegate.swift), [`ViewController+Actions.swift`](../iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Actions.swift).
+## Presentation
 
-## Public API Surface
+Cards default to a 400-point preferred width, 560-point resting ceiling and 720-point expansion cap. Explicit zero removes that cap. Available space always limits these sizes.
 
-Declared in [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h), implemented in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m):
+All iOS cards use `UISheetPresentationController`. UIKit owns the sheet surface, grabber, touch feedback, and interactive transitions on iPhone, Duo, and iPad. Window geometry, safe areas, keyboard overlap, and reserved regions determine layout within that shared presentation.
 
-- `+sharedInstance`
-- `-openCardWithURL:config:`, `-openModalWithURL:config:`, `-openPopupWithURL:sizeConfig:`
-- `-openBrowserWithURL:`, `-closeBrowser`, `-dismissSafariViewControllerWithResult:`
-- `-dismiss`, `-resetPresentationState`
+When both host size classes are regular, the same controller uses native form-sheet sizing with one system large detent. The selected resting or expanded state sets its preferred content size. Public `expand()` and `collapse()` resize that floating card; its native grabber retains UIKit spring and dismissal behavior with one physical stop.
 
-Delegate callbacks (same header): `stashNativeCardDidCompletePaymentWithOrder:`, `stashNativeCardDidFailPayment`, `stashNativeCardDidReceiveOptIn:`, `stashNativeCardDidDismiss`, `stashNativeCardDidLoadPage:`, `stashNativeCardDidRequestExternalPaymentWithURL:`, `stashNativeCardDidCloseBrowser`, `stashNativeCardDidEncounterNetworkError`.
+Compact layouts use custom resting and expanded detents on iOS 16+. Compact layouts on iOS 15 use native medium and large detents, or large alone in compact height; exact configured attached-sheet heights require iOS 16+. The selected semantic state survives adaptation between these native sizing policies.
 
-Internal routing: search `openURLInternal:` and `openInCardUI:` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+On iOS 27 and later, the SDK requests centered sheet placement before opening and during layout updates. UIKit owns the presentation animation. Floating form sheets use `preferredContentSize` for width and selected content height. Compact sheets use detents for height and leave the preferred height unset.
 
-## Injection And Bridge Model
+Use the actual container and scene, independent safe-area edges, keyboard overlap, and available reserved-region information. A width/height change must preserve the WebView, document, input, scroll position, and selected semantic card state. UIKit controls floating-card placement and its presentation animation. Native sheet chrome remains UIKit-owned, and the content width constraint is not an exact outer-sheet width promise.
 
-For checkout page authors, see [JavaScript `stash_sdk` API](./stash-sdk-js.md) (behavior and parity notes).
+Portrait is a best-effort preference within the host's orientation policy. The old AppDelegate swizzle, orientation KVC, separate alert-level card window, and device/orientation ratio matrix are removed.
 
-- Script assembly and `WKUserScript` registration: [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (search `stashSDKScript` / `WKUserScript`).
-- Handler registration: `addScriptMessageHandler:name:` for each bridge channel.
-- Dispatch: `userContentController:didReceiveScriptMessage:` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m).
+Native compact resting detents keep the entire surface below top status occlusions. Expanded native sheets can extend their background behind those regions; the WebView uses an unobstructed content pane. Resolve the two detents independently of the selected state, preserve UIKit's selection during a drag, and update the content pane as the surface moves. The interaction script maintains the mobile viewport when pages replace metadata or the document head, while preserving field editing. Observe WebKit's public `underPageBackgroundColor` for native surface colors; do not rewrite checkout's background CSS.
 
-Message handler name constants (examples — verify in source): defined as `NSString * const kMessageHandler...` near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+Extend only the WebView's bottom paint area through the home-indicator region, preserving its safe top, horizontal bounds, and keyboard clipping. Keep native `contentInset` zero so it does not shrink the web viewport after keyboard transitions; inset only the scroll indicators. With `viewport-fit=cover`, pages own `env(safe-area-inset-bottom)` padding for scrolling content and fixed or sticky control wrappers. CSS safe-area values must follow the current window geometry. This hosting policy does not add page padding or make arbitrary controls safe automatically.
 
-| JS entry | Typical handler name (see source) |
-|----------|-------------------------------------|
-| `onPaymentSuccess` | `stashNativementSuccess` (typo preserved in codebase) |
-| `onPaymentFailure` | `stashNativementFailure` |
-| `onPurchaseProcessing` | `stashPurchaseProcessing` |
-| `onProcessingCompleted` | `stashProcessingCompleted` |
-| `setPaymentChannel` | `stashOptin` |
-| `expand` | `stashExpand` |
-| `collapse` | `stashCollapse` |
-| `openExternalBrowser` | `stashExternalPayment` |
-| `openLink` | `stashOpenLink` |
-| `window.close` | `stashWindowClose` |
-| page ready (injected) | `stashNativePageReady` |
+Observe late WebKit root-scroll changes and normalize offsets after interaction settles. When the owned docked keyboard exactly meets the already-resized WebView's bottom edge, exclude duplicate automatic keyboard padding from the legal scroll range. Preserve explicit insets, valid page scrolling, and nested DOM scroll positions.
 
-Always confirm exact strings in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) before changing the web contract.
+Place `[data-stash-content]` inside outer safe-area padding, and exclude that padding from explicit height reports. See [responsive presentation](responsive-presentation.md) for the page contract.
 
-## Runtime Architecture
+## Web contract and navigation
 
-```mermaid
-flowchart TB
-    App[HostApp]
-    Card[StashNativeCard]
-    VC[ViewControllers]
-    Web[WKWebView]
-    Del[StashNativeCardDelegate]
+`StashBridgeScript()` injects `window.stash_sdk` into the main document. Keep the established message-handler spellings, including `stashNativementSuccess` and `stashNativementFailure`. The card installs a document-scoped content script separately.
 
-    App --> Card
-    Card --> VC
-    VC --> Web
-    Web --> Card
-    Card --> Del
-```
+The bridge forwards payment results, processing locks, opt-in, expansion/collapse, close, and external navigation. Refer to [the JS contract](stash-sdk-js.md) for payloads and callback ordering. External-payment handoff closes embedded checkout without a normal dismissal event; ordinary external links leave it open.
 
-[`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) contains `IPhoneCardViewController`, modal controllers, and orientation helpers referenced from [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+Checkout fields hide WebKit's previous/next/Done accessory toolbar to preserve editing space. Keyboard predictions and payment autofill remain available. Accessory suppression applies only to the checkout's WebView responders; it does not change WebKit's shared implementation or the host app's fields.
 
-## Presentation Modes
+Validate http/https URLs before Safari presentation. Handle payment deep-link results and unsupported app links without navigating WebKit to an unsupported scheme. Blank popup placeholders are ignored; actual new-window destinations follow the external-link policy. Do not disable TLS verification to make test pages load.
 
-Entry points in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) under `openInCardUI:` and related `present*` methods:
+## SDK and packaging
 
-- `presentIPhoneCardWithURL:` — forced portrait card.
-- `presentIPhoneCardInCurrentOrientationWithURL:` — rotation-aware card.
-- `presentiPadModalWithURL:` — iPad-oriented presentation.
-- `presentModalWithURL:` — centered modal.
-- `presentPopupWithURL:` — popup sizing.
+The minimum runtime is iOS 15. Use Xcode 27.1 for Duo development and release validation; availability and compile guards isolate newer reserved-region APIs. The host application must also be linked against SDK 27.1 for full Duo layout adoption.
 
-Layout and rotation: [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m).
+SPM discovers source files automatically. Add new implementation files to `StashNative.xcodeproj` too. Keep framework metadata, `sdkVersion`, and changelog aligned. Preserve the public delegate property's ARC/non-ARC guard and compile both consumer modes.
 
-## External Browser Flow
+## Verification
 
-- Host: `-openBrowserWithURL:` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (Safari Services path).
-- Page: `window.stash_sdk.openExternalBrowser(url)` posts to the external-payment handler; handled in `userContentController:didReceiveScriptMessage:`.
+Build and analyze the framework, run SPM XCTest on an iOS Simulator, and build/lint the sample. Copy the package without the adjacent Xcode project before testing so XCTest selects the SPM test target.
 
-Pipeline (read implementation for ordering):
+Test native card geometry, min/max validation, document identity and width checks, callback reentrancy, and processing locks. Runtime coverage must include keyboard, orientation, multiple host scenes, Duo poses, and resizable iPad windows. Newer simulator results do not prove the iOS 15 runtime path.
 
-1. Normalize: C function `NormalizeExternalPaymentURL` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m).
-2. Theme: `appendThemeQueryParameter` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
-3. Delegate: `stashNativeCardDidRequestExternalPaymentWithURL:` ([`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h)).
-4. Dismiss card UI and present Safari (see `openInSafariViewController` / related in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
-
-```mermaid
-sequenceDiagram
-    participant Page as Page
-    participant Card as StashNativeCard
-    participant Del as Delegate
-    participant Safari as SFSafariViewController
-
-    Page->>Card: stashExternalPayment message
-    Card->>Del: stashNativeCardDidRequestExternalPaymentWithURL
-    Card->>Safari: open browser
-```
-
-## Loading, Timeout, Retry, And Error Semantics
-
-Implemented in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) (`WebViewLoadDelegate` and related):
-
-- Constants `kNetworkTimeoutInterval`, `kRetryTimeoutInterval` (file header or top of implementation).
-- `armRetryTimerIfNeededForMainFrameURL`, `handleRetryTimer`, `handleNetworkTimeout`, `handleNetworkError`.
-- HTTP main-frame status `>= 400` treated as failure where implemented.
-- `webViewWebContentProcessDidTerminate:` — limited reload policy.
-- Foreground recovery: `recoverStaleLoadAfterApplicationForegroundIfNeeded`.
-
-Failure surface to app: `stashNativeCardDidEncounterNetworkError` and `resetPresentationState` behavior (see [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) call sites from the load delegate).
-
-```mermaid
-flowchart TD
-    Arm[armRetryTimerIfNeeded]
-    Retry[handleRetryTimer]
-    TOut[handleNetworkTimeout]
-    Err[handleNetworkError]
-
-    Arm --> Retry
-    Arm --> TOut
-    TOut --> Err
-```
-
-## Theming And Appearance
-
-- URL query `theme`: `appendThemeQueryParameter` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
-- Effective dark mode: `stash_effectiveThemeIsDark` and sheet background helpers in the same file.
-- Dark document injection: search `StashNativeDarkSheetBackgroundJavaScript` / `StashNativeSheetUsesDarkWebTheme` in [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m).
-
-## State Model And Safety
-
-- Presentation guards and flags: search `_isCardCurrentlyPresented`, `_paymentSuccessHandled` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
-- Session token: `presentationSessionToken` / `StashNativeCurrentPresentationSessionToken()` to drop stale callbacks after teardown.
-- Centralized teardown: `beginDismissStoppingLoadAndTimers`, `cleanupCardInstance` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m).
-
-## Maintenance Notes
-
-- Any change to handler names or `window.stash_sdk` functions requires updates in:
-  - [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)
-  - [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) comments
-  - [`.github/test/index.html`](../.github/test/index.html)
-  - Sample: [`iOS/Sample/StashNativeSample`](../iOS/Sample/StashNativeSample)
+In the tested iOS 27.1 Simulator, moving from Duo's outer display to its inner display dismisses the software keyboard in both checkout and a standalone `WKWebView`. The document, entered value, focused element, and caret survive; tapping the field resumes keyboard entry. A native `UITextField` retains its keyboard through the same transition. Record this WebKit behavior separately from layout checks, and capture both the immediate fold result and editing after the field is tapped again.

@@ -19,9 +19,8 @@ extension ViewController {
         guard let sectionType = visibleSection(at: section) else { return 0 }
         switch sectionType {
         case .card: return 3
-        case .modal: return 1
         case .browser: return 3
-        case .presentationOptions: return 2
+        case .presentationOptions: return 1
         case .other: return 1
         case .about: return 1
         case .checkoutGenerationSettings: return apiKeys.count
@@ -33,7 +32,6 @@ extension ViewController {
         let title: String?
         switch sectionType {
         case .card: title = "CARD"
-        case .modal: title = "MODAL"
         case .browser: title = "BROWSER"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .other: title = "OTHER"
@@ -69,8 +67,6 @@ extension ViewController {
         switch sectionType {
         case .card:
             return cardSectionCell(for: indexPath)
-        case .modal:
-            return modalSectionCell()
         case .browser:
             return browserSectionCell(for: indexPath)
         case .presentationOptions:

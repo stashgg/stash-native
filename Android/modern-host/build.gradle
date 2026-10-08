@@ -1,0 +1,93 @@
+plugins {
+    id 'com.android.application' version '9.1.1'
+}
+
+def temporaryRoot = System.getenv('HS_TEMP') ?: new File(System.getProperty('user.home'), 'Temp').path
+layout.buildDirectory = new File(temporaryRoot, 'stash-modern-host/build')
+
+def stashAarPath = providers.gradleProperty('stashAar').orElse(providers.environmentVariable('STASH_AAR'))
+if (!stashAarPath.isPresent() || !file(stashAarPath.get()).isFile()) {
+    throw new GradleException('Pass -PstashAar=/absolute/path/to/stashnative-release.aar or set STASH_AAR.')
+}
+
+android {
+    enableKotlin = false
+    namespace 'com.stash.stashnative.sample'
+    compileSdk 37
+
+    defaultConfig {
+        applicationId 'com.stash.stashnative.sample.modern'
+        minSdk 21
+        versionCode 1
+        versionName '1.0'
+    }
+
+    flavorDimensions 'target'
+    productFlavors {
+        api36 {
+            dimension 'target'
+            applicationIdSuffix '.api36'
+            targetSdk 36
+        }
+        api37 {
+            dimension 'target'
+            applicationIdSuffix '.api37'
+            targetSdk 37
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile '../sample/src/main/AndroidManifest.xml'
+            java.srcDirs = ['../sample/src/main/java']
+            res.srcDirs = ['../sample/src/main/res']
+            assets.srcDirs = ['../sample/src/main/assets']
+        }
+        debug {
+            manifest.srcFile '../sample/src/debug/AndroidManifest.xml'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            // This is an installable validation app, never a distribution artifact.
+            signingConfig signingConfigs.debug
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+        viewBinding true
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError true
+        checkReleaseBuilds true
+    }
+}
+
+dependencies {
+    implementation files(stashAarPath.get())
+    // File-based AAR dependencies do not carry Maven dependency metadata.
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.window:window:1.4.0'
+    implementation 'androidx.window:window-java:1.4.0'
+
+    // Match the sample's UI and optional Custom Tabs dependencies.
+    implementation 'androidx.browser:browser:1.7.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.7.0'
+    implementation 'androidx.lifecycle:lifecycle-livedata-core:2.7.0'
+}

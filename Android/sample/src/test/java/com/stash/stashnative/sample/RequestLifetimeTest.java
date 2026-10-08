@@ -26,6 +26,19 @@ import org.robolectric.shadows.ShadowLooper;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class RequestLifetimeTest {
+  @Test public void oldHostDestroyCannotClearReplacementListener() {
+    org.robolectric.android.controller.ActivityController<MainActivity> first =
+        Robolectric.buildActivity(MainActivity.class).setup();
+    org.robolectric.android.controller.ActivityController<MainActivity> second =
+        Robolectric.buildActivity(MainActivity.class).setup();
+    StashNativeCard sdk = StashNativeCard.getInstance();
+    StashNativeCard.StashNativeCardListener replacement = sdk.getListener();
+    first.pause().stop().destroy();
+    assertSame(replacement, sdk.getListener());
+    second.pause().stop().destroy();
+    assertNull(sdk.getListener());
+  }
+
   @Test public void responseAfterDestroyCannotOpenCheckoutOnReplacementHost() throws Exception {
     CountDownLatch requested = new CountDownLatch(1);
     CountDownLatch respond = new CountDownLatch(1);
@@ -64,7 +77,6 @@ public class RequestLifetimeTest {
       assertTrue("local server received request", requested.await(5, TimeUnit.SECONDS));
       controller.pause().stop().destroy();
       Activity replacement = Robolectric.buildActivity(Activity.class).setup().get();
-      StashNativeCard.getInstance().setActivity(replacement);
       respond.countDown();
       Field executorField = MainActivity.class.getDeclaredField("networkExecutor");
       executorField.setAccessible(true);

@@ -29,7 +29,7 @@ extension ViewController {
             return
         }
         let config = buildCardConfig()
-        StashNativeCard.sharedInstance().openCard(withURL: url, config: config)
+        StashNativeCard.sharedInstance().openCard(withURL: url, from: self, config: config)
     }
 
     @objc func openBrowserTapped() {
@@ -38,66 +38,30 @@ extension ViewController {
             showAlert(title: "Error", message: "Please enter a browser URL")
             return
         }
-        StashNativeCard.sharedInstance().openBrowser(withURL: url)
+        StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self)
     }
 
     func buildCardConfig() -> StashNativeCardConfig {
         let config = StashNativeCardConfig()
-        config.forcePortrait = forcePortraitOnCheckoutSwitch.isOn
-        config.cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
-        config.cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
-        config.cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
-        config.tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
-        config.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
-        config.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
-        config.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+        config.orientationPreference = cardPreferPortraitSwitch.isOn ? .portrait : .followHost
+        config.preferredContentWidth = CGFloat(cardPreferredWidthSlider.value)
+        config.preferredContentHeight = CGFloat(cardPreferredHeightSlider.value)
+        config.maximumContentHeight = CGFloat(cardMaximumHeightSlider.value)
+        config.edgeMargin = CGFloat(cardEdgeMarginSlider.value)
+        config.allowDismiss = cardAllowDismissSwitch.isOn
         config.autoClose = cardAutoCloseSwitch.isOn
-        if let hex = trimmedHex(cardBackgroundColorTextField) {
-            config.backgroundColor = hex
-        }
-        return config
-    }
-
-    @objc func openModalTapped() {
-        let url = (modalUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a modal URL")
-            return
-        }
-        let config = buildModalConfig()
-        StashNativeCard.sharedInstance().openModal(withURL: url, config: config)
-    }
-
-    func buildModalConfig() -> StashNativeModalConfig {
-        let config = StashNativeModalConfig()
-        config.allowDismiss = modalAllowDismissSwitch.isOn
-        config.phoneWidthRatioPortrait = CGFloat(modalPhonePortraitWidthSlider.value) / 100.0
-        config.phoneHeightRatioPortrait = CGFloat(modalPhonePortraitHeightSlider.value) / 100.0
-        config.phoneWidthRatioLandscape = CGFloat(modalPhoneLandscapeWidthSlider.value) / 100.0
-        config.phoneHeightRatioLandscape = CGFloat(modalPhoneLandscapeHeightSlider.value) / 100.0
-        config.tabletWidthRatioPortrait = CGFloat(modalTabletPortraitWidthSlider.value) / 100.0
-        config.tabletHeightRatioPortrait = CGFloat(modalTabletPortraitHeightSlider.value) / 100.0
-        config.tabletWidthRatioLandscape = CGFloat(modalTabletLandscapeWidthSlider.value) / 100.0
-        config.tabletHeightRatioLandscape = CGFloat(modalTabletLandscapeHeightSlider.value) / 100.0
-        config.autoClose = modalAutoCloseSwitch.isOn
-        if let hex = trimmedHex(modalBackgroundColorTextField) {
-            config.backgroundColor = hex
-        }
         return config
     }
 
     @objc func openCardOptionsTapped() {
         navigationController?.pushViewController(
-            OptionsListViewController(mode: .card, host: self), animated: true)
-    }
-
-    @objc func openModalOptionsTapped() {
-        navigationController?.pushViewController(
-            OptionsListViewController(mode: .modal, host: self), animated: true)
+            OptionsListViewController(host: self), animated: true)
     }
 
     @objc func sliderValueChanged(_ sender: UISlider) {
-        let value = "\(Int(sender.value))%"
+        sender.value = sender.value.rounded()
+        let isMaximum = sender === cardMaximumHeightSlider
+        let value = isMaximum && sender.value == 0 ? "Available" : "\(Int(sender.value)) pt"
         sliderLabels[sender]?.text = value
         sender.accessibilityValue = value
     }
@@ -110,13 +74,14 @@ extension ViewController {
         performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
+            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, from: self, config: config)
         }
     }
 
     @objc func generateCheckoutForBrowserTapped() {
-        performGenerateUrl(.checkout) { checkoutUrl in
-            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl)
+        performGenerateUrl(.checkout) { [weak self] checkoutUrl in
+            guard let self = self else { return }
+            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl, from: self)
         }
     }
 
@@ -124,21 +89,37 @@ extension ViewController {
         performGenerateUrl(.webshop) { [weak self] webshopUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, config: config)
+            StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, from: self, config: config)
         }
     }
 
     @objc func openWebshopForBrowserTapped() {
-        performGenerateUrl(.webshop) { webshopUrl in
-            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl)
+        performGenerateUrl(.webshop) { [weak self] webshopUrl in
+            guard let self = self else { return }
+            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl, from: self)
         }
     }
 
-    /// Trimmed hex from a color field, or nil when the field is blank.
-    private func trimmedHex(_ field: UITextField) -> String? {
-        let hex = field.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return hex.isEmpty ? nil : hex
+    #if DEBUG
+    func openLaunchPresentationIfNeeded() {
+        guard !handledLaunchPresentation, presentedViewController == nil else { return }
+        handledLaunchPresentation = true
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let urlIndex = arguments.firstIndex(of: "-stash-url"),
+              arguments.indices.contains(urlIndex + 1),
+              let url = URL(string: arguments[urlIndex + 1]),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
+        let modeIndex = arguments.firstIndex(of: "-stash-mode")
+        let mode = modeIndex.flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } ?? "card"
+        if mode == "browser" {
+            browserUrlTextField.text = url.absoluteString
+            openBrowserTapped()
+        } else if mode == "card" {
+            checkoutUrlTextField.text = url.absoluteString
+            openCardTapped()
+        }
     }
+    #endif
 
     /// Calls the Stash server endpoint for `kind` and returns the generated URL.
     private func performGenerateUrl(_ kind: ViewController.PayloadKind,

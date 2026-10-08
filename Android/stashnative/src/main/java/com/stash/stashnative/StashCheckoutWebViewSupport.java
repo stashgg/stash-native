@@ -20,7 +20,7 @@ import android.widget.FrameLayout;
 import androidx.annotation.RequiresApi;
 
 /**
- * Checkout WebView lifecycle for {@link StashNativeCardPortraitActivity}: creation and clients,
+ * Checkout WebView lifecycle for {@link StashCheckoutActivity}: creation and clients,
  * stall-retry and network-deadline timers, provider checks, and the
  * loading-overlay / reveal crossfade. State lives on the activity (mirrors iOS
  * WebViewLoadDelegate timing).
@@ -30,7 +30,7 @@ final class StashCheckoutWebViewSupport {
 
   private StashCheckoutWebViewSupport() {}
 
-  static void addWebView(StashNativeCardPortraitActivity activity) {
+  static void addWebView(StashCheckoutActivity activity) {
     if (activity.url == null || activity.url.isEmpty() || activity.cardContainer == null) {
       Log.e(TAG, "Invalid parameters in addWebView");
       return;
@@ -81,6 +81,9 @@ final class StashCheckoutWebViewSupport {
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
           try {
             super.onPageStarted(view, url, favicon);
+            if (activity.contentSizeSupport != null) {
+              activity.contentSizeSupport.navigationStarted(url);
+            }
             activity.pageLoadStartTime = System.currentTimeMillis();
             showLoading(activity);
             injectSDK(view);
@@ -107,6 +110,9 @@ final class StashCheckoutWebViewSupport {
 
             maybeRevealWhenReady(activity);
             injectSDK(view);
+            if (activity.contentSizeSupport != null) {
+              activity.contentSizeSupport.documentCommitted(view, url);
+            }
             checkProvider(activity, url);
           } catch (Exception e) {
             Log.w(TAG, "Error in onPageFinished");
@@ -166,6 +172,10 @@ final class StashCheckoutWebViewSupport {
         @RequiresApi(Build.VERSION_CODES.Q)
         public void onPageCommitVisible(WebView view, String pageUrl) {
           super.onPageCommitVisible(view, pageUrl);
+          injectSDK(view);
+          if (activity.contentSizeSupport != null) {
+            activity.contentSizeSupport.documentCommitted(view, pageUrl);
+          }
           markMainFrameNavigationCommittedIfNeeded(activity);
           maybeRevealWhenReady(activity);
         }
@@ -185,7 +195,8 @@ final class StashCheckoutWebViewSupport {
           activity.webView = null;
           // OS-killed (not a real crash) and not already retried: rebuild the checkout once
           // rather than showing a network error (parity with iOS reload-on-terminate).
-          if (!detail.didCrash() && !activity.rendererGoneReloadAttempted && !activity.isDismissing) {
+          if (!detail.didCrash() && !activity.rendererGoneReloadAttempted
+              && !activity.isDismissing && !activity.isPurchaseProcessing) {
             activity.rendererGoneReloadAttempted = true;
             activity.initialPageLoadComplete = false;
             activity.mainFrameErrorReceived = false;
@@ -200,6 +211,10 @@ final class StashCheckoutWebViewSupport {
             // addWebView creates a second overlay on top of the orphaned first one.
             removeLoadingViewFromParent(activity);
             StashCheckoutWebViewSupport.addWebView(activity);
+            activity.presentation.environmentChanged();
+            if (activity.homeButton != null) {
+              activity.homeButton.bringToFront();
+            }
             if (activity.isActivityPaused) {
               // OS kills mostly happen backgrounded; the fresh deadline must not burn
               // against background time. Freeze it; onResume thaws and re-arms.
@@ -243,7 +258,8 @@ final class StashCheckoutWebViewSupport {
         activity.webViewLoadingRevealComplete = false;
         activity.webViewRevealAnimationRunning = false;
         activity.webView.setAlpha(0f);
-        activity.cardContainer.addView(activity.webView);
+        // Renderer replacements must stay beneath the native controls.
+        activity.cardContainer.addView(activity.webView, 0);
 
         // Show loading immediately before loadUrl() so there is never a blank-card window
         // between addView() and the first onPageStarted callback. showLoading() is idempotent:
@@ -281,7 +297,7 @@ final class StashCheckoutWebViewSupport {
     }
   }
 
-  static void scheduleInitialLoadTimers(StashNativeCardPortraitActivity activity) {
+  static void scheduleInitialLoadTimers(StashCheckoutActivity activity) {
     if (activity.loadTimersHandler == null) {
       activity.loadTimersHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     }
@@ -290,7 +306,7 @@ final class StashCheckoutWebViewSupport {
       if (activity.networkErrorHandled || activity.isDismissing || activity.webView == null) {
         return;
       }
-      if (activity.mainFrameNavigationCommitted) {
+      if (activity.mainFrameNavigationCommitted || activity.isPurchaseProcessing) {
         return;
       }
       if (activity.webViewRetryCount >= 1) {
@@ -340,7 +356,7 @@ final class StashCheckoutWebViewSupport {
     activity.loadTimersHandler.postDelayed(activity.networkDeadlineRunnable, remaining);
   }
 
-  static void markMainFrameNavigationCommittedIfNeeded(StashNativeCardPortraitActivity activity) {
+  static void markMainFrameNavigationCommittedIfNeeded(StashCheckoutActivity activity) {
     if (activity.mainFrameNavigationCommitted || activity.networkErrorHandled) {
       return;
     }
@@ -354,7 +370,7 @@ final class StashCheckoutWebViewSupport {
    * - first frame committed/visible (onPageCommitVisible or progress fallback)
    * This avoids a dark/blank intermediate frame in some WebView implementations.
    */
-  static void maybeRevealWhenReady(StashNativeCardPortraitActivity activity) {
+  static void maybeRevealWhenReady(StashCheckoutActivity activity) {
     if (activity.networkErrorHandled || activity.mainFrameErrorReceived || activity.isDismissing) {
       return;
     }
@@ -372,11 +388,10 @@ final class StashCheckoutWebViewSupport {
     return url + sep + "_stash_nc=" + System.currentTimeMillis();
   }
 
-  static void cancelLoadTimers(StashNativeCardPortraitActivity activity) {
+  static void cancelLoadTimers(StashCheckoutActivity activity) {
     if (activity.loadTimersHandler == null) {
       return;
     }
-    activity.loadTimersHandler.removeCallbacks(activity.pendingLandscapeFinishFallback);
     if (activity.retryAfterStallRunnable != null) {
       activity.loadTimersHandler.removeCallbacks(activity.retryAfterStallRunnable);
     }
@@ -390,7 +405,7 @@ final class StashCheckoutWebViewSupport {
    * flows (success/failure/close); any other deeplink is handed to the OS with the card left
    * open. Returns true when the navigation was consumed.
    */
-  static boolean handleDeeplinkNavigation(StashNativeCardPortraitActivity activity, String url) {
+  static boolean handleDeeplinkNavigation(StashCheckoutActivity activity, String url) {
     if (url == null || StashWebViewUtils.isWebScheme(url)) {
       return false;
     }
@@ -409,7 +424,7 @@ final class StashCheckoutWebViewSupport {
   }
 
   /**
-   * WebChromeClient.onCreateWindow handler shared by the card and popup paths. target=_blank /
+   * WebChromeClient.onCreateWindow handler for the checkout card. target=_blank /
    * window.open has no second tab in the checkout, so the destination is opened outside the
    * WebView instead. The href is only exposed through the new window's first navigation, so a
    * throwaway transport WebView is used to capture it. A real WebView tab is never created.
@@ -541,10 +556,11 @@ final class StashCheckoutWebViewSupport {
   }
 
   static void injectSDK(WebView view) {
+    StashWebInteractionSupport.apply(view);
     view.evaluateJavascript(StashWebViewUtils.JS_SDK_SCRIPT, null);
   }
 
-  static void checkProvider(StashNativeCardPortraitActivity activity, String url) {
+  static void checkProvider(StashCheckoutActivity activity, String url) {
     if (activity.homeButton == null || url == null) {
       return;
     }
@@ -557,7 +573,7 @@ final class StashCheckoutWebViewSupport {
    * Stops the loading/WebView crossfade and resets alpha so a new load can show the spinner until
    * {@link #revealWebViewAndRemoveLoading} runs again.
    */
-  static void cancelLoadingRevealAnimation(StashNativeCardPortraitActivity activity) {
+  static void cancelLoadingRevealAnimation(StashCheckoutActivity activity) {
     // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
     activity.webViewRevealAnimationRunning = false;
     activity.webViewRevealAnimationToken++;
@@ -571,7 +587,7 @@ final class StashCheckoutWebViewSupport {
     }
   }
 
-  static void showLoading(StashNativeCardPortraitActivity activity) {
+  static void showLoading(StashCheckoutActivity activity) {
     activity.runOnUiThread(() -> {
       if (activity.webViewLoadingRevealComplete || activity.webViewRevealAnimationRunning) {
         return;
@@ -602,7 +618,7 @@ final class StashCheckoutWebViewSupport {
     });
   }
 
-  static void emitPageLoadedIfNeeded(StashNativeCardPortraitActivity activity) {
+  static void emitPageLoadedIfNeeded(StashCheckoutActivity activity) {
     if (activity.pageLoadedCallbackSent || activity.pageLoadStartTime <= 0) {
       return;
     }
@@ -620,7 +636,7 @@ final class StashCheckoutWebViewSupport {
    * First load: crossfade loading overlay out and WebView in (aligned with iOS
    * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
    */
-  static void revealWebViewAndRemoveLoading(StashNativeCardPortraitActivity activity) {
+  static void revealWebViewAndRemoveLoading(StashCheckoutActivity activity) {
     activity.runOnUiThread(() -> {
       if (activity.webView == null || activity.webViewRevealAnimationRunning) {
         return;
@@ -666,7 +682,7 @@ final class StashCheckoutWebViewSupport {
     });
   }
 
-  static void removeLoadingViewFromParent(StashNativeCardPortraitActivity activity) {
+  static void removeLoadingViewFromParent(StashCheckoutActivity activity) {
     if (activity.loadingView != null && activity.loadingView.getParent() != null) {
       ((ViewGroup) activity.loadingView.getParent()).removeView(activity.loadingView);
     }

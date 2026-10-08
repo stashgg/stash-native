@@ -86,9 +86,10 @@ JUnit tests using Android parsing or lifecycle APIs must use Robolectric or inst
 
 ### iOS
 
-Discover available destinations with `xcrun simctl list devices available`; set `AUDIT_SIM_ID` to an installed iOS simulator UUID. Use Xcode compatible with the declared iOS minimum. A command-line deployment override for a newer local Xcode is only a smoke check, not evidence for the release minimum.
+Discover available destinations with `xcrun simctl list devices available`; set `AUDIT_SIM_ID` to an installed iOS simulator UUID. Use Xcode compatible with the declared iOS minimum. The v3 deployment target is iOS 15. Use the installed Xcode 27.1 beta via a per-command `DEVELOPER_DIR`; do not change the machine-wide selected Xcode.
 
 ```sh
+export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
 xcodebuild build -project iOS/StashNative/StashNative.xcodeproj -scheme StashNative \
   -sdk iphoneos -derivedDataPath "$AUDIT_WORK/ios-build" CODE_SIGNING_ALLOWED=NO
 xcodebuild analyze -project iOS/StashNative/StashNative.xcodeproj -scheme StashNative \
@@ -115,6 +116,7 @@ Compile all Objective-C sources and a public-header consumer in both ARC and non
 ## Manual QA Surfaces
 
 - JS bridge and callback harness: [`.github/test/index.html`](../.github/test/index.html) (exercises `window.stash_sdk`; see [JavaScript `stash_sdk` API](./stash-sdk-js.md))
+- Responsive geometry and state fixture: [`.github/test/responsive.html`](../.github/test/responsive.html)
 - UI mockup for communication: [`.github/test/mockup.html`](../.github/test/mockup.html)
 - Platform sample apps:
   - [`Android/sample/`](../Android/sample/)
@@ -161,3 +163,19 @@ flowchart LR
 ```
 
 `main.yml` also uploads builds to BrowserStack and Appetize for manual or automated device runs; see job steps in that workflow file.
+
+## 3.0 responsive validation
+
+The iOS sample accepts DEBUG launch arguments `-stash-url <url> -stash-mode card|browser`. Use them with `simctl launch` to open the same fixture or generated test checkout repeatedly. Keep test credentials and returned checkout URLs in private temporary files rather than source or logs.
+
+For a local fixture, serve `.github/test` from a temporary-log-backed HTTP server. iOS Simulator reaches the host through `127.0.0.1`; Android Emulator reaches it through `10.0.2.2` (or use `adb reverse`). Only the sample should enable any local test-network exception.
+
+Required scenarios include card intrinsic short/long sizing, explicit hints, absent/invalid/stale hints, keyboard focus, rotation, continuous window resizing, fold/hinge regions, selected-state preservation, reduced motion, processing dismissal locks, and external browser return. Preserve page-load count, input and scroll state throughout. Inspect screenshots and interact with the loaded WebView; a successful install is not a runtime pass.
+
+Verify `stash_sdk.expand()`/`collapse()` and native grabber gestures separately on closed and open Duo. Exercise slow and fast drags in both directions, including the release and subsequent layout. Check content placement during movement, then keyboard entry and dismissal from each selected state. A successful keyboard expansion does not verify manual expansion. Confirm visible software keys in screenshots; automated text injection can hide the simulator keyboard while its accessibility container still reports a large frame. Compare resting and expanded sizes against the actual host space: a short landscape window can have only a small difference between the two stops.
+
+`Android/modern-host` consumes the standalone AAR with target36/37 variants. Follow its README to build in a task-local SDK and Gradle cache. Validate target36 on Android16/17 and target37 on Android17. Keep the API34 sample and minimum-version checks separate.
+
+Hosted macOS validation uses the available Xcode26.6 image to exercise compile guards. `.github/workflows/ios-beta.yml` accepts a runner label with Xcode27.1 beta installed, and release packaging explicitly requires that beta and SDK27.1. Set `STASH_IOS_RELEASE_RUNNER` to an appropriately provisioned runner until hosted images include it. The setup action selects an installed Xcode; it does not download one. Do not count stable-hosted CI as Duo validation.
+
+An `Unreleased` changelog entry disables release packaging/publishing. Date the entry only when the exact revision has passed the required validation and is ready for release.

@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+fixture_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+temporary_root=${HS_TEMP:-"$HOME/Temp"}
+work_dir="$temporary_root/stash-modern-host"
+mkdir -p "$work_dir/gradle-home" "$work_dir/project-cache" "$work_dir/android-user" "$work_dir/tmp"
+export GRADLE_USER_HOME="$work_dir/gradle-home"
+export ANDROID_USER_HOME="$work_dir/android-user"
+export TMPDIR="$work_dir/tmp"
+
+if [ -n "${JAVA_HOME:-}" ]; then
+    java_command="$JAVA_HOME/bin/java"
+else
+    java_command=java
+fi
+
+exec "$java_command" -classpath "$fixture_dir/gradle/wrapper/gradle-wrapper.jar" \
+    org.gradle.wrapper.GradleWrapperMain \
+    --project-dir "$fixture_dir" --project-cache-dir "$work_dir/project-cache" "$@"

@@ -4,16 +4,16 @@ import android.util.Log;
 import android.webkit.JavascriptInterface;
 
 /**
- * window.stash_sdk bridge for the portrait checkout WebView. Registered under
+ * window.stash_sdk bridge for the checkout WebView. Registered under
  * {@link StashWebViewUtils#JS_INTERFACE_NAME}; methods run on the WebView's JS thread and
  * hop to the UI thread before touching views.
  */
 class StashCheckoutJsInterface {
   private static final String TAG = "StashNativeCard";
 
-  private final StashNativeCardPortraitActivity activity;
+  private final StashCheckoutActivity activity;
 
-  StashCheckoutJsInterface(StashNativeCardPortraitActivity activity) {
+  StashCheckoutJsInterface(StashCheckoutActivity activity) {
     this.activity = activity;
   }
 
@@ -42,6 +42,9 @@ class StashCheckoutJsInterface {
       activity.runOnUiThread(() -> {
         try {
           activity.isPurchaseProcessing = true;
+          if (activity.presentation != null) {
+            activity.presentation.processingStarted();
+          }
           activity.applyDragHandlePurchaseProcessingFade(true);
         } catch (Exception e) {
           Log.w(TAG, "Error setting purchase processing: " + e.getMessage(), e);
@@ -78,61 +81,28 @@ class StashCheckoutJsInterface {
     }
   }
 
-  @JavascriptInterface
-  public void expand() {
-    // Modal does not support expand/collapse
-    if (activity.useModal) {
-      return;
-    }
-
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          // While the keyboard owns the card geometry, ignore page-driven expand.
-          if (!activity.usePopup && !activity.keyboardActive && !activity.isExpanded && !activity.isLandscapeMode()) {
-            activity.animateExpand();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in expand UI thread: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in expand: " + e.getMessage(), e);
-    }
+  @JavascriptInterface public void expand() {
+    activity.runOnUiThread(activity::animateExpand);
   }
 
-  @JavascriptInterface
-  public void collapse() {
-    // Modal does not support expand/collapse
-    if (activity.useModal) {
-      return;
-    }
+  @JavascriptInterface public void collapse() {
+    activity.runOnUiThread(activity::animateCollapse);
+  }
 
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          // While the keyboard owns the card geometry, ignore page-driven collapse.
-          if (!activity.usePopup && !activity.keyboardActive && activity.isExpanded && !activity.isLandscapeMode()) {
-            activity.animateCollapse();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in collapse UI thread: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in collapse: " + e.getMessage(), e);
-    }
+  @JavascriptInterface public void setContentHeight(String payload) {
+    activity.runOnUiThread(() -> {
+      if (activity.contentSizeSupport != null) {
+        activity.contentSizeSupport.accept(payload);
+      }
+    });
   }
 
   @JavascriptInterface
   public void requestCloseFromPage() {
-    if (activity.isPurchaseProcessing) {
-      return;
-    }
     try {
       activity.runOnUiThread(() -> {
         try {
-          activity.dismissWithAnimation();
+          activity.requestUserDismiss();
         } catch (Exception e) {
           Log.w(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
         }

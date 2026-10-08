@@ -3,7 +3,7 @@
 //  StashNativeSample
 //
 //  Presentation options section (orientation lock + navigation to option screens)
-//  and the card/modal option rows reused by the pushed OptionsListViewController.
+//  and the card option rows reused by the pushed OptionsListViewController.
 //
 
 import UIKit
@@ -27,13 +27,12 @@ extension ViewController {
     // MARK: - Presentation options section (main screen)
 
     func presentationOptionCell(for indexPath: IndexPath) -> UITableViewCell {
-        navCell(indexPath.row == 0 ? "Card options" : "Modal options")
+        navCell("Card options")
     }
 
     func handlePresentationOptionsSelection(at indexPath: IndexPath) {
         switch indexPath.row {
         case 0: openCardOptionsTapped()
-        case 1: openModalOptionsTapped()
         default: break
         }
     }
@@ -55,198 +54,60 @@ extension ViewController {
         return cell
     }
 
-    // MARK: - Card option rows (shown on the pushed Card options screen)
+    // MARK: - Responsive presentation options
 
-    // swiftlint:disable:next function_body_length
     func cardOptionCell(for row: CheckoutOptionRow) -> UITableViewCell {
         switch row {
-        case .cardBackgroundHex:
-            return urlCell(
-                textField: cardBackgroundColorTextField,
-                label: "Background",
-                imageName: "paintpalette.fill"
-            )
-        case .forcePortraitOnCheckout:
-            return switchCell(
-                title: "Force Portrait on Card",
-                subtitle: "Rotate to portrait when opening card",
-                switchView: forcePortraitOnCheckoutSwitch
-            )
+        case .preferPortrait:
+            return switchCell(title: "Prefer portrait",
+                              subtitle: "Best effort within the host's supported orientations",
+                              switchView: cardPreferPortraitSwitch)
+        case .allowDismiss:
+            return switchCell(title: "Allow dismissal", subtitle: "Swipe or tap outside to close",
+                              switchView: cardAllowDismissSwitch)
         case .cardAutoClose:
-            return switchCell(
-                title: "Auto-close on payment event",
-                subtitle: "Close card after success/failure",
-                switchView: cardAutoCloseSwitch
-            )
-        case .phoneCardHeight:
-            return sliderCell(
-                title: "Phone Card Height",
-                valueLabel: phoneCardHeightLabel,
-                slider: phoneCardHeightSlider
-            )
-        case .phoneLandscapeWidth:
-            return sliderCell(
-                title: "Phone Landscape Width",
-                valueLabel: checkoutPhoneLandscapeWidthLabel,
-                slider: checkoutPhoneLandscapeWidthSlider
-            )
-        case .phoneLandscapeHeight:
-            return sliderCell(
-                title: "Phone Landscape Height",
-                valueLabel: checkoutPhoneLandscapeHeightLabel,
-                slider: checkoutPhoneLandscapeHeightSlider
-            )
-        case .tabletPortraitWidth:
-            return sliderCell(
-                title: "Tablet Portrait Width",
-                valueLabel: checkoutTabletPortraitWidthLabel,
-                slider: checkoutTabletPortraitWidthSlider
-            )
-        case .tabletPortraitHeight:
-            return sliderCell(
-                title: "Tablet Portrait Height",
-                valueLabel: checkoutTabletPortraitHeightLabel,
-                slider: checkoutTabletPortraitHeightSlider
-            )
-        case .tabletLandscapeWidth:
-            return sliderCell(
-                title: "Tablet Landscape Width",
-                valueLabel: checkoutTabletLandscapeWidthLabel,
-                slider: checkoutTabletLandscapeWidthSlider
-            )
-        case .tabletLandscapeHeight:
-            return sliderCell(
-                title: "Tablet Landscape Height",
-                valueLabel: checkoutTabletLandscapeHeightLabel,
-                slider: checkoutTabletLandscapeHeightSlider
-            )
+            return switchCell(title: "Auto-close on payment event", subtitle: "Close card after success/failure",
+                              switchView: cardAutoCloseSwitch)
+        case .preferredWidth:
+            return sliderCell(title: "Preferred content width", valueLabel: cardPreferredWidthLabel,
+                              slider: cardPreferredWidthSlider)
+        case .preferredHeight:
+            return sliderCell(title: "Preferred content height", valueLabel: cardPreferredHeightLabel,
+                              slider: cardPreferredHeightSlider)
+        case .maximumHeight:
+            return sliderCell(title: "Maximum content height", valueLabel: cardMaximumHeightLabel,
+                              slider: cardMaximumHeightSlider)
+        case .edgeMargin:
+            return sliderCell(title: "Edge margin", valueLabel: cardEdgeMarginLabel, slider: cardEdgeMarginSlider)
         }
     }
 
     func cardOptionHeight(for row: CheckoutOptionRow) -> CGFloat {
         switch row {
-        case .cardBackgroundHex, .forcePortraitOnCheckout, .cardAutoClose:
+        case .preferPortrait, .allowDismiss, .cardAutoClose:
             return UITableView.automaticDimension
         default:
             return 72
         }
     }
 
-    // MARK: - Modal option rows (shown on the pushed Modal options screen)
-
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
-    func modalOptionCell(for row: ModalOptionRow) -> UITableViewCell {
-        switch row {
-        case .modalBackgroundHex:
-            return urlCell(
-                textField: modalBackgroundColorTextField,
-                label: "Background",
-                imageName: "paintpalette.fill"
-            )
-        case .allowDismiss:
-            return switchCell(
-                title: "Allow Dismiss",
-                subtitle: "Tap outside to close",
-                switchView: modalAllowDismissSwitch
-            )
-        case .modalAutoClose:
-            return switchCell(
-                title: "Auto-close on payment event",
-                subtitle: "Close modal after success/failure",
-                switchView: modalAutoCloseSwitch
-            )
-        case .modalPhonePortraitWidth:
-            return sliderCell(
-                title: "Phone Portrait Width",
-                valueLabel: modalPhonePortraitWidthLabel,
-                slider: modalPhonePortraitWidthSlider
-            )
-        case .modalPhonePortraitHeight:
-            return sliderCell(
-                title: "Phone Portrait Height",
-                valueLabel: modalPhonePortraitHeightLabel,
-                slider: modalPhonePortraitHeightSlider
-            )
-        case .modalPhoneLandscapeWidth:
-            return sliderCell(
-                title: "Phone Landscape Width",
-                valueLabel: modalPhoneLandscapeWidthLabel,
-                slider: modalPhoneLandscapeWidthSlider
-            )
-        case .modalPhoneLandscapeHeight:
-            return sliderCell(
-                title: "Phone Landscape Height",
-                valueLabel: modalPhoneLandscapeHeightLabel,
-                slider: modalPhoneLandscapeHeightSlider
-            )
-        case .modalTabletPortraitWidth:
-            return sliderCell(
-                title: "Tablet Portrait Width",
-                valueLabel: modalTabletPortraitWidthLabel,
-                slider: modalTabletPortraitWidthSlider
-            )
-        case .modalTabletPortraitHeight:
-            return sliderCell(
-                title: "Tablet Portrait Height",
-                valueLabel: modalTabletPortraitHeightLabel,
-                slider: modalTabletPortraitHeightSlider
-            )
-        case .modalTabletLandscapeWidth:
-            return sliderCell(
-                title: "Tablet Landscape Width",
-                valueLabel: modalTabletLandscapeWidthLabel,
-                slider: modalTabletLandscapeWidthSlider
-            )
-        case .modalTabletLandscapeHeight:
-            return sliderCell(
-                title: "Tablet Landscape Height",
-                valueLabel: modalTabletLandscapeHeightLabel,
-                slider: modalTabletLandscapeHeightSlider
-            )
-        }
-    }
-
-    func modalOptionHeight(for row: ModalOptionRow) -> CGFloat {
-        switch row {
-        case .modalBackgroundHex, .allowDismiss, .modalAutoClose:
-            return UITableView.automaticDimension
-        default:
-            return 72
-        }
-    }
 }
 
-// MARK: - Dedicated Card/Modal options screen
+// MARK: - Card options screen
 
-/// A pushed screen that hosts only the card (or modal) option rows. Reuses the host's shared
-/// controls, so edits flow straight into buildCardConfig()/buildModalConfig().
+/// Reuses the host controls so edits flow into buildCardConfig().
 final class OptionsListViewController: UITableViewController {
 
-    enum Mode { case card, modal }
-
-    private let mode: Mode
     private weak var host: ViewController?
 
-    private let sectionTitles = ["General", "Phone Dimensions", "Tablet Dimensions"]
+    private let sectionTitles = ["General", "Responsive size"]
 
-    /// Card option rows grouped into General / Phone / Tablet.
     private let cardSections: [[ViewController.CheckoutOptionRow]] = [
-        [.cardBackgroundHex, .forcePortraitOnCheckout, .cardAutoClose],
-        [.phoneCardHeight, .phoneLandscapeWidth, .phoneLandscapeHeight],
-        [.tabletPortraitWidth, .tabletPortraitHeight, .tabletLandscapeWidth, .tabletLandscapeHeight]
+        [.preferPortrait, .allowDismiss, .cardAutoClose],
+        [.preferredWidth, .preferredHeight, .maximumHeight, .edgeMargin]
     ]
 
-    /// Modal option rows grouped into General / Phone / Tablet.
-    private let modalSections: [[ViewController.ModalOptionRow]] = [
-        [.modalBackgroundHex, .allowDismiss, .modalAutoClose],
-        [.modalPhonePortraitWidth, .modalPhonePortraitHeight,
-         .modalPhoneLandscapeWidth, .modalPhoneLandscapeHeight],
-        [.modalTabletPortraitWidth, .modalTabletPortraitHeight,
-         .modalTabletLandscapeWidth, .modalTabletLandscapeHeight]
-    ]
-
-    init(mode: Mode, host: ViewController) {
-        self.mode = mode
+    init(host: ViewController) {
         self.host = host
         super.init(style: .insetGrouped)
     }
@@ -257,7 +118,7 @@ final class OptionsListViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = mode == .card ? "Card options" : "Modal options"
+        title = "Card options"
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .never
         tableView.estimatedRowHeight = 56
@@ -269,23 +130,23 @@ final class OptionsListViewController: UITableViewController {
         sectionTitles[section]
     }
 
+    override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        guard section == 1 else { return nil }
+        let sizing = "The card follows content up to the preferred height and can expand for scrolling."
+        return "\(sizing) Dimensions use points of web content. A maximum of zero uses available height."
+    }
+
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        mode == .card ? cardSections[section].count : modalSections[section].count
+        cardSections[section].count
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         guard let host = host else { return UITableViewCell() }
-        if mode == .card {
-            return host.cardOptionCell(for: cardSections[indexPath.section][indexPath.row])
-        }
-        return host.modalOptionCell(for: modalSections[indexPath.section][indexPath.row])
+        return host.cardOptionCell(for: cardSections[indexPath.section][indexPath.row])
     }
 
     override func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         guard let host = host else { return 56 }
-        if mode == .card {
-            return host.cardOptionHeight(for: cardSections[indexPath.section][indexPath.row])
-        }
-        return host.modalOptionHeight(for: modalSections[indexPath.section][indexPath.row])
+        return host.cardOptionHeight(for: cardSections[indexPath.section][indexPath.row])
     }
 }

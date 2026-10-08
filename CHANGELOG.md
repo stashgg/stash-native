@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] - Unreleased
+
+Initial iOS loading now uses one 10-second stall retry within a 15-second foreground response budget, matching Android's cadence. Successful main-frame responses cancel the deadline.
+
+### Breaking changes
+
+- Replace phone/tablet and orientation ratios with preferred content dimensions, a height cap, and edge margins.
+- Require the presenting activity or view controller for card and browser calls.
+- Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
+- Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
+- Replace forced portrait with a best-effort orientation preference. Remove orientation hooks, popup sizing APIs, and screenshot-backdrop workarounds.
+- Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
+
+### Presentation
+
+- Use card defaults of 400 × 560 points/dp with a 720-point/dp expansion cap on iOS and Android. Explicit zero still removes the height cap.
+- Fade from a native initial loading cover into rendered iOS checkout content, with bounded foreground readiness and Reduced Motion support.
+
+- Keep checkout state and the WebView through window, inset, keyboard, and fold changes.
+- Expand cards temporarily for keyboard entry and restore the selected state when the keyboard closes.
+- Restore iOS keyboard accessory-toolbar removal and keep focused fields visible after the final rotation layout.
+- Use one native UIKit card sheet implementation across iPhone, Duo, and iPad. Regular width and height use centered form-sheet sizing with one system large detent and semantic preferred-size changes. Compact layouts use custom detents on iOS 16+ and system detents on iOS 15.
+- Add optional card content sizing through `setContentHeight(...)` and an intrinsic `[data-stash-content]` wrapper.
+- Keep checkout at native scale through pinch, double-tap, input focus, and viewport changes. Suppress browser menus on noneditable content while preserving field selection, clipboard actions, and autofill.
+- Keep resting iOS cards below active status occlusions. Resolve expanded detents independently for dragging, `expand()`, and keyboard entry, keeping checkout controls beside the status region. Place content within a usable fold pane.
+- Let checkout own its page colors and match the iOS sheet background to the page instead of injecting dark-mode overrides.
+- Fill the iOS card's usable surface with the WebView beneath UIKit's grabber, and request centered placement before opening.
+- Keep the WebView full-height behind floating and split iPad keyboards while bringing focused fields into view.
+- Prevent blank space below checkout when WebKit adds keyboard padding after the native viewport already ends above the docked keyboard.
+- Cancel Android sheet drags when a second finger touches or payment processing begins.
+- Add responsive test content and an Android host fixture targeting API 36 and 37.
+
+See [the migration guide](docs/migration-3.0.md). Engine wrapper migrations and desktop changes are separate releases.
+
 ## [2.3.1] - 2026-09-03
 
 ### Added

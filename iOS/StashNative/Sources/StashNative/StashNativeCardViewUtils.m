@@ -1,322 +1,641 @@
-//
-//  StashNativeCardViewUtils.m
-//  StashNative
-//
-//  View, layer, and window plumbing shared by presentation and interaction code:
-//  corner masks, shadows, drag tray layout, scroll config, overlay creation,
-//  key window / top VC lookup, and external-payment URL normalization.
-//  Shared constants are defined in StashNativeCard.m; extern'd via StashNativeCardPrivate.h.
-//
-
-#import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
-#import <WebKit/WebKit.h>
-#import <UIKit/UIKit.h>
-#import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
-// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
-// (e.g., in game engines like Unreal Engine that manage memory manually).
-// ARC builds do not need these suppressions.
-#if !__has_feature(objc_arc)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow"
-#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+static UIView *StashNoInputAccessory(id responder, SEL selector) { return nil; }
 
-#pragma mark - Local Constants
-
-static const CGFloat kOverlayDismissAlpha = 0.0f;
-
-static const CGFloat kVerticalPositionThresholdBottom = 0.1f;
-static const CGFloat kVerticalPositionThresholdTop = 0.9f;
-
-#pragma mark - View Helpers
-
-/// Recursively find the first WKWebView in a view subtree.
-WKWebView *findWebViewInView(UIView *view) {
-    for (UIView *sub in view.subviews) {
-        if ([sub isKindOfClass:[WKWebView class]]) return (WKWebView *)sub;
-        WKWebView *found = findWebViewInView(sub);
-        if (found) return found;
-    }
-    return nil;
+static void StashHideInputAssistant(UIResponder *responder) {
+    UITextInputAssistantItem *assistant = responder.inputAssistantItem;
+    if (assistant.leadingBarButtonGroups.count) assistant.leadingBarButtonGroups = @[];
+    if (assistant.trailingBarButtonGroups.count) assistant.trailingBarButtonGroups = @[];
 }
 
-WKWebView* switchWebViewToFrameLayoutInCardView(UIView *cardView) {
-    if (!cardView) return nil;
-    for (UIView *subview in cardView.subviews) {
-        if ([subview isKindOfClass:[WKWebView class]]) {
-            WKWebView *webView = (WKWebView *)subview;
-            NSMutableArray *constraintsToRemove = [NSMutableArray array];
-            for (NSLayoutConstraint *constraint in cardView.constraints) {
-                if (constraint.firstItem == webView || constraint.secondItem == webView) {
-                    [constraintsToRemove addObject:constraint];
-                }
-            }
-            [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-            webView.translatesAutoresizingMaskIntoConstraints = YES;
-            return webView;
-        }
-    }
-    return nil;
-}
-
-/// Pins every direct subview except the drag tray to cardView.bounds (strips edge constraints first).
-/// Needed after rotation or when the WebView was switched to frame layout during SDK expand/collapse.
-void layoutCardContentToBounds(UIView *cardView) {
-    if (!cardView) return;
-    CGRect bounds = cardView.bounds;
-    for (UIView *subview in cardView.subviews) {
-        if (subview.tag == kDragTrayViewTag) {
-            continue;
-        }
-        NSMutableArray *constraintsToRemove = [NSMutableArray array];
-        for (NSLayoutConstraint *constraint in cardView.constraints) {
-            if (constraint.firstItem == subview || constraint.secondItem == subview) {
-                [constraintsToRemove addObject:constraint];
+static void StashHideContentAccessory(UIView *view) {
+    Class original = object_getClass(view);
+    SEL selector = @selector(inputAccessoryView);
+    BOOL content = [NSStringFromClass(original) containsString:@"WKContent"];
+    if (content || class_getMethodImplementation(original, selector) == (IMP)StashNoInputAccessory)
+        StashHideInputAssistant(view);
+    if (content &&
+        class_getMethodImplementation(original, selector) != (IMP)StashNoInputAccessory) {
+        // Preserve each responder's concrete class; never change WebKit's shared implementation.
+        NSString *name = [NSString stringWithFormat:@"StashNativeAccessoryHidden_%p", original];
+        Class replacement = objc_lookUpClass(name.UTF8String);
+        if (!replacement) {
+            replacement = objc_allocateClassPair(original, name.UTF8String, 0);
+            if (replacement) {
+                Method method = class_getInstanceMethod(original, selector);
+                class_addMethod(replacement, selector, (IMP)StashNoInputAccessory,
+                    method ? method_getTypeEncoding(method) : "@@:");
+                objc_registerClassPair(replacement);
             }
         }
-        [NSLayoutConstraint deactivateConstraints:constraintsToRemove];
-        subview.translatesAutoresizingMaskIntoConstraints = YES;
-        subview.frame = bounds;
-    }
-    updateDragTrayAndHandleInCardView(cardView, bounds.size.width);
-}
-
-void updateDragTrayAndHandleInCardView(UIView *cardView, CGFloat cardWidth) {
-    if (!cardView) return;
-    UIView *dragTray = [cardView viewWithTag:kDragTrayViewTag];
-    if (dragTray) {
-        dragTray.frame = CGRectMake(0, 0, cardWidth, kDragTrayHeight);
-        UIView *handle = [dragTray viewWithTag:kDragHandleViewTag];
-        if (handle) {
-            CGFloat handleX = (cardWidth / 2.0) - kHandleBarHalfWidth;
-            handle.frame = CGRectMake(handleX, kHandleBarTopInset, kHandleBarWidth, kHandleBarHeight);
+        if (replacement && class_getSuperclass(replacement) == original &&
+            class_getMethodImplementation(replacement, selector) == (IMP)StashNoInputAccessory) {
+            object_setClass(view, replacement);
+            if (view.isFirstResponder) [view reloadInputViews];
         }
     }
+    for (UIView *child in view.subviews) StashHideContentAccessory(child);
 }
 
-void configureScrollViewForWebView(UIScrollView* scrollView) {
-    if (!scrollView) {
-        return;
-    }
-    if (@available(iOS 11.0, *)) {
-        scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-    }
-    scrollView.contentInset = UIEdgeInsetsZero;
-    scrollView.scrollIndicatorInsets = UIEdgeInsetsZero;
-    scrollView.bounces = NO;
-    scrollView.alwaysBounceVertical = NO;
-    scrollView.alwaysBounceHorizontal = NO;
-    scrollView.bouncesZoom = NO;
-    if (@available(iOS 17.4, *)) {
-        scrollView.bouncesVertically = NO;
-        scrollView.bouncesHorizontally = NO;
-        scrollView.transfersVerticalScrollingToParent = NO;
-        scrollView.transfersHorizontalScrollingToParent = NO;
-    }
-#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
-    if (@available(iOS 26.0, *)) {
-        UIScrollEdgeEffectStyle *hardStyle = [UIScrollEdgeEffectStyle hardStyle];
-        scrollView.topEdgeEffect.style = hardStyle;
-        scrollView.bottomEdgeEffect.style = hardStyle;
-        scrollView.leftEdgeEffect.style = hardStyle;
-        scrollView.rightEdgeEffect.style = hardStyle;
-    }
-#endif
+void StashRemoveFormInputAccessoryView(WKWebView *webView) {
+    StashHideInputAssistant(webView);
+    StashHideContentAccessory(webView.scrollView);
 }
 
-UIRectCorner getCornersToRoundForPosition(CGFloat verticalPosition, BOOL isiPad) {
-    if (isiPad) {
-        return UIRectCornerAllCorners;
-    }
-    if (verticalPosition < kVerticalPositionThresholdBottom) {
-        return UIRectCornerBottomLeft | UIRectCornerBottomRight;
-    } else if (verticalPosition > kVerticalPositionThresholdTop) {
-        return UIRectCornerTopLeft | UIRectCornerTopRight;
-    }
-    return UIRectCornerAllCorners;
-}
-
-void setWebViewBackgroundColor(WKWebView* webView, UIColor* color) {
-    webView.backgroundColor = color;
-    webView.scrollView.backgroundColor = color;
-    for (UIView *subview in webView.subviews) {
-        subview.backgroundColor = color;
-        subview.opaque = YES;
-    }
-    for (UIView *subview in webView.scrollView.subviews) {
-        subview.backgroundColor = color;
-        subview.opaque = YES;
-    }
-}
-
-CAShapeLayer* createCornerRadiusMask(CGRect bounds, UIRectCorner corners, CGFloat radius) {
-    UIBezierPath *maskPath = [UIBezierPath bezierPathWithRoundedRect:bounds
-                                                  byRoundingCorners:corners
-                                                        cornerRadii:CGSizeMake(radius, radius)];
-    CAShapeLayer *maskLayer = [[CAShapeLayer alloc] init];
-    maskLayer.frame = bounds;
-    maskLayer.path = maskPath.CGPath;
-    return maskLayer;
-}
-
-/// Attach cardWindow to the same UIWindowScene as the app (e.g. Unreal) so it renders in game engines.
-void attachWindowToKeyWindowScene(UIWindow *cardWindow, UIWindow *keyWindow) {
-    if (@available(iOS 13.0, *)) {
-        if (keyWindow.windowScene) {
-            cardWindow.windowScene = keyWindow.windowScene;
-            return;
-        }
-        // Cold start / early presentation: key window may be nil before the scene is foreground-active.
-        // Any window scene with a window is enough to attach; otherwise the card window has no scene.
-        for (UIScene *scene in [UIApplication sharedApplication].connectedScenes) {
-            if ([scene isKindOfClass:[UIWindowScene class]]) {
-                UIWindowScene *ws = (UIWindowScene *)scene;
-                if (ws.windows.count > 0) {
-                    cardWindow.windowScene = ws;
-                    return;
-                }
-            }
-        }
-    }
-}
-
-UIWindow* getKeyWindow(void) {
-    if (@available(iOS 13.0, *)) {
-        NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
-        UIWindow * (^pickFromScene)(UIWindowScene *) = ^UIWindow *(UIWindowScene *ws) {
-            for (UIWindow *w in ws.windows) {
-                if (w.isKeyWindow) {
-                    return w;
-                }
-            }
-            return ws.windows.firstObject;
-        };
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            if (scene.activationState != UISceneActivationStateForegroundActive) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            if (scene.activationState != UISceneActivationStateForegroundActive &&
-                scene.activationState != UISceneActivationStateForegroundInactive) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-        for (UIScene *scene in scenes) {
-            if (![scene isKindOfClass:[UIWindowScene class]]) {
-                continue;
-            }
-            UIWindow *w = pickFromScene((UIWindowScene *)scene);
-            if (w) {
-                return w;
-            }
-        }
-    }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    return [UIApplication sharedApplication].keyWindow;
-#pragma clang diagnostic pop
-}
-
-UIViewController *getTopPresentedViewController(void) {
-    UIViewController *rootVC = getKeyWindow().rootViewController;
-    while (rootVC.presentedViewController) {
-        rootVC = rootVC.presentedViewController;
-    }
-    return rootVC;
-}
-
-void runWithoutImplicitAnimations(void (^block)(void)) {
-    [CATransaction begin];
-    [CATransaction setDisableActions:YES];
-    if (block) block();
-    [CATransaction commit];
-}
-
-UIView* createOverlayViewWithFrame(CGRect frame, UIView *parentView, NSInteger index, UIViewController *vc) {
-    UIView *overlayView = [[UIView alloc] initWithFrame:frame];
-    overlayView.backgroundColor = [UIColor clearColor];
-    overlayView.userInteractionEnabled = YES;
-    overlayView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [parentView insertSubview:overlayView atIndex:index];
-    if (vc) {
-        objc_setAssociatedObject(vc, (__bridge const void *)StashNativeAssociatedKeyOverlayView, overlayView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    return overlayView;
-}
-
-void applyCardShadowToLayer(CALayer *layer, BOOL phoneStyle) {
-    if (!layer) return;
-    layer.shadowColor = [UIColor blackColor].CGColor;
-    if (phoneStyle) {
-        layer.shadowOffset = CGSizeMake(0, kShadowOffsetYPhone);
-        layer.shadowOpacity = kShadowOpacityPhone;
-        layer.shadowRadius = kShadowRadiusPhone;
-    } else {
-        layer.shadowOffset = CGSizeMake(0, kShadowOffsetYPopup);
-        layer.shadowOpacity = kShadowOpacityPopup;
-        layer.shadowRadius = kShadowRadiusPopup;
-    }
-}
-
-void setOverlayToDismissAppearance(UIView *overlayView) {
-    if (overlayView) {
-        overlayView.backgroundColor = [UIColor colorWithWhite:kOverlayDismissAlpha alpha:kOverlayDismissAlpha];
-    }
+NSString *StashInitialContentReadinessScript(void) {
+    return @"const requestedThemeApplied = () => {\n"
+        @"  const url = new URL(document.URL);\n"
+        @"  if (url.username || url.password) return true;\n"
+        @"  if (!['https://checkout.stash.gg', 'https://checkout.stashstaging.com'].includes(url.origin)) return true;\n"
+        @"  const themes = url.searchParams.getAll('theme');\n"
+        @"  if (themes.length !== 1 || !['light', 'dark'].includes(themes[0])) return true;\n"
+        @"  return document.documentElement?.getAttribute('data-color-scheme') === themes[0];\n"
+        @"};\n"
+        @"if (!requestedThemeApplied()) return false;\n"
+        @"if (!finished) {\n"
+        @"  const body = document.body;\n"
+        @"  if (!body) return false;\n"
+        @"  const intersects = r => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;\n"
+        @"  const visible = e => {\n"
+        @"    if (!intersects(e.getBoundingClientRect())) return false;\n"
+        @"    for (let p = e; p; p = p.parentElement) {\n"
+        @"      const s = getComputedStyle(p);\n"
+        @"      if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0) return false;\n"
+        @"    }\n"
+        @"    return true;\n"
+        @"  };\n"
+        @"  let usable = false;\n"
+        @"  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);\n"
+        @"  for (let node = walker.nextNode(), n = 0; node && n < 200; node = walker.nextNode(), n++) {\n"
+        @"    if (!node.nodeValue.trim() || !visible(node.parentElement)) continue;\n"
+        @"    const range = document.createRange(); range.selectNodeContents(node);\n"
+        @"    if (Array.from(range.getClientRects()).some(intersects)) { usable = true; break; }\n"
+        @"  }\n"
+        @"  if (!usable) {\n"
+        @"    const elements = body.querySelectorAll('button,input:not([type=hidden]),select,textarea,iframe,video,canvas,svg,img');\n"
+        @"    for (let n = 0; n < Math.min(elements.length, 100); n++) {\n"
+        @"      const e = elements[n];\n"
+        @"      if (e.tagName === 'IMG' && !(e.complete && e.naturalWidth > 0)) continue;\n"
+        @"      if (visible(e)) { usable = true; break; }\n"
+        @"    }\n"
+        @"  }\n"
+        @"  if (!usable) return false;\n"
+        @"}\n"
+        @"await new Promise(resolve => {\n"
+        @"  let done = false, first = 0, second = 0;\n"
+        @"  const finish = () => { if (done) return; done = true; clearTimeout(timer);\n"
+        @"    cancelAnimationFrame(first); cancelAnimationFrame(second); resolve(); };\n"
+        @"  const timer = setTimeout(finish, 250);\n"
+        @"  first = requestAnimationFrame(() => { second = requestAnimationFrame(finish); });\n"
+        @"});\n"
+        @"return requestedThemeApplied();";
 }
 
 NSString *NormalizeExternalPaymentURL(NSString *raw) {
-    if (raw == nil) {
-        return nil;
-    }
-    NSString *s = [raw stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (s.length == 0) {
-        return nil;
-    }
-    NSString *lower = [s lowercaseString];
-    if ([lower hasPrefix:@"javascript:"] || [lower hasPrefix:@"file:"] || [lower hasPrefix:@"data:"]) {
-        return nil;
-    }
-    if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
-        BOOL hasScheme = [s rangeOfString:@"^[A-Za-z][A-Za-z0-9+.-]*:"
-                                 options:NSRegularExpressionSearch].location != NSNotFound;
-        BOOL hostAndPort = [s rangeOfString:@"^[^/?#:@]+:[0-9]+([/?#].*)?$"
-                                   options:NSRegularExpressionSearch].location != NSNotFound;
-        if (hasScheme && !hostAndPort) return nil;
-        s = [@"https://" stringByAppendingString:s];
-    }
-    NSURL *u = [NSURL URLWithString:s];
-    if (u == nil || u.scheme.length == 0) {
-        return nil;
-    }
-    NSString *scheme = [u.scheme lowercaseString];
-    if (![scheme isEqualToString:@"http"] && ![scheme isEqualToString:@"https"]) {
-        return nil;
-    }
-    if (u.host.length == 0) {
-        return nil;
-    }
-    return u.absoluteString;
+    if (![raw isKindOfClass:[NSString class]]) return nil;
+    NSString *value = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+    if (!value.length) return nil;
+    NSURLComponents *components = [NSURLComponents componentsWithString:value];
+    if (!components.scheme.length) components = [NSURLComponents componentsWithString:[@"https://" stringByAppendingString:value]];
+    if (![@[@"http", @"https"] containsObject:components.scheme.lowercaseString] || !components.host.length) return nil;
+    return components.URL.absoluteString;
 }
 
-#if !__has_feature(objc_arc)
-#pragma clang diagnostic pop
-#endif
+NSArray<NSString *> *StashScriptHandlerNames(void) {
+    return @[@"stashNativementSuccess", @"stashNativementFailure", @"stashPurchaseProcessing",
+        @"stashProcessingCompleted", @"stashOptin", @"stashExpand", @"stashCollapse",
+        @"stashWindowClose", @"stashExternalPayment", @"stashOpenLink", @"stashContentHeight"];
+}
+
+NSString *StashBridgeScript(void) {
+    return @"(function(){if(window!==window.top)return;"
+    "var s=window.stash_sdk=window.stash_sdk||{};"
+    "function send(n,b){window.webkit.messageHandlers[n].postMessage(b);}"
+    "s.onPaymentSuccess=function(o){send('stashNativementSuccess',o==null?'':typeof o==='string'?o:JSON.stringify(o));};"
+    "s.onPaymentFailure=function(){send('stashNativementFailure',{});};"
+    "s.onPurchaseProcessing=function(){send('stashPurchaseProcessing',{});};"
+    "s.onProcessingCompleted=function(){send('stashProcessingCompleted',{});};"
+    "s.setPaymentChannel=function(t){send('stashOptin',t||'');};"
+    "s.expand=function(){send('stashExpand',{});};s.collapse=function(){send('stashCollapse',{});};"
+    "s.openExternalBrowser=function(u){send('stashExternalPayment',u==null?'':String(u));};"
+    "s.openLink=function(u){send('stashOpenLink',u==null?'':String(u));};"
+    "s.setContentHeight=function(){};"
+    "try{window.close=function(){send('stashWindowClose',{});};}catch(e){}"
+    "})();";
+}
+
+NSString *StashNativeInteractionScript(void) {
+    return @"(function(){"
+    "if(window.__stashNativeInteractions){window.__stashNativeInteractions();return;}"
+    "var viewport='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover';"
+    "var css='html{-webkit-touch-callout:none;touch-action:manipulation}body{-webkit-user-select:none;user-select:none}'"
+    "+'input,textarea,[contenteditable]:not([contenteditable=false]){-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}'"
+    "+'[contenteditable=false]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}'"
+    "+'a,img{-webkit-user-drag:none}';"
+    "function apply(){if(!document.head)return;"
+    "if(window===window.top){"
+    "var metas=document.querySelectorAll('meta[name=viewport]');"
+    "if(!metas.length){var meta=document.createElement('meta');meta.name='viewport';meta.content=viewport;document.head.appendChild(meta);}"
+    "else for(var i=0;i<metas.length;i++)if(metas[i].content!==viewport)metas[i].content=viewport;"
+    "}"
+    "var style=document.getElementById('__stash_native_interactions');"
+    "if(!style){style=document.createElement('style');style.id='__stash_native_interactions';style.textContent=css;document.head.appendChild(style);}"
+    "else if(style.textContent!==css)style.textContent=css;"
+    "}"
+    "var head=null,root=null,headObserver=new MutationObserver(apply),rootObserver=new MutationObserver(install);"
+    "function install(){"
+    "if(root!==document.documentElement){rootObserver.disconnect();root=document.documentElement;"
+    "if(root)rootObserver.observe(root,{childList:true});}"
+    "if(head!==document.head){headObserver.disconnect();head=document.head;"
+    "if(head){apply();headObserver.observe(head,{childList:true,subtree:true,attributes:true,attributeFilter:['name','content','id'],characterData:true});}}"
+    "else if(head)apply();}"
+    "window.__stashNativeInteractions=install;"
+    "new MutationObserver(install).observe(document,{childList:true});install();"
+    "document.addEventListener('contextmenu',function(event){var target=(event.composedPath&&event.composedPath()[0])||event.target;"
+    "if(target&&target.nodeType!==1)target=target.parentElement;"
+    "if(target&&(target.isContentEditable||target.closest('input,textarea,select')))return;event.preventDefault();},true);"
+    // WebKit needs the child field rectangle to scroll an iframe's outer containers.
+    "function reportFocusRect(top,bottom){\n"
+    " if(window!==window.top&&document.hasFocus()&&isFinite(top)&&isFinite(bottom)&&bottom>top)\n"
+    "  parent.postMessage({__stashFocusRect:[top,bottom]},'*');\n"
+    "}\n"
+    "function activeFocusElement(){\n"
+    " var element=document.activeElement;\n"
+    " while(element&&element.shadowRoot&&element.shadowRoot.activeElement)element=element.shadowRoot.activeElement;\n"
+    " return element;\n"
+    "}\n"
+    "function focusAlignment(top,bottom){var margin=Math.min(8,Math.max(0,(innerHeight-(bottom-top))/2));\n"
+    " return top<margin||bottom>innerHeight-margin?'center':'nearest';}\n"
+    "var keyboardOcclusion=null,keyboardFrames=[],focusClearance=null;\n"
+    "function clearFocusClearance(){if(focusClearance){focusClearance.spacer.remove();focusClearance=null;}}\n"
+    "function currentOcclusion(){var box=keyboardOcclusion,scale=window.visualViewport?visualViewport.scale:1;\n"
+    " if(!Array.isArray(box)||box.length!==6||!box.every(function(n){return typeof n==='number'&&isFinite(n);})||\n"
+    " Math.abs(scale-1)>.01||Math.abs(box[4]-innerWidth)>1||Math.abs(box[5]-innerHeight)>1)return null;\n"
+    " var left=Math.max(0,box[0]),top=Math.max(0,box[1]),right=Math.min(innerWidth,box[0]+box[2]),bottom=Math.min(innerHeight,box[1]+box[3]);\n"
+    " return right>left&&bottom>top?{left:left,top:top,right:right,bottom:bottom}:null;}\n"
+    "function iframeVisualLabel(frame){\n"
+    " var name=(frame.getAttribute('aria-label')||frame.title||'').trim().replace(/\\s+/g,' ');if(!name)return null;\n"
+    " var controls='input:not([type=hidden]),textarea,select,iframe,[contenteditable=true]',branch=frame;\n"
+    " for(var node=frame.parentElement;node;branch=node,node=node.parentElement){\n"
+    "  if(node.querySelectorAll(controls).length!==1)return null;\n"
+    "  var matches=Array.from(node.children).filter(function(child){\n"
+    "   if(child===branch||child.contains(frame)||child.matches(controls)||child.querySelector(controls))return false;\n"
+    "   var box=child.getBoundingClientRect(),style=getComputedStyle(child);\n"
+    "   return box.width>0&&box.height>0&&style.visibility==='visible'&&Number(style.opacity)>0&&\n"
+    "    child.textContent.trim().replace(/\\s+/g,' ')===name;});\n"
+    "  if(matches.length)return matches.length===1?matches[0]:null;\n"
+    " }return null;}\n"
+    "function associatedFocusRange(element,top,bottom){var rect=element.getBoundingClientRect(),labels=[];\n"
+    " if(element.labels)labels=Array.from(element.labels);\n"
+    " var root=element.getRootNode?element.getRootNode():document;\n"
+    " (element.getAttribute('aria-labelledby')||'').split(/\\s+/).forEach(function(id){\n"
+    "  var label=id&&root.getElementById&&root.getElementById(id);if(label&&labels.indexOf(label)<0)labels.push(label);});\n"
+    " if(!labels.length&&element.tagName==='IFRAME'){var inferred=iframeVisualLabel(element);if(inferred)labels.push(inferred); }\n"
+    " var first=rect.top+top,last=rect.top+bottom;\n"
+    " labels.forEach(function(label){var box=label.getBoundingClientRect(),style=getComputedStyle(label);\n"
+    "  if(box.width<=0||box.height<=0||style.visibility!=='visible'||Number(style.opacity)===0)return;\n"
+    "  first=Math.min(first,box.top);last=Math.max(last,box.bottom);});\n"
+    " var height=last-first,space=innerHeight,occlusion=currentOcclusion();\n"
+    " if(occlusion&&rect.right>occlusion.left&&rect.left<occlusion.right&&last>occlusion.top&&first<occlusion.bottom)\n"
+    "  space=Math.max(occlusion.top,innerHeight-occlusion.bottom);\n"
+    " return height+16<=space?{top:first-rect.top,bottom:last-rect.top}:{top:top,bottom:bottom};}\n"
+    "function focusAvoidance(rect,preferAbove){var box=currentOcclusion();\n"
+    " if(!box||rect.right<=box.left||rect.left>=box.right)return null;\n"
+    " var above=box.top,below=innerHeight-box.bottom,height=rect.bottom-rect.top,margin=32;\n"
+    " var before=rect.bottom<=box.top,after=rect.top>=box.bottom;\n"
+    " var aboveMargin=Math.min(margin,Math.max(0,(above-height)/2));\n"
+    " var belowMargin=Math.min(margin,Math.max(0,(below-height)/2));\n"
+    " if(before&&box.top-rect.bottom>=aboveMargin-.5||after&&rect.top-box.bottom>=belowMargin-.5)return null;\n"
+    " var fitsAbove=above>=height+2*margin,fitsBelow=below>=height+2*margin;\n"
+    " var useAbove=before||fitsAbove&&(preferAbove||!after&&(!fitsBelow||rect.bottom+margin-box.top<=box.bottom+margin-rect.top));\n"
+    " if(!before&&!after&&!fitsAbove&&!fitsBelow)useAbove=above>=below;\n"
+    " var space=useAbove?above:below;if(space<height)return null;\n"
+    " margin=Math.min(margin,(space-height)/2);\n"
+    " return useAbove?{top:margin,bottom:innerHeight-box.top+margin,alignment:'end'}:{top:box.bottom+margin,bottom:margin,alignment:'start'};}\n"
+    "function scrollWithMargins(element,top,bottom,alignment){\n"
+    " var names=['scroll-margin-top','scroll-margin-bottom'],hadStyle=element.hasAttribute('style');\n"
+    " var values=names.map(function(name){return [element.style.getPropertyValue(name),element.style.getPropertyPriority(name)];});\n"
+    " element.style.setProperty(names[0],top+'px','important');element.style.setProperty(names[1],bottom+'px','important');\n"
+    " try{element.scrollIntoView({block:alignment,inline:'nearest'});}finally{\n"
+    " names.forEach(function(name,i){if(values[i][0])element.style.setProperty(name,values[i][0],values[i][1]);else element.style.removeProperty(name);});\n"
+    " if(!hadStyle&&!element.getAttribute('style'))element.removeAttribute('style');}}\n"
+    "function opaqueCanvas(style){\n"
+    " if(Number(style.opacity)!==1||style.mixBlendMode!=='normal')return false;\n"
+    " var color=style.backgroundColor.trim(),alpha=color.match(/\\/\\s*([\\d.]+)(%)?\\s*\\)$/);\n"
+    " if(alpha)return Number(alpha[1])===(alpha[2]?100:1);\n"
+    " if(/^rgba\\(/.test(color)){var parts=color.slice(5,-1).split(',');return parts.length===4&&Number(parts[3])===1;}\n"
+    " return /^rgb\\(/.test(color)||/^color\\(/.test(color);}\n"
+    "function clearanceCanvas(node,element){var child=element,path=[],canvas=null;\n"
+    " while(child&&child!==node){path.push(child);child=child.parentElement||(child.getRootNode&&child.getRootNode().host);}\n"
+    " if(child!==node)return null;var port=node.getBoundingClientRect(),origin=port.top+node.clientTop-node.scrollTop;\n"
+    " for(var i=path.length-1;i>=0;i--){child=path[i];if(child.closest('[data-stash-content]'))break;\n"
+    "  var style=getComputedStyle(child),rect=child.getBoundingClientRect();\n"
+    "  if(!/^(static|relative)$/.test(style.position)||style.transform!=='none'||Number(style.opacity)!==1||\n"
+    "   style.mixBlendMode!=='normal'||!(/^(block|flow-root)$/.test(style.display)||/flex/.test(style.display)&&style.flexDirection==='column'))break;\n"
+    "  if(Math.abs(rect.left-port.left-node.clientLeft)>=1||Math.abs(rect.width-node.clientWidth)>=1||\n"
+    "   rect.top>origin+1||rect.bottom<origin+node.clientHeight-1)break;\n"
+    "  if(opaqueCanvas(style))canvas=child;\n"
+    " }return canvas;}\n"
+    "function addFocusClearance(element,rect,avoid){\n"
+    " var above=avoid.alignment==='end',delta=above?rect.bottom+avoid.bottom-innerHeight:rect.top-avoid.top;\n"
+    " if(Math.abs(delta)<1)return false;clearFocusClearance();\n"
+    " for(var node=element.parentElement||(element.getRootNode&&element.getRootNode().host);node;\n"
+    " node=node.parentElement||(node.getRootNode&&node.getRootNode().host)){\n"
+    "  var style=getComputedStyle(node);\n"
+    "  if(!/(auto|scroll)/.test(style.overflowY)||node.clientHeight<=0||node.closest('[data-stash-content]')||\n"
+    "   /flex/.test(style.display)&&style.flexDirection!=='column')continue;\n"
+    "  var height=node.clientHeight,width=node.clientWidth,scroll=node.scrollTop,markers=[];\n"
+    "  var canvas=clearanceCanvas(node,element);if(!above&&!canvas)continue;\n"
+    "  var insertion=canvas||node,canvasRect=canvas&&canvas.getBoundingClientRect();\n"
+    "  node.querySelectorAll('[data-stash-content]').forEach(function(marker){var box=marker.getBoundingClientRect();markers.push([marker,box.width,box.height]);});\n"
+    "  var spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');spacer.setAttribute('data-stash-keyboard-clearance','');\n"
+    "  spacer.style.cssText='all:initial;display:block;box-sizing:border-box;height:0;min-height:0;max-height:none;width:1px;max-width:100%;flex:0 0 auto;grid-column:1/-1;clear:both;pointer-events:none;visibility:hidden;overflow:hidden';\n"
+    "  var amount;if(above){insertion.appendChild(spacer);var origin=node.getBoundingClientRect().top+node.clientTop-scroll;\n"
+    "   amount=Math.max(0,height+scroll+delta-(spacer.getBoundingClientRect().top-origin)-parseFloat(style.paddingBottom||0));}\n"
+    "  else{insertion.insertBefore(spacer,insertion.firstChild);amount=Math.max(0,-scroll-delta);}\n"
+    "  spacer.style.height=amount+'px';\n"
+    "  if(above){var missing=height+scroll+delta-node.scrollHeight;if(missing>0){amount+=missing;spacer.style.height=amount+'px';}}\n"
+    "  var anchored=true;if(canvas){var current=canvas.getBoundingClientRect();anchored=\n"
+    "   Math.abs(current.top-canvasRect.top)<1&&Math.abs(current.left-canvasRect.left)<1&&\n"
+    "   Math.abs(current.width-canvasRect.width)<1&&canvas.scrollHeight<=canvas.clientHeight+1;}\n"
+    "  var stable=Math.abs(node.clientHeight-height)<1&&Math.abs(node.clientWidth-width)<1&&markers.every(function(entry){\n"
+    "   var box=entry[0].getBoundingClientRect();return Math.abs(box.width-entry[1])<1&&Math.abs(box.height-entry[2])<1;});\n"
+    "  if(!stable||!anchored||amount<=0){spacer.remove();continue;}\n"
+    "  focusClearance={spacer:spacer,owner:activeFocusElement()};return true;\n"
+    " }return false;}\n"
+    "function revealKeyboardTarget(element,top,bottom){var rect=element.getBoundingClientRect();\n"
+    " var target={left:rect.left,right:rect.right,top:rect.top+top,bottom:rect.top+bottom};\n"
+    " var avoid=focusAvoidance(target);if(!avoid){var box=currentOcclusion();\n"
+    "  if(!box||target.right<=box.left||target.left>=box.right||target.top<0||target.bottom>innerHeight||\n"
+    "   target.bottom>box.top&&target.top<box.bottom)return false;\n"
+    "  scrollWithMargins(element,-top,bottom-element.offsetHeight,'nearest');return true;}\n"
+    " scrollWithMargins(element,-top+avoid.top,bottom-element.offsetHeight+avoid.bottom,avoid.alignment);\n"
+    " rect=element.getBoundingClientRect();target.top=rect.top+top;target.bottom=rect.top+bottom;\n"
+    " if(focusAvoidance(target)&&avoid.alignment==='start'){var above=focusAvoidance(target,true);\n"
+    "  if(above&&above.alignment==='end'){avoid=above;\n"
+    "   scrollWithMargins(element,-top+avoid.top,bottom-element.offsetHeight+avoid.bottom,avoid.alignment);\n"
+    "   rect=element.getBoundingClientRect();target.top=rect.top+top;target.bottom=rect.top+bottom;}}\n"
+    " if(focusAvoidance(target)&&addFocusClearance(element,target,avoid)){\n"
+    "  scrollWithMargins(element,-top+avoid.top,bottom-element.offsetHeight+avoid.bottom,avoid.alignment);\n"
+    "  rect=element.getBoundingClientRect();target.top=rect.top+top;target.bottom=rect.top+bottom;\n"
+    "  if(focusAvoidance(target))clearFocusClearance();}\n"
+    " return true;}\n"
+    "function childOcclusion(frame){var box=currentOcclusion(),rect=frame.getBoundingClientRect();\n"
+    " if(!box||Math.abs(rect.width-frame.offsetWidth)>1||Math.abs(rect.height-frame.offsetHeight)>1)return null;\n"
+    " return [box.left-rect.left-frame.clientLeft,box.top-rect.top-frame.clientTop,\n"
+    " box.right-box.left,box.bottom-box.top,frame.clientWidth,frame.clientHeight];}\n"
+    "window.__stashSetKeyboardOcclusion=function(box){if(JSON.stringify(box)!==JSON.stringify(keyboardOcclusion))clearFocusClearance();keyboardOcclusion=box;\n"
+    " if(!box){keyboardFrames.forEach(function(frame){if(frame.contentWindow)\n"
+    " frame.contentWindow.postMessage({__stashKeyboardOcclusion:null},'*');});keyboardFrames=[];}};\n"
+    "addEventListener('message',function(event){\n"
+    " var box=event.data&&event.data.__stashFocusRect;\n"
+    " var frame=activeFocusElement();\n"
+    " if(!document.hasFocus()||!frame||frame!==settleElement||performance.now()>settleUntil||frame.tagName!=='IFRAME'||event.source!==frame.contentWindow||!Array.isArray(box)||box.length!==2||\n"
+    " typeof box[0]!=='number'||typeof box[1]!=='number'||!isFinite(box[0])||!isFinite(box[1]))return;\n"
+    " var top=Math.max(0,Math.min(frame.clientHeight,box[0]))+frame.clientTop;\n"
+    " var bottom=Math.max(0,Math.min(frame.clientHeight,box[1]))+frame.clientTop;\n"
+    " if(bottom<=top)return;\n"
+    " var rect=frame.getBoundingClientRect(),range=associatedFocusRange(frame,top,bottom);top=range.top;bottom=range.bottom;\n"
+    " {\n"
+    "  if(!revealKeyboardTarget(frame,top,bottom))\n"
+    "   scrollWithMargins(frame,-top,bottom-frame.offsetHeight,focusAlignment(rect.top+top,rect.top+bottom));\n"
+    "  rect=frame.getBoundingClientRect();\n"
+    " }\n"
+    " reportFocusRect(rect.top+top,rect.top+bottom);\n"
+    "});\n"
+    // A late WebKit scroll can overwrite the first repair after rotation.
+    "var focusQueued=0,focusForced=false,settleElement=null,settleUntil=0,settleTimer=0,settleRepairs=0,focusObserver=null;"
+    "function stopFocusSettle(){settleElement=null;settleUntil=0;clearTimeout(settleTimer);settleTimer=0;"
+    "if(focusObserver){focusObserver.disconnect();focusObserver=null;}"
+    "if(focusQueued)cancelAnimationFrame(focusQueued);focusQueued=0;focusForced=false;}"
+    "function revealFocus(){focusQueued=0;"
+    "var force=focusForced;focusForced=false;if(force&&!document.hasFocus())return;"
+    "var element=activeFocusElement();"
+    "if(element!==settleElement||performance.now()>settleUntil||settleRepairs>=8){stopFocusSettle();return;}"
+    "settleRepairs++;"
+    "if(!element||!(element.isContentEditable||"
+    "/^(INPUT|TEXTAREA|SELECT|IFRAME)$/.test(element.tagName)))return;"
+    "var rect=element.getBoundingClientRect();if(rect.height<=0)return;"
+    "if(element.tagName==='IFRAME'){"
+    "if(rect.height<=innerHeight)"
+    "element.scrollIntoView({block:focusAlignment(rect.top,rect.bottom),inline:'nearest'});"
+    "if(element.contentWindow){var childBox=childOcclusion(element);"
+    "if(childBox&&keyboardFrames.indexOf(element)<0)keyboardFrames.push(element);"
+    "element.contentWindow.postMessage({__stashFocusResize:true,occlusion:childBox},'*');}return;}"
+    "var range=associatedFocusRange(element,0,element.offsetHeight);"
+    "if(!revealKeyboardTarget(element,range.top,range.bottom))"
+    "scrollWithMargins(element,-range.top,range.bottom-element.offsetHeight,focusAlignment(rect.top+range.top,rect.top+range.bottom));"
+    "var focusedRect=element.getBoundingClientRect();reportFocusRect(focusedRect.top+range.top,focusedRect.top+range.bottom);}"
+    "function queueFocus(force){focusForced=focusForced||force===true;"
+    "if(!focusQueued)focusQueued=requestAnimationFrame(revealFocus);}"
+    "function observeFocusLayout(){if(focusObserver)focusObserver.disconnect();"
+    "if(!window.ResizeObserver||!settleElement)return;"
+    "focusObserver=new ResizeObserver(function(){"
+    "if(activeFocusElement()===settleElement&&performance.now()<settleUntil)queueFocus();});"
+    "for(var node=settleElement;node;node=node.parentElement||(node.getRootNode&&node.getRootNode().host)){"
+    "var style=getComputedStyle(node);"
+    "if(node===settleElement||/(auto|scroll|hidden|clip)/.test(style.overflowY))focusObserver.observe(node);}}"
+    "function scheduleFocus(force){settleElement=activeFocusElement();settleUntil=performance.now()+1000;settleRepairs=0;"
+    "if(focusClearance&&focusClearance.owner!==settleElement)clearFocusClearance();"
+    "observeFocusLayout();"
+    "clearTimeout(settleTimer);settleTimer=setTimeout(stopFocusSettle,1000);queueFocus(force);}"
+    "document.addEventListener('scroll',function(){"
+    "if(settleElement&&activeFocusElement()===settleElement&&performance.now()<settleUntil)queueFocus();},true);"
+    "function cancelFocusSettle(){stopFocusSettle();if(window!==top)parent.postMessage('__stash_focus_cancel__','*');}"
+    "['pointerdown','touchstart','wheel','pagehide','blur'].forEach(function(name){"
+    "addEventListener(name,cancelFocusSettle,{capture:true,passive:true});});"
+    "addEventListener('message',function(event){var frame=activeFocusElement();"
+    "if(!frame||frame.tagName!=='IFRAME'||event.source!==frame.contentWindow)return;"
+    "if(event.data==='__stash_focus_begin__'){if(window!==top)parent.postMessage('__stash_focus_begin__','*');scheduleFocus();}"
+    "else if(event.data==='__stash_focus_cancel__')cancelFocusSettle();});"
+    "addEventListener('message',function(event){if(window===top||event.source!==parent)return;"
+    "if(event.data&&event.data.__stashKeyboardOcclusion===null){window.__stashSetKeyboardOcclusion(null);return;}"
+    "if((event.data==='__stash_focus_resize__'||event.data&&event.data.__stashFocusResize===true)&&document.hasFocus()){"
+    "window.__stashSetKeyboardOcclusion(event.data.occlusion||null);scheduleFocus(true);}});"
+    "window.__stashRevealFocusedElement=function(){scheduleFocus();};"
+    "addEventListener('pagehide',function(){window.__stashSetKeyboardOcclusion(null);});"
+    "document.addEventListener('focusout',function(){queueMicrotask(function(){if(focusClearance&&focusClearance.owner!==activeFocusElement())clearFocusClearance();});},true);"
+    "addEventListener('resize',scheduleFocus);"
+    "addEventListener('focus',function(event){if(event.target===window)scheduleFocus();});"
+    "if(window.visualViewport)visualViewport.addEventListener('resize',scheduleFocus);"
+    "document.addEventListener('focusin',function(){if(window!==top)parent.postMessage('__stash_focus_begin__','*');scheduleFocus();},true);})();";
+}
+
+NSString *StashContentMeasurementScript(NSString *documentID) {
+    NSString *source =
+        @"(function () {\n"
+        @"  if (window !== window.top) return;\n"
+        @"  if (window.__stashMeasureCleanup) window.__stashMeasureCleanup();\n"
+        @"  var id = '__STASH_DOCUMENT_ID__', sdk = window.stash_sdk = window.stash_sdk || {};\n"
+        @"  var observed = null, ro = null, mo = null, pending = false, disposed = false, last = '', lastSource = '';\n"
+        @"  window.__stashContentDocumentId = id;\n"
+        @"  function send(height, source) {\n"
+        @"    var width = window.innerWidth, scale = window.visualViewport ? window.visualViewport.scale : 1;\n"
+        @"    if (disposed || typeof height !== 'number' || !isFinite(height) || height <= 0 ||\n"
+        @"        !isFinite(width) || width <= 0 || !isFinite(scale) || Math.abs(scale - 1) > .01) return;\n"
+        @"    var key = [height, width, scale, source].join(':');\n"
+        @"    lastSource = source;\n"
+        @"    if (key === last) return;\n"
+        @"    last = key;\n"
+        @"    try { window.webkit.messageHandlers.stashContentHeight.postMessage({height:height,viewportWidth:width,scale:scale,documentId:id}); } catch (error) {}\n"
+        @"  }\n"
+        @"  sdk.setContentHeight = function (height) { send(height, 'explicit'); };\n"
+        @"  function invalidateObserved() {\n"
+        @"    if (lastSource !== 'observed') return;\n"
+        @"    last = '';\n"
+        @"    lastSource = '';\n"
+        @"    var width = window.innerWidth, scale = window.visualViewport ? window.visualViewport.scale : 1;\n"
+        @"    if (!isFinite(width) || width <= 0 || !isFinite(scale) || Math.abs(scale - 1) > .01) return;\n"
+        @"    try { window.webkit.messageHandlers.stashContentHeight.postMessage({reset:true,viewportWidth:width,scale:scale,documentId:id}); } catch (error) {}\n"
+        @"  }\n"
+        @"  function viewportRule(style) {\n"
+        @"    return /(?:^|[;{])\\s*(?:min-|max-)?(?:height|block-size)\\s*:[^;}]*(?:%|(?:d|s|l)?vh|vmin|vmax|cqh|cqb|var\\s*\\()/i.test(style || '');\n"
+        @"  }\n"
+        @"  function eligible(root) {\n"
+        @"    var ancestors = [];\n"
+        @"    for (var element = root; element; element = element.parentElement) {\n"
+        @"      var style = getComputedStyle(element);\n"
+        @"      if (style.position === 'fixed' || style.position === 'sticky' || style.position === 'absolute' ||\n"
+        @"          (element === root && parseFloat(style.flexGrow) > 0) || viewportRule(element.getAttribute('style'))) return false;\n"
+        @"      ancestors.push(element);\n"
+        @"    }\n"
+        @"    function rules(list) {\n"
+        @"      for (var index = 0; index < list.length; index++) {\n"
+        @"        var rule = list[index];\n"
+        @"        if (rule.cssRules && !rules(rule.cssRules)) return false;\n"
+        @"        if (rule.selectorText && viewportRule(rule.style && rule.style.cssText)) {\n"
+        @"          for (var ancestor = 0; ancestor < ancestors.length; ancestor++) {\n"
+        @"            if (ancestors[ancestor].matches(rule.selectorText)) return false;\n"
+        @"          }\n"
+        @"        }\n"
+        @"      }\n"
+        @"      return true;\n"
+        @"    }\n"
+        @"    try {\n"
+        @"      for (var sheet = 0; sheet < document.styleSheets.length; sheet++) {\n"
+        @"        if (!rules(document.styleSheets[sheet].cssRules)) return false;\n"
+        @"      }\n"
+        @"    } catch (error) { return false; }\n"
+        @"    return true;\n"
+        @"  }\n"
+        @"  function measure() {\n"
+        @"    pending = false;\n"
+        @"    if (disposed) return;\n"
+        @"    var root = document.querySelector('[data-stash-content]');\n"
+        @"    if (root !== observed) {\n"
+        @"      if (ro) ro.disconnect();\n"
+        @"      observed = root;\n"
+        @"      if (root && window.ResizeObserver) {\n"
+        @"        ro = new ResizeObserver(schedule);\n"
+        @"        ro.observe(root);\n"
+        @"      }\n"
+        @"    }\n"
+        @"    if (!root || !eligible(root)) { invalidateObserved(); return; }\n"
+        @"    var style = getComputedStyle(root);\n"
+        @"    send(root.getBoundingClientRect().height + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0), 'observed');\n"
+        @"  }\n"
+        @"  function schedule() {\n"
+        @"    if (!disposed && !pending) { pending = true; requestAnimationFrame(measure); }\n"
+        @"  }\n"
+        @"  window.__stashMeasureContent = function () { last = ''; schedule(); };\n"
+        @"  if (window.MutationObserver && document.documentElement) {\n"
+        @"    mo = new MutationObserver(schedule);\n"
+        @"    mo.observe(document.documentElement, {subtree: true, childList: true, attributes: true, characterData: true});\n"
+        @"  }\n"
+        @"  window.addEventListener('resize', schedule);\n"
+        @"  window.addEventListener('load', schedule);\n"
+        @"  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);\n"
+        @"  window.__stashMeasureCleanup = function () {\n"
+        @"    disposed = true;\n"
+        @"    if (ro) ro.disconnect();\n"
+        @"    if (mo) mo.disconnect();\n"
+        @"    window.removeEventListener('resize', schedule);\n"
+        @"    window.removeEventListener('load', schedule);\n"
+        @"    sdk.setContentHeight = function () {};\n"
+        @"  };\n"
+        @"  schedule();\n"
+        @"})();\n";
+    return [source stringByReplacingOccurrencesOfString:@"__STASH_DOCUMENT_ID__" withString:documentID];
+}
+
+WKContentWorld *StashTopChromeWorld(void) { return [WKContentWorld worldWithName:@"StashTopChrome"]; }
+
+NSString *StashTopChromeScript(void) {
+    return @"(function () {\n"
+@"  'use strict';\n"
+@"  if (window.__stashTopEdgeProbe || window !== window.top) return;\n"
+@"  var generation = -1, token = '', documentId = String(Date.now()) + ':' + Math.random().toString(36).slice(2);\n"
+@"  var active = false, suspended = false, listening = false, frame = 0, forceNext = false, previous = '';\n"
+@"  var watched = [], resized = [], head = null;\n"
+@"  function parent(element) { return element.parentElement || (element.getRootNode && element.getRootNode().host); }\n"
+@"  function rgb(value) {\n"
+@"    var match = /^rgba?\\(\\s*([\\d.]+)[,\\s]+([\\d.]+)[,\\s]+([\\d.]+)(?:\\s*[,/]\\s*([\\d.]+))?\\s*\\)$/.exec(value);\n"
+@"    if (!match) return null;\n"
+@"    var channels = match.slice(1, 4).map(Number), alpha = match[4] === undefined ? 1 : Number(match[4]);\n"
+@"    return channels.every(function (c) { return Number.isFinite(c) && c >= 0 && c <= 255; }) && Number.isFinite(alpha) && alpha >= 0 && alpha <= 1 ? {color: channels, alpha: alpha} : null;\n"
+@"  }\n"
+@"  function unsafeCompositing(style) {\n"
+@"    return Number(style.opacity) !== 1 || style.mixBlendMode !== 'normal' || style.filter !== 'none' ||\n"
+@"      (style.backdropFilter && style.backdropFilter !== 'none') ||\n"
+@"      (style.webkitBackdropFilter && style.webkitBackdropFilter !== 'none') ||\n"
+@"      (style.maskImage && style.maskImage !== 'none') || (style.webkitMaskImage && style.webkitMaskImage !== 'none');\n"
+@"  }\n"
+@"  function generatedPaint(element) {\n"
+@"    return ['::before', '::after'].some(function (pseudo) {\n"
+@"      var style = getComputedStyle(element, pseudo), content = style.content;\n"
+@"      if (!content || content === 'none' || content === 'normal' || style.display === 'none' || style.visibility === 'hidden') return false;\n"
+@"      var background = rgb(style.backgroundColor);\n"
+@"      return content !== '\"\"' && content !== \"''\" || style.backgroundImage !== 'none' || !background || background.alpha > 0;\n"
+@"    });\n"
+@"  }\n"
+@"  function samplePoint(x, y, nodes, paints, foreground) {\n"
+@"    var element = document.elementFromPoint(x, y), depth = 0, paint = null, paintNode = null, unknown = false;\n"
+@"    while (element && element.shadowRoot && element.shadowRoot.elementFromPoint && depth++ < 8) {\n"
+@"      var inner = element.shadowRoot.elementFromPoint(x, y);\n"
+@"      if (!inner || inner === element) break;\n"
+@"      element = inner;\n"
+@"    }\n"
+@"    depth = 0;\n"
+@"    for (; element && depth++ < 48; element = parent(element)) {\n"
+@"      if (nodes.indexOf(element) < 0) nodes.push(element);\n"
+@"      if (/^(INPUT|TEXTAREA|SELECT|BUTTON|IFRAME|CANVAS|VIDEO|IMG|SVG|OBJECT|EMBED)$/.test(element.tagName.toUpperCase())) {\n"
+@"        foreground.found = true;\n"
+@"        if (paintNode) foreground.painted = true;\n"
+@"      }\n"
+@"      // Synchronize WebKit's lazy inline style before later attribute removal.\n"
+@"      element.getAttribute('style');\n"
+@"      var style = getComputedStyle(element);\n"
+@"      if (unsafeCompositing(style) || generatedPaint(element)) unknown = true;\n"
+@"      if (!paint && !unknown) {\n"
+@"        if (/^(IFRAME|CANVAS|VIDEO|IMG|SVG|OBJECT|EMBED)$/.test(element.tagName.toUpperCase()) || style.backgroundImage !== 'none' || style.backgroundClip === 'text' || style.webkitBackgroundClip === 'text') unknown = true;\n"
+@"        var background = rgb(style.backgroundColor);\n"
+@"        if (!background || background.alpha !== 0 && background.alpha !== 1) unknown = true;\n"
+@"        if (!unknown && background.alpha === 1) { paint = background.color; paintNode = element; paints.push(element);\n"
+@"          if (/^(INPUT|TEXTAREA|SELECT|BUTTON|IFRAME|CANVAS|VIDEO|IMG|SVG|OBJECT|EMBED)$/.test(element.tagName.toUpperCase())) foreground.painted = true; }\n"
+@"      }\n"
+@"    }\n"
+@"    return element || unknown ? null : paint;\n"
+@"  }\n"
+@"  function surfacePoint(x, y, nodes) {\n"
+@"    var element = document.elementFromPoint(x, y), depth = 0, selected = null, unknown = false;\n"
+@"    while (element && element.shadowRoot && element.shadowRoot.elementFromPoint && depth++ < 8) {\n"
+@"      var inner = element.shadowRoot.elementFromPoint(x, y);\n"
+@"      if (!inner || inner === element) break;\n"
+@"      element = inner;\n"
+@"    }\n"
+@"    depth = 0;\n"
+@"    for (; element && depth++ < 48; element = parent(element)) {\n"
+@"      if (nodes.indexOf(element) < 0) nodes.push(element);\n"
+@"      var style = getComputedStyle(element), rect = element.getBoundingClientRect();\n"
+@"      var fullWidth = rect.left <= 0.5 && rect.right >= innerWidth - 0.5;\n"
+@"      // CSSOM rounding can leave a fractional WK scrollport one CSS pixel short.\n"
+@"      var fullHeight = rect.top <= 1 && rect.bottom >= innerHeight - 1;\n"
+@"      var foreground = /^(INPUT|TEXTAREA|SELECT|BUTTON|IFRAME|CANVAS|VIDEO|IMG|SVG|OBJECT|EMBED)$/.test(element.tagName.toUpperCase());\n"
+@"      if (selected) {\n"
+@"        if (unsafeCompositing(style) || generatedPaint(element) || style.transform !== 'none' ||\n"
+@"            (/^(auto|scroll|hidden|clip)$/.test(style.overflowX) && !fullWidth) ||\n"
+@"            (/^(auto|scroll|hidden|clip)$/.test(style.overflowY) && !fullHeight)) unknown = true;\n"
+@"      } else if (!unknown) {\n"
+@"        if (foreground) { if (fullWidth && fullHeight) unknown = true; }\n"
+@"        else if ((/^(auto|scroll)$/.test(style.overflowX) && !fullWidth) ||\n"
+@"                 (/^(auto|scroll)$/.test(style.overflowY) && !fullHeight)) unknown = true;\n"
+@"        else if (fullWidth) {\n"
+@"          var background = rgb(style.backgroundColor);\n"
+@"          if (unsafeCompositing(style) || style.transform !== 'none' || generatedPaint(element) ||\n"
+@"              style.backgroundImage !== 'none' || style.backgroundClip === 'text' || style.webkitBackgroundClip === 'text' ||\n"
+@"              !background || background.alpha !== 0 && background.alpha !== 1) unknown = true;\n"
+@"          else if (background.alpha === 1) {\n"
+@"            if (!fullHeight) unknown = true;\n"
+@"            else selected = {element: element, color: background.color};\n"
+@"          }\n"
+@"        }\n"
+@"      }\n"
+@"    }\n"
+@"    return element || unknown ? null : selected;\n"
+@"  }\n"
+@"  function inspect() {\n"
+@"    var nodes = [], paints = [], colors = [], foreground = {found:false}, width = innerWidth, height = innerHeight;\n"
+@"    if (!document.documentElement || !document.body || width <= 0 || height <= 0) return {color: null, nodes: nodes, paints: paints};\n"
+@"    // Sample away from rounded corners. Text ink is intentionally not copied.\n"
+@"    [0.25, 0.5, 0.75].forEach(function (fraction) { colors.push(samplePoint(width * fraction, Math.min(1, height / 2), nodes, paints, foreground)); });\n"
+@"    var first = colors[0], same = first && colors.every(function (color) { return color && color.every(function (v, i) { return v === first[i]; }); });\n"
+@"    var surfaces = [0.25, 0.5, 0.75].map(function (fraction) { return surfacePoint(width * fraction, Math.min(1, height / 2), nodes); });\n"
+@"    var surface = surfaces[0];\n"
+@"    if (!surface || !surfaces.every(function (other) { return other && other.element === surface.element; })) surface = null;\n"
+@"    if (foreground.found && (!same || foreground.painted)) {\n"
+@"      same = !!surface;\n"
+@"      first = same ? surface.color : null; paints = same ? [surface.element] : [];\n"
+@"    }\n"
+@"    // A header can color the handle; WK backing needs a viewport-covering surface.\n"
+@"    var backing = same && surface && surface.color.every(function (v, i) { return v === first[i]; }) ? surface.color : null;\n"
+@"    if (backing && paints.indexOf(surface.element) < 0) paints.push(surface.element);\n"
+@"    if (nodes.length > 96) return {color: null, nodes: [document.documentElement, document.body], paints: []};\n"
+@"    return {color: same ? first : null, backingColor: backing, nodes: nodes, paints: paints};\n"
+@"  }\n"
+@"  function sameNodes(a, b) { return a.length === b.length && a.every(function (node, index) { return node === b[index]; }); }\n"
+@"  function schedule(force) {\n"
+@"    if (!active || suspended) return;\n"
+@"    forceNext = forceNext || force === true;\n"
+@"    if (!frame) frame = requestAnimationFrame(run);\n"
+@"  }\n"
+@"  function changed() { schedule(false); }\n"
+@"  var mutations = new MutationObserver(changed);\n"
+@"  var rootMutation = new MutationObserver(changed);\n"
+@"  var headMutation = new MutationObserver(changed);\n"
+@"  var sizes = typeof ResizeObserver === 'function' ? new ResizeObserver(changed) : null;\n"
+@"  function bind(result) {\n"
+@"    var nodes = result.nodes.slice();\n"
+@"    [document.documentElement, document.body].forEach(function (node) { if (node && nodes.indexOf(node) < 0) nodes.push(node); });\n"
+@"    if (!sameNodes(nodes, watched)) {\n"
+@"      mutations.disconnect(); watched = nodes;\n"
+@"      nodes.forEach(function (node) { mutations.observe(node, {attributes: true, attributeFilter: ['style', 'class', 'hidden'], childList: true}); });\n"
+@"    }\n"
+@"    var paintNodes = result.paints.filter(function (node, index, all) { return all.indexOf(node) === index; });\n"
+@"    if (sizes && !sameNodes(paintNodes, resized)) {\n"
+@"      sizes.disconnect(); resized = paintNodes; paintNodes.forEach(function (node) { sizes.observe(node); });\n"
+@"    }\n"
+@"    if (head !== document.head) {\n"
+@"      headMutation.disconnect(); head = document.head;\n"
+@"      if (head) headMutation.observe(head, {childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['href', 'media', 'disabled', 'rel']});\n"
+@"    }\n"
+@"  }\n"
+@"  function run() {\n"
+@"    frame = 0;\n"
+@"    if (!active || suspended) return;\n"
+@"    var result = inspect(); bind(result);\n"
+@"    var key = JSON.stringify([result.color, result.backingColor || null]), force = forceNext; forceNext = false;\n"
+@"    if (!force && key === previous) return;\n"
+@"    previous = key;\n"
+@"    var handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.stashTopChrome;\n"
+@"    if (handler) handler.postMessage({generation: generation, token: token, documentId: documentId, color: result.color, backingColor: result.backingColor || null});\n"
+@"  }\n"
+@"  function disconnect() {\n"
+@"    if (frame) cancelAnimationFrame(frame); frame = 0;\n"
+@"    mutations.disconnect(); rootMutation.disconnect(); headMutation.disconnect(); if (sizes) sizes.disconnect();\n"
+@"    watched = []; resized = []; head = null;\n"
+@"  }\n"
+@"  function suspend() { suspended = true; disconnect(); }\n"
+@"  function resume() { suspended = false; if (active) { rootMutation.observe(document, {childList: true}); schedule(true); } }\n"
+@"  var events = ['scroll', 'resize', 'DOMContentLoaded', 'load', 'transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel'];\n"
+@"  function listen() {\n"
+@"    if (listening) return; listening = true;\n"
+@"    events.forEach(function (name) { window.addEventListener(name, changed, true); });\n"
+@"    window.addEventListener('pagehide', suspend); window.addEventListener('pageshow', resume);\n"
+@"    if (window.visualViewport) window.visualViewport.addEventListener('resize', changed);\n"
+@"  }\n"
+@"  window.__stashTopEdgeProbe = {\n"
+@"    activate: function (nextGeneration, nextToken) {\n"
+@"      if (!Number.isSafeInteger(nextGeneration) || nextGeneration < generation || typeof nextToken !== 'string' || !nextToken) return null;\n"
+@"      generation = nextGeneration; token = nextToken; active = true; previous = ''; listen(); resume(); return documentId;\n"
+@"    },\n"
+@"    sample: function () { schedule(true); },\n"
+@"    stop: function () {\n"
+@"      active = false; listening = false; disconnect();\n"
+@"      events.forEach(function (name) { window.removeEventListener(name, changed, true); });\n"
+@"      window.removeEventListener('pagehide', suspend); window.removeEventListener('pageshow', resume);\n"
+@"      if (window.visualViewport) window.visualViewport.removeEventListener('resize', changed);\n"
+@"    }\n"
+@"  };\n"
+@"})();\n";
+}

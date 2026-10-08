@@ -21,14 +21,14 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:textAppearance="@style/TextAppearance.StashNative.TitleMedium"
-            tools:text="Phone card height" />
+            tools:text="Preferred content height" />
 
         <TextView
             android:id="@+id/sliderValue"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="@style/TextAppearance.StashNative.BodySmall"
-            tools:text="68%" />
+            tools:text="560 dp" />
     </LinearLayout>
 
     <SeekBar
@@ -36,5 +36,5 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:max="90" />
+        android:max="1200" />
 </LinearLayout>

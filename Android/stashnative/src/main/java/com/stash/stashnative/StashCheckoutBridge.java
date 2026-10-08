@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * Sends checkout lifecycle events from {@link StashNativeCardPortraitActivity} to
+ * Sends checkout lifecycle events from {@link StashCheckoutActivity} to
  * {@link StashNativeCardPlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
@@ -16,9 +16,9 @@ final class StashCheckoutBridge {
     Context app = context.getApplicationContext();
     Intent intent = new Intent(action);
     intent.setPackage(app.getPackageName());
-    if (context instanceof StashNativeCardPortraitActivity) {
+    if (context instanceof StashCheckoutActivity) {
       intent.putExtra(EXTRA_SESSION_ID,
-          ((StashNativeCardPortraitActivity) context).getPresentationSessionId());
+          ((StashCheckoutActivity) context).getPresentationSessionId());
     }
     return intent;
   }

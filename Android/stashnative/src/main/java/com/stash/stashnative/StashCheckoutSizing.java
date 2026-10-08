@@ -1,263 +1,124 @@
 package com.stash.stashnative;
 
-import android.content.res.Configuration;
-import android.util.DisplayMetrics;
-import android.widget.FrameLayout;
-
-/**
- * Card, sheet, and modal size computation for {@link StashNativeCardPortraitActivity}.
- * Reads the activity's configured ratios and current insets; returns pixel sizes.
- */
+/** Pure geometry in physical pixels; all configured dimensions enter in dp. */
 final class StashCheckoutSizing {
+  static final float WIDE_WINDOW_DP = 600f;
 
   private StashCheckoutSizing() {}
 
-  static int[] calculateTabletCardSize(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
-    // Use actual current screen dimensions
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
+  static final class Box {
+    final int left;
+    final int top;
+    final int right;
+    final int bottom;
 
-    // Determine orientation and use appropriate ratios
-    boolean isLandscape = screenWidth > screenHeight;
+    Box(int left, int top, int right, int bottom) {
+      this.left = left;
+      this.top = top;
+      this.right = Math.max(left, right);
+      this.bottom = Math.max(top, bottom);
+    }
 
-    float widthRatio;
-    float heightRatio;
-    if (isLandscape) {
-      widthRatio = activity.tabletWidthRatioLandscape;
-      heightRatio = activity.tabletHeightRatioLandscape;
+    int width() {
+      return right - left;
+    }
+
+    int height() {
+      return bottom - top;
+    }
+
+    long area() {
+      return (long) width() * height();
+    }
+  }
+
+  static final class Layout {
+    final Box frame;
+    final int restingHeight;
+    final int expandedHeight;
+    final boolean bottomAttached;
+
+    Layout(
+        Box frame,
+        int restingHeight,
+        int expandedHeight,
+        boolean bottomAttached) {
+      this.frame = frame;
+      this.restingHeight = restingHeight;
+      this.expandedHeight = expandedHeight;
+      this.bottomAttached = bottomAttached;
+    }
+  }
+
+  /** A separating hinge belongs to neither pane. Ties select trailing or lower. */
+  static Box choosePane(Box safe, Box hinge, boolean vertical, boolean rtl) {
+    if (hinge == null
+        || hinge.right < safe.left
+        || hinge.left > safe.right
+        || hinge.bottom < safe.top
+        || hinge.top > safe.bottom) {
+      return safe;
+    }
+    Box first;
+    Box second;
+    if (vertical) {
+      first = new Box(safe.left, safe.top, Math.max(safe.left, hinge.left), safe.bottom);
+      second = new Box(Math.min(safe.right, hinge.right), safe.top, safe.right, safe.bottom);
     } else {
-      widthRatio = activity.tabletWidthRatioPortrait;
-      heightRatio = activity.tabletHeightRatioPortrait;
+      first = new Box(safe.left, safe.top, safe.right, Math.max(safe.top, hinge.top));
+      second = new Box(safe.left, Math.min(safe.bottom, hinge.bottom), safe.right, safe.bottom);
     }
-
-    // Apply orientation-specific tablet ratios to actual screen dimensions
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-
-    if (cardWidth <= 0 || cardHeight <= 0) {
-      return new int[]{
-          CardConstants.FALLBACK_TABLET_CARD_WIDTH, CardConstants.FALLBACK_TABLET_CARD_HEIGHT};
+    if (first.area() == second.area()) {
+      return vertical && rtl ? first : second;
     }
-
-    // Enforce minimum sizes for usability
-    int minWidth = (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP;
-    int minHeight = (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP;
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
-
-    return new int[]{cardWidth, cardHeight};
+    return first.area() > second.area() ? first : second;
   }
 
-  /**
-   * Phone checkout in portrait (including force-portrait while configuration is still landscape):
-   * height is {@code activity.cardHeightRatioPortrait} of the physical portrait screen height, capped so
-   * the sheet stays below the status bar and above the navigation bar (aligned with iOS clamping).
-   */
-  static int computePhonePortraitSheetHeightPx(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
-    boolean isLandscape = activity.getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    int portraitHeight = (activity.forcePortraitOnCheckout && isLandscape)
-        ? metrics.widthPixels : metrics.heightPixels;
-    int maxH = phoneSheetMaxHeightPx(activity, portraitHeight);
-    return Math.min((int) (portraitHeight * activity.cardHeightRatioPortrait), maxH);
+  static Layout resolve(
+      Box pane,
+      float density,
+      StashPresentationOptions options,
+      boolean expanded,
+      double intrinsicContentHeightPx) {
+    density = StashPresentationOptions.positive(density, 1f);
+    boolean bottom = pane.width() / density < WIDE_WINDOW_DP;
+    int margin =
+        Math.min(Math.round(options.margin * density), Math.min(pane.width(), pane.height()) / 4);
+    int width =
+        bottom
+            ? pane.width()
+            : Math.min(px(options.width, density), Math.max(1, pane.width() - 2 * margin));
+    int outerHeight = Math.max(1, pane.height() - (bottom ? margin : 2 * margin));
+    int contentCap = outerHeight;
+    if (options.maximumHeight > 0) {
+      contentCap = Math.min(contentCap, px(options.maximumHeight, density));
+    }
+    int restingContent = Math.min(contentCap, px(options.height, density));
+    if (!Double.isNaN(intrinsicContentHeightPx)
+        && !Double.isInfinite(intrinsicContentHeightPx)
+        && intrinsicContentHeightPx > 0) {
+      restingContent = Math.min(restingContent, (int) Math.ceil(intrinsicContentHeightPx));
+    }
+    int resting = Math.max(1, restingContent);
+    int maximum = contentCap;
+    int height = expanded ? maximum : resting;
+    int left = pane.left + Math.max(0, (pane.width() - width) / 2);
+    int top = bottom ? pane.bottom - height : pane.top + (pane.height() - height) / 2;
+    return new Layout(
+        new Box(left, top, left + width, top + height),
+        resting,
+        maximum,
+        bottom);
   }
 
-  /**
-   * Hard ceiling for the phone sheet: top+bottom system insets subtracted from the physical
-   * portrait height. This is the true "100%" bound -- {@link #expandedCardHeightCapPx} must never
-   * exceed it, or {@code expand()} can grow a card past what a ratio-1.0 config already reaches.
-   *
-   * <p>Bottom uses {@link StashWindowCompat#getStableOrNavBottomPx} (keyboard-free), not {@link
-   * StashWindowCompat#getSystemBottomInsetPx} -- the latter's legacy {@code
-   * getSystemWindowInsetBottom()} includes the IME height while the keyboard is visible, which
-   * would shrink this ceiling by the keyboard height and starve the keyboard-triggered {@code
-   * expand()} in {@link StashCheckoutImeSupport#applyImeOverlap}.
-   */
-  private static int phoneSheetMaxHeightPx(StashNativeCardPortraitActivity activity, int portraitHeight) {
-    int top = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-    int bottom = StashWindowCompat.getStableOrNavBottomPx(activity.rootLayout);
-    int maxH = portraitHeight - top - bottom;
-    if (maxH <= 0) {
-      maxH = portraitHeight - top;
-    }
-    if (maxH <= 0) {
-      maxH = portraitHeight;
-    }
-    return maxH;
+  static Box frameAtHeight(Layout layout, int requestedHeight) {
+    int height = Math.max(layout.restingHeight, Math.min(layout.expandedHeight, requestedHeight));
+    int top = layout.bottomAttached ? layout.frame.bottom - height
+        : layout.frame.top + (layout.frame.height() - height) / 2;
+    return new Box(layout.frame.left, top, layout.frame.right, top + height);
   }
 
-  static int[] calculateModalCardSize(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    boolean isLandscape = screenWidth > screenHeight;
-    boolean isTablet = activity.cachedIsTablet;
-
-    float widthRatio;
-    float heightRatio;
-    if (isTablet) {
-      if (isLandscape) {
-        widthRatio = activity.modalTabletWidthRatioLandscape;
-        heightRatio = activity.modalTabletHeightRatioLandscape;
-      } else {
-        widthRatio = activity.modalTabletWidthRatioPortrait;
-        heightRatio = activity.modalTabletHeightRatioPortrait;
-      }
-    } else {
-      if (isLandscape) {
-        widthRatio = activity.modalPhoneWidthRatioLandscape;
-        heightRatio = activity.modalPhoneHeightRatioLandscape;
-      } else {
-        widthRatio = activity.modalPhoneWidthRatioPortrait;
-        heightRatio = activity.modalPhoneHeightRatioPortrait;
-      }
-    }
-
-    int cardWidth = (int) (screenWidth * widthRatio);
-    int cardHeight = (int) (screenHeight * heightRatio);
-
-    // Apply minimum sizes
-    int minWidth = isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_WIDTH_DP
-        : (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP;
-    int minHeight = isTablet
-        ? (int) CardConstants.MIN_TABLET_CARD_HEIGHT_DP
-        : (int) CardConstants.MIN_PHONE_CARD_HEIGHT_DP;
-
-    if (cardWidth < minWidth) {
-      cardWidth = minWidth;
-    }
-    if (cardHeight < minHeight) {
-      cardHeight = minHeight;
-    }
-
-    return new int[]{cardWidth, cardHeight};
-  }
-
-  /**
-   * Collapsed phone card height for the current orientation and config (matches {@code createCard}
-   * logic). Used as a fallback when {@code collapsedCardTargetHeightPx} is unset.
-   */
-  static int computeCollapsedPhoneCardHeight(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
-    boolean isLandscape = activity.getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    if (isLandscape && !activity.forcePortraitOnCheckout) {
-      // Subtract both insets, not just top -- a bottom-inset-blind ceiling here previously let this
-      // fallback disagree with calculatePhoneCheckoutCardSize's landscape ceiling, which does account
-      // for the bottom inset.
-      int maxH = phoneSheetMaxHeightPx(activity, metrics.heightPixels);
-      int h = (int) (metrics.heightPixels * activity.cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
-          activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-      if (h < minPx) {
-        h = minPx;
-      }
-      return Math.min(h, maxH);
-    }
-    return computePhonePortraitSheetHeightPx(activity, metrics);
-  }
-
-  /**
-   * Computes phone checkout card dimensions for current orientation (portrait or landscape).
-   * Used by createCard() and animatePhoneCheckoutRotation().
-   */
-  static int[] calculatePhoneCheckoutCardSize(StashNativeCardPortraitActivity activity, DisplayMetrics metrics) {
-    boolean isLandscape = activity.getResources().getConfiguration().orientation
-        == Configuration.ORIENTATION_LANDSCAPE;
-    int screenWidth = metrics.widthPixels;
-    int screenHeight = metrics.heightPixels;
-    int cardWidth;
-    int cardHeight;
-    if (isLandscape) {
-      // Always compute the inset-based content height first -- reliable even before the first
-      // onApplyWindowInsets dispatch has landed on rootLayout. rootLayout.getHeight() can be
-      // positive (laid out) before its inset padding has been applied, in which case its content
-      // height would read as the full (unpadded) screen height and this ceiling would silently
-      // permit the card to sit behind the status bar. Intersecting the two instead of trusting
-      // rootLayout alone whenever it's positive closes that race (mirrors expandedCardHeightCapPx).
-      int contentHeight = phoneSheetMaxHeightPx(activity, screenHeight);
-      if (activity.rootLayout != null && activity.rootLayout.getHeight() > 0) {
-        int rootContentHeight = activity.rootLayout.getHeight()
-            - activity.rootLayout.getPaddingTop() - activity.rootLayout.getPaddingBottom();
-        if (rootContentHeight > 0) {
-          contentHeight = Math.min(contentHeight, rootContentHeight);
-        }
-      }
-      if (contentHeight <= 0) contentHeight = screenHeight;
-
-      int w = (int) (screenWidth * activity.cardWidthRatioLandscape);
-      int h = (int) (contentHeight * activity.cardHeightRatioLandscape);
-      int minPx = (int) StashWebViewUtils.dpToPx(
-          activity, (int) CardConstants.MIN_PHONE_CARD_WIDTH_DP);
-      if (w < minPx) {
-        w = minPx;
-      }
-      if (h < minPx) {
-        h = minPx;
-      }
-      cardWidth = w;
-      cardHeight = h;
-    } else {
-      cardWidth = FrameLayout.LayoutParams.MATCH_PARENT;
-      cardHeight = computePhonePortraitSheetHeightPx(activity, metrics);
-    }
-    return new int[]{cardWidth, cardHeight};
-  }
-
-  /**
-   * Expanded-card height cap: EXPANDED_CARD_HEIGHT_RATIO of the screen, clamped so the card
-   * never overflows the inset content box and gets clipped by the root's inset padding -- the
-   * bottom-pinned phone sheet loses its header behind the status bar, a centered tablet card
-   * loses both edges (mirrors the collapsed clamp in computePhonePortraitSheetHeightPx and iOS
-   * height - safeTop). The phone expanded height IS this cap; the tablet expand target is
-   * min(base * multiplier, this cap).
-   *
-   * <p>Intersects two independent sources rather than trusting either alone: the inset-based
-   * ceiling (always computed, reliable even before insets have been dispatched) and, when {@code
-   * rootLayoutSettled}, the root layout's real content box (keyboard-free on every API path,
-   * immune to DisplayMetrics nav-bar semantics which vary by API level). Pass {@code
-   * rootLayoutSettled=false} from rotation callbacks -- there the root layout still has the
-   * previous orientation's geometry.
-   */
-  static int expandedCardHeightCapPx(
-      StashNativeCardPortraitActivity activity, DisplayMetrics metrics, boolean rootLayoutSettled) {
-    // Always compute the inset-based ceiling directly from the window -- this is reliable even
-    // before the first onApplyWindowInsets dispatch has landed on rootLayout (see
-    // StashWindowCompat.getSystemTopInsetPx's dimen fallback). rootContentHeightPx() depends on
-    // rootLayout's padding, which is only set async by that first dispatch: if expand() runs
-    // before it lands, rootLayout already has its full (unpadded) height, so rootContentHeightPx()
-    // returns a positive but WRONG (too-large) value. Intersecting with the inset-based ceiling
-    // instead of trusting rootContentHeightPx() alone closes that race.
-    int top = StashWindowCompat.getSystemTopInsetPx(activity.getWindow());
-    int bottom = StashWindowCompat.getStableOrNavBottomPx(activity.rootLayout);
-    int maxHeight = metrics.heightPixels - top - bottom;
-    if (rootLayoutSettled) {
-      int rootMax = StashCheckoutImeSupport.rootContentHeightPx(activity);
-      if (rootMax > 0) {
-        maxHeight = maxHeight > 0 ? Math.min(maxHeight, rootMax) : rootMax;
-      }
-    }
-    if (!activity.cachedIsTablet) {
-      // Phone sheet must never expand past the same ceiling a ratio=1.0 (100%) card is clamped
-      // to, regardless of what the root content box / stable-nav fallback above report.
-      boolean isLandscape = activity.getResources().getConfiguration().orientation
-          == Configuration.ORIENTATION_LANDSCAPE;
-      int portraitHeight = (activity.forcePortraitOnCheckout && isLandscape)
-          ? metrics.widthPixels : metrics.heightPixels;
-      maxHeight = Math.min(maxHeight, phoneSheetMaxHeightPx(activity, portraitHeight));
-    }
-    return clampExpandedHeight(
-        (int) (metrics.heightPixels * CardConstants.EXPANDED_CARD_HEIGHT_RATIO), maxHeight);
-  }
-
-  /** Raw expanded height capped to the available content box; unclamped when the box is unknown. */
-  static int clampExpandedHeight(int rawHeightPx, int maxHeightPx) {
-    if (maxHeightPx <= 0) {
-      return rawHeightPx;
-    }
-    return Math.min(rawHeightPx, maxHeightPx);
+  private static int px(float dp, float density) {
+    return Math.max(1, (int) Math.min(Integer.MAX_VALUE / 4d, Math.round((double) dp * density)));
   }
 }

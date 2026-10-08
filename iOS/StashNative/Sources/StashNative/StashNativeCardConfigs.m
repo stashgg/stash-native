@@ -1,128 +1,49 @@
-//
-//  StashNativeCardConfigs.m
-//  StashNative
-//
-//  StashNativePopupSizeConfig / StashNativeModalConfig / StashNativeCardConfig implementations.
-//  Default popup multipliers are defined in StashNativeCard.m; extern'd via StashNativeCardPrivate.h.
-//
-
-#import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
-
-// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
-// (e.g., in game engines like Unreal Engine that manage memory manually).
-// ARC builds do not need these suppressions.
-#if !__has_feature(objc_arc)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow"
-#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
-#pragma mark - PopupSizeConfig Implementation
-
-@implementation StashNativePopupSizeConfig
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        _portraitWidthMultiplier = kPopupPortraitWidthMultiplier;
-        _portraitHeightMultiplier = kPopupPortraitHeightMultiplier;
-        _landscapeWidthMultiplier = kPopupLandscapeWidthMultiplier;
-        _landscapeHeightMultiplier = kPopupLandscapeHeightMultiplier;
-    }
-    return self;
-}
-
-- (instancetype)initWithPortraitWidth:(CGFloat)portraitWidth
-                       portraitHeight:(CGFloat)portraitHeight
-                       landscapeWidth:(CGFloat)landscapeWidth
-                      landscapeHeight:(CGFloat)landscapeHeight {
-    self = [super init];
-    if (self) {
-        _portraitWidthMultiplier = portraitWidth;
-        _portraitHeightMultiplier = portraitHeight;
-        _landscapeWidthMultiplier = landscapeWidth;
-        _landscapeHeightMultiplier = landscapeHeight;
-    }
-    return self;
-}
-
-@end
-
-#pragma mark - ModalConfig Implementation
-
-@implementation StashNativeModalConfig
-
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        _phoneWidthRatioPortrait = 0.80f;
-        _phoneHeightRatioPortrait = 0.50f;
-        _phoneWidthRatioLandscape = 0.50f;
-        _phoneHeightRatioLandscape = 0.80f;
-        _tabletWidthRatioPortrait = 0.40f;
-        _tabletHeightRatioPortrait = 0.30f;
-        _tabletWidthRatioLandscape = 0.30f;
-        _tabletHeightRatioLandscape = 0.40f;
-        _allowDismiss = YES;
-        _autoClose = YES;
-        _backgroundColor = nil;
-    }
-    return self;
-}
-
-- (instancetype)initWithPhoneWidthPortrait:(CGFloat)phoneWidthPortrait
-                         phoneHeightPortrait:(CGFloat)phoneHeightPortrait
-                         phoneWidthLandscape:(CGFloat)phoneWidthLandscape
-                        phoneHeightLandscape:(CGFloat)phoneHeightLandscape
-                        tabletWidthPortrait:(CGFloat)tabletWidthPortrait
-                       tabletHeightPortrait:(CGFloat)tabletHeightPortrait
-                       tabletWidthLandscape:(CGFloat)tabletWidthLandscape
-                      tabletHeightLandscape:(CGFloat)tabletHeightLandscape
-                              allowDismiss:(BOOL)allowDismiss {
-    self = [super init];
-    if (self) {
-        _phoneWidthRatioPortrait = phoneWidthPortrait;
-        _phoneHeightRatioPortrait = phoneHeightPortrait;
-        _phoneWidthRatioLandscape = phoneWidthLandscape;
-        _phoneHeightRatioLandscape = phoneHeightLandscape;
-        _tabletWidthRatioPortrait = tabletWidthPortrait;
-        _tabletHeightRatioPortrait = tabletHeightPortrait;
-        _tabletWidthRatioLandscape = tabletWidthLandscape;
-        _tabletHeightRatioLandscape = tabletHeightLandscape;
-        _allowDismiss = allowDismiss;
-        _autoClose = YES;
-        _backgroundColor = nil;
-    }
-    return self;
-}
-
-@end
-
-#pragma mark - CardConfig Implementation
+#import <math.h>
 
 @implementation StashNativeCardConfig
-
 - (instancetype)init {
-    self = [super init];
-    if (self) {
-        _forcePortrait = NO;
-        _cardHeightRatioPortrait = 0.68f;
-        _cardWidthRatioLandscape = 0.7f;
-        _cardHeightRatioLandscape = 0.9f;
-        _tabletWidthRatioPortrait = 0.4f;
-        _tabletHeightRatioPortrait = 0.5f;
-        _tabletWidthRatioLandscape = 0.3f;
-        _tabletHeightRatioLandscape = 0.6f;
+    if ((self = [super init])) {
+        _preferredContentWidth = 400;
+        _preferredContentHeight = 560;
+        _maximumContentHeight = 720;
+        _edgeMargin = 16;
+        _allowDismiss = YES;
         _autoClose = YES;
-        _backgroundColor = nil;
     }
     return self;
 }
-
+- (id)copyWithZone:(NSZone *)zone {
+    StashNativeCardConfig *copy = [[[self class] allocWithZone:zone] init];
+    copy.preferredContentWidth = self.preferredContentWidth;
+    copy.preferredContentHeight = self.preferredContentHeight;
+    copy.maximumContentHeight = self.maximumContentHeight;
+    copy.edgeMargin = self.edgeMargin;
+    copy.allowDismiss = self.allowDismiss;
+    copy.autoClose = self.autoClose;
+    copy.orientationPreference = self.orientationPreference;
+    return copy;
+}
 @end
 
+CGFloat StashFinitePositive(CGFloat value, CGFloat fallback) {
+    return isfinite(value) && value > 0 ? value : fallback;
+}
+
+StashNativeCardConfig *StashNormalizedConfig(StashNativeCardConfig *config) {
+    StashNativeCardConfig *result = config ? [config copy] : [[StashNativeCardConfig alloc] init];
+    result.preferredContentWidth = StashFinitePositive(result.preferredContentWidth, 400);
+    result.preferredContentHeight = StashFinitePositive(result.preferredContentHeight, 560);
+    if (!isfinite(result.maximumContentHeight) || result.maximumContentHeight < 0) {
+        result.maximumContentHeight = 720;
+    }
+    if (!isfinite(result.edgeMargin) || result.edgeMargin < 0) result.edgeMargin = 16;
+    if (result.orientationPreference != StashNativeOrientationPreferencePortrait) {
+        result.orientationPreference = StashNativeOrientationPreferenceFollowHost;
+    }
 #if !__has_feature(objc_arc)
-#pragma clang diagnostic pop
+    return [result autorelease];
+#else
+    return result;
 #endif
+}

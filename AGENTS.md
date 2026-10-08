@@ -1,6 +1,6 @@
 # Stash Native SDK project rules
 
-Stash Native hosts checkout web content in native card, modal, and browser presentations. Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
+Stash Native hosts checkout web content in native card and browser presentations. Native apps and Unity/Unreal wrappers consume it. These rules apply to every agent working in this repository.
 
 ## Temporary files
 
@@ -8,15 +8,15 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ## Architecture
 
-- iOS: Objective-C `StashNativeCard` singleton with focused Configs, Geometry, Theme, ViewUtils, Internal, ViewControllers, and WebViewDelegates units. Shared state is defined in `StashNativeCard.m` and declared in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
-- Android: Java `StashNativeCard` facade, internal `StashNativeCardPlugin`, and portrait checkout activity. Package-private `Stash*Support` and sizing helpers contain extracted logic; mutable state stays with its activity/plugin owner. Distribution uses an AAR.
+- iOS: Objective-C `StashNativeCard` facade owns the active `StashCheckoutSession`. Configs, Geometry, Theme, ViewUtils, Internal, ViewControllers, and WebViewDelegates contain focused implementation units; internal interfaces live in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
+- Android: Java `StashNativeCard` facade, internal `StashNativeCardPlugin`, and same-process `StashCheckoutActivity`. `StashPresentationController` owns responsive layout and state; package-private support classes handle WebView, bridge, and browser concerns. Distribution uses an AAR.
 - Desktop, when present: `Desktop/shared` contains the C++17 session, configuration, URL, theme, JSON, and JS bridge contract. The macOS host uses Objective-C++/AppKit/WKWebView with a Swift sample; Windows uses C++/Win32/WebView2 with a C++ sample. Both export `Desktop/include/StashNativeDesktop.h` through a bundle or DLL.
 - Desktop development currently lives on `desktop/*` branches, with the combined implementation on `desktop/integration`. Discover the actual files and resolve refs before treating desktop as absent or using a branch's documentation.
 - `window.stash_sdk` is the shared page contract; `docs/stash-sdk-js.md` describes it. Read documentation from the same revision as the implementation being examined.
 
 ## Compatibility requirements
 
-- Preserve existing public APIs, observable callback behavior, and Unity, Unreal 4, and Unreal 5 integration.
+- Preserve the current major version's public APIs and observable callback behavior. The native 3.0 migration deliberately removes modal, background-color configuration, legacy sizing, popup, and ambient-host APIs; Unity/Unreal wrapper migration and desktop adoption are separate work. See `docs/migration-3.0.md`.
 - Preserve iOS ARC and non-ARC compatibility, including the delegate property's `__has_feature(objc_arc)` guard. An ARC build alone does not verify non-ARC consumers.
 - Android checkout runs in the host app process. Do not introduce an `android:process` isolate.
 - Preserve existing JS handler spellings, including `stashNativement*`; they are compatibility names.
@@ -27,14 +27,17 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ### Bridge and callbacks
 
-Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `stashSDKScript` in iOS `StashNativeCard.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts.
+Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeCardViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
 
 Desktop callback ordering, once-guards, processing locks, navigation decisions, and dismissal semantics belong in the shared `Session`. Hosts own platform plumbing. Preserve documented differences: macOS marshals operations to the main queue; Windows operations use the host window's message-loop thread, with explicitly documented atomic queries treated separately. Desktop browser handoff does not promise a browser-closed callback.
 
 ### Sizing and presentation
 
-- Mobile card and modal ratios clamp to `[0.1, 1.0]`, including non-finite inputs. iOS applies runtime normalization; constructor defaults alone are not validation.
-- Popup multipliers legitimately exceed `1.0`. Validate positive, finite values using popup-specific fallbacks instead of the card/modal clamp.
+- iOS cards use one `UISheetPresentationController` implementation across iPhone, Duo, and iPad. Handle device differences through layout and configuration. Do not add a separate card presenter, custom renderer, or simulated system feedback for a device family.
+
+- Mobile 3.0 uses logical content dimensions and current window geometry. Normalize configuration and copy it at the opening boundary; constructor defaults alone are not validation. Available space wins over requested dimensions.
+- Cards may use validated intrinsic hints or an eligible `data-stash-content` wrapper; never infer intrinsic height from generic document `scrollHeight`.
+- Preserve the live WebView, document, form state, and semantic resting/expanded selection across resizing. Keyboard accommodation is temporary. Portrait is a best-effort host-compatible preference.
 - Respect iOS safe areas through the view helpers and Android system insets through `StashWindowCompat` and its fallback chain.
 - Desktop accepts mobile configuration fields for wrapper compatibility, but uses its own surface sizing policy. Do not impose mobile ratio-driven layout, portrait behavior, or popup APIs on desktop.
 - Android card resize currently uses per-frame layout updates. The previous audit guidance records this as an accepted cost after an unsuccessful pin-and-clip approach. Preserve that context; new regressions still need evidence and measurement.
@@ -49,7 +52,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 
 ### iOS state and file membership
 
-Define shared mutable state and cross-file constants in `StashNativeCard.m` and declare them in `StashNativeCardPrivate.h`, alongside the internal interfaces. Other implementation files import that header. Keep single-file constants `static`. Do not duplicate definitions or move ownership without accounting for the existing coupling.
+The facade owns the active session; the session owns checkout state, callbacks, WebView, and presentation lifetime. View controllers own layout and platform presentation details. Declare internal interfaces in `StashNativeCardPrivate.h`; other implementation files import it. Keep single-file constants `static`. Account for ARC and non-ARC ownership when changing lifecycle or asynchronous work.
 
 Add new iOS implementation files to `StashNative.xcodeproj` as well as the source tree. SPM discovers files automatically; the Xcode project does not.
 

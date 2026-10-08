@@ -55,21 +55,21 @@ public class PresentationRegressionTest {
 
   @Test public void repeatedOpenDoesNotLaunchOrChangeConfiguration() {
     StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
-    config.cardHeightRatioPortrait = 0.42f;
-    plugin.openCard("https://example.invalid", config);
+    config.preferredContentHeight = 420f;
+    plugin.openCard(host, "https://example.invalid", config);
     Intent first = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(first);
-    plugin.openModal("https://example.invalid", new StashNativeCard.ModalConfig());
+    plugin.openCard(host, "https://example.invalid/second", new StashNativeCard.CardConfig());
     assertNull(Shadows.shadowOf(host).getNextStartedActivity());
-    assertFalse(plugin.useModalPresentation);
-    assertEquals(0.42f, first.getFloatExtra(CardConstants.INTENT_EXTRA_CARD_HEIGHT_RATIO_PORTRAIT, 0f), 0.001f);
+    assertEquals(420f, plugin.presentationOptions.height, 0.001f);
+    assertEquals(420f, StashPresentationOptions.read(first).height, 0.001f);
   }
 
   @Test public void processingQueryUsesActiveActivityAndClearsOnReset() {
-    plugin.openCard("https://example.invalid", null);
-    StashNativeCardPortraitActivity checkout = Robolectric.buildActivity(
-        StashNativeCardPortraitActivity.class, Shadows.shadowOf(host).getNextStartedActivity()).get();
-    plugin.setPortraitActivity(checkout);
+    plugin.openCard(host, "https://example.invalid", null);
+    StashCheckoutActivity checkout = Robolectric.buildActivity(
+        StashCheckoutActivity.class, Shadows.shadowOf(host).getNextStartedActivity()).get();
+    plugin.setCheckoutActivity(checkout);
     checkout.isPurchaseProcessing = true;
     assertTrue(StashNativeCard.getInstance().isPurchaseProcessing());
     checkout.isPurchaseProcessing = false;
@@ -83,12 +83,12 @@ public class PresentationRegressionTest {
     plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
       @Override public void onDialogDismissed() { dismissed[0]++; }
     });
-    plugin.openCard("https://example.invalid", null);
+    plugin.openCard(host, "https://example.invalid", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     Bundle saved = new Bundle();
     saved.putBoolean("stash.callbackSent", false);
-    org.robolectric.android.controller.ActivityController<StashNativeCardPortraitActivity> controller =
-        Robolectric.buildActivity(StashNativeCardPortraitActivity.class, intent).create(saved);
+    org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =
+        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create(saved);
     assertTrue(controller.get().isFinishing());
     assertNull(controller.get().webView);
     controller.destroy();
@@ -97,52 +97,12 @@ public class PresentationRegressionTest {
     assertFalse(plugin.isCurrentlyPresented());
   }
 
-  @Test public void popupDismissListenerCanOpenAnotherCheckout() {
-    plugin.openPopup("https://example.invalid");
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onDialogDismissed() { plugin.openCard("https://example.invalid/next", null); }
-    });
-    assertNotNull(plugin.currentDialog);
-    plugin.currentDialog.dismiss();
-    ShadowLooper.idleMainLooper();
-    assertTrue(plugin.isCurrentlyPresented());
-    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
-  }
-
-  @Test public void popupPaymentCallbackCannotDismissItsReplacement() {
-    plugin.openPopup("https://example.invalid");
-    StashPopupJsInterface oldBridge = new StashPopupJsInterface(plugin);
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onPaymentSuccess(String order) { plugin.openCard("https://example.invalid/next", null); }
-    });
-    oldBridge.onPaymentSuccess("fixture");
-    ShadowLooper.idleMainLooper();
-    assertTrue(plugin.isCurrentlyPresented());
-    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
-    oldBridge.onPurchaseProcessing();
-    ShadowLooper.idleMainLooper();
-    assertFalse(plugin.isPurchaseProcessing());
-  }
-
-  @Test public void oldPopupWebViewCannotChangeReplacementLoadState() {
-    plugin.openPopup("https://example.invalid");
-    android.webkit.WebView oldView = plugin.webView;
-    android.webkit.WebViewClient oldClient = oldView.getWebViewClient();
-    plugin.resetPresentationState();
-    plugin.setActivity(host);
-    plugin.openPopup("https://example.invalid/next");
-    oldClient.onPageFinished(oldView, "https://example.invalid");
-    assertFalse(plugin.popupInitialLoadComplete);
-    assertNotSame(oldView, plugin.webView);
-    assertTrue(plugin.isCurrentlyPresented());
-  }
-
   @Test public void activityLaunchedBeforeResetCannotReviveItsCheckout() {
-    plugin.openCard("https://example.invalid", null);
+    plugin.openCard(host, "https://example.invalid", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     plugin.resetPresentationState();
-    org.robolectric.android.controller.ActivityController<StashNativeCardPortraitActivity> controller =
-        Robolectric.buildActivity(StashNativeCardPortraitActivity.class, intent).create();
+    org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =
+        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create();
     assertTrue(controller.get().isFinishing());
     assertNull(controller.get().webView);
     controller.destroy();
@@ -154,11 +114,11 @@ public class PresentationRegressionTest {
     plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
       @Override public void onPaymentSuccess(String order) { results[0]++; }
     });
-    plugin.openCard("https://example.invalid", null);
+    plugin.openCard(host, "https://example.invalid", null);
     long staleSession = plugin.presentationSessionId;
     plugin.resetPresentationState();
     plugin.setActivity(host);
-    plugin.openCard("https://example.invalid/next", null);
+    plugin.openCard(host, "https://example.invalid/next", null);
     Intent event = new Intent(CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS);
     event.setPackage(host.getPackageName());
     event.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, staleSession);
@@ -174,13 +134,6 @@ public class PresentationRegressionTest {
     StashUrlLauncher.openExternalUrl(host, "https://example.invalid/?secret=fixture-sensitive", 0);
     assertFalse(org.robolectric.shadows.ShadowLog.getLogs().stream()
         .anyMatch(log -> log.msg.contains("fixture-sensitive")));
-  }
-
-  @Test public void popupMultipliersRejectInvalidValuesButAllowLargerThanOne() {
-    assertEquals(1.5f, StashPopupDialogSupport.positiveMultiplier(1.5f, 1f), 0f);
-    for (float invalid : new float[] {Float.NaN, Float.POSITIVE_INFINITY, -1f, 0f}) {
-      assertEquals(1.2f, StashPopupDialogSupport.positiveMultiplier(invalid, 1.2f), 0f);
-    }
   }
 
   @Test public void reflectionBridgeMethodsAreCallable() throws Exception {

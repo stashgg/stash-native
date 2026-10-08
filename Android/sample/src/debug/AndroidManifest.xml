@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Emulator fixture server; release samples retain Android's secure default. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

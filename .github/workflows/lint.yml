@@ -2,6 +2,13 @@ name: Lint
 
 on:
   workflow_call:
+    inputs:
+      ios-runner:
+        type: string
+        default: macos-26
+      xcode-version:
+        type: string
+        default: '26.6'
   push:
     branches: [ main, master ]
   pull_request:
@@ -86,20 +93,25 @@ jobs:
 
   test-ios:
     name: Test iOS Library
-    runs-on: macos-latest
+    runs-on: ${{ inputs.ios-runner || 'macos-26' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode-version || '26.6' }}
 
       - name: Run unit tests
         run: |
           # Copy SPM package to a temp dir without .xcodeproj so xcodebuild
           # picks up the Package.swift test target instead of the project scheme.
-          TMPDIR=$(mktemp -d)
-          cp iOS/StashNative/Package.swift "$TMPDIR/"
-          cp -r iOS/StashNative/Sources "$TMPDIR/"
-          cp -r iOS/StashNative/Tests "$TMPDIR/"
-          cd "$TMPDIR"
+          TEST_PACKAGE=$(mktemp -d "${RUNNER_TEMP}/stash-ios-tests.XXXXXX")
+          cp iOS/StashNative/Package.swift "$TEST_PACKAGE/"
+          cp -r iOS/StashNative/Sources "$TEST_PACKAGE/"
+          cp -r iOS/StashNative/Tests "$TEST_PACKAGE/"
+          cd "$TEST_PACKAGE"
           SIM_ID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys
           devs = json.load(sys.stdin)['devices']
@@ -116,10 +128,15 @@ jobs:
 
   lint-ios-library:
     name: Lint iOS Library (Clang Static Analyzer)
-    runs-on: macos-latest
+    runs-on: ${{ inputs.ios-runner || 'macos-26' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode-version || '26.6' }}
 
       - name: Run Static Analysis on iOS Library
         run: |
@@ -130,17 +147,35 @@ jobs:
             -scheme StashNative \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stash-ios-analysis" \
             GCC_TREAT_WARNINGS_AS_ERRORS=YES \
             CLANG_ANALYZER_OUTPUT=plist-html \
-            CLANG_ANALYZER_OUTPUT_DIR=analyzer_results
+            CLANG_ANALYZER_OUTPUT_DIR="$RUNNER_TEMP/stash-ios-analyzer-results"
         continue-on-error: false
+
+      - name: Build non-ARC library
+        run: |
+          xcodebuild build \
+            -project iOS/StashNative/StashNative.xcodeproj \
+            -scheme StashNative \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stash-ios-non-arc" \
+            CLANG_ENABLE_OBJC_ARC=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            CODE_SIGNING_ALLOWED=NO
 
   lint-ios-sample:
     name: Lint iOS Sample (SwiftLint)
-    runs-on: macos-latest
+    runs-on: ${{ inputs.ios-runner || 'macos-26' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ inputs.xcode-version || '26.6' }}
 
       - name: Install SwiftLint
         run: brew install swiftlint

@@ -5,7 +5,7 @@ This document describes the JavaScript API injected into checkout and webshop pa
 The native implementations are kept in lockstep on Android and iOS. Source of truth:
 
 - Android: [`StashWebViewUtils.JS_SDK_SCRIPT`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (constant `JS_SDK_SCRIPT`).
-- iOS: `stashSDKScript` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (assembled `NSString` passed to `WKUserScript` at `WKUserScriptInjectionTimeAtDocumentStart`).
+- iOS: `StashBridgeScript()` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m), installed at document start by the active session.
 
 ## Availability and Detection
 
@@ -23,8 +23,8 @@ Manual testing: [`.github/test/index.html`](../.github/test/index.html).
 
 | Platform | Mechanism | Bridge name |
 |----------|-----------|-------------|
-| Android | `WebView.evaluateJavascript(JS_SDK_SCRIPT, ...)` after page load; script source is `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), evaluated by the card path in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and the popup path (`injectStashSDKFunctions`) in [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java) | JavaScript interface object `StashAndroid` (`JS_INTERFACE_NAME` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)) |
-| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess`, `stashExternalPayment` (constants `kMessageHandler*` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)) |
+| Android | `WebView.evaluateJavascript` after page load through `StashCheckoutWebViewSupport`; card content-size support is installed separately for the active document | `StashAndroid` |
+| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess` and `stashExternalPayment`, listed by `StashScriptHandlerNames()` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) |
 
 From the page’s perspective the API is identical: only `window.stash_sdk` and `window.close` (see below).
 
@@ -50,23 +50,23 @@ window.stash_sdk.onPaymentSuccess('plain-order-id');
 
 Signals payment failure.
 
-- **Argument:** Passed on iOS as `data || {}` to the failure handler. Android bridge calls `onPaymentFailure()` with no serialized payload from JS (see `JS_SDK_SCRIPT`).
+- **Argument:** Ignored. Neither platform exposes a failure payload to the host.
 - **Native result:** Failure callback on the host.
 
-> **Auto-close behavior:** By default the card / modal dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card / modal config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Web pages should not assume the dialog has been torn down by the time these callbacks return.
+> **Auto-close behavior:** By default the card dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Web pages should not assume the dialog has been torn down by the time these callbacks return.
 
 ### `window.stash_sdk.onPurchaseProcessing(data?)`
 
 Signals that a purchase is still processing. While processing, the SDK locks the card against dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades out the drag handle so the sheet looks non-dismissable.
 
-- **Argument:** iOS posts `data || {}`. Android calls `onPurchaseProcessing()` without forwarding the JS argument.
+- **Argument:** Ignored; this call changes processing state.
 - **Native result:** Purchase-processing callback where implemented.
 
 ### `window.stash_sdk.onProcessingCompleted(data?)`
 
 Reverses `onPurchaseProcessing`. Signals that the purchase is no longer processing: the SDK re-enables dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades the drag handle back in. Call it when a purchase that previously called `onPurchaseProcessing` finishes or is cancelled without auto-closing the card.
 
-- **Argument:** iOS posts `data || {}`. Android calls `onProcessingCompleted()` without forwarding the JS argument.
+- **Argument:** Ignored; this call changes processing state.
 - **Native result:** Restores the dismissable card state set up before `onPurchaseProcessing`. No-op if no processing state was active.
 
 ### `window.stash_sdk.setPaymentChannel(optinType?)`
@@ -80,19 +80,36 @@ Sends opt-in or payment channel selection as a string.
 
 Requests native expansion of the card chrome (sheet to full height where supported).
 
-- **Native result:** Expand handling in the native presentation layer.
+- **Native result:** Selects the card's expanded state, bounded by current usable space and its configured maximum.
 
 ### `window.stash_sdk.collapse()`
 
 Requests native collapse of the card chrome.
 
-- **Native result:** Collapse handling in the native presentation layer.
+- **Native result:** Selects the card's resting state.
+
+### `window.stash_sdk.setContentHeight(heightInCssPixels)`
+
+Optional intrinsic sizing hint for cards. The argument must be a finite positive number representing the full top-level checkout content height at its current layout viewport width. Include web-owned padding; exclude native chrome and safe-area padding.
+
+The SDK converts CSS pixels to native logical units and fits the resting card within the preferred-height ceiling and available area. It preserves the selected expanded state. Invalid or stale measurements are ignored; the native bridge associates each report with the current document and viewport. Do not call native-private measurement handlers directly.
+
+For automatic reporting, mark one intrinsic wrapper with `data-stash-content`. The card observes that element. A wrapper tied to viewport height or fixed/sticky positioning is unsuitable; generic document `scrollHeight` is not a reliable intrinsic measurement. Pages without a usable marker or hint use the configured resting height and scroll normally.
+
+```javascript
+const content = document.querySelector('#checkout');
+new ResizeObserver(() => {
+  window.stash_sdk?.setContentHeight(content.getBoundingClientRect().height);
+}).observe(content);
+```
+
+See [responsive presentation](responsive-presentation.md) and the [responsive test page](../.github/test/responsive.html).
 
 ### `window.stash_sdk.openExternalBrowser(url?)`
 
 Opens the URL in the system browser flow (Chrome Custom Tabs on Android, `SFSafariViewController` on iOS per SDK behavior). The SDK validates and normalizes the URL, may append a `theme` query parameter, closes the embedded checkout without a normal dismiss callback in the external-payment path, and notifies the host.
 
-- **Argument:** Coerced with `(url !== undefined && url !== null) ? String(url) : ''`. Invalid or disallowed URLs are rejected by native code (see `normalizeExternalPaymentUrl` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and `NormalizeExternalPaymentURL` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m)).
+- **Argument:** Coerced with `(url !== undefined && url !== null) ? String(url) : ''`. Invalid or disallowed URLs are rejected by native code (see `normalizeExternalPaymentUrl` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and `NormalizeExternalPaymentURL` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m)).
 
 Host-facing semantics: [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) documents `stashNativeCardDidRequestExternalPaymentWithURL:` for iOS.
 
@@ -115,7 +132,7 @@ Navigations to any non-web scheme (anything other than http/https/about/blob/dat
 
 iOS universal links: a user-tapped (link-activated) main-frame https navigation is offered to any installed app that claims it as a universal link (via `openURL:` with `UniversalLinksOnly`); if no app claims it, it loads normally in the checkout. This is gated to link activations so the initial checkout load and provider redirects always stay in the card, and it requires the target app's associated domains.
 
-Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java) and [`StashPopupDialogSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupDialogSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
+Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
 
 Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information; web-scheme sub-frame navigations cannot be distinguished there, but non-web-scheme deeplinks are still intercepted.
 
@@ -123,23 +140,23 @@ Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `should
 
 A WebView has no second tab, so any navigation that requests a new window - an anchor with `target="_blank"` or a `window.open(url)` call, from the main frame or an iframe - is opened in the external browser instead, and the checkout stays presented (same semantics as `openLink`: no `theme` parameter, no dismissal, no host callback). http/https URLs open in the system browser; any other scheme flows through the deeplink handling above. Empty / `about:blank` placeholder popups are dropped so the live checkout document is never replaced.
 
-- Android: `WebView` settings enable `setSupportMultipleWindows(true)`; `WebChromeClient.onCreateWindow` (card and popup) captures the destination via a throwaway transport `WebView` and opens it externally (`openTargetBlankWindow` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java)). No real second `WebView` is created.
+- Android: `WebView` settings enable `setSupportMultipleWindows(true)`; `WebChromeClient.onCreateWindow` captures the destination via a temporary transport `WebView` and opens it externally (`openTargetBlankWindow` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java)). The temporary WebView is destroyed after resolving the destination.
 - iOS: `WKUIDelegate createWebViewWithConfiguration:forNavigationAction:` opens the destination via `UIApplication openURL:` and returns `nil` (no new `WKWebView`). See [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m).
 
 ### `window.close()`
 
 The injected script replaces `window.close` with a function that requests closing the checkout from the native side (`requestCloseFromPage` on Android, `stashWindowClose` message on iOS).
 
-- **Native result:** User-dismiss style flow; see delegate `stashNativeCardDidDismiss` on iOS and equivalent listener behavior on Android.
+- **Native result:** User-dismiss style flow, permitted only when `allowDismiss` is true and purchase processing is inactive; see delegate `stashNativeCardDidDismiss` on iOS and equivalent listener behavior on Android. Explicit host dismissal remains available regardless of these page/user guards.
 
 ## Page Load Signaling (Not Part of `stash_sdk`)
 
-iOS injects a separate script that posts `stashNativePageReady` for load metrics and UI reveal. Checkout pages do not call this; it is internal. See [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (`pageReadyHook`, `kMessageHandlerPageReady`).
+Native navigation delegates report the initial page load to the host. Resizing the presentation does not reload the document or emit another page-loaded callback. Checkout pages do not send a separate readiness message.
 
 ## Platform Parity Notes
 
-- **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` / `onProcessingCompleted` Java methods. Pages should not rely on native interpretation of complex objects for those calls on Android unless the Android implementation is extended.
-- **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- **Failure / processing payloads:** These calls signal state only. Neither platform interprets their optional JavaScript arguments.
+- **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m).
 
 ## Diagram
 
@@ -158,6 +175,6 @@ flowchart LR
 ## Related Documentation
 
 - [Architecture Overview](./architecture-overview.md) — high-level bridge model.
-- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, `StashAndroid`, isolated process bridge.
+- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, `StashAndroid`, same-process activity bridge.
 - [iOS Implementation](./ios.md) — message handler names and delegate mapping.
 - [Building Wrappers](./building-wrappers.md) — wrappers must not redefine this contract for production checkout.

@@ -1,0 +1,34 @@
+name: iOS 27.1 beta validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner label with Xcode 27.1 beta installed
+        required: true
+        default: macos-26
+        type: string
+
+jobs:
+  validate:
+    uses: ./.github/workflows/lint.yml
+    with:
+      ios-runner: ${{ inputs.runner }}
+      xcode-version: '27.1-beta'
+
+  sample:
+    runs-on: ${{ inputs.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '27.1-beta'
+      - name: Verify SDK and build sample
+        run: |
+          test "$(xcrun --sdk iphoneos --show-sdk-version)" = "27.1"
+          xcodebuild build \
+            -project iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj \
+            -scheme StashNativeSample \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stash-beta" \
+            CODE_SIGNING_ALLOWED=NO

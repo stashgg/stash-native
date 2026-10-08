@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>iOS Wireframe Preview (simplified modal bg)</title>
+  <title>iOS Card and Browser Preview</title>
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <script>
     (function () {
@@ -26,7 +26,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script type="text/babel" data-presets="react">
-// iOS Wireframe Skeletons — three screens (preview copy of Claude session output)
+// iOS card and browser wireframes.
 // Append ?transparent=1 for PNG export with no page background (see export-wireframe-png.mjs).
 
 const EXPORT_TRANSPARENT =
@@ -192,83 +192,6 @@ const BottomSheet = () => (
   </div>
 );
 
-const CenteredModal = () => (
-  <div style={{ width: "100%", height: "100%", position: "relative", background: "#161618", isolation: "isolate" }}>
-    <div style={{ position: "relative", zIndex: 0 }}>
-      <StatusBar />
-      <div style={{ padding: "14px 16px 0" }}>
-        <Bar w={120} h={18} color="#3a3a3c" radius={5} mb={16} />
-        <div style={{
-          height: 200,
-          background: "#222224",
-          borderRadius: 14,
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          gap: 12,
-          padding: "0 18px",
-        }}>
-          <Bar w="55%" h={8} color="#343436" radius={3} />
-          <Bar w="78%" h={8} color="#343436" radius={3} />
-          <Bar w="42%" h={8} color="#343436" radius={3} />
-        </div>
-      </div>
-    </div>
-
-    {/* Below modal + scrim so it never tints the dialog */}
-    <div style={{
-      position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 1,
-      background: "#1c1c1e",
-      borderTopLeftRadius: 22, borderTopRightRadius: 22,
-      padding: "12px 16px 20px",
-      opacity: 0.35,
-    }}>
-      <Bar w={40} h={7} color="#222" radius={3} mb={8} />
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{ height: 36, background: "#222", borderRadius: 8, marginBottom: 2 }} />
-      ))}
-    </div>
-
-    <div style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(0,0,0,0.48)", pointerEvents: "none" }} />
-
-    <div style={{
-      position: "absolute",
-      top: "50%", left: "50%",
-      transform: "translate(-50%, -50%)",
-      zIndex: 3,
-      width: "82%",
-      backgroundColor: "#1c1c1e",
-      borderRadius: 22,
-      border: "1px solid #b3ff39",
-      overflow: "hidden",
-      display: "flex", flexDirection: "column",
-      boxShadow: "0 24px 64px rgba(0,0,0,0.85)",
-    }}>
-      <div style={{ padding: "22px 20px 14px", display: "flex", justifyContent: "center" }}>
-        <Bar w="65%" h={13} color="#333" radius={4} />
-      </div>
-      <div style={{
-        height: 100, background: "#111", borderRadius: 12,
-        margin: "0 14px 14px",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <div style={{ width: 36, height: 36, border: "1.5px solid #2a2a2a", borderRadius: 8 }} />
-      </div>
-      <div style={{ padding: "0 20px 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-        {[85, 95, 60].map((w, i) => (
-          <Bar key={i} w={`${w}%`} h={7} color="#2a2a2a" radius={3} />
-        ))}
-      </div>
-      <div style={{ padding: "0 14px 10px" }}>
-        <Pill h={50} fill="#48484a" />
-      </div>
-      <div style={{ padding: "0 14px 18px" }}>
-        <Pill h={50} fill="#2c2c2e" />
-      </div>
-    </div>
-  </div>
-);
-
 const InAppBrowser = () => (
   <div style={{ width: "100%", height: "100%", background: "#000", display: "flex", flexDirection: "column" }}>
     <StatusBar />
@@ -417,9 +340,6 @@ function App() {
       <div style={{ display: "flex", gap: 40, flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
         <PhoneFrame label="OpenCard">
           <BottomSheet />
-        </PhoneFrame>
-        <PhoneFrame label="OpenModal">
-          <CenteredModal />
         </PhoneFrame>
         <PhoneFrame label="OpenBrowser">
           <InAppBrowser />

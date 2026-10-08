@@ -63,11 +63,6 @@ extension ViewController {
         }
     }
 
-    func modalSectionCell() -> UITableViewCell {
-        return urlCell(textField: modalUrlTextField, label: "URL", imageName: "link",
-                       openSelector: #selector(openModalTapped))
-    }
-
     func browserSectionCell(for indexPath: IndexPath) -> UITableViewCell {
         switch indexPath.row {
         case 0: return urlCell(textField: browserUrlTextField, label: "URL", imageName: "link",
@@ -151,7 +146,7 @@ extension ViewController {
                 withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)),
                 for: .normal)
             openButton.accessibilityLabel = openSelector == #selector(openBrowserTapped)
-                ? "Open browser" : (openSelector == #selector(openModalTapped) ? "Open modal" : "Open card")
+                ? "Open browser" : "Open card"
             openButton.tintColor = .systemBlue
             openButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.12)
             openButton.layer.cornerRadius = 15

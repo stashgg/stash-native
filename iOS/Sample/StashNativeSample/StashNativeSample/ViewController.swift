@@ -68,78 +68,52 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     /// Leading bar item so the wordmark sits left-aligned, matching the Android toolbar.
     /// iOS 26 draws a glass capsule behind bar items; suppress it so the logo reads as a
-    /// wordmark rather than a button. hidesSharedBackground is an iOS 26 SDK symbol; set it
-    /// via KVC so the sample still compiles against the iOS 18 SDK used for device builds.
+    /// wordmark rather than a button.
     lazy var logoBarItem: UIBarButtonItem = {
         let item = UIBarButtonItem(customView: logoView)
         if #available(iOS 26.0, *) {
-            item.setValue(true, forKey: "hidesSharedBackground")
+            item.hidesSharedBackground = true
         }
         return item
     }()
 
     let defaultURL = "https://test.stashpreview.com/"
-    let defaultModalURL = "https://checkout.stash.gg/pay/channel-selection"
 
     let checkoutUrlTextField = UITextField()
     let browserUrlTextField = UITextField()
-    let modalUrlTextField = UITextField()
     /// Top stack that shows every SDK callback as a chip, newest on top.
     let callbackChipStack = UIStackView()
     /// Bottom tab bar splitting the page into Test / Settings / API views.
     let tabBar = UITabBar()
     /// Explicit height for the standalone tab bar on pre-iOS-26 (see updateTabBarHeight).
     var tabBarHeightConstraint: NSLayoutConstraint?
-    let forcePortraitOnCheckoutSwitch = UISwitch()
+    let cardPreferPortraitSwitch = UISwitch()
+    let cardAllowDismissSwitch = UISwitch()
     let cardAutoCloseSwitch = UISwitch()
-    let phoneCardHeightSlider = UISlider()
-    let phoneCardHeightLabel = UILabel()
-    let checkoutTabletPortraitWidthSlider = UISlider()
-    let checkoutTabletPortraitWidthLabel = UILabel()
-    let checkoutTabletPortraitHeightSlider = UISlider()
-    let checkoutTabletPortraitHeightLabel = UILabel()
-    let checkoutTabletLandscapeWidthSlider = UISlider()
-    let checkoutTabletLandscapeWidthLabel = UILabel()
-    let checkoutTabletLandscapeHeightSlider = UISlider()
-    let checkoutTabletLandscapeHeightLabel = UILabel()
-    let checkoutPhoneLandscapeWidthSlider = UISlider()
-    let checkoutPhoneLandscapeWidthLabel = UILabel()
-    let checkoutPhoneLandscapeHeightSlider = UISlider()
-    let checkoutPhoneLandscapeHeightLabel = UILabel()
+    let cardPreferredWidthSlider = UISlider()
+    let cardPreferredWidthLabel = UILabel()
+    let cardPreferredHeightSlider = UISlider()
+    let cardPreferredHeightLabel = UILabel()
+    let cardMaximumHeightSlider = UISlider()
+    let cardMaximumHeightLabel = UILabel()
+    let cardEdgeMarginSlider = UISlider()
+    let cardEdgeMarginLabel = UILabel()
 
     // API keys: named, each production or test; Keychain-persisted (survives reinstall).
     var apiKeys: [ApiKeyEntry] = []
     var selectedApiKeyId: String?
     var pendingAlerts: [(String, String)] = []
-    let cardBackgroundColorTextField = UITextField()
-    let modalBackgroundColorTextField = UITextField()
 
     // MARK: - App orientation lock
     var lockLandscape = false
     let lockLandscapeSwitch = UISwitch()
 
-    let modalAllowDismissSwitch = UISwitch()
-    let modalAutoCloseSwitch = UISwitch()
-    let modalPhonePortraitWidthSlider = UISlider()
-    let modalPhonePortraitWidthLabel = UILabel()
-    let modalPhonePortraitHeightSlider = UISlider()
-    let modalPhonePortraitHeightLabel = UILabel()
-    let modalPhoneLandscapeWidthSlider = UISlider()
-    let modalPhoneLandscapeWidthLabel = UILabel()
-    let modalPhoneLandscapeHeightSlider = UISlider()
-    let modalPhoneLandscapeHeightLabel = UILabel()
-    let modalTabletPortraitWidthSlider = UISlider()
-    let modalTabletPortraitWidthLabel = UILabel()
-    let modalTabletPortraitHeightSlider = UISlider()
-    let modalTabletPortraitHeightLabel = UILabel()
-    let modalTabletLandscapeWidthSlider = UISlider()
-    let modalTabletLandscapeWidthLabel = UILabel()
-    let modalTabletLandscapeHeightSlider = UISlider()
-    let modalTabletLandscapeHeightLabel = UILabel()
+    #if DEBUG
+    var handledLaunchPresentation = false
+    #endif
 
     enum Section {
         case card
-        case modal
         case browser
         case presentationOptions
         case other
@@ -159,7 +133,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     /// Sections visible for the current tab, in display order.
     var visibleSections: [Section] {
         switch currentTab {
-        case .test: return [.card, .browser, .modal]
+        case .test: return [.card, .browser]
         case .settings: return [.presentationOptions, .other, .about]
         case .api: return [.checkoutGenerationSettings]
         }
@@ -172,32 +146,14 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     /// Card option rows, rendered by OptionsListViewController.
     enum CheckoutOptionRow {
-        case cardBackgroundHex
-        case forcePortraitOnCheckout
-        case cardAutoClose
-        case phoneCardHeight
-        case phoneLandscapeWidth
-        case phoneLandscapeHeight
-        case tabletPortraitWidth
-        case tabletPortraitHeight
-        case tabletLandscapeWidth
-        case tabletLandscapeHeight
-    }
-    /// Modal option rows, rendered by OptionsListViewController.
-    enum ModalOptionRow {
-        case modalBackgroundHex
+        case preferPortrait
         case allowDismiss
-        case modalAutoClose
-        case modalPhonePortraitWidth
-        case modalPhonePortraitHeight
-        case modalPhoneLandscapeWidth
-        case modalPhoneLandscapeHeight
-        case modalTabletPortraitWidth
-        case modalTabletPortraitHeight
-        case modalTabletLandscapeWidth
-        case modalTabletLandscapeHeight
+        case cardAutoClose
+        case preferredWidth
+        case preferredHeight
+        case maximumHeight
+        case edgeMargin
     }
-
     /// Value label for each slider, so one handler serves them all.
     var sliderLabels: [UISlider: UILabel] = [:]
 
@@ -225,10 +181,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
                     appId: defaultStashAppId, key: defaultStashApiKey, production: false,
                     checkoutPayload: defaultCheckoutPayload, webshopPayload: defaultWebshopPayload)
     }
-    // MARK: - UserDefaults keys
-
-    static let userDefaultsCardBackgroundHexKey = "CardBackgroundColorHex"
-    static let userDefaultsModalBackgroundHexKey = "ModalBackgroundColorHex"
 
     // MARK: - Lifecycle
 
@@ -240,7 +192,6 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         loadApiKeys()
         setupTextFields()
         setupCheckoutSlidersAndSwitches()
-        setupModalSlidersAndSwitches()
         setupLockLandscape()
         setupTabBar()
         setupStashNativeCard()
@@ -294,6 +245,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         flushPendingAlertsIfPossible()
+        #if DEBUG
+        openLaunchPresentationIfNeeded()
+        #endif
     }
 
     override func viewSafeAreaInsetsDidChange() {
@@ -327,40 +281,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     func setupTextFields() {
         configureStandardUrlTextField(checkoutUrlTextField, text: defaultURL)
         configureStandardUrlTextField(browserUrlTextField, text: defaultURL)
-        configureStandardUrlTextField(modalUrlTextField, text: defaultModalURL)
         // Stable ids for UI tests. The Open button ids are derived from these in urlCell.
         checkoutUrlTextField.accessibilityIdentifier = "card-url-field"
         browserUrlTextField.accessibilityIdentifier = "browser-url-field"
-        modalUrlTextField.accessibilityIdentifier = "modal-url-field"
 
-        func configureHexField(_ field: UITextField, key: String) {
-            field.placeholder = "#RRGGBB (optional)"
-            field.autocapitalizationType = .none
-            field.autocorrectionType = .no
-            field.keyboardType = .asciiCapable
-            field.textAlignment = .right
-            field.font = .systemFont(ofSize: 17, weight: .regular)
-            field.clearButtonMode = .whileEditing
-            if let saved = UserDefaults.standard.string(forKey: key), !saved.isEmpty {
-                field.text = saved
-            }
-        }
-        configureHexField(cardBackgroundColorTextField, key: ViewController.userDefaultsCardBackgroundHexKey)
-        configureHexField(modalBackgroundColorTextField, key: ViewController.userDefaultsModalBackgroundHexKey)
-        cardBackgroundColorTextField.addTarget(
-            self, action: #selector(cardBackgroundColorEditingDidEnd), for: .editingDidEnd)
-        modalBackgroundColorTextField.addTarget(
-            self, action: #selector(modalBackgroundColorEditingDidEnd), for: .editingDidEnd)
-    }
-
-    @objc func cardBackgroundColorEditingDidEnd() {
-        let hex = cardBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        UserDefaults.standard.set(hex.isEmpty ? nil : hex, forKey: ViewController.userDefaultsCardBackgroundHexKey)
-    }
-
-    @objc func modalBackgroundColorEditingDidEnd() {
-        let hex = modalBackgroundColorTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        UserDefaults.standard.set(hex.isEmpty ? nil : hex, forKey: ViewController.userDefaultsModalBackgroundHexKey)
     }
 
     func setupStashNativeCard() {

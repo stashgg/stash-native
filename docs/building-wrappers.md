@@ -1,117 +1,38 @@
-# Building Wrappers for Stash Native
+# Building wrappers for Stash Native 3.0
 
-## Purpose and Scope
+Wrappers bind the native SDK to an engine's types, callbacks, and lifecycle. Unity and Unreal live in separate repositories; their existing releases must remain pinned to 2.x until their bindings are migrated. Native 3.0 is not a drop-in binary replacement.
 
-A **wrapper** is a thin layer that sits above the Stash Native SDK (Android AAR and iOS XCFramework) and exposes checkout APIs in a game engine or application framework (C#, Blueprints, GDScript, custom C++, and so on).
+## Binding changes
 
-This document describes **integration patterns and responsibilities** for authors building or maintaining such wrappers. It does not replace:
+Pass the initiating host with every UI-open call:
 
-- Product API details in the repository [README](../README.md) (presentation modes, callbacks, installation).
-- Implementation specifics inside each wrapper repository (Unity package layout, Unreal module rules, and so on).
+- Android: `openCard(Activity, String, CardConfig)` and `openBrowser(Activity, String)`.
+- iOS: `openCardWithURL:fromViewController:config:` and `openBrowserWithURL:fromViewController:`.
 
-Wrappers should remain **thin**: forward calls to the native SDK, respect UI-thread and lifecycle rules, and map native callbacks into engine events.
+Use the current engine activity or the controller attached to its window. Do not find an arbitrary foreground scene or retain a destroyed activity. Marshal calls to the platform UI thread.
 
-## Reference Implementations
+Map the responsive config fields directly: preferred content width/height, maximum content height, edge margin, dismissibility, and auto-close. Dimensions are points/dp. Cards also expose the follow-host/portrait preference. Remove modal bindings, background-color configuration, old device ratios, popup multipliers, `setActivity`, and forced-orientation/backdrop integrations. See [migration](migration-3.0.md).
 
-The following repositories are maintained as first-party wrappers around this library. Use them as canonical examples of JNI/Objective-C bridges, editor tooling, and lifecycle wiring.
+## Callbacks and lifetime
 
-| Engine | Repository | Compatibility |
-|--------|------------|---------------|
-| Unity | [stash-unity](https://github.com/stashgg/stash-unity) | Unity 2019.4+ (LTS recommended) |
-| Unreal Engine 5 | [stash-unreal (main)](https://github.com/stashgg/stash-unreal) | Unreal Engine 5.0+ |
-| Unreal Engine 4 | [stash-unreal (4.27-plus)](https://github.com/stashgg/stash-unreal/tree/4.27-plus) | Unreal Engine 4.27+ |
+Set `StashNativeCardListener` or `StashNativeCardDelegate` before opening checkout. Preserve the native callback ordering and payloads when enqueueing engine events. Keep the delegate/listener alive for the session, and stop forwarding into an engine module after teardown.
 
-The same table appears under [Game Engine Wrappers](../README.md#wrappers) in the root README.
+The SDK permits one active presentation. A window resize or fold transition updates that presentation; wrappers must not dismiss and reopen it. Engine pause/resume must not be interpreted as payment success or cancellation. Android Custom Tabs results are handled internally; no host `onActivityResult` forwarding is required.
 
-## End-to-End Flow
+The Objective-C delegate property supports both ARC and non-ARC consumers. Validate the wrapper's actual memory-management mode, not only the SDK's ARC build.
 
-```mermaid
-flowchart LR
-    EngineScript[EngineScriptOrBlueprint]
-    WrapperBinding[WrapperBinding]
-    StashNativeSDK[StashNativeSDK]
-    WebSurface[WebViewOrBrowser]
-    Callbacks[NativeCallbacks]
-    EngineScript --> WrapperBinding
-    WrapperBinding --> StashNativeSDK
-    StashNativeSDK --> WebSurface
-    WebSurface --> StashNativeSDK
-    StashNativeSDK --> Callbacks
-    Callbacks --> WrapperBinding
-    WrapperBinding --> EngineScript
-```
+## Binary dependencies
 
-## What a Wrapper Must Provide
+Distribute the versioned AAR and all dependencies in the [README](../README.md#android), including WindowManager 1.4.0 and its Java adapter. Do not add sample UI dependencies to the SDK runtime graph. Test the engine's resolved dependency tree and a minified build.
 
-### Binary integration
+On iOS embed the XCFramework or use SPM. Build the host executable with SDK 27.1 for full Duo behaviour; the framework alone cannot opt an older host into that layout. iOS 15 is the minimum runtime. Portrait requests remain subject to the host's supported orientations and system windowing policy.
 
-- Consume versioned artifacts from [Stash Native releases](https://github.com/stashgg/stash-native/releases): Android AAR and iOS XCFramework (or follow [Installation](../README.md#installation) for SPM/manual iOS layout).
-- Pin wrapper releases to a tested `stash-native` tag so engine users get predictable behavior.
+## Checkout contract
 
-### Lifecycle
+Forward native calls; do not redefine `window.stash_sdk` in production. Optional content hints affect cards. Payment fulfilment remains backend-verified.
 
-- **Android**: `StashNativeCard` requires a valid `Activity` via `setActivity` before opening UI. The wrapper must supply the foreground activity used for dialogs and WebView hosting, and refresh it when the engine transitions activities (for example after resume).
-- **iOS**: Ensure the SDK runs with a sensible key window / window scene before `openCardWithURL:` / `openModalWithURL:` / `openBrowserWithURL:`. Forward application or scene lifecycle as needed so returning from Safari or Custom Tabs does not leave stale state.
+## Engine validation
 
-### Threading
+Exercise opening from the engine's real render hierarchy, processing locks, external browser return, host teardown, repeated opens, and reloads. Rotate, resize, and fold with the same checkout active, including while a payment field has keyboard focus. Check form/scroll preservation and exactly-once terminal callbacks.
 
-- Invoke all Stash Native APIs on the **platform UI thread** (Android main looper, iOS main queue). Game engines often call from worker or render threads; the wrapper must marshal explicitly.
-
-### Callbacks
-
-- Map `StashNativeCardListener` (Android) and `StashNativeCardDelegate` (iOS) to engine-native constructs (Unity events, Unreal dynamic delegates, signals, and so on). Preserve ordering and semantics documented in the [README](../README.md) callback sections.
-
-### JavaScript contract
-
-- Checkout pages communicate via `window.stash_sdk`. The full contract is documented in [JavaScript `stash_sdk` API](./stash-sdk-js.md); platform implementation details remain in [Android Implementation](./android.md) and [iOS Implementation](./ios.md). Wrappers **do not** redefine that web surface for production checkout. Editor-only test harnesses may call the same APIs against test URLs; keep those code paths separate from shipping builds.
-
-## Platform-Specific Wrapper Layers
-
-### Android
-
-- Package the AAR with `androidx.core` and `androidx.webkit` as in the [README](../README.md). AppCompat is not required by the SDK. `androidx.browser` is optional: add it if you want Chrome Custom Tabs for external URLs; otherwise the SDK opens the system browser.
-- Initialize the singleton: `StashNativeCard.getInstance()`, then `setActivity`, `setListener`, and open methods (`openCard`, `openModal`, `openPopup`, `openBrowser`). Custom Tabs results are handled internally by the SDK's proxy activity; no `onActivityResult` forwarding is needed.
-- If the engine launches checkout from native plugin code, ensure the JNI or C# layer obtains the current `Activity` from the engine’s Android entry point.
-
-### iOS
-
-- Embed `StashNative.xcframework` or add the Swift package URL from the [README](../README.md). Link **SafariServices** and **WebKit**.
-- Set `[StashNativeCard sharedInstance]` delegate on the main thread before presenting UI.
-- For engine-hosted apps, validate window attachment on device; the SDK includes logic to align with `UIWindowScene` (see comments in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) around window/scene selection and game-engine-related delays).
-
-## Game Engine Considerations
-
-### Rendering and UI hierarchy
-
-Some engines use custom windows or delayed UI initialization. Stash Native assumes a normal application window hierarchy. In-repo iOS code references game engines explicitly (for example attaching the card window to the app’s `UIWindowScene`, and short delays before show to improve rendering in embedded hosts). Treat **on-device testing** as mandatory for any new wrapper.
-
-Relevant implementation file for iOS window/scene behavior: [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
-
-### Memory and object lifetime
-
-- Avoid invoking the SDK after teardown of the engine module or activity.
-- On iOS, follow singleton and session semantics described under **State Model And Safety** in [iOS Implementation](./ios.md).
-
-### Editor versus device
-
-Unity and Unreal wrappers often ship editor play-mode tools to exercise flows without a full game loop. If you add similar tooling:
-
-- Use dedicated test URLs and clearly named APIs.
-- Do not rely on editor-only behavior in production binaries.
-
-## Checklist for a New Engine Wrapper
-
-1. **Versioning**: Depend on a specific `stash-native` release artifact; document upgrade steps for engine users.
-2. **Minimal bridge**: Expose `openCard` / `openModal` / `openBrowser` (and dismiss/reset if needed) plus listener/delegate mapping.
-3. **UI thread**: Enforce main-thread marshaling for every SDK entry point.
-4. **Smoke test**: Open card with a known test page; confirm `onPaymentSuccess` or equivalent reaches script/Blueprint.
-5. **External flow**: Trigger `openExternalBrowser` (or host `openBrowser`); confirm return to app and listener behavior.
-6. **Dismissal**: Verify `window.close`, user dismiss, and `dismiss` from host do not leak state or double-fire callbacks.
-
-## Further Reading
-
-- [Architecture Overview](./architecture-overview.md) — shared runtime model.
-- [JavaScript `stash_sdk` API](./stash-sdk-js.md) — web page contract for checkout and webshop.
-- [Android Implementation](./android.md) — `JS_SDK_SCRIPT`, isolated process, `StashCheckoutBridge`.
-- [iOS Implementation](./ios.md) — message handlers, presentation modes, load errors.
-- [Maintenance and Testing](./maintenance-and-testing.md) — building AAR/XCFramework and CI expectations.
+Editor simulations are useful for game logic but do not validate WKWebView, Android WebView, payment-provider redirects, or device orientation policy.

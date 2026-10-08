@@ -9,7 +9,11 @@ public class MainActivity extends Activity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-    StashNativeCard.getInstance().setActivity(this);
+    android.widget.Button button = new android.widget.Button(this);
+    button.setText("Open checkout");
+    button.setOnClickListener(view -> StashNativeCard.getInstance().openCard(
+        this, "https://test.stashpreview.com", new StashNativeCard.CardConfig()));
+    setContentView(button);
   }
 
   @Override

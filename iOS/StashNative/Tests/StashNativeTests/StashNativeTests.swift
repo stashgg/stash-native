@@ -1,145 +1,140 @@
 import XCTest
-@testable import StashNative
+import StashNative
+import RegressionSupport
 
 final class StashNativeTests: XCTestCase {
-
-    // -- Version --
-
-    func testSdkVersionIsNonEmpty() {
-        let v = StashNativeCard.sdkVersion()
-        XCTAssertFalse(v.isEmpty)
+    func testV3DefaultsAndIndependentCopy() {
+        XCTAssertEqual(StashNativeCard.sdkVersion(), "3.0.0")
+        let card = StashNativeCardConfig()
+        XCTAssertEqual(card.preferredContentWidth, 400)
+        XCTAssertEqual(card.preferredContentHeight, 560)
+        XCTAssertEqual(card.maximumContentHeight, 720)
+        XCTAssertEqual(card.edgeMargin, 16)
+        XCTAssertTrue(card.allowDismiss)
+        XCTAssertTrue(card.autoClose)
+        XCTAssertEqual(card.orientationPreference, .followHost)
+        let copy = card.copy() as! StashNativeCardConfig
+        card.preferredContentWidth = 900
+        XCTAssertEqual(copy.preferredContentWidth, 400)
     }
 
-    func testSdkVersionContainsDot() {
-        let v = StashNativeCard.sdkVersion()
-        XCTAssertTrue(v.contains("."), "Version should be semver-like")
+    func testConfigurationRejectsNonfiniteAndNegativeSizes() {
+        let result = StashConfigurationProbe() as! [String: NSNumber]
+        XCTAssertEqual(result["width"]?.doubleValue, 400)
+        XCTAssertEqual(result["height"]?.doubleValue, 560)
+        XCTAssertEqual(result["maximum"]?.doubleValue, 720)
+        XCTAssertEqual(result["margin"]?.doubleValue, 16)
+        XCTAssertEqual(result["copiedDismiss"]?.boolValue, true)
     }
 
-    // -- Singleton --
-
-    func testSharedInstanceReturnsSameObject() {
-        let a = StashNativeCard.sharedInstance()
-        let b = StashNativeCard.sharedInstance()
-        XCTAssertTrue(a === b)
+    func testDefaultCardBoundsTabletExpansionAndAllowsExplicitAvailableHeight() {
+        let defaults = StashNativeCardConfig()
+        func resolve(_ maximum: Double) -> [String: NSNumber] {
+            StashGeometryProbe(1032, 1344, true, 0, Double(defaults.preferredContentWidth),
+                Double(defaults.preferredContentHeight), maximum, Double(defaults.edgeMargin)) as! [String: NSNumber]
+        }
+        let bounded = resolve(Double(defaults.maximumContentHeight))
+        XCTAssertEqual(bounded["width"]?.doubleValue, 400)
+        XCTAssertEqual(bounded["resting"]?.doubleValue, 560)
+        XCTAssertEqual(bounded["height"]?.doubleValue, 720)
+        let available = resolve(0)
+        XCTAssertEqual(available["height"]?.doubleValue, 1312)
+        XCTAssertEqual(available["resting"]?.doubleValue, 560)
+        for invalid in [Double.nan, Double.infinity, -1] {
+            XCTAssertEqual(resolve(invalid)["height"]?.doubleValue, 720)
+        }
     }
 
-    // -- CardConfig defaults --
-
-    func testCardConfigDefaults() {
-        let cfg = StashNativeCardConfig()
-        XCTAssertFalse(cfg.forcePortrait)
-        XCTAssertEqual(cfg.cardHeightRatioPortrait, 0.68, accuracy: 0.001)
-        XCTAssertEqual(cfg.cardWidthRatioLandscape, 0.7, accuracy: 0.01)
-        XCTAssertEqual(cfg.cardHeightRatioLandscape, 0.9, accuracy: 0.01)
-        XCTAssertEqual(cfg.tabletWidthRatioPortrait, 0.4, accuracy: 0.01)
-        XCTAssertEqual(cfg.tabletHeightRatioPortrait, 0.5, accuracy: 0.01)
-        XCTAssertEqual(cfg.tabletWidthRatioLandscape, 0.3, accuracy: 0.01)
-        XCTAssertEqual(cfg.tabletHeightRatioLandscape, 0.6, accuracy: 0.01)
-        XCTAssertNil(cfg.backgroundColor)
+    func testCardFitsEveryContainerAndPreservesExpandedMeaning() {
+        for width in [120.0, 320, 390, 599, 600, 768, 1366] {
+            for height in [100.0, 300, 568, 844, 1024] {
+                for expanded in [false, true] {
+                    let result = geometry(width, height, expanded: expanded)
+                    XCTAssertGreaterThanOrEqual(result["x"]!, 11)
+                    XCTAssertGreaterThanOrEqual(result["y"]!, 23)
+                    XCTAssertLessThanOrEqual(result["x"]! + result["width"]!, 11 + width + 0.01)
+                    XCTAssertLessThanOrEqual(result["y"]! + result["height"]!, 23 + height + 0.01)
+                    XCTAssertGreaterThanOrEqual(result["expanded"]!, result["resting"]!)
+                    if width < 600 {
+                        XCTAssertEqual(result["width"]!, width)
+                        XCTAssertEqual(result["y"]! + result["height"]!, 23 + height, accuracy: 0.01)
+                    } else {
+                        XCTAssertLessThanOrEqual(result["width"]!, 480)
+                        XCTAssertEqual(result["y"]! + result["height"]! / 2, 23 + height / 2, accuracy: 0.01)
+                    }
+                }
+            }
+        }
     }
 
-    // -- ModalConfig defaults --
-
-    func testModalConfigDefaults() {
-        let cfg = StashNativeModalConfig()
-        XCTAssertTrue(cfg.allowDismiss)
-        XCTAssertEqual(cfg.phoneWidthRatioPortrait, 0.80, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneHeightRatioPortrait, 0.50, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneWidthRatioLandscape, 0.50, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneHeightRatioLandscape, 0.80, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletWidthRatioPortrait, 0.40, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletHeightRatioPortrait, 0.30, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletWidthRatioLandscape, 0.30, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletHeightRatioLandscape, 0.40, accuracy: 0.001)
-        XCTAssertNil(cfg.backgroundColor)
+    func testShortCardContentShrinksButExpandedIgnoresMeasurement() {
+        XCTAssertEqual(geometry(390, 844, measured: 220)["resting"]!, 220)
+        XCTAssertEqual(geometry(390, 844, measured: 2000)["resting"]!, 560)
+        XCTAssertEqual(geometry(390, 844, expanded: true, measured: 120)["height"]!,
+                       geometry(390, 844, expanded: true)["height"]!)
     }
 
-    func testModalConfigCustomInit() {
-        let cfg = StashNativeModalConfig(
-            phoneWidthPortrait: 0.5,
-            phoneHeightPortrait: 0.6,
-            phoneWidthLandscape: 0.7,
-            phoneHeightLandscape: 0.8,
-            tabletWidthPortrait: 0.3,
-            tabletHeightPortrait: 0.4,
-            tabletWidthLandscape: 0.2,
-            tabletHeightLandscape: 0.9,
-            allowDismiss: false
-        )
-        XCTAssertFalse(cfg.allowDismiss)
-        XCTAssertEqual(cfg.phoneWidthRatioPortrait, 0.5, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneHeightRatioPortrait, 0.6, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneWidthRatioLandscape, 0.7, accuracy: 0.001)
-        XCTAssertEqual(cfg.phoneHeightRatioLandscape, 0.8, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletWidthRatioPortrait, 0.3, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletHeightRatioPortrait, 0.4, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletWidthRatioLandscape, 0.2, accuracy: 0.001)
-        XCTAssertEqual(cfg.tabletHeightRatioLandscape, 0.9, accuracy: 0.001)
+    func testMaximumContentHeightAndExtremeMarginStayInsideBounds() {
+        let capped = StashGeometryProbe(1000, 1000, true, 80, 480, 560, 320, 16) as! [String: NSNumber]
+        XCTAssertEqual(capped["height"]?.doubleValue, 320)
+        let tiny = StashGeometryProbe(80, 70, true, 0, 480, 560, 0, 1000) as! [String: NSNumber]
+        XCTAssertLessThanOrEqual(tiny["height"]!.doubleValue, 70)
+        XCTAssertGreaterThanOrEqual(tiny["height"]!.doubleValue, 0)
     }
 
-    // -- PopupSizeConfig --
-
-    func testPopupSizeConfigDefaults() {
-        let cfg = StashNativePopupSizeConfig()
-        XCTAssertEqual(cfg.portraitWidthMultiplier, 1.0285, accuracy: 0.0001)
-        XCTAssertEqual(cfg.portraitHeightMultiplier, 1.485, accuracy: 0.0001)
-        XCTAssertEqual(cfg.landscapeWidthMultiplier, 1.2275445, accuracy: 0.0001)
-        XCTAssertEqual(cfg.landscapeHeightMultiplier, 1.1385, accuracy: 0.0001)
+    func testReservedRegionsChooseFocusedPaneThenTrailingOrLowerTie() {
+        let result = StashReservedRegionProbe() as! [String: NSNumber]
+        XCTAssertEqual(result["trailingX"]?.doubleValue, 510)
+        XCTAssertEqual(result["rtlX"]?.doubleValue, 0)
+        XCTAssertEqual(result["focusedX"]?.doubleValue, 0)
+        XCTAssertEqual(result["lowerY"]?.doubleValue, 410)
     }
 
-    func testPopupSizeConfigCustomInit() {
-        let cfg = StashNativePopupSizeConfig(
-            portraitWidth: 1.0, portraitHeight: 1.5,
-            landscapeWidth: 1.2, landscapeHeight: 1.1
-        )
-        XCTAssertEqual(cfg.portraitWidthMultiplier, 1.0, accuracy: 0.001)
-        XCTAssertEqual(cfg.portraitHeightMultiplier, 1.5, accuracy: 0.001)
-        XCTAssertEqual(cfg.landscapeWidthMultiplier, 1.2, accuracy: 0.001)
-        XCTAssertEqual(cfg.landscapeHeightMultiplier, 1.1, accuracy: 0.001)
+    func testHeightHintsRequireActiveDocumentAndMatchingUnzoomedViewport() {
+        let valid: [String: Any] = ["height": 320, "viewportWidth": 390, "scale": 1, "documentId": "current"]
+        XCTAssertTrue(StashHeightHintProbe(valid, "current", 390, 1, 390))
+        XCTAssertFalse(StashHeightHintProbe(valid, "old", 390, 1, 390))
+        XCTAssertFalse(StashHeightHintProbe(valid, "current", 768, 1, 390))
+        XCTAssertFalse(StashHeightHintProbe(valid, "current", 390, 2, 390))
+        for invalid in [Double.nan, Double.infinity, -1, 0] {
+            var payload = valid
+            payload["height"] = invalid
+            XCTAssertFalse(StashHeightHintProbe(payload, "current", 390, 1, 390))
+        }
+        var wrongType = valid
+        wrongType["height"] = "320"
+        XCTAssertFalse(StashHeightHintProbe(wrongType, "current", 390, 1, 390))
     }
 
-    // -- State queries --
-
-    func testInitialStateNotProcessing() {
-        let card = StashNativeCard.sharedInstance()
-        XCTAssertFalse(card.isPurchaseProcessing)
+    func testAutomaticMeasurementResetRequiresMatchingDocumentAndViewport() {
+        let reset: [String: Any] = ["reset": true, "viewportWidth": 390, "scale": 1, "documentId": "current"]
+        XCTAssertTrue(StashHeightHintProbe(reset, "current", 390, 1, 390))
+        XCTAssertFalse(StashHeightHintProbe(reset, "old", 390, 1, 390))
+        XCTAssertFalse(StashHeightHintProbe(reset, "current", 480, 1, 390))
+        var wrongType = reset
+        wrongType["reset"] = "true"
+        XCTAssertFalse(StashHeightHintProbe(wrongType, "current", 390, 1, 390))
     }
 
-    // -- Nil/empty URL safety --
-
-    func testOpenCardNilUrlDoesNotCrash() {
-        StashNativeCard.sharedInstance().openCard(withURL: "", config: nil)
+    func testObserverHasExplicitIntrinsicRootAndNoScrollHeightFeedback() {
+        let source = StashMeasurementSource() ?? ""
+        XCTAssertTrue(source.contains("[data-stash-content]"))
+        XCTAssertTrue(source.contains("ResizeObserver"))
+        XCTAssertFalse(source.contains("scrollHeight"))
+        XCTAssertTrue(source.contains("documentId"))
     }
 
-    func testOpenModalNilUrlDoesNotCrash() {
-        StashNativeCard.sharedInstance().openModal(withURL: "", config: nil)
+    func testURLNormalizationPreservesSignedQueryBytes() {
+        let result = StashURLProbe() as! [String: String]
+        XCTAssertEqual(result["bare"], "https://example.invalid/path")
+        XCTAssertEqual(result["javascript"], "")
+        XCTAssertTrue(result["themed"]!.contains("token=a%2Bb%26c"))
+        XCTAssertTrue(result["themed"]!.hasSuffix("#section"))
     }
 
-    func testOpenBrowserEmptyUrlDoesNotCrash() {
-        StashNativeCard.sharedInstance().openBrowser(withURL: "")
-    }
-
-    // -- Browser dismiss state (regression: programmatic close must not leave the SDK presented) --
-
-    // Full deadlock repro (OpenBrowser -> CloseBrowser -> OpenCard) needs a webview host and is
-    // covered by on-device QA. These guard the no-browser code paths the fix touches.
-
-    func testCloseBrowserWithoutBrowserIsSafe() {
-        let card = StashNativeCard.sharedInstance()
-        card.closeBrowser()
-        XCTAssertFalse(card.isCurrentlyPresented)
-    }
-
-    func testDismissSafariWithResultWithoutBrowserIsSafe() {
-        let card = StashNativeCard.sharedInstance()
-        card.dismissSafariViewController(withResult: true)
-        card.dismissSafariViewController(withResult: false)
-        XCTAssertFalse(card.isCurrentlyPresented)
-    }
-
-    func testResetPresentationStateLeavesNotPresented() {
-        let card = StashNativeCard.sharedInstance()
-        card.resetPresentationState()
-        XCTAssertFalse(card.isCurrentlyPresented)
+    private func geometry(_ width: Double, _ height: Double, expanded: Bool = false,
+                          measured: Double = 0) -> [String: Double] {
+        let result = StashGeometryProbe(width, height, expanded, measured, 480, 560, 0, 16)
+        return (result as! [String: NSNumber]).mapValues(\.doubleValue)
     }
 }
