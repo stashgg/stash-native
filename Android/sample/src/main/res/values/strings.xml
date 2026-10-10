@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="section_link_webshop">Link Webshop</string>
+    <string name="scan_qr_code">Scan QR Code</string>
     <string name="app_name">Stash Native</string>
     <string name="header_title">Stash Android</string>
     <string name="section_card">Card</string>
@@ -61,7 +63,7 @@
     <string name="option_card_auto_close">Auto-close on payment event</string>
     <string name="option_card_auto_close_supporting">Close card after success/failure</string>
     <string name="option_keep_alive">Keep-alive service</string>
-    <string name="option_keep_alive_supporting">Prevents app termination</string>
+    <string name="option_keep_alive_supporting">Helps keep the app alive during external payment</string>
     <string name="error_checkout_url">Please enter a card URL</string>
     <string name="error_browser_url">Please enter a browser URL</string>
     <string name="credentials_session_only">Secure storage is unavailable. Credentials are kept for this session only; export them explicitly if needed. Exports contain plaintext secrets.</string>

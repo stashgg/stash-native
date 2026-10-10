@@ -10,7 +10,13 @@
 #define STASH_WEAK_REF __unsafe_unretained
 #endif
 
-@class StashCheckoutSession, StashCheckoutViewController;
+@class StashCheckoutSession, StashCheckoutViewController, StashCodeLinkViewController;
+@interface StashNativeEntranceCorrection : NSObject
++ (instancetype)correctionForSurface:(CALayer *)surface container:(CALayer *)container;
+- (void)update;
+- (void)invalidate;
+@end
+
 @interface StashPortraitPresentation : NSObject
 @property (nonatomic, readonly) UIViewController *presenter;
 - (instancetype)initWithPresenter:(UIViewController *)presenter;
@@ -63,7 +69,16 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 @property (nonatomic) BOOL browserHandoff;
 @property (nonatomic, strong) StashNativeCardConfig *config;
 @property (nonatomic, strong) StashCheckoutViewController *controller;
+@property (nonatomic) BOOL codeLink;
+@property (nonatomic) BOOL codeLinkCompleted;
+@property (nonatomic, strong) StashCodeLinkViewController *codeLinkController;
 @property (nonatomic, strong) WKWebView *webView;
+@property (nonatomic, strong) WKNavigation *telemetryNavigation;
+@property (nonatomic, strong) NSNumber *telemetryFirstCallAt;
+@property (nonatomic, strong) NSNumber *telemetryPageLoadStartedAt;
+@property (nonatomic, strong) NSNumber *telemetryPageLoadedAt;
+@property (nonatomic, strong) NSNumber *telemetryPageLoadTimeMs;
+@property (nonatomic) CFTimeInterval telemetryLoadStart;
 @property (nonatomic, strong) SFSafariViewController *browser;
 @property (nonatomic, strong) NSTimer *loadTimer;
 @property (nonatomic, strong) NSTimer *contentRevealTimer;
@@ -109,6 +124,7 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 - (BOOL)isActive;
 - (BOOL)canUserDismiss;
 - (void)presentCheckout;
+- (void)completeCodeLink:(NSString *)content;
 - (void)observeRootScroll;
 - (void)stopObservingRootScroll;
 - (void)scheduleRootOffsetRepair;
@@ -142,14 +158,28 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 - (void)acceptTopChromeMessage:(WKScriptMessage *)message;
 @end
 
+@interface StashCodeLinkViewController : UIViewController
+@property (nonatomic, STASH_WEAK) StashCheckoutSession *session;
+- (void)showConnectedWithCompletion:(void (^)(void))completion;
+- (void)stopScanning;
+- (void)dispose;
+@end
+
 @interface StashCheckoutSession (Navigation)
 - (BOOL)handlePaymentResultURL:(NSURL *)url;
 @end
 
-@interface StashCheckoutViewController : UIViewController
+@interface StashCheckoutSession (Telemetry) <WKScriptMessageHandlerWithReply>
+- (void)beginTelemetryNavigation:(WKNavigation *)navigation;
+- (void)finishTelemetryNavigation:(WKNavigation *)navigation;
+- (NSDictionary *)telemetrySnapshot;
+@end
+
+@interface StashCheckoutViewController : UIViewController <UIGestureRecognizerDelegate>
 @property (nonatomic, STASH_WEAK) StashCheckoutSession *session;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIView *loadingCover;
+@property (nonatomic) BOOL glassLoading;
 @property (nonatomic, strong) UIColor *topChromeColor;
 @property (nonatomic) CGRect keyboardFrame;
 @property (nonatomic, STASH_WEAK) UIWindow *keyboardNotificationWindow;
@@ -184,16 +214,26 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 @property (nonatomic) BOOL hasRequestedNativeSelection;
 @property (nonatomic) BOOL requestedNativeExpanded;
 @property (nonatomic, strong) NSMutableArray<UIPanGestureRecognizer *> *observedPans;
+@property (nonatomic, strong) UITapGestureRecognizer *touchOriginObserver;
+@property (nonatomic, strong) UIPanGestureRecognizer *contentPan;
+@property (nonatomic, strong) NSHashTable<UIPanGestureRecognizer *> *contentScrollPans;
+@property (nonatomic, STASH_WEAK) UIView *contentTouchView;
+@property (nonatomic) BOOL touchBeganInWebContent;
 @property (nonatomic, strong) id geometryUpdateLink;
+@property (nonatomic, strong) id entranceUpdateLink;
+@property (nonatomic, strong) StashNativeEntranceCorrection *entranceCorrection;
+@property (nonatomic) BOOL entranceCorrectionApplied;
 @property (nonatomic) CGRect previousAvailableBounds;
 @property (nonatomic) CGRect previousContentBounds;
 - (void)configurePresentation;
+- (void)nativePanChanged:(UIPanGestureRecognizer *)gesture;
 - (BOOL)usesFloatingNativeSizing;
 - (void)reconcileNativeSizingPolicy;
 - (NSString *)nativeDetentIdentifierForExpanded:(BOOL)expanded;
 - (BOOL)nativeSelectionIsExpanded;
 - (void)updateTopChromeBackgroundColor;
 - (void)updatePresentationAnimated:(BOOL)animated;
+- (void)stopNativeEntrance;
 - (CGRect)availableBoundsInView:(UIView *)view;
 - (CGRect)availableBoundsInView:(UIView *)view expanded:(BOOL)expanded;
 - (CGFloat)contentHeightForMaximum:(CGFloat)maximum expanded:(BOOL)expanded;

@@ -48,7 +48,26 @@ public class PresentationSafetyTest {
   @After public void cleanup() {
     activity.presentation.dispose();
     StashCheckoutWebViewSupport.cancelLoadTimers(activity);
+    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
     if (activity.webView != null) activity.webView.destroy();
+  }
+
+  @Test public void cancelledLoadingFadeCannotRevealContentFromAnAbandonedLoad() {
+    activity.webView = new WebView(activity);
+    activity.loadingView = new View(activity);
+    activity.cardContainer.addView(activity.webView);
+    activity.cardContainer.addView(activity.loadingView);
+    StashCheckoutWebViewSupport.revealWebViewAndRemoveLoading(activity);
+    android.animation.Animator fade = activity.webViewRevealAnimator;
+    assertNotNull(fade);
+    assertTrue(fade.isStarted());
+    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
+    assertFalse(fade.isStarted());
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+    assertEquals(0, activity.webView.getAlpha(), 0);
+    assertEquals(1, activity.loadingView.getAlpha(), 0);
+    assertFalse(activity.webViewLoadingRevealComplete);
+    assertFalse(activity.pageLoadedCallbackSent);
   }
 
   @Test public void contentReportReplacingEntryAnimationRestoresFullVisibility() throws Exception {
@@ -93,6 +112,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void pinchAndRemainingPointerCannotDragOrDismissSheet() {
+    activity.rootLayout.setRight(390);
     activity.presentation.environmentChanged();
     MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 360, 600, 0);
     assertFalse(activity.presentation.interceptTouch(down));
@@ -127,15 +147,81 @@ public class PresentationSafetyTest {
     activity.presentation.environmentChanged();
     MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 360, 600, 0);
     MotionEvent move = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 360, 760, 0);
-    activity.presentation.onTouch(activity.cardContainer, down);
-    activity.presentation.onTouch(activity.cardContainer, move);
+    View handle = new View(activity);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move);
     assertTrue(activity.cardContainer.getTranslationY() > 0);
     new StashCheckoutJsInterface(activity).onPurchaseProcessing();
     assertEquals(0, activity.cardContainer.getTranslationY(), 0);
     MotionEvent up = MotionEvent.obtain(0, 200, MotionEvent.ACTION_UP, 360, 760, 0);
-    activity.presentation.onTouch(activity.cardContainer, up);
+    activity.presentation.onTouch(handle, up);
     assertEquals(0, activity.dismissCalls);
     assertFalse(activity.presentation.state.expanded);
+    down.recycle();
+    move.recycle();
+    up.recycle();
+  }
+
+  @Test public void downwardContentSwipeNeverMovesCollapsedOrExpandedCard() {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    for (boolean expanded : new boolean[] {false, true}) {
+      activity.presentation.state.selectExpanded(expanded);
+      activity.presentation.environmentChanged();
+      final int height = activity.cardContainer.getLayoutParams().height;
+      MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 180, 600, 0);
+      MotionEvent move = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 180, 900, 0);
+      MotionEvent up = MotionEvent.obtain(0, 200, MotionEvent.ACTION_UP, 180, 900, 0);
+      assertFalse(activity.presentation.interceptTouch(down));
+      assertFalse(activity.presentation.interceptTouch(move));
+      assertFalse(activity.presentation.interceptTouch(up));
+      assertEquals(height, activity.cardContainer.getLayoutParams().height);
+      assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+      assertEquals(expanded, activity.presentation.state.expanded);
+      assertEquals(0, activity.dismissCalls);
+      down.recycle();
+      move.recycle();
+      up.recycle();
+    }
+  }
+
+  @Test public void upwardContentExpansionCannotReverseIntoCollapseOrDismissal() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    Field animation = StashPresentationController.class.getDeclaredField("animator");
+    animation.setAccessible(true);
+    ((ValueAnimator) animation.get(activity.presentation)).end();
+    MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 180, 600, 0);
+    MotionEvent upMove = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 180, 450, 0);
+    final MotionEvent reversal = MotionEvent.obtain(0, 200, MotionEvent.ACTION_MOVE, 180, 950, 0);
+    final MotionEvent up = MotionEvent.obtain(0, 300, MotionEvent.ACTION_UP, 180, 950, 0);
+    assertFalse(activity.presentation.interceptTouch(down));
+    assertTrue(activity.presentation.interceptTouch(upMove));
+    activity.presentation.onTouch(activity.cardContainer, upMove);
+    activity.presentation.onTouch(activity.cardContainer, reversal);
+    activity.presentation.onTouch(activity.cardContainer, up);
+    assertTrue(activity.presentation.state.expanded);
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(0, activity.dismissCalls);
+    down.recycle();
+    upMove.recycle();
+    reversal.recycle();
+    up.recycle();
+  }
+
+  @Test public void resizingWindowCancelsHandleDragBeforeItsOldCoordinatesCanDismiss() {
+    activity.presentation.environmentChanged();
+    View handle = new View(activity);
+    MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 360, 600, 0);
+    MotionEvent move = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 360, 760, 0);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move);
+    activity.rootLayout.setBottom(700);
+    activity.presentation.environmentChanged();
+    MotionEvent up = MotionEvent.obtain(0, 200, MotionEvent.ACTION_UP, 360, 960, 0);
+    activity.presentation.onTouch(handle, up);
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(0, activity.dismissCalls);
     down.recycle();
     move.recycle();
     up.recycle();
@@ -181,22 +267,95 @@ public class PresentationSafetyTest {
     activity.presentation.state.contentHeightPx = 120;
     activity.presentation.state.measuredWidthPx = 390;
     applyKeyboardInsets(0);
-    assertEquals(120, activity.cardContainer.getLayoutParams().height);
+    assertEquals(144, activity.cardContainer.getLayoutParams().height);
     applyKeyboardInsets(300);
     assertFalse(activity.presentation.state.expanded);
     assertTrue(activity.presentation.state.effectiveExpanded());
     assertEquals(420, activity.cardContainer.getLayoutParams().height);
     applyKeyboardInsets(0);
     assertFalse(activity.presentation.state.effectiveExpanded());
-    assertEquals(120, activity.cardContainer.getLayoutParams().height);
+    assertEquals(144, activity.cardContainer.getLayoutParams().height);
     activity.presentation.state.selectExpanded(true);
     activity.presentation.environmentChanged();
-    assertEquals(696, activity.cardContainer.getLayoutParams().height);
+    assertEquals(720, activity.cardContainer.getLayoutParams().height);
     applyKeyboardInsets(300);
     assertEquals(420, activity.cardContainer.getLayoutParams().height);
     applyKeyboardInsets(0);
     assertTrue(activity.presentation.state.effectiveExpanded());
-    assertEquals(696, activity.cardContainer.getLayoutParams().height);
+    assertEquals(720, activity.cardContainer.getLayoutParams().height);
+  }
+
+  @Test public void attachedCardPaintsToWindowBottomInBothStates() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.rootLayout.setBottom(900);
+    for (boolean expanded : new boolean[] {false, true}) {
+      activity.presentation.state.selectExpanded(expanded);
+      applyKeyboardInsets(0);
+      activity.presentation.environmentChanged();
+      FrameLayout.LayoutParams frame =
+          (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+      assertEquals(900, frame.topMargin + frame.height);
+      assertEquals((expanded ? 720 : 560) + 24, frame.height);
+    }
+  }
+
+  @Test public void keyboardOwnsBottomEdgeAndClosingItRestoresPaintThrough() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.rootLayout.setBottom(900);
+    for (int keyboard : new int[] {0, 12, 24, 300, 24, 12, 0}) {
+      applyKeyboardInsets(keyboard);
+      FrameLayout.LayoutParams frame =
+          (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+      assertEquals(900 - keyboard, frame.topMargin + frame.height);
+    }
+  }
+
+  @Test public void floatingCardDoesNotExtendThroughNavigationBar() throws Exception {
+    activity.rootLayout.setRight(800);
+    activity.rootLayout.setBottom(900);
+    applyKeyboardInsets(0);
+    FrameLayout.LayoutParams frame =
+        (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    assertEquals(560, frame.height);
+    assertEquals(900, frame.topMargin * 2 + frame.height);
+  }
+
+  @Test public void upperFoldPaneCannotExtendAcrossSeparatingHinge() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.rootLayout.setBottom(900);
+    Field hinge = StashPresentationController.class.getDeclaredField("hinge");
+    hinge.setAccessible(true);
+    hinge.set(activity.presentation, new StashCheckoutSizing.Box(0, 550, 390, 570));
+    applyKeyboardInsets(0);
+    FrameLayout.LayoutParams frame =
+        (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    assertEquals(550, frame.topMargin + frame.height);
+    hinge.set(activity.presentation, new StashCheckoutSizing.Box(0, 300, 390, 320));
+    activity.presentation.environmentChanged();
+    frame = (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    assertEquals(900, frame.topMargin + frame.height);
+    assertTrue(frame.topMargin > 320);
+  }
+
+  @Test public void webReceivesOnlyInsetsNotAlreadyHandledByNativeBounds() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.rootLayout.setBottom(900);
+    java.lang.reflect.Method contentInsets = StashPresentationController.class.getDeclaredMethod(
+        "contentInsets", WindowInsetsCompat.class);
+    contentInsets.setAccessible(true);
+    for (int keyboard : new int[] {0, 300, 0}) {
+      applyKeyboardInsets(keyboard);
+      WindowInsetsCompat supplied = new WindowInsetsCompat.Builder()
+          .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 24, 0, 24))
+          .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, keyboard))
+          .build();
+      WindowInsetsCompat content =
+          (WindowInsetsCompat) contentInsets.invoke(activity.presentation, supplied);
+      assertEquals(Insets.NONE, content.getInsets(WindowInsetsCompat.Type.ime()));
+      assertEquals(Insets.NONE, content.getInsets(WindowInsetsCompat.Type.statusBars()));
+      assertEquals(Insets.of(0, 0, 0, keyboard == 0 ? 24 : 0),
+          content.getInsets(WindowInsetsCompat.Type.navigationBars()));
+    }
   }
 
   private void applyKeyboardInsets(int bottom) throws Exception {

@@ -147,6 +147,120 @@ NSDictionary *StashPresentationStateProbe(void) {
     return @{@"shortSingle":@(shortSingle), @"semantic":@(semantic), @"restoredExpanded":@(restoredExpanded),
         @"keyboardOverride":@(keyboardOverride), @"restoredResting":@(restoredResting), @"deferred":@(deferred), @"cancelledPreservesResting":@(cancelledPreservesResting)};
 }
+@interface StashCheckoutSession (ScrollTest)
+- (void)rootScrollPanChanged:(UIPanGestureRecognizer *)gesture;
+@end
+@interface StashScrollProbePan : UIPanGestureRecognizer
+@property (nonatomic) UIGestureRecognizerState probeState;
+@property (nonatomic) CGPoint probeVelocity;
+@end
+@implementation StashScrollProbePan
+- (UIGestureRecognizerState)state { return self.probeState; }
+- (CGPoint)velocityInView:(UIView *)view { return self.probeVelocity; }
+@end
+@interface StashScrollProbeTouch : UITouch
+@property (nonatomic, strong) UIView *origin;
+@end
+@implementation StashScrollProbeTouch
+- (UIView *)view { return self.origin; }
+@end
+
+NSDictionary *StashContentPanPolicyProbe(void) {
+    StashNativeCard *owner = [StashNativeCard new];
+    StashCheckoutSession *session = newSession(owner);
+    UIViewController *presenter = [UIViewController new];
+    presenter.view.frame = CGRectMake(0, 0, 390, 1000);
+    session.presenter = presenter;
+    session.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 390, 560)];
+    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    session.controller = controller; controller.session = session;
+    [controller configurePresentation];
+    StashScrollProbePan *pan = [StashScrollProbePan new];
+    controller.contentPan = pan; [session.webView addGestureRecognizer:pan];
+    UIScrollView *nested = [[UIScrollView alloc] initWithFrame:CGRectMake(0, 0, 390, 500)];
+    nested.contentSize = CGSizeMake(390, 1000);
+    [session.webView.scrollView addSubview:nested];
+    UIView *content = [UIView new]; [nested addSubview:content];
+    StashScrollProbeTouch *touch = [StashScrollProbeTouch new]; touch.origin = content;
+    [controller gestureRecognizer:pan shouldReceiveTouch:touch];
+    session.expanded = YES;
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    pan.probeVelocity = CGPointMake(0, 300);
+    result[@"topPullOwned"] = @([controller gestureRecognizerShouldBegin:pan]);
+    nested.contentOffset = CGPointMake(0, 150);
+    result[@"nestedDownScrolls"] = @(![controller gestureRecognizerShouldBegin:pan]);
+    pan.probeVelocity = CGPointMake(0, -300);
+    result[@"nestedUpScrolls"] = @(![controller gestureRecognizerShouldBegin:pan]);
+    nested.contentOffset = CGPointMake(0, 500);
+    result[@"bottomPullOwned"] = @([controller gestureRecognizerShouldBegin:pan]);
+    pan.probeVelocity = CGPointMake(300, -20);
+    result[@"horizontalPasses"] = @(![controller gestureRecognizerShouldBegin:pan]);
+    nested.contentOffset = CGPointMake(0, 150); pan.probeVelocity = CGPointMake(0, -300);
+    session.expanded = NO;
+    result[@"collapsedUpExpands"] = @([controller gestureRecognizerShouldBegin:pan]);
+    session.keyboardVisible = YES;
+    result[@"keyboardContentScrolls"] = @(![controller gestureRecognizerShouldBegin:pan]);
+    result[@"rootAndNestedObserved"] = @([controller.contentScrollPans containsObject:session.webView.scrollView.panGestureRecognizer] &&
+        [controller.contentScrollPans containsObject:nested.panGestureRecognizer]);
+    UITapGestureRecognizer *tap = [UITapGestureRecognizer new]; [content addGestureRecognizer:tap];
+    result[@"webTapsPreserved"] = @([controller gestureRecognizer:pan shouldRecognizeSimultaneouslyWithGestureRecognizer:tap]);
+    [owner resetPresentationState];
+    return result;
+}
+
+void StashScrollInteractionProbe(void (^completion)(NSDictionary *)) {
+    StashNativeCard *owner = [StashNativeCard new];
+    StashCheckoutSession *session = newSession(owner);
+    UIViewController *presenter = [UIViewController new];
+    presenter.view.frame = CGRectMake(0, 0, 390, 1000);
+    session.presenter = presenter;
+    session.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 390, 560)];
+    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    session.controller = controller; controller.session = session;
+    [controller configurePresentation];
+    controller.touchOriginObserver = [UITapGestureRecognizer new];
+    StashScrollProbeTouch *touch = [StashScrollProbeTouch new];
+    UIView *content = [UIView new]; [session.webView addSubview:content]; touch.origin = content;
+    BOOL recognized = [controller gestureRecognizer:controller.touchOriginObserver shouldReceiveTouch:touch];
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    result[@"bodyBlocks"] = @(!recognized && controller.modalInPresentation &&
+        ![session presentationControllerShouldDismiss:controller.presentationController]);
+    UIPresentationController *browser = [[UIPresentationController alloc]
+        initWithPresentedViewController:[UIViewController new] presentingViewController:controller];
+    result[@"browserPreserved"] = @([session presentationControllerShouldDismiss:browser]);
+    touch.origin = presenter.view;
+    recognized = [controller gestureRecognizer:controller.touchOriginObserver shouldReceiveTouch:touch];
+    result[@"headerAllows"] = @(!recognized && !controller.modalInPresentation &&
+        [session presentationControllerShouldDismiss:controller.presentationController]);
+    session.processing = YES; [controller updateDismissalPolicy];
+    result[@"processingBlocks"] = @(controller.modalInPresentation &&
+        ![session presentationControllerShouldDismiss:controller.presentationController]);
+    session.processing = NO; session.config.allowDismiss = NO; [controller updateDismissalPolicy];
+    result[@"configBlocks"] = @(controller.modalInPresentation &&
+        ![session presentationControllerShouldDismiss:controller.presentationController]);
+    session.config.allowDismiss = YES; [controller updateDismissalPolicy];
+    StashScrollProbePan *webPan = [StashScrollProbePan new], *nativePan = [StashScrollProbePan new];
+    controller.observedPans = [NSMutableArray arrayWithObjects:webPan, nativePan, nil];
+    webPan.probeState = UIGestureRecognizerStateBegan;
+    [session rootScrollPanChanged:webPan];
+    result[@"scrollTracked"] = @(controller.dragging);
+    session.pendingContentHeight = 350; session.pendingNativeWidth = 390; session.hasPendingContentHeight = YES;
+    NSArray *detents = controller.sheetPresentationController.detents;
+    [controller contentHeightDidChange]; [controller updatePresentationAnimated:NO];
+    result[@"detentsDeferred"] = @(controller.deferredContentLayout && session.measuredContentHeight == 0 &&
+        [controller.sheetPresentationController.detents isEqual:detents]);
+    nativePan.probeState = UIGestureRecognizerStateBegan; [controller nativePanChanged:nativePan];
+    nativePan.probeState = UIGestureRecognizerStateCancelled; [controller nativePanChanged:nativePan];
+    result[@"overlapTracked"] = @(controller.dragging && session.hasPendingContentHeight);
+    webPan.probeState = UIGestureRecognizerStateCancelled; [session rootScrollPanChanged:webPan];
+    result[@"cancelledNotCollapsed"] = @(!controller.dragging && !session.expanded);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        result[@"pendingAfterBoth"] = @(!session.hasPendingContentHeight && session.measuredContentHeight == 350 &&
+            !controller.deferredContentLayout && !controller.dragging);
+        [owner resetPresentationState]; completion(result);
+    });
+}
+
 @interface StashNativeCard (SnapshotTest)
 - (void)openURL:(NSString *)url presenter:(UIViewController *)presenter
     config:(StashNativeCardConfig *)config browser:(BOOL)browser;

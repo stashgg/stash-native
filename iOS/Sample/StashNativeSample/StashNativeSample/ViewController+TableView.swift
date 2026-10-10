@@ -20,6 +20,7 @@ extension ViewController {
         switch sectionType {
         case .card: return 3
         case .browser: return 3
+        case .codeLink: return 1
         case .presentationOptions: return 1
         case .other: return 1
         case .about: return 1
@@ -33,6 +34,7 @@ extension ViewController {
         switch sectionType {
         case .card: title = "CARD"
         case .browser: title = "BROWSER"
+        case .codeLink: title = "LINK WEBSHOP"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .other: title = "OTHER"
         case .about: title = "ABOUT"
@@ -69,6 +71,11 @@ extension ViewController {
             return cardSectionCell(for: indexPath)
         case .browser:
             return browserSectionCell(for: indexPath)
+        case .codeLink:
+            let cell = actionCell("Scan QR Code")
+            cell.imageView?.image = UIImage(systemName: "qrcode.viewfinder")
+            cell.accessibilityIdentifier = "code-link-open"
+            return cell
         case .presentationOptions:
             return presentationOptionCell(for: indexPath)
         case .other:
@@ -92,6 +99,8 @@ extension ViewController {
             generateCheckoutForBrowserTapped()
         case .browser where indexPath.row == 2:
             openWebshopForBrowserTapped()
+        case .codeLink:
+            codeLinkTapped()
         case .presentationOptions:
             handlePresentationOptionsSelection(at: indexPath)
         case .checkoutGenerationSettings:

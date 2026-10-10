@@ -100,8 +100,7 @@ public final class StashUrlLauncher {
    * Like {@link #openExternalUrl(Context, String, int)} for an {@link Activity}, but may bind Custom
    * Tabs first so engagement signals ({@code EngagementSignalsCallback}) deliver {@code
    * onSessionEnded} when the tab is closed from floating/minimized UI (where {@code
-   * onActivityResult} can be delayed). Pass a runnable that forwards to {@code
-   * StashNativeCardPlugin.onCustomTabsEngagementSessionEnded}.
+   * onActivityResult} can be delayed). Pass a runnable scoped to the originating browser session.
    */
   public static void openExternalUrl(
       @Nullable Activity activity,

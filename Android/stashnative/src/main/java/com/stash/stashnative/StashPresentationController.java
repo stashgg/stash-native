@@ -22,6 +22,8 @@ import androidx.window.layout.FoldingFeature;
 import androidx.window.layout.WindowInfoTracker;
 import androidx.window.layout.WindowLayoutInfo;
 import java.util.List;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** Owns the sheet's geometry, selection, gestures, keyboard response, and animations. */
 final class StashPresentationController implements View.OnTouchListener {
@@ -32,6 +34,9 @@ final class StashPresentationController implements View.OnTouchListener {
   private int keyboardBottom;
   private StashCheckoutSizing.Box hinge;
   private boolean verticalHinge;
+  private String foldState;
+  private String foldOrientation;
+  private Boolean foldSeparating;
   private WindowInfoTrackerCallbackAdapter windowTracker;
   private final Consumer<WindowLayoutInfo> windowListener = this::onWindowLayout;
   private android.view.ViewTreeObserver.OnGlobalLayoutListener legacyKeyboardListener;
@@ -41,10 +46,13 @@ final class StashPresentationController implements View.OnTouchListener {
   private boolean disposed;
   private StashCheckoutSizing.Layout layout;
   private StashCheckoutSizing.Box shownFrame;
+  private int appliedBottomInset = -1;
   private float touchX;
   private float touchY;
   private boolean dragging;
   private boolean gestureCancelled;
+  private boolean headerGesture;
+  private boolean contentExpansion;
   private int dragHeight;
   private VelocityTracker velocity;
 
@@ -66,6 +74,8 @@ final class StashPresentationController implements View.OnTouchListener {
           applyInsets(insets);
           return insets;
         });
+    ViewCompat.setOnApplyWindowInsetsListener(
+        activity.cardContainer, (view, insets) -> contentInsets(insets));
     ViewCompat.setWindowInsetsAnimationCallback(
         activity.rootLayout,
         new WindowInsetsAnimationCompat.Callback(
@@ -121,9 +131,16 @@ final class StashPresentationController implements View.OnTouchListener {
 
   private void onWindowLayout(WindowLayoutInfo info) {
     hinge = null;
+    foldState = null;
+    foldOrientation = null;
+    foldSeparating = null;
     for (DisplayFeature feature : info.getDisplayFeatures()) {
       if (feature instanceof FoldingFeature) {
         FoldingFeature fold = (FoldingFeature) feature;
+        foldState = fold.getState() == FoldingFeature.State.HALF_OPENED ? "halfOpened" : "flat";
+        foldOrientation = fold.getOrientation() == FoldingFeature.Orientation.VERTICAL
+            ? "vertical" : "horizontal";
+        foldSeparating = fold.isSeparating();
         if (fold.isSeparating() || fold.getOcclusionType() == FoldingFeature.OcclusionType.FULL) {
           Rect bounds = fold.getBounds();
           int[] rootLocation = new int[2];
@@ -140,6 +157,24 @@ final class StashPresentationController implements View.OnTouchListener {
       }
     }
     environmentChanged();
+  }
+
+  JSONObject telemetry() throws JSONException {
+    float scale = density();
+    return StashTelemetrySupport.emptyPresentation()
+        .put("state", state.expanded ? "expanded" : "resting")
+        .put("keyboardVisible", state.keyboardVisible)
+        .put("window", StashTelemetrySupport.dimensions(
+            activity.rootLayout.getWidth() / scale, activity.rootLayout.getHeight() / scale))
+        .put("card", StashTelemetrySupport.dimensions(
+            activity.cardContainer.getWidth() / scale, activity.cardContainer.getHeight() / scale))
+        .put("safeAreaInsets", new JSONObject()
+            .put("top", bars.top / scale).put("right", bars.right / scale)
+            .put("bottom", bars.bottom / scale).put("left", bars.left / scale))
+        .put("fold", new JSONObject()
+            .put("state", foldState == null ? JSONObject.NULL : foldState)
+            .put("orientation", foldOrientation == null ? JSONObject.NULL : foldOrientation)
+            .put("separating", foldSeparating == null ? JSONObject.NULL : foldSeparating));
   }
 
   private StashCheckoutSizing.Layout resolve() {
@@ -159,12 +194,27 @@ final class StashPresentationController implements View.OnTouchListener {
             activity.rootLayout.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL);
     StashCheckoutSizing.Layout base =
         StashCheckoutSizing.resolve(pane, density(), options, state.effectiveExpanded(), 0);
-    return StashCheckoutSizing.resolve(
+    StashCheckoutSizing.Layout resolved = StashCheckoutSizing.resolve(
         pane,
         density(),
         options,
         state.effectiveExpanded(),
         state.contentForWidth(base.frame.width()));
+    // Only the pane adjoining the window bottom can paint behind its navigation bar.
+    int extension = pane.bottom == safe.bottom
+        ? Math.max(0, height - keyboardBottom - pane.bottom) : 0;
+    return StashCheckoutSizing.extendBottom(resolved, extension);
+  }
+
+  private WindowInsetsCompat contentInsets(WindowInsetsCompat insets) {
+    // Native bounds already avoid the status bar, caption, cutouts, and keyboard.
+    // Forward only the bottom area that the WebView actually paints through.
+    int bottom = layout == null ? 0 : layout.bottomInset;
+    return new WindowInsetsCompat.Builder(insets)
+        .setInsets(WindowInsetsCompat.Type.systemBars()
+            | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime(), Insets.NONE)
+        .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, bottom))
+        .build();
   }
 
   void environmentChanged() {
@@ -178,6 +228,7 @@ final class StashPresentationController implements View.OnTouchListener {
     StashCheckoutSizing.Layout next = resolve();
     final boolean widthChanged = layout != null && layout.frame.width() != next.frame.width();
     cancelAnimation();
+    gestureCancelled = true;
     dragging = false;
     layout = next;
     applyFrame(next.frame);
@@ -199,6 +250,12 @@ final class StashPresentationController implements View.OnTouchListener {
     }
     state.selectExpanded(expanded);
     relayoutAnimated();
+  }
+
+  boolean contentHasResolvedSize(View content) {
+    return shownFrame != null
+        && content.getWidth() == shownFrame.width()
+        && content.getHeight() == shownFrame.height();
   }
 
   void contentChanged(double height, int width) {
@@ -253,6 +310,20 @@ final class StashPresentationController implements View.OnTouchListener {
     p.topMargin = frame.top;
     activity.cardContainer.setLayoutParams(p);
     activity.cardContainer.setBottomAttached(layout != null && layout.bottomAttached);
+    int bottomInset = layout == null ? 0 : layout.bottomInset;
+    if (activity.codeLinkSupport != null) {
+      activity.codeLinkSupport.view.setBottomInset(bottomInset);
+    }
+    if (appliedBottomInset != bottomInset) {
+      appliedBottomInset = bottomInset;
+      ViewCompat.requestApplyInsets(activity.cardContainer);
+      androidx.core.view.WindowInsetsControllerCompat controller =
+          StashWindowCompat.getInsetsController(activity.getWindow(), activity.rootLayout);
+      if (controller != null) {
+        controller.setAppearanceLightNavigationBars(
+            bottomInset > 0 && !activity.effectiveIsDarkForContent);
+      }
+    }
   }
 
   void dismiss(Runnable completion) {
@@ -321,15 +392,27 @@ final class StashPresentationController implements View.OnTouchListener {
   }
 
   private boolean canDrag() {
-    return !activity.isPurchaseProcessing && !activity.isDismissing && !disposed;
+    return !activity.isInteractionLocked() && !activity.isDismissing && !disposed;
   }
 
   boolean interceptTouch(MotionEvent event) {
-    if (!canDrag()) {
+    if (!canDrag() || layout == null) {
       return false;
     }
     if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
       beginTouch(event);
+      return false;
+    }
+    // The handle owns its complete touch sequence, including direction reversals.
+    if (headerGesture) {
+      return false;
+    }
+    if (contentExpansion) {
+      return true;
+    }
+    if (event.getActionMasked() == MotionEvent.ACTION_UP
+        || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+      finishTouch();
       return false;
     }
     if (ignoreMultiplePointers(event)) {
@@ -338,16 +421,18 @@ final class StashPresentationController implements View.OnTouchListener {
     if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
       float delta = event.getRawY() - touchY;
       boolean vertical = Math.abs(delta) > Math.abs(event.getRawX() - touchX);
-      boolean atTop = activity.webView == null || !activity.webView.canScrollVertically(-1);
-      if (vertical
-          && Math.abs(delta) > ViewConfiguration.get(activity).getScaledTouchSlop()
-          && ((delta < 0 && !state.effectiveExpanded()) || (delta > 0 && atTop))) {
-        dragging = true;
-        cancelAnimation();
+      if (layout.bottomAttached
+          && !state.effectiveExpanded()
+          && layout.expandedHeight > layout.restingHeight
+          && vertical
+          && -delta > ViewConfiguration.get(activity).getScaledTouchSlop()) {
+        // Content can request expansion, but never drags or dismisses the surface.
+        contentExpansion = true;
+        setExpanded(true);
         return true;
       }
     }
-    return dragging;
+    return false;
   }
 
   private void beginTouch(MotionEvent event) {
@@ -356,11 +441,23 @@ final class StashPresentationController implements View.OnTouchListener {
     dragHeight = shownFrame == null ? 0 : shownFrame.height();
     dragging = false;
     gestureCancelled = false;
+    headerGesture = false;
+    contentExpansion = false;
     if (velocity != null) {
       velocity.recycle();
     }
     velocity = VelocityTracker.obtain();
     velocity.addMovement(event);
+  }
+
+  private void finishTouch() {
+    dragging = false;
+    headerGesture = false;
+    contentExpansion = false;
+    if (velocity != null) {
+      velocity.recycle();
+      velocity = null;
+    }
   }
 
   private boolean ignoreMultiplePointers(MotionEvent event) {
@@ -392,10 +489,27 @@ final class StashPresentationController implements View.OnTouchListener {
     }
     if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
       beginTouch(event);
-      cancelAnimation();
+      headerGesture = view != activity.cardContainer;
+      if (headerGesture) {
+        view.setPressed(true);
+        view.drawableHotspotChanged(event.getX(), event.getY());
+        cancelAnimation();
+      }
+      return true;
+    }
+    boolean ended = event.getActionMasked() == MotionEvent.ACTION_UP
+        || event.getActionMasked() == MotionEvent.ACTION_CANCEL;
+    if (contentExpansion || !headerGesture) {
+      if (ended) {
+        finishTouch();
+      }
       return true;
     }
     if (ignoreMultiplePointers(event)) {
+      view.setPressed(false);
+      if (ended) {
+        finishTouch();
+      }
       return true;
     }
     if (velocity != null) {
@@ -403,6 +517,10 @@ final class StashPresentationController implements View.OnTouchListener {
     }
     float delta = event.getRawY() - touchY;
     if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
+      if (!dragging && Math.abs(delta) <= ViewConfiguration.get(activity).getScaledTouchSlop()) {
+        return true;
+      }
+      view.setPressed(false);
       dragging = true;
       int height =
           Math.max(
@@ -413,8 +531,8 @@ final class StashPresentationController implements View.OnTouchListener {
           options.allowDismiss ? Math.max(0, delta - (dragHeight - height)) : 0);
       return true;
     }
-    if (event.getActionMasked() == MotionEvent.ACTION_UP
-        || event.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+    if (ended) {
+      view.setPressed(false);
       float speed = 0;
       if (velocity != null) {
         velocity.computeCurrentVelocity(1000);
@@ -424,10 +542,11 @@ final class StashPresentationController implements View.OnTouchListener {
       }
       boolean cancel = event.getActionMasked() == MotionEvent.ACTION_CANCEL;
       if (!cancel && !dragging) {
+        finishTouch();
         view.performClick();
         return true;
       }
-      dragging = false;
+      finishTouch();
       float translation = activity.cardContainer.getTranslationY();
       if (!cancel
           && options.allowDismiss
@@ -451,6 +570,9 @@ final class StashPresentationController implements View.OnTouchListener {
   void dispose() {
     disposed = true;
     cancelAnimation();
+    if (activity.cardContainer != null) {
+      ViewCompat.setOnApplyWindowInsetsListener(activity.cardContainer, null);
+    }
     if (velocity != null) {
       velocity.recycle();
       velocity = null;

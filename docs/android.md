@@ -26,9 +26,17 @@ The opt-in keep-alive service uses a short foreground notification during extern
 
 ## Dependencies
 
-The SDK builds with JDK 17, Java 8 source compatibility, compile SDK 34, and minimum API 21. Required libraries are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0 and `window-java:1.4.0`. The WindowManager graph includes Kotlin stdlib, coroutines, window-core, collections, and annotations. Browser 1.7.0 remains optional. Sample UI dependencies are not SDK runtime dependencies.
+The SDK builds with JDK 17, Java 8 source compatibility, compile SDK 34, and minimum API 21. Required libraries are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0 and `window-java:1.4.0`, CameraX camera-camera2/camera-lifecycle/camera-view 1.4.2, and ZXing core 3.5.3. These CameraX versions preserve the SDK's API 21 and compile SDK 34 baseline. The WindowManager graph includes Kotlin stdlib, coroutines, window-core, collections, and annotations. Browser 1.7.0 remains optional. Sample UI dependencies are not SDK runtime dependencies.
 
 Standalone AAR consumers must declare these dependencies themselves. Inspect the resolved graph when changing versions; WindowManager 1.5.x requires API 23. Preserve narrow consumer shrinking rules and test packaged AAR consumers, including absent/older optional Browser versions.
+
+## CodeLink
+
+CodeLink uses the same activity, sheet layout, sizing, and presentation controller as checkout. It always follows the host orientation, including landscape-only games. `StashCodeLinkSupport` owns a camera lifecycle and binds only its own CameraX preview and analysis use cases; it never calls `unbindAll`. `PreviewView` uses its texture implementation so the camera obeys the card's clipping and transformations. Preview and analysis share a viewport, and scan coordinates are remapped after rotation or resizing. Late frames from earlier geometry are discarded.
+
+Only the scan frame is decoded, using the Y plane on a serial executor. Reconstructed QR corners must fit inside that region. QR decoding is local and has no Play Services or model-download requirement. The library declares optional camera hardware and `CAMERA`; only CodeLink requests permission. Camera errors leave the card open and report `onCodeLinkError` once per session. Denied permission offers Settings and resumes scanning after access is granted.
+
+The first nonempty QR payload stops capture and shows the white checkmark and Connected confirmation. `onQrCodeScanned` runs after dismissal and cleanup; no payment or dismissal callback accompanies a successful scan. Explicit dismissal cancels a pending scan callback, and reset stays silent. The confirmation pauses while the activity is backgrounded and respects disabled animations and accessibility reading time. Both the error and result events retain the existing session-tagged callback transport.
 
 ## Validation
 

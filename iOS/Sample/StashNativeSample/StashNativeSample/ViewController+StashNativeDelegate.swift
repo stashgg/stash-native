@@ -12,6 +12,15 @@ import StashNative
 
 extension ViewController: StashNativeCardDelegate {
 
+    func stashNativeCardDidScanQRCode(_ content: String) {
+        addCallbackChip("CodeLink · \(content)")
+        flushPendingAlertsIfPossible()
+    }
+
+    func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
+        addCallbackChip("CodeLink · \(error.localizedDescription)")
+    }
+
     func stashNativeCardDidCompletePayment(withOrder order: String?) {
         let label: String
         if let order, !order.isEmpty {

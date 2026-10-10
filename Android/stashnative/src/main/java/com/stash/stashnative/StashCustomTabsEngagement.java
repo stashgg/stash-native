@@ -22,18 +22,17 @@ import java.lang.ref.WeakReference;
 /**
  * Binds Custom Tabs, attaches a {@link CustomTabsSession} (so navigation / engagement callbacks
  * work), and launches with {@link Activity#startActivityForResult}. Uses {@link
- * EngagementSignalsCallback} when Chrome exposes it, and {@link CustomTabsCallback} {@code
- * NAVIGATION_ABORTED} as a fallback when {@code onActivityResult} is delayed (e.g. floating tab).
+ * EngagementSignalsCallback} when Chrome exposes it; the proxy owns activity-result and resume
+ * fallback handling. Navigation cancellation does not establish that a tab has closed.
  */
 public final class StashCustomTabsEngagement {
 
   private static final String TAG = "StashCustomTabs";
   /** Slow devices / OEM Chrome can connect late; short timeouts caused session-less fallback. */
   private static final long BIND_TIMEOUT_MS = 2500L;
-  private static final long NAV_ABORT_NOTIFY_DELAY_MS = 400L;
 
   private static final Object LOCK = new Object();
-  private static CustomTabsServiceConnection activeConnection;
+  private static EngagementConnection activeConnection;
   private static Context bindContext;
 
   private StashCustomTabsEngagement() {}
@@ -85,6 +84,9 @@ public final class StashCustomTabsEngagement {
               Log.w(TAG, "Custom Tabs bind timeout; falling back");
               unbindIfBoundLocked(appCtx);
             }
+            if (activity.isFinishing() || activity.isDestroyed()) {
+              return;
+            }
             launchCallback.onLaunchMode(
                 StashUrlLauncher.openExternalUrl(activity, uri.toString(), requestCode));
           };
@@ -107,6 +109,7 @@ public final class StashCustomTabsEngagement {
 
   private static void unbindIfBoundLocked(Context appCtx) {
     if (activeConnection != null && bindContext != null) {
+      activeConnection.cancel();
       try {
         bindContext.unbindService(activeConnection);
       } catch (Throwable t) {
@@ -115,61 +118,6 @@ public final class StashCustomTabsEngagement {
     }
     activeConnection = null;
     bindContext = null;
-  }
-
-  /**
-   * Chrome does not always deliver {@link EngagementSignalsCallback#onSessionEnded} (e.g. some OEM
-   * builds). {@link CustomTabsCallback#onNavigationEvent} can still report {@code
-   * NAVIGATION_ABORTED} after a successful load when the user dismisses the tab, including from
-   * floating UI.
-   */
-  private static CustomTabsCallback newSessionNavigationCallback(
-      Activity activity, Runnable engagementSessionEnded, Handler main) {
-    WeakReference<Activity> actRef = new WeakReference<>(activity);
-    final Runnable notify =
-        () -> {
-          Activity a = actRef.get();
-          if (a == null || a.isFinishing()) {
-            return;
-          }
-          try {
-            engagementSessionEnded.run();
-          } catch (Throwable t) {
-            Log.w(TAG, "navigation abort notify: " + t.getMessage());
-          }
-          unbindIfBound(a.getApplicationContext());
-        };
-    return new CustomTabsCallback() {
-      private boolean sawNavigationStarted;
-      private boolean sawNavigationFinished;
-
-      @Override
-      public void onNavigationEvent(int navigationEvent, Bundle extras) {
-        switch (navigationEvent) {
-          case NAVIGATION_STARTED:
-            sawNavigationStarted = true;
-            // A real navigation supersedes any pending abort-notify (e.g. JS/3DS redirect).
-            main.removeCallbacks(notify);
-            return;
-          case NAVIGATION_FINISHED:
-            sawNavigationFinished = true;
-            main.removeCallbacks(notify);
-            return;
-          case NAVIGATION_ABORTED:
-            if (!sawNavigationStarted && !sawNavigationFinished) {
-              return;
-            }
-            main.removeCallbacks(notify);
-            long delay =
-                sawNavigationFinished
-                    ? NAV_ABORT_NOTIFY_DELAY_MS
-                    : NAV_ABORT_NOTIFY_DELAY_MS + 400L;
-            main.postDelayed(notify, delay);
-            return;
-          default:
-        }
-      }
-    };
   }
 
   private static CustomTabsIntent buildStyledIntent(CustomTabsSession session) {
@@ -212,28 +160,44 @@ public final class StashCustomTabsEngagement {
       this.timeoutRunnable = timeoutRunnable;
     }
 
+    private boolean isActive() {
+      synchronized (LOCK) {
+        return !superseded && activeConnection == this;
+      }
+    }
+
+    private void cancel() {
+      superseded = true;
+      if (timeoutRunnable != null) {
+        main.removeCallbacks(timeoutRunnable);
+        timeoutRunnable = null;
+      }
+    }
+
+    private void releaseConnection() {
+      synchronized (LOCK) {
+        if (activeConnection == this) {
+          unbindIfBoundLocked(bindContext);
+        }
+      }
+    }
+
     @Override
     public void onCustomTabsServiceConnected(ComponentName name, CustomTabsClient client) {
       if (timeoutRunnable != null) {
         main.removeCallbacks(timeoutRunnable);
         timeoutRunnable = null;
       }
-      if (superseded) {
+      if (!isActive()) {
         return;
       }
       Activity activity = activityRef.get();
-      if (activity == null || activity.isFinishing()) {
-        synchronized (LOCK) {
-          if (activeConnection == this) {
-            unbindIfBoundLocked(bindContext);
-          }
-        }
+      if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+        releaseConnection();
         return;
       }
       try {
-        CustomTabsCallback navCallback =
-            newSessionNavigationCallback(activity, engagementSessionEnded, main);
-        CustomTabsSession session = client.newSession(navCallback);
+        CustomTabsSession session = client.newSession(new CustomTabsCallback());
         Bundle extras = Bundle.EMPTY;
         boolean engagementAvail = false;
         try {
@@ -250,12 +214,15 @@ public final class StashCustomTabsEngagement {
                   public void onSessionEnded(boolean didInteract, Bundle bundle) {
                     main.post(
                         () -> {
+                          if (!isActive()) {
+                            return;
+                          }
+                          releaseConnection();
                           try {
                             engagementSessionEnded.run();
                           } catch (Throwable t) {
                             Log.w(TAG, "engagementSessionEnded: " + t.getMessage());
                           }
-                          unbindIfBound(activity.getApplicationContext());
                         });
                   }
                 },
@@ -268,10 +235,16 @@ public final class StashCustomTabsEngagement {
         Intent intent = new Intent(cti.intent);
         intent.setData(uri);
         launchCallback.onLaunchMode(StashUrlLauncher.OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT);
+        if (!isActive() || activity.isFinishing() || activity.isDestroyed()) {
+          return;
+        }
         activity.startActivityForResult(intent, requestCode);
       } catch (Throwable t) {
         Log.w(TAG, "Engagement launch failed: " + t.getMessage());
-        unbindIfBound(activity.getApplicationContext());
+        if (!isActive()) {
+          return;
+        }
+        releaseConnection();
         launchCallback.onLaunchMode(
             StashUrlLauncher.openExternalUrl(activity, uri.toString(), requestCode));
       }
@@ -281,6 +254,7 @@ public final class StashCustomTabsEngagement {
     public void onServiceDisconnected(ComponentName name) {
       synchronized (LOCK) {
         if (activeConnection == this) {
+          cancel();
           activeConnection = null;
           bindContext = null;
         }

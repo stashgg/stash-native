@@ -97,6 +97,7 @@ public class StashNativeCardPlugin {
    * the dedup gate between proxy {@code onActivityResult} and the engagement-session-ended path.
    */
   private boolean browserCloseAwaitingCctResult;
+  private long browserSessionId;
 
   /**
    * When set (checkout), run on the main thread after {@code onBrowserClosed} so checkout can
@@ -195,6 +196,8 @@ public class StashNativeCardPlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
+    filter.addAction(CardConstants.BROADCAST_CODE_LINK_SCANNED);
+    filter.addAction(CardConstants.BROADCAST_CODE_LINK_ERROR);
     try {
       // Use platform API directly to avoid requiring androidx.core >= 1.9 (4-arg
       // ContextCompat.registerReceiver). Hosts with old androidx.core (e.g. Unity
@@ -223,6 +226,13 @@ public class StashNativeCardPlugin {
     }
     StashNativeCard.StashNativeCardListener l = getListener();
     try {
+      if (CardConstants.BROADCAST_CODE_LINK_ERROR.equals(action)) {
+        if (l != null) {
+          l.onCodeLinkError(StashNativeCard.CodeLinkError.valueOf(
+              intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR)));
+        }
+        return;
+      }
       if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
         if (l != null) {
           String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
@@ -258,6 +268,8 @@ public class StashNativeCardPlugin {
         l.onNetworkError();
       } else if (CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(action)) {
         l.onDialogDismissed();
+      } else if (CardConstants.BROADCAST_CODE_LINK_SCANNED.equals(action)) {
+        l.onQrCodeScanned(intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT));
       }
     } catch (Exception e) {
       Log.w(TAG, "Error dispatching checkout bridge: " + e.getMessage(), e);
@@ -343,6 +355,8 @@ public class StashNativeCardPlugin {
   }
 
   void cancelBrowserCloseTrackingLaunch() {
+    browserSessionId++;
+    isBrowserSessionActive = false;
     if (browserCloseTrackingArmRunnable != null) {
       mainHandler.removeCallbacks(browserCloseTrackingArmRunnable);
       browserCloseTrackingArmRunnable = null;
@@ -364,12 +378,17 @@ public class StashNativeCardPlugin {
    * Drops checkout external-browser teardown without running the pending runnable (e.g. user
    * dismissed the dim overlay while Custom Tabs callbacks are missing).
    */
-  void abandonPendingExternalBrowserCheckoutDismiss() {
+  void abandonPendingExternalBrowserCheckoutDismiss(StashCheckoutActivity checkout) {
+    if (!ownsCheckout(checkout) || pendingCheckoutDismissAfterExternalBrowser == null) {
+      return;
+    }
     pendingCheckoutDismissAfterExternalBrowser = null;
     cancelBrowserCloseTrackingLaunch();
   }
 
   private void invokeBrowserClosedListenerAndDismissCheckout() {
+    Runnable dismiss = pendingCheckoutDismissAfterExternalBrowser;
+    pendingCheckoutDismissAfterExternalBrowser = null;
     StashNativeCard.StashNativeCardListener l = getListener();
     if (l != null) {
       try {
@@ -378,7 +397,23 @@ public class StashNativeCardPlugin {
         Log.w(TAG, "Error in onBrowserClosed: " + e.getMessage(), e);
       }
     }
-    executePendingCheckoutDismiss();
+    if (dismiss != null) {
+      mainHandler.post(dismiss);
+    }
+  }
+
+  private boolean ownsCheckout(StashCheckoutActivity checkout) {
+    return checkout != null && checkout == getCheckoutActivity()
+        && checkout.getPresentationSessionId() == presentationSessionId
+        && !checkout.isDismissing && !checkout.isFinishing() && !checkout.isDestroyed();
+  }
+
+  private Runnable forCheckout(StashCheckoutActivity checkout, Runnable action) {
+    return () -> {
+      if (ownsCheckout(checkout) && action != null) {
+        action.run();
+      }
+    };
   }
 
   /**
@@ -389,31 +424,40 @@ public class StashNativeCardPlugin {
    * immediately if the URL cannot be opened.
    */
   void openExternalBrowserFromCheckout(
-      Activity checkoutActivity,
+      StashCheckoutActivity checkoutActivity,
       String url,
       boolean notifyExternalPaymentListener,
       Runnable hideCheckoutChromeWhileBrowserOpen,
       Runnable dismissAfterBrowserClosed) {
-    if (checkoutActivity == null || url == null || url.isEmpty()) {
-      cancelBrowserCloseTrackingLaunch();
-      if (dismissAfterBrowserClosed != null) {
-        mainHandler.post(dismissAfterBrowserClosed);
-      }
+    if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)
+        || url == null || url.isEmpty()) {
       return;
     }
+    checkoutActivity.callbackSent = true;
+    checkoutActivity.isPurchaseProcessing = false;
     isCurrentlyPresented = false;
+    long browserBeforeCallback = browserSessionId;
     if (notifyExternalPaymentListener) {
       StashNativeCard.StashNativeCardListener l = getListener();
       if (l != null) {
-        l.onExternalPayment(url);
+        try {
+          l.onExternalPayment(url);
+        } catch (Exception e) {
+          Log.w(TAG, "Error in onExternalPayment: " + e.getMessage(), e);
+        }
       }
     }
-    pendingCheckoutDismissAfterExternalBrowser = dismissAfterBrowserClosed;
+    // The host may reset or open another checkout from its callback.
+    if (!ownsCheckout(checkoutActivity) || browserSessionId != browserBeforeCallback) {
+      return;
+    }
+    pendingCheckoutDismissAfterExternalBrowser =
+        forCheckout(checkoutActivity, dismissAfterBrowserClosed);
     try {
       startKeepAliveBeforeBrowser(checkoutActivity);
       launchExternalBrowser(checkoutActivity, url);
       if (hideCheckoutChromeWhileBrowserOpen != null) {
-        mainHandler.post(hideCheckoutChromeWhileBrowserOpen);
+        mainHandler.post(forCheckout(checkoutActivity, hideCheckoutChromeWhileBrowserOpen));
       }
     } catch (Exception e) {
       cancelBrowserCloseTrackingLaunch();
@@ -482,16 +526,9 @@ public class StashNativeCardPlugin {
     }
   }
 
-  /**
-   * Called when Chrome reports the Custom Tab session ended via engagement signals (including
-   * dismiss from floating/minimized UI).
-   */
-  void onCustomTabsEngagementSessionEnded() {
-    if (!browserCloseAwaitingCctResult) {
-      return;
-    }
-    cancelBrowserCloseTrackingLaunch();
-    invokeBrowserClosedListenerAndDismissCheckout();
+  /** Correlates proxy results and engagement callbacks with the current browser launch. */
+  boolean isCurrentBrowserSession(long sessionId) {
+    return browserCloseAwaitingCctResult && sessionId == browserSessionId;
   }
 
   /**
@@ -500,22 +537,22 @@ public class StashNativeCardPlugin {
    * {@link StashNativeCard.StashNativeCardListener#onBrowserClosed()} via the shared close-tracking
    * gate.
    */
-  void notifyBrowserClosedFromProxyInternal() {
+  void notifyBrowserClosedFromProxyInternal(long sessionId) {
+    if (!isCurrentBrowserSession(sessionId)) {
+      return;
+    }
     Activity hostOrNull = getActivity();
     Context unbindCtx = hostOrNull != null ? hostOrNull : registeredAppContext;
     if (unbindCtx != null) {
       StashUrlLauncher.unbindCustomTabsEngagement(unbindCtx);
-    }
-    if (!browserCloseAwaitingCctResult) {
-      return;
     }
     cancelBrowserCloseTrackingLaunch();
     invokeBrowserClosedListenerAndDismissCheckout();
   }
 
   /** Bridge from {@link StashNativeBrowserProxyActivity}'s engagement-session-ended callback. */
-  void notifyBrowserEngagementSessionEndedFromProxyInternal() {
-    onCustomTabsEngagementSessionEnded();
+  void notifyBrowserEngagementSessionEndedFromProxyInternal(long sessionId) {
+    notifyBrowserClosedFromProxyInternal(sessionId);
   }
 
   /**
@@ -531,6 +568,7 @@ public class StashNativeCardPlugin {
       beginBrowserCloseTrackingActivityResult();
       Intent intent = new Intent(activity, StashNativeBrowserProxyActivity.class);
       intent.putExtra(StashNativeBrowserProxyActivity.EXTRA_URL, url);
+      intent.putExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, browserSessionId);
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
       activity.startActivity(intent);
       return;
@@ -566,6 +604,22 @@ public class StashNativeCardPlugin {
 
   void openCard(Activity host, String url, StashNativeCard.CardConfig config) {
     openPresentation(host, url, StashPresentationOptions.card(config));
+  }
+
+  void codeLink(Activity host) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(() -> codeLink(host));
+      return;
+    }
+    if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()) {
+      return;
+    }
+    setActivity(host);
+    cleanupAllViews();
+    presentationSessionId++;
+    isCurrentlyPresented = true;
+    presentationOptions = StashPresentationOptions.card(null);
+    launchCheckoutActivity(null, host);
   }
 
   private void openPresentation(Activity host, String url, StashPresentationOptions options) {
@@ -685,6 +739,9 @@ public class StashNativeCardPlugin {
       Activity activity = getActivity();
       appContext = activity != null ? activity.getApplicationContext() : null;
     }
+    if (appContext != null) {
+      StashUrlLauncher.unbindCustomTabsEngagement(appContext);
+    }
     if (checkoutBridgeReceiverRegistered && appContext != null && checkoutBridgeReceiver != null) {
       try {
         appContext.unregisterReceiver(checkoutBridgeReceiver);
@@ -794,6 +851,7 @@ public class StashNativeCardPlugin {
     try {
       Intent intent = new Intent(activity, StashCheckoutActivity.class);
       intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
+      intent.putExtra(CardConstants.INTENT_EXTRA_CODE_LINK, url == null);
       intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, presentationSessionId);
       presentationOptions.put(intent);
       intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);

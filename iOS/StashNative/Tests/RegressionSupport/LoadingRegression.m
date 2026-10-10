@@ -388,7 +388,7 @@ NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGF
     [session presentCheckout]; [session.webView stopLoading];
     session.loaded = YES; session.initialContentRevealed = YES;
     StashCheckoutViewController *controller = session.controller;
-    [controller.spinner stopAnimating]; controller.loadingCover.hidden = YES;
+    [controller revealInitialContentAnimated:NO];
     controller.view.frame = CGRectMake(30, 50, 390, [controller contentHeightForMaximum:800 expanded:NO]);
     [controller viewDidLayoutSubviews]; controller.previousWidth = session.webView.bounds.size.width;
     return @{@"owner":owner, @"session":session, @"controller":controller, @"web":session.webView};
@@ -402,6 +402,8 @@ static BOOL StashLoadingSamePaint(UIColor *left, UIColor *right) {
 
 NSDictionary *StashLoadingCoverBackgroundProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    BOOL glass = NO;
+    if (@available(iOS 26.0, *)) glass = YES;
     UIWindow *previous = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
         if ([scene isKindOfClass:UIWindowScene.class])
@@ -422,13 +424,19 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         UIColor *initial = dark ? UIColor.blackColor : UIColor.whiteColor;
         UIColor *page = dark ? UIColor.whiteColor : UIColor.blackColor;
         session.webView.underPageBackgroundColor = initial;
-        cover.backgroundColor = initial;
+        UIColor *loading = cover.backgroundColor;
         session.webView.underPageBackgroundColor = page;
         BOOL stable = cover && cover == session.controller.loadingCover && cover.alpha == 1 &&
-            [cover.backgroundColor isEqual:initial] && !session.initialContentRevealed;
-        BOOL follows = StashLoadingSamePaint(session.controller.view.backgroundColor, page) &&
+            [cover.backgroundColor isEqual:loading] && !session.initialContentRevealed;
+        BOOL follows = StashLoadingSamePaint(session.controller.view.backgroundColor, glass ? UIColor.clearColor : page) &&
             StashLoadingSamePaint(session.webView.scrollView.backgroundColor, page);
-        result[[NSString stringWithFormat:@"%@-%@", @"native", dark ? @"dark" : @"light"]] = @(stable && follows);
+        BOOL concealed = session.webView.alpha == (glass ? 0 : 1) && !session.webView.userInteractionEnabled &&
+            session.webView.accessibilityElementsHidden;
+        [session.controller revealInitialContentAnimated:NO];
+        BOOL revealed = session.webView.alpha == 1 && !session.controller.loadingCover &&
+            !session.controller.glassLoading && StashLoadingSamePaint(session.controller.view.backgroundColor, page) &&
+            session.webView.userInteractionEnabled && !session.webView.accessibilityElementsHidden;
+        result[[NSString stringWithFormat:@"%@-%@", @"native", dark ? @"dark" : @"light"]] = @(stable && follows && concealed && revealed);
         [session cleanup]; owner.session = nil;
     }
     StashNativeCard *shared = [StashNativeCard sharedInstance];
@@ -453,11 +461,28 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         BOOL notLoaded = !controller.isViewLoaded;
         [controller loadViewIfNeeded];
         UIView *cover = controller.loadingCover;
+        BOOL nativeMaterial = YES;
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260100
+        if (@available(iOS 26.1, *)) {
+            for (UISheetPresentationControllerDetent *detent in controller.sheetPresentationController.detents)
+                nativeMaterial &= [controller usesFloatingNativeSizing]
+                    ? [detent.backgroundEffect isKindOfClass:UIBlurEffect.class] : detent.backgroundEffect == nil;
+        }
+#endif
         BOOL covered = notLoaded && cover && cover.alpha == 1 && !session.initialContentRevealed &&
             stash_effectiveThemeIsDark() == (dark != 0) &&
-            StashLoadingSamePaint(cover.backgroundColor, initial) && !StashLoadingSamePaint(initial, page);
-        BOOL contentPaint = StashLoadingSamePaint(controller.view.backgroundColor, edge);
-        result[[NSString stringWithFormat:@"construction-%@-%@", @"native", dark ? @"dark" : @"light"]] = @(covered && contentPaint);
+            StashLoadingSamePaint(cover.backgroundColor, glass ? UIColor.clearColor : initial) &&
+            session.webView.alpha == (glass ? 0 : 1) && !StashLoadingSamePaint(initial, page);
+        BOOL contentPaint = StashLoadingSamePaint(controller.view.backgroundColor, glass ? UIColor.clearColor : edge);
+        [controller revealInitialContentAnimated:NO];
+        contentPaint &= StashLoadingSamePaint(controller.view.backgroundColor, edge) && session.webView.alpha == 1;
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260100
+        if (@available(iOS 26.1, *)) {
+            for (UISheetPresentationControllerDetent *detent in controller.sheetPresentationController.detents)
+                nativeMaterial &= detent.backgroundEffect == nil;
+        }
+#endif
+        result[[NSString stringWithFormat:@"construction-%@-%@", @"native", dark ? @"dark" : @"light"]] = @(covered && contentPaint && nativeMaterial);
         [session cleanup]; shared.session = nil;
     }
     shared.session = savedSession;

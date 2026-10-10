@@ -115,6 +115,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     enum Section {
         case card
         case browser
+        case codeLink
         case presentationOptions
         case other
         case about
@@ -133,7 +134,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     /// Sections visible for the current tab, in display order.
     var visibleSections: [Section] {
         switch currentTab {
-        case .test: return [.card, .browser]
+        case .test: return [.card, .browser, .codeLink]
         case .settings: return [.presentationOptions, .other, .about]
         case .api: return [.checkoutGenerationSettings]
         }

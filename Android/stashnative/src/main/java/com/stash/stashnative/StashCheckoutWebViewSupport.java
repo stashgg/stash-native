@@ -39,6 +39,10 @@ final class StashCheckoutWebViewSupport {
     try {
       try {
         activity.webView = new WebView(activity);
+        if (activity.contentRevealSupport != null) {
+          activity.contentRevealSupport.dispose();
+        }
+        activity.contentRevealSupport = new StashContentRevealSupport(activity);
       } catch (Throwable t) {
         // WebView creation can fail if running in a separate process (data directory lock),
         // on devices with broken WebView installs, or when Chromium init fails. Report as
@@ -81,10 +85,14 @@ final class StashCheckoutWebViewSupport {
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
           try {
             super.onPageStarted(view, url, favicon);
+            if (view == activity.webView && activity.telemetrySupport != null) {
+              activity.telemetrySupport.navigationStarted();
+            }
             if (activity.contentSizeSupport != null) {
               activity.contentSizeSupport.navigationStarted(url);
             }
             activity.pageLoadStartTime = System.currentTimeMillis();
+            activity.contentRevealSupport.navigationStarted();
             showLoading(activity);
             injectSDK(view);
             checkProvider(activity, url);
@@ -103,11 +111,16 @@ final class StashCheckoutWebViewSupport {
               return;
             }
 
+            if (activity.telemetrySupport != null) {
+              activity.telemetrySupport.documentFinished(view, url);
+            }
+
             // Mark initial load as complete
             if (!activity.initialPageLoadComplete) {
               activity.initialPageLoadComplete = true;
             }
 
+            activity.contentRevealSupport.documentFinished();
             maybeRevealWhenReady(activity);
             injectSDK(view);
             if (activity.contentSizeSupport != null) {
@@ -119,31 +132,23 @@ final class StashCheckoutWebViewSupport {
           }
         }
 
+        @Override
+        @SuppressWarnings("deprecation")
+        public void onReceivedError(
+            WebView view, int errorCode, String description, String failingUrl) {
+          // This overload reports main-resource errors, including on API 21 and 22.
+          handleMainFrameError(activity, view, errorCode);
+        }
+
         @RequiresApi(Build.VERSION_CODES.M)
         @Override
         public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
             android.webkit.WebResourceError error) {
           try {
-            super.onReceivedError(view, request, error);
-            if (error != null) {
-              Log.e(TAG, "WebView error: " + error.getDescription());
-            }
-
-            // Check if this is the main frame and initial load hasn't completed
-            if (request != null && request.isForMainFrame() && !activity.initialPageLoadComplete) {
-              Log.e(TAG, "Network error on main frame during initial load");
-              activity.mainFrameErrorReceived = true;
-              activity.handleNetworkError();
-            } else if (request != null && request.isForMainFrame()
-                && activity.initialPageLoadComplete && !activity.isDismissing && error != null) {
-              // Connection lost AFTER load: dismiss instead of showing Chromium's error page
-              // (parity with iOS). Whitelist real network codes; ERROR_UNKNOWN maps net::ERR_ABORTED
-              // from superseded navigations and must not trigger a spurious dismiss.
-              int code = error.getErrorCode();
-              if (code == WebViewClient.ERROR_HOST_LOOKUP || code == WebViewClient.ERROR_CONNECT
-                  || code == WebViewClient.ERROR_TIMEOUT || code == WebViewClient.ERROR_IO) {
-                activity.runOnUiThread(activity::dismissWithAnimation);
-              }
+            // Do not call super: it forwards main-resource errors to the legacy overload.
+            if (request != null && request.isForMainFrame()) {
+              handleMainFrameError(activity, view,
+                  error != null ? error.getErrorCode() : WebViewClient.ERROR_UNKNOWN);
             }
           } catch (Exception e) {
             Log.w(TAG, "Error in onReceivedError");
@@ -172,6 +177,9 @@ final class StashCheckoutWebViewSupport {
         @RequiresApi(Build.VERSION_CODES.Q)
         public void onPageCommitVisible(WebView view, String pageUrl) {
           super.onPageCommitVisible(view, pageUrl);
+          if (activity.telemetrySupport != null) {
+            activity.telemetrySupport.documentCommitted(view, pageUrl);
+          }
           injectSDK(view);
           if (activity.contentSizeSupport != null) {
             activity.contentSizeSupport.documentCommitted(view, pageUrl);
@@ -285,8 +293,7 @@ final class StashCheckoutWebViewSupport {
         activity.pageLoadStartTime = 0;
         activity.pageLoadedCallbackSent = false;
         activity.mainFrameNavigationCommitted = false;
-        activity.webView.loadUrl(urlWithTheme);
-        scheduleInitialLoadTimers(activity);
+        loadWhenLaidOut(activity, urlWithTheme);
       } catch (Exception e) {
         Log.w(TAG, "Error setting up WebView");
         activity.finish();
@@ -295,6 +302,60 @@ final class StashCheckoutWebViewSupport {
       Log.w(TAG, "Error creating WebView");
       activity.finish();
     }
+  }
+
+  private static void handleMainFrameError(StashCheckoutActivity activity, WebView view, int code) {
+    if (view != activity.webView || activity.isDismissing || activity.networkErrorHandled
+        || activity.mainFrameErrorReceived) {
+      return;
+    }
+    if (!activity.initialPageLoadComplete) {
+      Log.e(TAG, "Network error on main frame during initial load: " + code);
+      activity.mainFrameErrorReceived = true;
+      activity.handleNetworkError();
+    } else if (code == WebViewClient.ERROR_HOST_LOOKUP || code == WebViewClient.ERROR_CONNECT
+        || code == WebViewClient.ERROR_TIMEOUT || code == WebViewClient.ERROR_IO) {
+      // ERROR_UNKNOWN also represents cancelled navigations; keep those pages open.
+      activity.mainFrameErrorReceived = true;
+      activity.dismissWithAnimation();
+    }
+  }
+
+  private static void loadWhenLaidOut(StashCheckoutActivity activity, String url) {
+    final WebView webView = activity.webView;
+    // Older providers lock the initial viewport scale to the first measured size.
+    final class InitialPage implements View.OnLayoutChangeListener, Runnable {
+      private boolean started;
+
+      @Override
+      public void run() {
+        if (started) {
+          return;
+        }
+        if (activity.webView != webView || activity.isDismissing || activity.isDestroyed()) {
+          webView.removeOnLayoutChangeListener(this);
+          return;
+        }
+        if (activity.presentation == null
+            || !activity.presentation.contentHasResolvedSize(webView)) {
+          return;
+        }
+        started = true;
+        webView.removeOnLayoutChangeListener(this);
+        webView.loadUrl(url);
+        scheduleInitialLoadTimers(activity);
+      }
+
+      @Override
+      public void onLayoutChange(View view, int l, int t, int r, int b,
+          int oldL, int oldT, int oldR, int oldB) {
+        run();
+      }
+    }
+
+    InitialPage initialPage = new InitialPage();
+    webView.addOnLayoutChangeListener(initialPage);
+    webView.post(initialPage);
   }
 
   static void scheduleInitialLoadTimers(StashCheckoutActivity activity) {
@@ -377,7 +438,9 @@ final class StashCheckoutWebViewSupport {
     if (!activity.initialPageLoadComplete || !activity.mainFrameNavigationCommitted) {
       return;
     }
-    revealWebViewAndRemoveLoading(activity);
+    if (activity.contentRevealSupport != null) {
+      activity.contentRevealSupport.check();
+    }
   }
 
   static String appendCacheBuster(String url) {
@@ -577,6 +640,10 @@ final class StashCheckoutWebViewSupport {
     // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
     activity.webViewRevealAnimationRunning = false;
     activity.webViewRevealAnimationToken++;
+    if (activity.webViewRevealAnimator != null) {
+      activity.webViewRevealAnimator.cancel();
+      activity.webViewRevealAnimator = null;
+    }
     if (activity.loadingView != null) {
       activity.loadingView.animate().cancel();
       activity.loadingView.setAlpha(1f);
@@ -638,7 +705,8 @@ final class StashCheckoutWebViewSupport {
    */
   static void revealWebViewAndRemoveLoading(StashCheckoutActivity activity) {
     activity.runOnUiThread(() -> {
-      if (activity.webView == null || activity.webViewRevealAnimationRunning) {
+      if (activity.webView == null || activity.isDismissing
+          || activity.webViewRevealAnimationRunning) {
         return;
       }
       if (activity.webViewLoadingRevealComplete) {
@@ -653,6 +721,7 @@ final class StashCheckoutWebViewSupport {
         activity.loadingView.setAlpha(1f);
         activity.webView.setAlpha(0f);
         AnimatorSet crossfade = new AnimatorSet();
+        activity.webViewRevealAnimator = crossfade;
         crossfade.playTogether(
             ObjectAnimator.ofFloat(activity.webView, View.ALPHA, 0f, 1f),
             ObjectAnimator.ofFloat(activity.loadingView, View.ALPHA, 1f, 0f));
@@ -668,6 +737,7 @@ final class StashCheckoutWebViewSupport {
               return;
             }
             activity.webViewRevealAnimationRunning = false;
+            activity.webViewRevealAnimator = null;
             activity.webViewLoadingRevealComplete = true;
             removeLoadingViewFromParent(activity);
             emitPageLoadedIfNeeded(activity);

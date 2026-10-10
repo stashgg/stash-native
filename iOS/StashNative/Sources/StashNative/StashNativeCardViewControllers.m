@@ -73,7 +73,8 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
 #endif
     sheet.prefersEdgeAttachedInCompactHeight = YES;
     sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
-    sheet.prefersScrollingExpandsWhenScrolledToEdge = YES;
+    // Content pans request a native expansion; only native chrome drives interactive resizing.
+    sheet.prefersScrollingExpandsWhenScrolledToEdge = NO;
     if (@available(iOS 17.0, *)) sheet.prefersPageSizing = NO;
     [self configureNativeDetents];
     BOOL expanded = self.session.expanded || self.session.keyboardVisible;
@@ -96,6 +97,7 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
 - (void)viewDidLoad {
     [super viewDidLoad];
     UIColor *initialBackground = stash_sheetBackgroundUIColor();
+    if (@available(iOS 26.0, *)) self.glassLoading = !self.session.initialContentRevealed;
     self.view.backgroundColor = initialBackground;
     self.view.accessibilityIdentifier = @"stash-card";
     self.view.clipsToBounds = YES;
@@ -119,31 +121,12 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     [tracker release];
 #endif
     [self updateTopChromeBackgroundColor];
-    [self.view addSubview:self.session.webView];
-    StashRemoveFormInputAccessoryView(self.session.webView);
-    self.session.webView.accessibilityIdentifier = @"stash-web-content";
-    if (!self.session.initialContentRevealed) {
-        UIView *cover = [[UIView alloc] init];
-        cover.backgroundColor = initialBackground;
-        cover.accessibilityIdentifier = @"stash-initial-loading";
-        self.loadingCover = cover;
-        [self.view addSubview:cover];
-        self.session.webView.userInteractionEnabled = NO;
-        self.session.webView.accessibilityElementsHidden = YES;
-#if !__has_feature(objc_arc)
-        [cover release];
-#endif
-    }
-    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
-    self.spinner = spinner;
-    spinner.hidesWhenStopped = YES;
-    spinner.accessibilityIdentifier = @"stash-loading-spinner";
-    spinner.accessibilityLabel = @"Loading checkout";
-    [self.view addSubview:spinner];
-    [spinner startAnimating];
-#if !__has_feature(objc_arc)
-    [spinner release];
-#endif
+    UIViewController *content = self.session.codeLinkController;
+    if (content) {
+        [self addChildViewController:content];
+        [self.view addSubview:content.view];
+        [content didMoveToParentViewController:self];
+    } else [self installWebContentWithBackground:initialBackground];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillChangeFrameNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillHideNotification object:nil];
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardSettled:) name:UIKeyboardDidShowNotification object:nil];
@@ -174,17 +157,106 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
         link.requiresContinuousUpdates = NO;
         link.enabled = YES;
         self.geometryUpdateLink = link;
+        if (@available(iOS 26.0, *)) {
+            UITraitCollection *traits = [self layoutContainer].traitCollection;
+            if (traits.userInterfaceIdiom == UIUserInterfaceIdiomPhone &&
+                traits.horizontalSizeClass == UIUserInterfaceSizeClassCompact) {
+                UIUpdateLink *entrance = [UIUpdateLink updateLinkForView:self.view];
+                [entrance addActionToPhase:UIUpdateActionPhase.beforeCATransactionCommit
+                    handler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) { [weakSelf updateNativeEntrance]; }];
+                entrance.enabled = YES;
+                self.entranceUpdateLink = entrance;
+            }
+        }
     }
 #endif
 }
+- (void)installWebContentWithBackground:(UIColor *)initialBackground {
+    [self.view addSubview:self.session.webView];
+    StashRemoveFormInputAccessoryView(self.session.webView);
+    self.session.webView.accessibilityIdentifier = @"stash-web-content";
+    UIPanGestureRecognizer *contentPan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(contentPanChanged:)];
+    contentPan.delegate = self;
+    contentPan.cancelsTouchesInView = NO;
+    contentPan.delaysTouchesBegan = NO;
+    contentPan.delaysTouchesEnded = NO;
+    self.contentPan = contentPan;
+    [self.session.webView addGestureRecognizer:contentPan];
+    [self observeContentScrollPans:self.session.webView];
+#if !__has_feature(objc_arc)
+    [contentPan release];
+#endif
+    if (!self.session.initialContentRevealed) {
+        UIView *cover = [[UIView alloc] init];
+        cover.backgroundColor = self.glassLoading ? UIColor.clearColor : initialBackground;
+        cover.accessibilityIdentifier = @"stash-initial-loading";
+        self.loadingCover = cover;
+        [self.view addSubview:cover];
+        self.session.webView.userInteractionEnabled = NO;
+        self.session.webView.accessibilityElementsHidden = YES;
+        if (self.glassLoading) self.session.webView.alpha = 0;
+#if !__has_feature(objc_arc)
+        [cover release];
+#endif
+    }
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.spinner = spinner;
+    spinner.hidesWhenStopped = YES;
+    spinner.accessibilityIdentifier = @"stash-loading-spinner";
+    spinner.accessibilityLabel = @"Loading checkout";
+    [self.view addSubview:spinner];
+    [spinner startAnimating];
+#if !__has_feature(objc_arc)
+    [spinner release];
+#endif
+}
+- (void)updateNativeEntrance {
+    if (self.entranceCorrection) {
+        [self.entranceCorrection update];
+        return;
+    }
+    id<UIViewControllerTransitionCoordinator> transition = self.transitionCoordinator;
+    if (self.entranceCorrectionApplied || !self.isBeingPresented || !transition) return;
+    // Inspect only the first presentation update. Never attach a correction mid-transition.
+    self.entranceCorrectionApplied = YES;
+    if (self.geometryTransitioning || !transition.isAnimated || transition.isInteractive ||
+        transition.initiallyInteractive || transition.isCancelled || UIAccessibilityIsReduceMotionEnabled() ||
+        [transition viewControllerForKey:UITransitionContextToViewControllerKey] != self) {
+        [self stopNativeEntrance];
+        return;
+    }
+    self.entranceCorrection = [StashNativeEntranceCorrection
+        correctionForSurface:self.presentationController.presentedView.layer
+        container:self.presentationController.containerView.layer];
+    if (!self.entranceCorrection) [self stopNativeEntrance];
+}
+- (void)stopNativeEntrance {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000
+    if (@available(iOS 18.0, *)) ((UIUpdateLink *)self.entranceUpdateLink).enabled = NO;
+#endif
+    self.entranceUpdateLink = nil;
+    [self.entranceCorrection invalidate];
+    self.entranceCorrection = nil;
+    self.entranceCorrectionApplied = YES;
+}
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
+    [self stopNativeEntrance];
     [self.view setNeedsLayout];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    [self stopNativeEntrance];
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     [self updateKeyboardGuideOcclusion];
     [self reconcileHostSafeAreaInsets];
+    if (self.session.codeLinkController) {
+        self.session.codeLinkController.view.frame = self.view.bounds;
+        [self observeNativePans:self.presentationController.containerView];
+        return;
+    }
     CGFloat width = self.view.bounds.size.width;
     CGFloat top = self.view.safeAreaInsets.top;
     CGFloat bottom = self.view.bounds.size.height - self.view.safeAreaInsets.bottom;
@@ -241,8 +313,9 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     self.session.webView.scrollView.contentInset = UIEdgeInsetsZero;
     self.session.webView.scrollView.verticalScrollIndicatorInsets = UIEdgeInsetsMake(0, 0, bottomInset, 0);
     [self reconcileNativeContentSafeArea:bottomInset];
-    self.spinner.center = CGPointMake(CGRectGetMidX(self.session.webView.frame), CGRectGetMidY(self.session.webView.frame));
+    self.spinner.center = CGPointMake(CGRectGetMidX(webFrame), CGRectGetMidY(webFrame));
     if (viewportChanged) { [self scheduleFocusReveal]; [self.session sampleTopChrome]; }
+    [self observeContentScrollPans:self.session.webView];
     [self observeNativePans:self.presentationController.containerView];
     [self.session retryRootOffsetRepair];
     CGFloat contentWidth = self.session.webView.bounds.size.width;
@@ -266,27 +339,41 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     }
 }
 - (void)revealInitialContentAnimated:(BOOL)animated {
-    [self.spinner stopAnimating];
     UIView *cover = self.loadingCover;
     WKWebView *web = self.session.webView;
     if (!cover) {
+        [self.spinner stopAnimating];
         web.userInteractionEnabled = YES;
         web.accessibilityElementsHidden = NO;
         return;
     }
     [cover.layer removeAllAnimations];
+    BOOL glass = self.glassLoading;
+    self.glassLoading = NO;
+    void (^reveal)(void) = ^{
+        [self updateTopChromeBackgroundColor];
+        web.alpha = 1;
+        cover.alpha = 0;
+        self.spinner.alpha = 0;
+    };
     void (^finish)(void) = ^{
         if (self.loadingCover != cover) return;
         [cover removeFromSuperview];
         self.loadingCover = nil;
+        [self updateNativeLoadingBackground];
+        [self.spinner stopAnimating];
+        self.spinner.alpha = 1;
         web.userInteractionEnabled = YES;
         web.accessibilityElementsHidden = NO;
     };
     if (animated && cover.window && !UIAccessibilityIsReduceMotionEnabled()) {
-        [UIView animateWithDuration:0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState |
-            UIViewAnimationOptionCurveEaseOut animations:^{ cover.alpha = 0; }
+        [UIView animateWithDuration:glass ? 0.25 : 0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState |
+            UIViewAnimationOptionCurveEaseOut animations:reveal
             completion:^(BOOL finished) { finish(); }];
-    } else finish();
+    } else {
+        [UIView performWithoutAnimation:reveal];
+        finish();
+    }
 }
 - (void)reconcileHostSafeAreaInsets {
     if (!self.view.window) return;
@@ -504,11 +591,23 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     self.updatingLayout = NO;
     [self.view setNeedsLayout];
 }
+- (void)updateNativeLoadingBackground {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260100
+    if (@available(iOS 26.1, *)) {
+        BOOL loading = self.isViewLoaded ? self.loadingCover != nil : !self.session.initialContentRevealed;
+        UIBlurEffect *effect = loading && [self usesFloatingNativeSizing]
+            ? [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial] : nil;
+        for (UISheetPresentationControllerDetent *detent in self.sheetPresentationController.detents)
+            detent.backgroundEffect = effect;
+    }
+#endif
+}
 - (void)configureNativeDetents {
     [self reconcileNativeSizingPolicy];
     if ([self usesFloatingNativeSizing]) {
         self.singleDetent = YES;
         self.sheetPresentationController.detents = @[[UISheetPresentationControllerDetent largeDetent]];
+        [self updateNativeLoadingBackground];
         return;
     }
     if (@available(iOS 16.0, *)) {
@@ -537,6 +636,7 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
             ? @[[UISheetPresentationControllerDetent largeDetent]]
             : @[[UISheetPresentationControllerDetent mediumDetent], [UISheetPresentationControllerDetent largeDetent]];
     }
+    [self updateNativeLoadingBackground];
 }
 - (CGFloat)resolvedNativeHeightForMaximum:(CGFloat)maximum expanded:(BOOL)expanded {
     if ([self usesFloatingNativeSizing]) return [self contentHeightForMaximum:maximum expanded:expanded];
@@ -559,8 +659,34 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     }
     return expanded ? expandedHeight : resting;
 }
+- (void)observeContentScrollPans:(UIView *)view {
+    if (!self.contentScrollPans) self.contentScrollPans = [NSHashTable weakObjectsHashTable];
+    if ([view isKindOfClass:UIScrollView.class]) {
+        UIPanGestureRecognizer *pan = ((UIScrollView *)view).panGestureRecognizer;
+        if (![self.contentScrollPans containsObject:pan]) {
+            [pan requireGestureRecognizerToFail:self.contentPan];
+            [pan addTarget:self action:@selector(nativePanChanged:)];
+            [self.contentScrollPans addObject:pan];
+        }
+    }
+    for (UIView *child in view.subviews) [self observeContentScrollPans:child];
+}
 - (void)observeNativePans:(UIView *)view {
     if (!view || view == self.session.webView) return;
+    if (view == self.presentationController.containerView && self.touchOriginObserver.view != view) {
+        if (!self.touchOriginObserver) {
+            UITapGestureRecognizer *observer = [[UITapGestureRecognizer alloc] init];
+            observer.delegate = self;
+            observer.cancelsTouchesInView = NO;
+            observer.delaysTouchesBegan = NO;
+            observer.delaysTouchesEnded = NO;
+            self.touchOriginObserver = observer;
+#if !__has_feature(objc_arc)
+            [observer release];
+#endif
+        }
+        [view addGestureRecognizer:self.touchOriginObserver];
+    }
     if (!self.observedPans) self.observedPans = [NSMutableArray array];
     for (UIGestureRecognizer *gesture in view.gestureRecognizers) {
         if ([gesture isKindOfClass:UIPanGestureRecognizer.class] && ![self.observedPans containsObject:(UIPanGestureRecognizer *)gesture]) {
@@ -570,11 +696,74 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     }
     for (UIView *child in view.subviews) [self observeNativePans:child];
 }
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    if (gestureRecognizer == self.contentPan) {
+        self.contentTouchView = touch.view;
+        [self observeContentScrollPans:self.session.webView];
+        return YES;
+    }
+    if (gestureRecognizer != self.touchOriginObserver) return YES;
+    self.touchBeganInWebContent = [touch.view isDescendantOfView:self.session.webView];
+    [self updateDismissalPolicy];
+    // Observe the origin without recognizing, delaying, or cancelling any touch.
+    return NO;
+}
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer != self.contentPan) return YES;
+    CGPoint velocity = [self.contentPan velocityInView:self.session.webView];
+    if (fabs(velocity.y) <= fabs(velocity.x)) return NO;
+    if (velocity.y < 0 && ![self usesFloatingNativeSizing] && !self.singleDetent &&
+        !self.session.expanded && !self.session.keyboardVisible) return YES;
+    for (UIView *view = self.contentTouchView; view && view != self.session.webView; view = view.superview) {
+        if (![view isKindOfClass:UIScrollView.class]) continue;
+        UIScrollView *scroll = (UIScrollView *)view;
+        if (!scroll.scrollEnabled) continue;
+        CGFloat minimum = -scroll.adjustedContentInset.top;
+        CGFloat maximum = MAX(minimum, scroll.contentSize.height - scroll.bounds.size.height + scroll.adjustedContentInset.bottom);
+        if ((velocity.y > 0 && scroll.contentOffset.y > minimum + 0.5) ||
+            (velocity.y < 0 && scroll.contentOffset.y < maximum - 0.5)) return NO;
+    }
+    // Consume an edge pull before WebKit can hand it to the native sheet.
+    return YES;
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    if (gestureRecognizer != self.contentPan) return NO;
+    return [otherGestureRecognizer.view isDescendantOfView:self.session.webView] &&
+        ![self.contentScrollPans containsObject:(id)otherGestureRecognizer];
+}
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    UIView *otherView = otherGestureRecognizer.view;
+    return gestureRecognizer == self.contentPan && [otherGestureRecognizer isKindOfClass:UIPanGestureRecognizer.class] && otherView != self.session.webView &&
+        ![otherGestureRecognizer isKindOfClass:UIScreenEdgePanGestureRecognizer.class] &&
+        [self.session.webView isDescendantOfView:otherView];
+}
+- (void)contentPanChanged:(UIPanGestureRecognizer *)gesture {
+    [self nativePanChanged:gesture];
+    if (gesture.state != UIGestureRecognizerStateBegan || ![self.session isActive] ||
+        [self usesFloatingNativeSizing] || self.singleDetent || self.session.expanded || self.session.keyboardVisible ||
+        [gesture velocityInView:self.session.webView].y >= 0) return;
+    self.session.expanded = YES;
+    self.hasRequestedNativeSelection = YES;
+    self.requestedNativeExpanded = YES;
+    UISheetPresentationController *sheet = self.sheetPresentationController;
+    void (^expand)(void) = ^{ sheet.selectedDetentIdentifier = [self nativeDetentIdentifierForExpanded:YES]; };
+    if (UIAccessibilityIsReduceMotionEnabled()) expand(); else [sheet animateChanges:expand];
+}
 - (void)nativePanChanged:(UIPanGestureRecognizer *)gesture {
-    if (gesture.state == UIGestureRecognizerStateBegan) self.dragging = YES;
-    else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled ||
-             gesture.state == UIGestureRecognizerStateFailed) {
-        self.dragging = NO;
+    BOOL wasDragging = self.dragging;
+    BOOL dragging = gesture.state == UIGestureRecognizerStateBegan || gesture.state == UIGestureRecognizerStateChanged;
+    UIGestureRecognizerState webState = self.session.webView.scrollView.panGestureRecognizer.state;
+    dragging |= webState == UIGestureRecognizerStateBegan || webState == UIGestureRecognizerStateChanged;
+    UIGestureRecognizerState expansionState = self.contentPan.state;
+    dragging |= expansionState == UIGestureRecognizerStateBegan || expansionState == UIGestureRecognizerStateChanged;
+    for (UIPanGestureRecognizer *pan in self.observedPans)
+        dragging |= pan.state == UIGestureRecognizerStateBegan || pan.state == UIGestureRecognizerStateChanged;
+    for (UIPanGestureRecognizer *pan in self.contentScrollPans)
+        dragging |= pan.state == UIGestureRecognizerStateBegan || pan.state == UIGestureRecognizerStateChanged;
+    self.dragging = dragging;
+    if (wasDragging && !dragging) {
         [self.session retryRootOffsetRepair];
         dispatch_async(dispatch_get_main_queue(), ^{
             if (![self.session isActive] || self.dragging) return;
@@ -591,7 +780,8 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     else [self updatePresentationAnimated:YES];
 }
 - (void)updateDismissalPolicy {
-    self.modalInPresentation = !self.session.config.allowDismiss || self.session.processing;
+    self.modalInPresentation = !self.session.config.allowDismiss || self.session.processing ||
+        self.session.codeLinkCompleted || self.touchBeganInWebContent;
     self.sheetPresentationController.prefersGrabberVisible = !self.session.processing;
 }
 - (void)keyboardChanged:(NSNotification *)note {
@@ -792,16 +982,34 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
     return YES;
 }
 - (void)updateTopChromeBackgroundColor {
+    if (self.session.codeLink) {
+        self.view.backgroundColor = UIColor.blackColor;
+        return;
+    }
+    if (self.glassLoading) {
+        self.view.backgroundColor = UIColor.clearColor;
+        return;
+    }
     UIColor *color = self.topChromeColor;
     color = color ?: self.session.webView.underPageBackgroundColor ?: stash_sheetBackgroundUIColor();
     self.view.backgroundColor = color;
 }
 - (void)dealloc {
+    [self stopNativeEntrance];
     [NSNotificationCenter.defaultCenter removeObserver:self];
     for (UIPanGestureRecognizer *gesture in self.observedPans) [gesture removeTarget:self action:@selector(nativePanChanged:)];
+    self.touchOriginObserver.delegate = nil;
+    [self.touchOriginObserver.view removeGestureRecognizer:self.touchOriginObserver];
+    for (UIPanGestureRecognizer *pan in self.contentScrollPans) [pan removeTarget:self action:@selector(nativePanChanged:)];
+    self.contentPan.delegate = nil;
+    [self.contentPan.view removeGestureRecognizer:self.contentPan];
 #if !__has_feature(objc_arc)
     [_spinner release]; [_loadingCover release]; [_topChromeColor release];
-    [_observedPans release]; [_geometryUpdateLink release]; [_keyboardGuideTracker release]; [super dealloc];
+    [_observedPans release]; [_geometryUpdateLink release]; [_keyboardGuideTracker release];
+    [_touchOriginObserver release];
+    [_contentPan release];
+    [_contentScrollPans release];
+    [_entranceCorrection release]; [super dealloc];
 #endif
 }
 @end

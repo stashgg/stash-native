@@ -69,6 +69,12 @@ public class StashNativeCard {
   /** Callback interface for Stash Native events. */
   public interface StashNativeCardListener {
 
+    /** Returns the unchanged QR payload once, after Connected and the card's dismissal. */
+    default void onQrCodeScanned(String content) {}
+
+    /** Reports a camera error at most once per CodeLink session; the card stays open. */
+    default void onCodeLinkError(CodeLinkError error) {}
+
     /**
      * Called when a payment completes successfully.
      *
@@ -175,6 +181,8 @@ public class StashNativeCard {
     public float maximumContentHeight = 720f;
 
     public float edgeMargin = 16f;
+
+    /** Portrait applies to compact fullscreen windows; tablets and multi-window follow the host. */
     public int orientationPreference = ORIENTATION_FOLLOW_HOST;
     public boolean allowDismiss = true;
     public boolean autoClose = true;
@@ -242,13 +250,13 @@ public class StashNativeCard {
   }
 
   /** Bridge from {@link StashNativeBrowserProxyActivity}; not part of the public API. */
-  static void notifyBrowserClosedFromProxyInternal() {
-    getInstance().plugin.notifyBrowserClosedFromProxyInternal();
+  static void notifyBrowserClosedFromProxyInternal(long sessionId) {
+    getInstance().plugin.notifyBrowserClosedFromProxyInternal(sessionId);
   }
 
   /** Bridge from {@link StashNativeBrowserProxyActivity}; not part of the public API. */
-  static void notifyBrowserEngagementSessionEndedFromProxyInternal() {
-    getInstance().plugin.notifyBrowserEngagementSessionEndedFromProxyInternal();
+  static void notifyBrowserEngagementSessionEndedFromProxyInternal(long sessionId) {
+    getInstance().plugin.notifyBrowserEngagementSessionEndedFromProxyInternal(sessionId);
   }
 
   /**
@@ -273,6 +281,19 @@ public class StashNativeCard {
   /** Opens a responsive checkout card in the supplied host's task. */
   public void openCard(Activity activity, String url, CardConfig config) {
     plugin.openCard(activity, url, config);
+  }
+
+  /** Opens the QR scanner in the responsive card, following the host app's orientation. */
+  public void codeLink(Activity activity) {
+    plugin.codeLink(activity);
+  }
+
+  /** Camera errors reported by CodeLink. The scanner remains open with an explanation. */
+  public enum CodeLinkError {
+    CAMERA_PERMISSION_DENIED,
+    CAMERA_UNAVAILABLE,
+    CAMERA_CONFIGURATION_FAILED,
+    CAMERA_PERMISSION_NOT_DECLARED
   }
 
   /** Dismisses any currently displayed checkout dialog. */

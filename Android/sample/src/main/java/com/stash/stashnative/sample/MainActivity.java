@@ -81,6 +81,11 @@ public class MainActivity extends AppCompatActivity {
     }
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
+      public void onCodeLink() {
+        StashNativeCard.getInstance().codeLink(MainActivity.this);
+      }
+
+      @Override
       public void onOpenCard() {
         openCard();
       }
@@ -192,6 +197,18 @@ public class MainActivity extends AppCompatActivity {
     stashPayCard.setKeepAliveConfig(keepAliveConfig);
     stashPayCard.setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
     sdkListener = new StashNativeCard.StashNativeCardListener() {
+      @Override
+      public void onQrCodeScanned(String content) {
+        Log.i(TAG, "CodeLink QR code scanned");
+        runOnUiThread(() -> addCallbackChip("CodeLink · " + content));
+      }
+
+      @Override
+      public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+        Log.w(TAG, "CodeLink camera error: " + error.name());
+        runOnUiThread(() -> addCallbackChip("CodeLink Error · " + error.name()));
+      }
+
       @Override
       public void onPaymentSuccess(String order) {
         Log.i(TAG, "Payment successful");

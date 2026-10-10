@@ -665,6 +665,9 @@ public class MainViewModel extends AndroidViewModel {
     list.add(SettingsItem.actionPreference(R.string.generate_checkout_for_browser, false, false));
     list.add(SettingsItem.actionPreference(R.string.open_webshop_for_browser, false, true));
 
+    list.add(SettingsItem.sectionHeader(R.string.section_link_webshop, true, false));
+    list.add(SettingsItem.actionPreference(R.string.scan_qr_code, false, true));
+
     return list;
   }
 

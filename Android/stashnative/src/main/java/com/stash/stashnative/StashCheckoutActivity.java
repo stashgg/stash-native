@@ -3,10 +3,12 @@ package com.stash.stashnative;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -40,6 +42,12 @@ public class StashCheckoutActivity extends Activity {
   StashPresentationOptions options;
   StashPresentationController presentation;
   StashContentSizeSupport contentSizeSupport;
+  StashTelemetrySupport telemetrySupport;
+  StashCodeLinkSupport codeLinkSupport;
+  boolean codeLink;
+  boolean codeLinkCompleted;
+  private boolean codeLinkCancelled;
+  private String codeLinkResult;
   private boolean awaitingExternalBrowserDimOverlay;
   private OnBackInvokedCallback backCallback;
   boolean initialPageLoadComplete;
@@ -84,6 +92,8 @@ public class StashCheckoutActivity extends Activity {
 
   /** True while the loading/WebView crossfade is running (ignore duplicate onPageFinished). */
   boolean webViewRevealAnimationRunning;
+  android.animation.Animator webViewRevealAnimator;
+  StashContentRevealSupport contentRevealSupport;
 
   /** Monotonic token to ignore stale crossfade callbacks from older loads/retries. */
   int webViewRevealAnimationToken;
@@ -113,20 +123,15 @@ public class StashCheckoutActivity extends Activity {
     plugin.setCheckoutActivity(this);
     Intent intent = getIntent();
     options = StashPresentationOptions.read(intent);
+    codeLink = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_CODE_LINK, false);
     url = intent.getStringExtra(CardConstants.INTENT_EXTRA_URL);
     initialURL = url;
-    if (url == null) {
+    if (url == null && !codeLink) {
       finish();
       return;
     }
-    if (options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT) {
-      try {
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-      } catch (RuntimeException ignored) {
-        // Orientation preferences may be refused; presentation still uses the actual window.
-      }
-    }
-    boolean dark = StashWebViewUtils.isDarkTheme(this);
+    updateOrientationPreference();
+    boolean dark = codeLink || StashWebViewUtils.isDarkTheme(this);
     sheetChromeBackgroundArgb =
         dark ? Color.parseColor(CardConstants.COLOR_DARK_BG) : Color.WHITE;
     effectiveIsDarkForContent = dark;
@@ -152,23 +157,37 @@ public class StashCheckoutActivity extends Activity {
     backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
     rootLayout.addView(backdropView, new FrameLayout.LayoutParams(-1, -1));
     backdropView.setOnClickListener(v -> requestUserDismiss());
-    cardContainer = new StashSheetLayout(this, StashWebViewUtils.dpToPx(this, 16));
+    cardContainer = new StashSheetLayout(this, StashWebViewUtils.dpToPx(this, 28));
     cardContainer.setBackgroundColor(sheetChromeBackgroundArgb);
     cardContainer.setElevation(StashWebViewUtils.dpToPx(this, 24));
     cardContainer.setClickable(true);
     rootLayout.addView(cardContainer, new FrameLayout.LayoutParams(1, 1));
     presentation = new StashPresentationController(this, options);
     cardContainer.controller = presentation;
-    contentSizeSupport = new StashContentSizeSupport(this);
-    StashCheckoutWebViewSupport.addWebView(this);
+    if (codeLink) {
+      codeLinkSupport = new StashCodeLinkSupport(this);
+      cardContainer.addView(codeLinkSupport.view, new FrameLayout.LayoutParams(-1, -1));
+    } else {
+      contentSizeSupport = new StashContentSizeSupport(this);
+      telemetrySupport = new StashTelemetrySupport(this);
+      StashCheckoutWebViewSupport.addWebView(this);
+    }
     addDragHandle();
-    addHomeButton();
+    if (!codeLink) {
+      addHomeButton();
+    }
     setContentView(rootLayout);
     presentation.attach();
   }
 
   private void addDragHandle() {
     final FrameLayout tray = new FrameLayout(this);
+    GradientDrawable rippleMask = new GradientDrawable();
+    rippleMask.setColor(Color.WHITE);
+    rippleMask.setCornerRadius(StashWebViewUtils.dpToPx(this, 24));
+    tray.setBackground(new RippleDrawable(
+        ColorStateList.valueOf(effectiveIsDarkForContent ? 0x24ffffff : 0x18000000),
+        null, rippleMask));
     View handle = new View(this);
     GradientDrawable background = new GradientDrawable();
     background.setColor(StashBackgroundColorUtils.dragHandleFor(sheetChromeBackgroundArgb));
@@ -181,12 +200,12 @@ public class StashCheckoutActivity extends Activity {
             Gravity.TOP | Gravity.CENTER_HORIZONTAL);
     pill.topMargin = StashWebViewUtils.dpToPx(this, 8);
     tray.addView(handle, pill);
-    tray.setContentDescription("Resize checkout");
+    tray.setContentDescription(codeLink ? "Resize scanner" : "Resize checkout");
     tray.setOnTouchListener(presentation);
     tray.setFocusable(true);
     tray.setOnClickListener(
         v -> {
-          if (!isPurchaseProcessing) {
+          if (!isInteractionLocked()) {
             presentation.setExpanded(!presentation.state.expanded);
           }
         });
@@ -194,13 +213,14 @@ public class StashCheckoutActivity extends Activity {
         tray,
         new FrameLayout.LayoutParams(
             StashWebViewUtils.dpToPx(this, 72),
-            StashWebViewUtils.dpToPx(this, 28),
+            StashWebViewUtils.dpToPx(this, 48),
             Gravity.TOP | Gravity.CENTER_HORIZONTAL));
     dragHandleArea = tray;
   }
 
   void applyDragHandlePurchaseProcessingFade(boolean hide) {
     if (dragHandleArea != null) {
+      dragHandleArea.setPressed(false);
       dragHandleArea.setAlpha(hide ? 0 : 1);
       dragHandleArea.setEnabled(!hide);
     }
@@ -238,7 +258,7 @@ public class StashCheckoutActivity extends Activity {
   }
 
   void requestUserDismiss() {
-    if (isPurchaseProcessing || options == null || !options.allowDismiss) {
+    if (isInteractionLocked() || options == null || !options.allowDismiss) {
       return;
     }
     if (awaitingExternalBrowserDimOverlay) {
@@ -276,12 +296,13 @@ public class StashCheckoutActivity extends Activity {
     if (isDismissing) {
       return;
     }
-    StashNativeCardPlugin.getInstance().abandonPendingExternalBrowserCheckoutDismiss();
+    StashNativeCardPlugin.getInstance().abandonPendingExternalBrowserCheckoutDismiss(this);
     awaitingExternalBrowserDimOverlay = false;
     dismissWithAnimation();
   }
 
   void dismissWithAnimation() {
+    cancelCodeLink();
     if (isDismissing) {
       return;
     }
@@ -299,9 +320,45 @@ public class StashCheckoutActivity extends Activity {
   }
 
   void finishForPluginResetWithoutCallbacks() {
+    cancelCodeLink();
     callbackSent = true;
     isDismissing = true;
     finishActivityWithNoAnimation();
+  }
+
+  boolean isInteractionLocked() {
+    return isPurchaseProcessing || codeLinkCompleted;
+  }
+
+  void completeCodeLink(String content) {
+    if (!codeLink || codeLinkCompleted || isDismissing || codeLinkSupport == null
+        || content == null || content.isEmpty()) {
+      return;
+    }
+    codeLinkCompleted = true;
+    presentation.processingStarted();
+    applyDragHandlePurchaseProcessingFade(true);
+    codeLinkSupport.showConnected(() -> {
+      if (codeLinkCancelled || isDismissing) {
+        return;
+      }
+      isDismissing = true;
+      presentation.dismiss(() -> {
+        if (!codeLinkCancelled) {
+          codeLinkResult = content;
+          callbackSent = true;
+        }
+        finishActivityWithNoAnimation();
+      });
+    });
+  }
+
+  private void cancelCodeLink() {
+    codeLinkCancelled = true;
+    codeLinkResult = null;
+    if (codeLinkSupport != null) {
+      codeLinkSupport.dispose();
+    }
   }
 
   void notifyListenerAndDismiss(String messageType, String messageBody, boolean success) {
@@ -381,6 +438,12 @@ public class StashCheckoutActivity extends Activity {
   protected void onPause() {
     super.onPause();
     isActivityPaused = true;
+    if (codeLinkSupport != null) {
+      codeLinkSupport.pause();
+    }
+    if (contentRevealSupport != null) {
+      contentRevealSupport.pause();
+    }
     if (webView != null) {
       webView.onPause();
     }
@@ -400,9 +463,15 @@ public class StashCheckoutActivity extends Activity {
   protected void onResume() {
     super.onResume();
     isActivityPaused = false;
+    if (codeLinkSupport != null && !isDismissing) {
+      codeLinkSupport.resume();
+    }
     StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();
+    }
+    if (contentRevealSupport != null) {
+      contentRevealSupport.check();
     }
     // Restart the retry/deadline window if the initial load never committed, thawing the
     // budget frozen in onPause (paused time does not count against the deadline).
@@ -431,8 +500,37 @@ public class StashCheckoutActivity extends Activity {
   @Override
   public void onConfigurationChanged(Configuration configuration) {
     super.onConfigurationChanged(configuration);
+    updateOrientationPreference();
+    if (codeLinkSupport != null) {
+      codeLinkSupport.geometryChanged();
+    }
     if (presentation != null) {
       rootLayout.post(presentation::environmentChanged);
+    }
+  }
+
+  @Override
+  public void onMultiWindowModeChanged(boolean inMultiWindow) {
+    super.onMultiWindowModeChanged(inMultiWindow);
+    updateOrientationPreference();
+  }
+
+  private void updateOrientationPreference() {
+    if (options == null) {
+      return;
+    }
+    boolean windowed = Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode();
+    boolean compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
+    int orientation = !codeLink
+        && options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+        && compact && !windowed
+        ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_BEHIND;
+    if (getRequestedOrientation() != orientation) {
+      try {
+        setRequestedOrientation(orientation);
+      } catch (RuntimeException ignored) {
+        // Some hosts refuse rotation; sizing always follows the actual window.
+      }
     }
   }
 
@@ -442,15 +540,33 @@ public class StashCheckoutActivity extends Activity {
   }
 
   @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+    super.onRequestPermissionsResult(requestCode, permissions, results);
+    if (requestCode == StashCodeLinkSupport.CAMERA_PERMISSION_REQUEST && codeLinkSupport != null) {
+      codeLinkSupport.permissionResult();
+    }
+  }
+
+  @Override
   protected void onDestroy() {
+    if (codeLinkSupport != null) {
+      codeLinkSupport.dispose();
+    }
     if (presentation != null) {
       presentation.dispose();
     }
     if (contentSizeSupport != null) {
       contentSizeSupport.dispose();
     }
+    if (telemetrySupport != null) {
+      telemetrySupport.dispose();
+    }
     StashNativeCardPlugin.getInstance().clearCheckoutActivity(this);
     StashCheckoutWebViewSupport.cancelLoadTimers(this);
+    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(this);
+    if (contentRevealSupport != null) {
+      contentRevealSupport.dispose();
+    }
     if (Build.VERSION.SDK_INT >= 33 && backCallback != null) {
       getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
     }
@@ -463,14 +579,21 @@ public class StashCheckoutActivity extends Activity {
       webView.destroy();
       webView = null;
     }
-    try {
-      android.webkit.CookieManager.getInstance().flush();
-    } catch (Throwable expected) {
+    if (!codeLink) {
+      try {
+        android.webkit.CookieManager.getInstance().flush();
+      } catch (Throwable expected) {
+        // A checkout may close before the WebView process starts.
+      }
     }
     if (!callbackSent && !isChangingConfigurations()) {
       callbackSent = true;
       StashCheckoutBridge.emitDialogDismissed(this);
     }
     super.onDestroy();
+    if (codeLinkResult != null) {
+      StashCheckoutBridge.emitQrCodeScanned(this, codeLinkResult);
+      codeLinkResult = null;
+    }
   }
 }

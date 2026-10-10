@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        STN040 /* StashNativeCodeLink.m in Sources */ = {isa = PBXBuildFile; fileRef = STN041 /* StashNativeCodeLink.m */; };
+        STN042 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN043 /* AVFoundation.framework */; };
+		STN03E /* StashNativeCardTelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03F /* StashNativeCardTelemetry.m */; };
+		STN03C /* StashNativeCardTransitions.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03D /* StashNativeCardTransitions.m */; };
 		STN03A /* StashNativeCardOrientation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03B /* StashNativeCardOrientation.m */; };
 		STN001 /* StashNativeCard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN002 /* StashNativeCard.m */; };
 		STN030 /* StashNativeCardConfigs.m in Sources */ = {isa = PBXBuildFile; fileRef = STN031 /* StashNativeCardConfigs.m */; };
@@ -23,6 +27,10 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        STN041 /* StashNativeCodeLink.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCodeLink.m; sourceTree = "<group>"; };
+        STN043 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		STN03F /* StashNativeCardTelemetry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardTelemetry.m; sourceTree = "<group>"; };
+		STN03D /* StashNativeCardTransitions.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardTransitions.m; sourceTree = "<group>"; };
 		STN03B /* StashNativeCardOrientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardOrientation.m; sourceTree = "<group>"; };
 		STN00F /* StashNative.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StashNative.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		STN002 /* StashNativeCard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCard.m; sourceTree = "<group>"; };
@@ -45,6 +53,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				STN042 /* AVFoundation.framework in Frameworks */,
 				STN00B /* SafariServices.framework in Frameworks */,
 				STN00D /* WebKit.framework in Frameworks */,
 			);
@@ -71,6 +80,9 @@
 				STN031 /* StashNativeCardConfigs.m */,
 				STN039 /* StashNativeCardInternal.m */,
 				STN03B /* StashNativeCardOrientation.m */,
+				STN03D /* StashNativeCardTransitions.m */,
+				STN03F /* StashNativeCardTelemetry.m */,
+				STN041 /* StashNativeCodeLink.m */,
 				STN033 /* StashNativeCardGeometry.m */,
 				STN016 /* StashNativeCardPrivate.h */,
 				STN035 /* StashNativeCardTheme.m */,
@@ -94,6 +106,7 @@
 		STN013 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				STN043 /* AVFoundation.framework */,
 				STN00C /* SafariServices.framework */,
 				STN00E /* WebKit.framework */,
 			);
@@ -181,6 +194,9 @@
 				STN030 /* StashNativeCardConfigs.m in Sources */,
 				STN038 /* StashNativeCardInternal.m in Sources */,
 				STN03A /* StashNativeCardOrientation.m in Sources */,
+				STN03C /* StashNativeCardTransitions.m in Sources */,
+				STN03E /* StashNativeCardTelemetry.m in Sources */,
+				STN040 /* StashNativeCodeLink.m in Sources */,
 				STN032 /* StashNativeCardGeometry.m in Sources */,
 				STN034 /* StashNativeCardTheme.m in Sources */,
 				STN003 /* StashNativeCardViewControllers.m in Sources */,

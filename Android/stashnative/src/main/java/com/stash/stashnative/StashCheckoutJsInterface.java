@@ -97,6 +97,16 @@ class StashCheckoutJsInterface {
     });
   }
 
+  /** Replies asynchronously to a request from the current top-level document. */
+  @JavascriptInterface
+  public void getTelemetry(String documentToken, int requestId) {
+    activity.runOnUiThread(() -> {
+      if (activity.telemetrySupport != null) {
+        activity.telemetrySupport.request(documentToken, requestId);
+      }
+    });
+  }
+
   @JavascriptInterface
   public void requestCloseFromPage() {
     try {
@@ -124,8 +134,6 @@ class StashCheckoutJsInterface {
           String themed =
               StashWebViewUtils.appendThemeQueryParameter(
                   normalized, activity.effectiveIsDarkForContent);
-          activity.callbackSent = true;
-          activity.isPurchaseProcessing = false;
           StashNativeCardPlugin.getInstance()
               .openExternalBrowserFromCheckout(
                   activity,

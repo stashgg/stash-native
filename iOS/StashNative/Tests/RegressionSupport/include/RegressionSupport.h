@@ -1,5 +1,13 @@
 #import <Foundation/Foundation.h>
+#import <CoreGraphics/CoreGraphics.h>
+
+void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *));
+void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *));
+NSDictionary *StashCodeLinkLayoutProbe(CGSize size);
 @class WKWebView, UIViewController, UIColor, UIWindow;
+NSDictionary *StashTelemetryLifecycleProbe(void);
+NSDictionary *StashTelemetryFixture(void);
+void StashEndTelemetryFixture(NSDictionary *fixture);
 NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
                                 double preferredWidth, double preferredHeight, double maximumHeight, double margin);
 NSDictionary *StashReservedRegionProbe(void);
@@ -25,6 +33,9 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *));
 NSDictionary *StashURLProbe(void);
 NSDictionary *StashLifecycleProbe(void);
 NSDictionary *StashPresentationStateProbe(void);
+void StashScrollInteractionProbe(void (^completion)(NSDictionary *));
+NSDictionary *StashCardViewportCoverageProbe(void);
+NSDictionary *StashContentPanPolicyProbe(void);
 void StashConfigSnapshotProbe(void (^completion)(double));
 NSDictionary *StashNativeSurfaceProbe(void);
 NSDictionary *StashNativePaneProbe(void);
@@ -53,6 +64,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void);
 
 NSDictionary *StashNativePresentationProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);
+NSDictionary *StashNativeEntranceProbe(void);
 
 NSDictionary *StashPageBackingLifecycleProbe(void);
 UIColor *StashChromeFixtureBackingColor(NSDictionary *fixture);

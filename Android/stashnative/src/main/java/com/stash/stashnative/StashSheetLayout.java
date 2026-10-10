@@ -1,43 +1,46 @@
 package com.stash.stashnative;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Path;
-import android.graphics.RectF;
+import android.graphics.Outline;
+import android.os.Build;
 import android.view.MotionEvent;
+import android.view.View;
+import android.view.ViewOutlineProvider;
 import android.widget.FrameLayout;
 
 /** Clips the live WebView and coordinates its vertical gestures with the sheet. */
 final class StashSheetLayout extends FrameLayout {
-  private final Path clip = new Path();
   private final float radius;
   private boolean bottomAttached;
   StashPresentationController controller;
 
-  StashSheetLayout(Context context, float radius) {
+  StashSheetLayout(Context context, float cornerRadius) {
     super(context);
-    this.radius = radius;
+    radius = cornerRadius;
+    setClipToOutline(true);
+    if (Build.VERSION.SDK_INT < 23) {
+      // Lollipop's WebView renderer needs a layer to honor the native outline clip.
+      setLayerType(View.LAYER_TYPE_HARDWARE, null);
+    }
+    setOutlineProvider(new ViewOutlineProvider() {
+      @Override public void getOutline(View view, Outline outline) {
+        int bottom = view.getHeight() + (bottomAttached ? Math.round(radius) : 0);
+        outline.setRoundRect(0, 0, view.getWidth(), bottom, radius);
+      }
+    });
   }
 
   void setBottomAttached(boolean attached) {
-    bottomAttached = attached;
-    invalidate();
+    if (bottomAttached != attached) {
+      bottomAttached = attached;
+      invalidateOutline();
+    }
   }
 
   @Override
-  public void draw(Canvas canvas) {
-    clip.reset();
-    float bottomRadius = bottomAttached ? 0 : radius;
-    clip.addRoundRect(
-        new RectF(0, 0, getWidth(), getHeight()),
-        new float[] {
-          radius, radius, radius, radius, bottomRadius, bottomRadius, bottomRadius, bottomRadius
-        },
-        Path.Direction.CW);
-    int save = canvas.save();
-    canvas.clipPath(clip);
-    super.draw(canvas);
-    canvas.restoreToCount(save);
+  protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+    super.onSizeChanged(width, height, oldWidth, oldHeight);
+    invalidateOutline();
   }
 
   @Override

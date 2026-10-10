@@ -33,6 +33,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   /** Callbacks for user actions (open card, browser, generate checkout). */
   public interface Callbacks {
 
+    void onCodeLink();
+
     void onOpenCard();
 
     void onOpenBrowser();
@@ -336,6 +338,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           callbacks.onGenerateCheckoutForBrowser();
         } else if (item.titleRes == R.string.open_webshop_for_browser) {
           callbacks.onOpenWebshopForBrowser();
+        } else if (item.titleRes == R.string.scan_qr_code) {
+          callbacks.onCodeLink();
         } else if (item.titleRes == R.string.nav_delete_instance) {
           callbacks.onDeleteInstance();
         }

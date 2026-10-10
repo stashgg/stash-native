@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="stash_code_link_heading">Scan QR code</string>
+    <string name="stash_code_link_close">Close scanner</string>
+    <string name="stash_code_link_callout">Scan the webshop code</string>
+    <string name="stash_code_link_instruction">Keep the QR code centered inside the frame.</string>
+    <string name="stash_code_link_starting">Starting camera…</string>
+    <string name="stash_code_link_permission">Allow camera access in Settings to scan a webshop code.</string>
+    <string name="stash_code_link_unavailable">Camera unavailable. Close the scanner and try again.</string>
+    <string name="stash_code_link_settings">Open Settings</string>
+    <string name="stash_code_link_connected">Connected</string>
     <string name="stash_keep_alive_title">Payment in progress</string>
     <string name="stash_keep_alive_text">Tap to return to the app</string>
     <string name="stash_keep_alive_channel_name">Stash checkout</string>

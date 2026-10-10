@@ -15,7 +15,7 @@ Preferred width is bounded by usable space. Preferred height is the card's resti
 
 `allowDismiss` defaults to `true` and permits user dismissal while payment processing is inactive. `autoClose` defaults to `true` and closes on a payment success/failure signal. Native background matching is automatic; card configuration has no color override.
 
-A card also has `orientationPreference`, either `followHost` (default) or `portrait`. On iPhone, portrait uses a separate UIKit window with scoped orientation overrides, allowing checkout in landscape-only games while preserving the game controller's restrictions. The same native card and WebView handle layout in that window. iPad ignores the flag. Android requests portrait through its checkout activity. System windowing constraints still take precedence over rotation requests.
+A card also has `orientationPreference`, either `followHost` (default) or `portrait`. On iPhone, portrait uses a separate UIKit window with scoped orientation overrides, allowing checkout in landscape-only games while preserving the game controller's restrictions. The same native card and WebView handle layout in that window. iPad ignores the flag. Android requests portrait through its checkout activity in compact fullscreen windows. It releases the request on tablets, unfolded large displays, and multi-window, then restores it when returning to compact fullscreen space. System windowing constraints still take precedence over rotation requests.
 
 Configuration is copied when a presentation opens. Later mutations of the caller's object do not change an active checkout. Non-finite or invalid dimensions use defaults. The actual available area always wins over requested dimensions, including in very small windows.
 
@@ -26,6 +26,8 @@ A card uses a bottom sheet in compact space and a floating presentation when the
 When both host size classes are regular, iOS uses native form-sheet sizing with a single system large detent and the selected preferred content size. This floating sheet has one physical stop. Public `expand()` and `collapse()` change its selected size; native dragging retains UIKit spring and dismissal behavior.
 
 Compact iOS layouts use custom resting and expanded detents on iOS 16+. iOS 15 compact layouts use native medium and large detents, or large alone in compact height, so exact configured attached-sheet heights require iOS 16+. Android uses its native view hierarchy with the same semantic states and centers the card in wide usable regions.
+
+Android uses one card container with native rounded-outline clipping, elevation, and handle ripple feedback. Usable panes narrower than 600 dp attach the card to the bottom; wider panes center it at the preferred width. The WebView fills the card beneath the handle, including during height animations. System bars, desktop captions, keyboards, and separating hinges constrain the usable region. Bottom-attached cards and their WebViews extend through the bottom navigation area to the app window's edge. This area is added below the usable content height, preserving the card's top position. An open keyboard replaces that bottom edge; cards in a pane above a separating hinge stay within that pane. Centered cards retain their surrounding space.
 
 For iOS floating form sheets, iOS 16+ compact sheets, and Android, the resting state fits reported intrinsic content up to `preferredContentHeight`. With no usable measurement, that property is the resting height. The expanded state uses the available height, limited by `maximumContentHeight`. If both resolve to the same height, the SDK still remembers the selected semantic state for the next resize. Compact custom detents then expose one physical stop; floating iOS form sheets always have one native stop.
 
@@ -40,6 +42,8 @@ On iOS, an internal read-only page hint tries to match an identifiable opaque, u
 When the same opaque surface covers the viewport, iOS also matches the WebView's native backing to that color during resizing. The SDK releases its inferred override when the surface no longer covers the viewport or navigation changes the document. Transparent pages use WebKit's automatic background or the native theme fallback.
 
 On iOS, the WebView paints through the bottom safe area while its top and horizontal bounds stay within the usable pane. Pages own safe-area spacing for scrolling content and fixed or sticky controls. The SDK supplies `viewport-fit=cover`; use `env(safe-area-inset-bottom)` padding on the relevant page wrappers so content remains reachable above the home indicator. Native scroll indicators avoid the unsafe area, but the SDK does not add content padding or automatically make arbitrary footers safe.
+
+Android also supplies `viewport-fit=cover` and forwards the bottom navigation inset where the WebView overlaps it. Insets already handled by the native bounds are cleared before reaching WebView, preventing duplicate keyboard or system-bar spacing. CSS safe-area support depends on the installed WebView provider: [Android documents support for all WebViews from Chromium M144](https://developer.android.com/develop/ui/views/layout/webapps/understand-window-insets). Keep ordinary bottom spacing as a fallback for older providers; the SDK does not rewrite page layout to protect arbitrary fixed controls.
 
 ```css
 .checkout-safe-area {
@@ -78,15 +82,19 @@ The SDK tags measurements with the active document and viewport, converts CSS pi
 
 ## Embedded interaction
 
-iOS covers the initial WebView with a native loading surface and fades into rendered content. The loading surface keeps its native theme appearance while the page initializes. The cover is used only for the initial reveal; later page navigation does not hide an active checkout. Reduced Motion removes the fade.
+Both mobile SDKs cover the initial WebView with a native loading surface and fade into rendered content. The loading surface keeps its native theme appearance while the page initializes. The cover is used only for the initial reveal; later page navigation does not hide an active checkout. On iOS, Reduced Motion removes the fade.
 
-For `https://checkout.stash.gg` and `https://checkout.stashstaging.com`, a single `theme=light` or `theme=dark` parameter also delays the initial reveal until the page's root `data-color-scheme` matches. This uses the Stash checkout theme contract so a previously saved page theme does not flash before the requested theme is applied. The SDK reads this marker without changing page styles or storage and checks it again after the paint boundary. Other origins retain the usual content and paint readiness behavior. The existing 15-second foreground-time limit bounds the initial cover if the expected page state never arrives; background time does not consume that limit. A failed readiness evaluation after navigation finishes also releases the cover.
+For `https://checkout.stash.gg` and `https://checkout.stashstaging.com`, a single `theme=light` or `theme=dark` parameter also delays the initial reveal until the page's root `data-color-scheme` matches. The SDK also waits for visible checkout skeleton placeholders to clear. This uses the Stash checkout theme contract so a previously saved page theme does not flash before the requested theme is applied. The SDK reads these markers without changing page styles or storage and checks again after the paint boundary. Other origins retain the usual content and paint readiness behavior. A 15-second foreground-time limit bounds the initial cover if the expected page state never arrives; background time does not consume that limit. A failed readiness evaluation after navigation finishes also releases the cover.
 
 Cards keep the page at its native layout scale. Pinch, double-tap, input focus, or page changes to viewport metadata must not magnify checkout. Two-finger gestures must not become sheet drags.
 
 Checkout labels, images and links do not expose browser selection, drag, or preview menus. Editable fields retain native selection, clipboard actions, keyboard behavior and autofill, including payment fields in iframes. The SDK does not replace those fields or intercept their typing. iOS omits WebKit's previous/next/Done accessory toolbar to leave more room for checkout.
 
 UIKit's grabber overlays the iOS web surface and retains native dragging and touch feedback.
+
+On Android, an upward content swipe expands a resting bottom sheet once. Downward swipes and reversals stay within the page and cannot collapse or dismiss the card. The handle owns interactive expansion, collapse, and drag dismissal; its touch target is 48 dp tall. Floating cards let content gestures scroll the page. A second finger, a window resize, or purchase processing cancels an active handle drag.
+
+Android starts navigation after the WebView has its resolved card bounds, avoiding an incorrect initial viewport scale on older providers. The initial loading surface crossfades into the WebView; dismissal and teardown cancel the actual fade animator. API 21–22 use a native hardware layer so their WebView renderer honors the container's rounded outline.
 
 Checkout owns its text and page colors. The SDK supplies the theme query parameter without forcing page CSS into dark mode. The page paints the bottom safe area; native background matching does not replace its layout. The iOS native backing follows the automatic page-matching policy described above.
 

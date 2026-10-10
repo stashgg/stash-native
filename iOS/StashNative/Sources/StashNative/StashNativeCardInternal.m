@@ -27,11 +27,11 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 
 @implementation StashCheckoutSession
 - (BOOL)isActive { return self.owner.session == self && !self.closing; }
-- (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing; }
+- (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing && !self.codeLinkCompleted; }
 - (UIViewController *)presentationPresenter { return self.portraitPresentation.presenter ?: self.presenter; }
 
 - (void)presentCheckout {
-    if (![self isActive] || self.webView) return;
+    if (![self isActive] || self.controller) return;
     if (!self.presenter.view.window || self.presenter.isBeingDismissed || self.presenter.presentedViewController) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
@@ -52,16 +52,28 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     } else [self presentCheckoutContent];
 }
 - (void)presentCheckoutContent {
-    if (![self isActive] || self.webView) return;
+    if (![self isActive] || self.controller) return;
     UIViewController *presenter = self.presentationPresenter;
     if (!presenter.view.window || presenter.isBeingDismissed || presenter.presentedViewController ||
         !self.presenter.viewIfLoaded.window || self.presenter.isBeingDismissed) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
     }
+    if (self.codeLink) {
+        StashCodeLinkViewController *scanner = [[StashCodeLinkViewController alloc] init];
+        scanner.session = self;
+        self.codeLinkController = scanner;
+        self.initialContentRevealed = YES;
+        [self presentCardFrom:presenter];
+#if !__has_feature(objc_arc)
+        [scanner release];
+#endif
+        return;
+    }
     WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
     WKUserContentController *content = configuration.userContentController;
     for (NSString *name in StashScriptHandlerNames()) [content addScriptMessageHandler:self name:name];
+    [content addScriptMessageHandlerWithReply:self contentWorld:WKContentWorld.pageWorld name:@"stashTelemetry"];
     WKUserScript *bridge = [[WKUserScript alloc] initWithSource:StashBridgeScript()
         injectionTime:WKUserScriptInjectionTimeAtDocumentStart forMainFrameOnly:YES];
     [content addUserScript:bridge];
@@ -91,19 +103,11 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     web.scrollView.showsHorizontalScrollIndicator = NO;
     StashRemoveFormInputAccessoryView(web);
     if (@available(iOS 16.4, *)) web.inspectable = [StashNativeCard isInspectableWebViewsEnabled];
-    StashCheckoutViewController *controller = [[StashCheckoutViewController alloc] init];
-    self.controller = controller;
-    controller.session = self;
-    [controller configurePresentation];
     [self observeRootScroll];
     self.observingPageBackground = YES;
     [web addObserver:self forKeyPath:@"underPageBackgroundColor" options:NSKeyValueObservingOptionNew
         context:StashPageBackgroundContext];
-    [presenter.view endEditing:YES];
-    [presenter presentViewController:controller animated:YES completion:^{
-        if (![self isActive]) return;
-        [self.controller updatePresentationAnimated:NO];
-    }];
+    [self presentCardFrom:presenter];
     self.loadStart = CFAbsoluteTimeGetCurrent();
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(loadActivityChanged:)
         name:UISceneDidActivateNotification object:self.presenter.view.window.windowScene];
@@ -118,7 +122,38 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         cachePolicy:NSURLRequestUseProtocolCachePolicy timeoutInterval:60];
     [web loadRequest:request];
 #if !__has_feature(objc_arc)
-    [configuration release]; [bridge release]; [interactionScript release]; [web release]; [controller release];
+    [configuration release]; [bridge release]; [interactionScript release]; [web release];
+#endif
+}
+- (void)presentCardFrom:(UIViewController *)presenter {
+    StashCheckoutViewController *controller = [[StashCheckoutViewController alloc] init];
+    self.controller = controller;
+    controller.session = self;
+    [controller configurePresentation];
+    [presenter.view endEditing:YES];
+    [presenter presentViewController:controller animated:YES completion:^{
+        if ([self isActive]) [self.controller updatePresentationAnimated:NO];
+    }];
+#if !__has_feature(objc_arc)
+    [controller release];
+#endif
+}
+- (void)completeCodeLink:(NSString *)content {
+    if (![self isActive] || !self.codeLink || self.codeLinkCompleted || !content.length) return;
+    self.codeLinkCompleted = YES;
+    [self.controller updateDismissalPolicy];
+    NSString *payload = [content copy];
+    StashNativeCard *owner = self.owner;
+    void (^finish)(void) = ^{
+        [self finishWithUserDismiss:NO completion:^{
+            if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidScanQRCode:)])
+                [owner.delegate stashNativeCardDidScanQRCode:payload];
+        }];
+    };
+    if (self.codeLinkController) [self.codeLinkController showConnectedWithCompletion:finish];
+    else finish();
+#if !__has_feature(objc_arc)
+    [payload release];
 #endif
 }
 - (void)observeRootScroll {
@@ -140,6 +175,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.rootOffsetRepairPending = NO;
 }
 - (void)rootScrollPanChanged:(UIPanGestureRecognizer *)gesture {
+    [self.controller nativePanChanged:gesture];
     if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled ||
         gesture.state == UIGestureRecognizerStateFailed) [self retryRootOffsetRepair];
 }
@@ -341,6 +377,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [self retain];
 #endif
     self.closing = YES;
+    [self.codeLinkController stopScanning];
     [self cancelInitialContentReveal];
     [self.controller.spinner stopAnimating];
     [self completeDialog:nil];
@@ -366,6 +403,9 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }];
 }
 - (void)cleanupCheckout {
+    [self.codeLinkController dispose];
+    self.codeLinkController.session = nil;
+    self.codeLinkController = nil;
     [self stopObservingRootScroll];
     [self invalidateTopChrome];
     [self.webView evaluateJavaScript:@"window.__stashTopEdgeProbe&&window.__stashTopEdgeProbe.stop()"
@@ -389,10 +429,18 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     for (NSString *name in StashScriptHandlerNames()) {
         [self.webView.configuration.userContentController removeScriptMessageHandlerForName:name];
     }
+    [self.webView.configuration.userContentController removeScriptMessageHandlerForName:@"stashTelemetry"
+        contentWorld:WKContentWorld.pageWorld];
+    self.telemetryNavigation = nil;
+    self.telemetryFirstCallAt = nil;
+    self.telemetryPageLoadStartedAt = nil;
+    self.telemetryPageLoadedAt = nil;
+    self.telemetryPageLoadTimeMs = nil;
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000
     if (@available(iOS 18.0, *)) ((UIUpdateLink *)self.controller.geometryUpdateLink).enabled = NO;
 #endif
     self.controller.geometryUpdateLink = nil;
+    [self.controller stopNativeEntrance];
     self.controller.session = nil;
     self.controller = nil;
     self.webView = nil;
@@ -471,7 +519,10 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
     if (controller == self.browser) [self finishBrowserWithDismissCallback:NO];
 }
-- (BOOL)presentationControllerShouldDismiss:(UIPresentationController *)presentationController { return [self canUserDismiss]; }
+- (BOOL)presentationControllerShouldDismiss:(UIPresentationController *)presentationController {
+    if (presentationController.presentedViewController == self.controller && self.controller.touchBeganInWebContent) return NO;
+    return [self canUserDismiss];
+}
 - (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController {
     if (![self isActive]) return;
     if (self.browser && presentationController.presentedViewController == self.browser) [self browserClosed];

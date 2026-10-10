@@ -955,6 +955,8 @@
                 <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-labelledby="tab-btn-callbacks">
                 <div class="stack-gap-md">
                     <p><a href="responsive.html">Open responsive sizing and state-preservation tests</a></p>
+                    <button type="button" class="btn btn-primary" onclick="readTelemetry()">Read native telemetry</button>
+                    <pre id="telemetry-result" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre>
                     <div class="input-wrap">
                         <label class="field-label" for="sample-input">Keyboard Input Test</label>
                         <div class="input-focus-shell">
@@ -1430,6 +1432,24 @@
                     updateThemeInfo();
                 }
             });
+        }
+
+        async function readTelemetry() {
+            const output = document.getElementById('telemetry-result');
+            try {
+                if (!window.stash_sdk || typeof window.stash_sdk.getTelemetry !== 'function') {
+                    throw new Error('getTelemetry requires the native Stash bridge.');
+                }
+                const values = await Promise.all([window.stash_sdk.getTelemetry(), window.stash_sdk.getTelemetry()]);
+                if (values[0].timing.firstCallAt !== values[1].timing.firstCallAt) {
+                    throw new Error('Concurrent calls returned different firstCallAt timestamps.');
+                }
+                output.textContent = JSON.stringify(values[1], null, 2);
+                updateStatus('Read telemetry; firstCallAt is stable across concurrent calls.');
+            } catch (error) {
+                output.textContent = error.message;
+                updateStatus('Telemetry request failed.');
+            }
         }
 
         function triggerOptIn() {

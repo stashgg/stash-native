@@ -156,6 +156,7 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 @end
 @implementation StashTestReservedRegion
 @end
+#endif
 @interface StashReservedProbeView : UIView
 @property (nonatomic, strong) NSArray *regions;
 @property (nonatomic) UIEdgeInsets probeInsets;
@@ -164,9 +165,11 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 @implementation StashReservedProbeView
 - (UIEdgeInsets)safeAreaInsets { return self.probeInsets; }
 - (void)setNeedsLayout { self.layoutRequests++; [super setNeedsLayout]; }
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
 - (NSArray<UIViewReservedRegion *> *)reservedRegionsOfKind:(UIViewReservedRegionKind *)kind API_AVAILABLE(ios(27.1)) {
     return [kind isEqual:UIViewReservedRegionKind.occlusionRegionKind] ? self.regions : @[];
 }
+#endif
 @end
 @interface StashRegionProbeController : StashCheckoutViewController
 @property (nonatomic, strong) UIView *probeContainer;
@@ -181,6 +184,42 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 @implementation StashSafeProbeWindow
 - (UIEdgeInsets)safeAreaInsets { return self.probeInsets; }
 @end
+NSDictionary *StashCardViewportCoverageProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    for (NSNumber *compensation in @[@0, @34]) {
+        StashNativeCard *owner = [StashNativeCard new];
+        StashCheckoutSession *session = [StashCheckoutSession new];
+        owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
+        session.expanded = YES; session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
+        StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 402, 874)];
+        window.probeInsets = UIEdgeInsetsMake(62, 0, 34, 0);
+        UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter; session.presenter = presenter;
+        StashRegionProbeController *controller = [StashRegionProbeController new];
+        session.controller = controller; controller.session = session; controller.probeContainer = window;
+        [controller configurePresentation];
+        controller.hasNativeMaximumDetentValue = YES; controller.nativeMaximumDetentValue = 778;
+        controller.nativeContentSafeAreaCompensation = compensation.doubleValue;
+        controller.dragging = YES;
+        controller.touchBeganInWebContent = YES;
+        StashReservedProbeView *content = [[StashReservedProbeView alloc] initWithFrame:CGRectZero];
+        controller.view = content; [window addSubview:content]; [content addSubview:session.webView]; controller.previousWidth = 402;
+        BOOL stable = YES;
+        for (NSNumber *height in @[@754, @760, @795, @754, @600]) {
+            content.frame = CGRectMake(0, 866 - height.doubleValue, 402, height.doubleValue);
+            [controller viewDidLayoutSubviews];
+            CGRect painted = [session.webView convertRect:session.webView.bounds toView:content];
+            stable &= fabs(session.webView.bounds.size.height - height.doubleValue) < 0.5 &&
+                fabs(CGRectGetMinY(painted)) < 0.5 && fabs(CGRectGetMaxY(painted) - height.doubleValue) < 0.5 &&
+                fabs(CGRectGetMinX(painted)) < 0.5 && fabs(CGRectGetMaxX(painted) - 402) < 0.5;
+            stable &= CGAffineTransformIsIdentity(session.webView.transform);
+        }
+        result[compensation.doubleValue == 0 ? @"nativeBottomInset" : @"compensatedBottomInset"] = @(stable);
+        [owner resetPresentationState];
+    }
+    return result;
+}
+
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
 void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
     NSMutableArray *cases = [NSMutableArray array];
     for (NSDictionary *metrics in @[

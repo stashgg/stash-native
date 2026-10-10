@@ -14,7 +14,7 @@ Android checkout runs in the host app process. It must not acquire an `android:p
 
 ## Dependencies and packaging
 
-Android's required runtime dependencies are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0, and its Java adapter. Their resolved graph includes Kotlin and coroutines. The SDK does not require AppCompat, Material, or Compose. Browser 1.7.0 is optional for Custom Tabs; absent browser support falls back to `ACTION_VIEW`.
+Android's required runtime dependencies are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0 and its Java adapter, CameraX 1.4.2 (camera2, lifecycle, and view), and ZXing Core 3.5.3. CodeLink uses CameraX and ZXing. Their resolved graph includes Kotlin and coroutines. The SDK does not require AppCompat, Material, or Compose. Browser 1.7.0 is optional for Custom Tabs; absent browser support falls back to `ACTION_VIEW`.
 
 Plain AAR files do not carry transitive dependency metadata. Include the dependencies from the [README](README.md#android). Keep consumer shrinking rules and test a minified host; an unminified SDK AAR does not mean internal classes will escape the host shrinker.
 
@@ -24,7 +24,7 @@ The iOS public header supports ARC and non-ARC consumers. New implementation fil
 
 - All iOS cards use one native sheet controller. Regular width and height use a form sheet with one system large detent; compact layouts use custom detents on iOS 16+ and system detents on iOS 15.
 - Card sizing uses current window geometry rather than a device category.
-- Portrait is a best-effort preference. No automatic app-delegate swizzling or forced device-orientation KVC is used.
+- On iPhone, the portrait preference uses an SDK-owned window and scoped app/scene delegate orientation hooks (method swizzling). Calls for game windows retain the host's orientation policy. iOS 16+ uses scene geometry requests; iOS 15 uses a device-orientation KVC fallback. The SDK restores orientation before handing the key window back to the game. Rotation remains best effort. iPad ignores the preference, and CodeLink follows the host orientation.
 - Hardware keyboards, floating keyboards, asymmetric safe areas, and separating hinges require runtime tests alongside pure geometry tests.
 - A process killed by the OS cannot preserve a live payment page. Recovery must not replay a payment request or report success without a payment result.
 

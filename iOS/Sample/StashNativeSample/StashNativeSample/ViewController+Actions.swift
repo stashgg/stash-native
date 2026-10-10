@@ -41,6 +41,10 @@ extension ViewController {
         StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self)
     }
 
+    @objc func codeLinkTapped() {
+        StashNativeCard.sharedInstance().codeLink(from: self)
+    }
+
     func buildCardConfig() -> StashNativeCardConfig {
         let config = StashNativeCardConfig()
         config.orientationPreference = cardPreferPortraitSwitch.isOn ? .portrait : .followHost
@@ -105,6 +109,11 @@ extension ViewController {
         guard !handledLaunchPresentation, presentedViewController == nil else { return }
         handledLaunchPresentation = true
         let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-stash-mode"),
+           arguments.indices.contains(index + 1), arguments[index + 1] == "codelink" {
+            codeLinkTapped()
+            return
+        }
         guard let urlIndex = arguments.firstIndex(of: "-stash-url"),
               arguments.indices.contains(urlIndex + 1),
               let url = URL(string: arguments[urlIndex + 1]),

@@ -52,8 +52,9 @@ final class NativeSheetGeometryTests: XCTestCase {
     @MainActor func testNativeWebContentPaintsOnlyThroughTheBottomSystemSafeArea() throws {
         guard #available(iOS 27.1, *) else { throw XCTSkip("Reserved regions require iOS27.1") }
         let result = StashNativeBottomPaintProbe() as! [String: NSNumber]
+        // The WebView paints the full card, including the area beneath the native grabber.
         for key in ["transitionalHeight", "settledHeight"] {
-            XCTAssertEqual(result[key]?.doubleValue, 587, key)
+            XCTAssertEqual(result[key]?.doubleValue, 603, key)
         }
         for key in ["transitionalInset", "settledInset"] {
             XCTAssertEqual(result[key]?.doubleValue, 26, key)
@@ -65,11 +66,11 @@ final class NativeSheetGeometryTests: XCTestCase {
         XCTAssertEqual(result["sameTotalCorrection"]?.doubleValue, 28)
         XCTAssertEqual(result["offscreenCorrection"]?.doubleValue, 100)
         XCTAssertEqual(result["compactWidth"]?.doubleValue, 450)
-        XCTAssertEqual(result["compactHeight"]?.doubleValue, 468)
+        XCTAssertEqual(result["compactHeight"]?.doubleValue, 484)
         XCTAssertEqual(result["compactInset"]?.doubleValue, 34)
         XCTAssertEqual(result["reservedBandBottom"]?.doubleValue, 460)
         XCTAssertEqual(result["reservedBandInset"]?.doubleValue, 10)
-        XCTAssertEqual(result["floatingHeight"]?.doubleValue, 468)
+        XCTAssertEqual(result["floatingHeight"]?.doubleValue, 484)
         XCTAssertEqual(result["floatingInset"]?.doubleValue, 34)
         XCTAssertEqual(result["keyboardBottom"]?.doubleValue, 389)
         XCTAssertEqual(result["keyboardInset"]?.doubleValue, 0)

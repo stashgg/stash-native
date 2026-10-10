@@ -3,10 +3,42 @@ import WebKit
 import RegressionSupport
 
 final class LoadingPresentationTests: XCTestCase {
-    @MainActor func testLoadingCoverKeepsInitialPaintWhilePageBackgroundChanges() throws {
+    @MainActor func testLoadingSurfaceConcealsPagePaintUntilReveal() throws {
         let result = try XCTUnwrap(StashLoadingCoverBackgroundProbe())
         XCTAssertEqual(result.count, 4)
         for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
+    }
+
+    @MainActor func testCheckoutReadinessWaitsForVisiblePlaceholdersWhileWebViewIsTransparent() async throws {
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 560))
+        let (window, previous) = host(web)
+        defer { web.stopLoading(); window.isHidden = true; previous?.makeKey() }
+        web.alpha = 0
+        let source = try XCTUnwrap(StashInitialContentReadinessSource())
+        let skeleton = "<div class='animate-skeletonOpacityFluctuation' style='width:200px;height:80px'></div>"
+        for address in ["https://checkout.stash.gg/pay", "https://checkout.stashstaging.com/pay"] {
+            try await load(web, address)
+            for finished in [false, true] {
+                for (style, expected) in [("", false), ("display:none", true), ("opacity:0", true),
+                                           ("position:absolute;top:10000px", true)] {
+                    let value = try await evaluate(web,
+                        "document.body.innerHTML = '<section style=\"' + style + '\">' + skeleton + '</section><button>Pay</button>';\n" + source,
+                        ["style": style, "skeleton": skeleton, "finished": finished])
+                    XCTAssertEqual(value as? Bool, expected, "\(address) \(style) finished=\(finished)")
+                }
+            }
+            let latePlaceholder = "document.body.innerHTML = '<button>Pay</button>';\n" +
+                "requestAnimationFrame(() => document.body.insertAdjacentHTML('afterbegin', skeleton));\n" + source
+            let late = try await evaluate(web, latePlaceholder, ["skeleton": skeleton, "finished": true])
+            XCTAssertEqual(late as? Bool, false)
+            let ready = try await evaluate(web, "document.body.innerHTML = '<button>Pay</button>';\n" + source,
+                                           ["finished": true])
+            XCTAssertEqual(ready as? Bool, true)
+        }
+        try await load(web, "https://custom.invalid/pay")
+        let generic = try await evaluate(web, "document.body.innerHTML = skeleton;\n" + source,
+                                         ["skeleton": skeleton, "finished": true])
+        XCTAssertEqual(generic as? Bool, true)
     }
 
     @MainActor func testCheckoutThemeReadinessUsesOnlyCurrentExactOriginAndOneValidTheme() async throws {

@@ -77,9 +77,10 @@ public class StashWebViewUtils {
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
   public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
-  // Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on iOS (StashNativeCard.m).
+  // Canonical spec: docs/stash-sdk-js.md. Mirror changes in iOS StashNativeCardViewUtils.m.
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
+      + StashTelemetrySupport.API_SCRIPT
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
       + "    try { var p=null;"
       + "      if(arguments.length>0&&order!==undefined&&order!==null){"
@@ -150,7 +151,7 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Status/nav bars remain readable over the dismissal backdrop.
+   * Sets transparent system bars; the presenter adjusts navigation icons over an attached card.
    */
   public static void applySystemBarAppearanceForSheet(Window window, View decorView) {
     if (window == null || decorView == null) {
@@ -160,12 +161,16 @@ public class StashWebViewUtils {
       window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
       window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
           | android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
-      WindowInsetsControllerCompat controller =
+      final WindowInsetsControllerCompat controller =
           StashWindowCompat.getInsetsController(window, decorView);
       window.setStatusBarColor(Color.TRANSPARENT);
-      window.setNavigationBarColor(Color.TRANSPARENT);
+      // Before API 26, navigation buttons need a dark backing because their color is fixed.
+      window.setNavigationBarColor(Build.VERSION.SDK_INT < 26 ? 0x66000000 : Color.TRANSPARENT);
+      if (Build.VERSION.SDK_INT >= 29) {
+        window.setNavigationBarContrastEnforced(false);
+      }
       if (controller != null) {
-        // Both system bars sit outside the safe sheet, over its dark dismissal backdrop.
+        // Start over the backdrop; attached cards update the navigation bar after layout.
         controller.setAppearanceLightStatusBars(false);
         controller.setAppearanceLightNavigationBars(false);
       }

@@ -131,7 +131,10 @@ final class FloatingKeyboardTests: XCTestCase {
         const afterFocus={documentFocused:document.hasFocus(),active:document.activeElement?.id||document.activeElement?.tagName};
         window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);
         window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        await new Promise((resolve,reject)=>{
+          const deadline=setTimeout(()=>reject(new Error('Focus reveal received no animation frames')),1500);
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(deadline);resolve();}));
+        });
         const rect=field.getBoundingClientRect();
         const result={top:rect.top,bottom:rect.bottom,height:innerHeight,value:field.value,
         start:field.selectionStart,end:field.selectionEnd,style:field.getAttribute('style'),

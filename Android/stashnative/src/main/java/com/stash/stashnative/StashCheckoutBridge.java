@@ -59,4 +59,16 @@ final class StashCheckoutBridge {
     intent.putExtra(CardConstants.BROADCAST_EXTRA_PAGE_LOAD_MS, loadTimeMs);
     context.getApplicationContext().sendBroadcast(intent);
   }
+
+  static void emitQrCodeScanned(Context context, String content) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_SCANNED);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT, content);
+    context.getApplicationContext().sendBroadcast(intent);
+  }
+
+  static void emitCodeLinkError(Context context, StashNativeCard.CodeLinkError error) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_ERROR);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR, error.name());
+    context.getApplicationContext().sendBroadcast(intent);
+  }
 }

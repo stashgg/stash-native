@@ -3,6 +3,7 @@
 static BOOL stashInspectableWebViewsEnabled = NO;
 
 NSString *const StashTopChromeHandlerName = @"stashTopChrome";
+NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink";
 
 @implementation StashNativeCard
 + (instancetype)sharedInstance {
@@ -22,6 +23,26 @@ NSString *const StashTopChromeHandlerName = @"stashTopChrome";
 }
 - (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter {
     [self openURL:url presenter:presenter config:nil browser:YES];
+}
+- (void)codeLinkFromViewController:(UIViewController *)presenter {
+    if (!NSThread.isMainThread) {
+        dispatch_async(dispatch_get_main_queue(), ^{ [self codeLinkFromViewController:presenter]; });
+        return;
+    }
+    if (self.session || !presenter.viewIfLoaded.window || presenter.isBeingDismissed) return;
+    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed)
+        presenter = presenter.presentedViewController;
+    StashCheckoutSession *session = [[StashCheckoutSession alloc] init];
+    session.owner = self;
+    session.presenter = presenter;
+    session.config = StashNormalizedConfig(nil);
+    session.config.orientationPreference = StashNativeOrientationPreferenceFollowHost;
+    session.codeLink = YES;
+    self.session = session;
+    [session presentCheckout];
+#if !__has_feature(objc_arc)
+    [session release];
+#endif
 }
 - (void)openURL:(NSString *)url presenter:(UIViewController *)presenter
          config:(StashNativeCardConfig *)config browser:(BOOL)browser {

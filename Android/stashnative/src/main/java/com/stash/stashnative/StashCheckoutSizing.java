@@ -37,16 +37,19 @@ final class StashCheckoutSizing {
     final int restingHeight;
     final int expandedHeight;
     final boolean bottomAttached;
+    final int bottomInset;
 
     Layout(
         Box frame,
         int restingHeight,
         int expandedHeight,
-        boolean bottomAttached) {
+        boolean bottomAttached,
+        int bottomInset) {
       this.frame = frame;
       this.restingHeight = restingHeight;
       this.expandedHeight = expandedHeight;
       this.bottomAttached = bottomAttached;
+      this.bottomInset = bottomInset;
     }
   }
 
@@ -108,7 +111,22 @@ final class StashCheckoutSizing {
         new Box(left, top, left + width, top + height),
         resting,
         maximum,
-        bottom);
+        bottom,
+        0);
+  }
+
+  /** Adds the paint-through area without changing the usable content height or top edge. */
+  static Layout extendBottom(Layout layout, int inset) {
+    if (!layout.bottomAttached || inset <= 0) {
+      return layout;
+    }
+    Box frame = layout.frame;
+    return new Layout(
+        new Box(frame.left, frame.top, frame.right, frame.bottom + inset),
+        layout.restingHeight + inset,
+        layout.expandedHeight + inset,
+        true,
+        inset);
   }
 
   static Box frameAtHeight(Layout layout, int requestedHeight) {

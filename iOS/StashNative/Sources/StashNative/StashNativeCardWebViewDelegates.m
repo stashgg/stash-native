@@ -13,6 +13,7 @@
 }
 - (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
     if (![self isActive]) return;
+    [self beginTelemetryNavigation:navigation];
     [self invalidateTopChrome];
     self.topChromeNavigation = navigation;
     [self beginInitialContentNavigation];
@@ -35,6 +36,7 @@
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     if (![self isActive]) return;
+    [self finishTelemetryNavigation:navigation];
     [self sampleTopChrome];
     self.loaded = YES;
     [self.loadTimer invalidate];

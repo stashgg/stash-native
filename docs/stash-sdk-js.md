@@ -23,14 +23,121 @@ Manual testing: [`.github/test/index.html`](../.github/test/index.html).
 
 | Platform | Mechanism | Bridge name |
 |----------|-----------|-------------|
-| Android | `WebView.evaluateJavascript` after page load through `StashCheckoutWebViewSupport`; card content-size support is installed separately for the active document | `StashAndroid` |
-| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess` and `stashExternalPayment`, listed by `StashScriptHandlerNames()` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) |
+| Android | `WebView.evaluateJavascript` at navigation callbacks through `StashCheckoutWebViewSupport`; telemetry and card content-size support are scoped to the committed document | `StashAndroid` |
+| iOS | `WKUserScript` at document start; `window.webkit.messageHandlers.<name>.postMessage(...)` | Handler names such as `stashNativementSuccess` and `stashExternalPayment`, listed by `StashScriptHandlerNames()` in [`StashNativeCardViewUtils.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m); `stashTelemetry` uses `WKScriptMessageHandlerWithReply` |
 
 From the page’s perspective the API is identical: only `window.stash_sdk` and `window.close` (see below).
 
 ## API Reference
 
-On Android every bridge call in the injected script is wrapped in try/catch. On iOS the bridge functions post directly (only the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. Exceptions in page code before the bridge call are never suppressed on either platform.
+On Android existing notification calls suppress native bridge exceptions. On iOS those functions post directly (the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. `getTelemetry()` returns a Promise and rejects on bridge errors on both platforms. Exceptions in page code before the bridge call are never suppressed on either platform.
+
+### `window.stash_sdk.getTelemetry()`
+
+Returns a `Promise<Telemetry>` containing a snapshot of the device, host app, native card, and current page timing. Available inside `OpenCard` on iOS and Android; system-browser presentations do not inject this bridge.
+
+```javascript
+try {
+  const telemetry = await window.stash_sdk.getTelemetry();
+  console.log(telemetry.hardware.model, telemetry.timing.pageLoadTimeMs);
+} catch (error) {
+  // The bridge may not be ready, or the card/document may have closed.
+}
+```
+
+Both platforms return every key shown below. Unsupported or unavailable values are `null`; nested objects remain present. Each call returns a new snapshot. Example iOS response:
+
+```json
+{
+  "schemaVersion": 1,
+  "platform": "ios",
+  "hardware": {
+    "manufacturer": "Apple",
+    "model": "iPhone18,2",
+    "memoryBytes": 8589934592
+  },
+  "os": {
+    "version": "26.0",
+    "apiLevel": null
+  },
+  "app": {
+    "id": "com.example.game",
+    "version": "2.4.0",
+    "build": "42",
+    "targetSdkVersion": null
+  },
+  "runtime": {
+    "sdkVersion": "3.0.0",
+    "webViewEngine": "webkit",
+    "webViewPackage": null,
+    "webViewVersion": null
+  },
+  "presentation": {
+    "state": "resting",
+    "keyboardVisible": false,
+    "orientationPreference": "followHost",
+    "portraitApplied": false,
+    "window": { "width": 402, "height": 874 },
+    "card": { "width": 386, "height": 560 },
+    "safeAreaInsets": { "top": 62, "right": 0, "bottom": 34, "left": 0 },
+    "multiWindow": null,
+    "fold": { "state": null, "orientation": null, "separating": null }
+  },
+  "power": {
+    "lowPowerMode": false,
+    "thermalState": "nominal"
+  },
+  "timing": {
+    "firstCallAt": 1791540001200,
+    "pageLoadStartedAt": 1791540000000,
+    "pageLoadedAt": 1791540001000,
+    "pageLoadTimeMs": 1000
+  }
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schemaVersion` | number | Payload contract version, currently `1`. Independent of the SDK version. |
+| `platform` | string | `ios` or `android`. |
+| `hardware.manufacturer` | string or null | `Apple` on iOS; the reported manufacturer on Android. |
+| `hardware.model` | string or null | iOS hardware model identifier; Android `Build.MODEL`. Identifies a model, not an individual device. Marketing-name mapping is not included. |
+| `hardware.memoryBytes` | number or null | OS-reported physical RAM. Android excludes memory reserved outside the kernel; this is not available memory or the app's memory budget. Simulators can report host-machine RAM. |
+| `os.version` | string or null | Native OS release version. |
+| `os.apiLevel` | number or null | Android API level; `null` on iOS. |
+| `app.id` | string or null | Host game's bundle/package identifier. |
+| `app.version` | string or null | Host game's release version. |
+| `app.build` | string or null | iOS bundle build or Android version code, represented as a string on both platforms. |
+| `app.targetSdkVersion` | number or null | Host app's Android target SDK; `null` on iOS. |
+| `runtime.sdkVersion` | string | Stash Native SDK version. |
+| `runtime.webViewEngine` | string | `webkit` on iOS; `chromium` on Android. |
+| `runtime.webViewPackage` | string or null | Active Android WebView provider package, available from API 26; `null` on iOS and older Android versions. |
+| `runtime.webViewVersion` | string or null | Provider's version name, with the same availability as `webViewPackage`. No independent WKWebView version is inferred from the user agent. |
+| `presentation.state` | string or null | User/programmatic selection: `resting` or `expanded`. Temporary keyboard expansion preserves this selection. |
+| `presentation.keyboardVisible` | boolean or null | Whether the native checkout currently detects a keyboard. |
+| `presentation.orientationPreference` | string | Requested configuration: `followHost` or `portrait`. |
+| `presentation.portraitApplied` | boolean | Whether the SDK's portrait policy is active and the checkout is currently portrait. An ignored tablet/windowed preference reports `false`. |
+| `presentation.window.width`, `.height` | number or null | Current native checkout window size, including system-bar areas. |
+| `presentation.card.width`, `.height` | number or null | Current native card bounds, including native chrome. |
+| `presentation.safeAreaInsets.top`, `.right`, `.bottom`, `.left` | number or null | Native window safe-area/system-bar and cutout insets. Excludes keyboard occlusion. |
+| `presentation.multiWindow` | boolean or null | Android's multi-window flag from API 24. `null` on iOS and older Android versions; no iPad multitasking mode is inferred from dimensions. |
+| `presentation.fold.state` | string or null | Reported Android folding feature: `flat` or `halfOpened`. `null` on iOS or when no feature is reported. |
+| `presentation.fold.orientation` | string or null | `vertical` or `horizontal` for the reported fold. |
+| `presentation.fold.separating` | boolean or null | Whether the reported fold separates the window into distinct areas. Missing fold information does not mean the hardware cannot fold. |
+| `power.lowPowerMode` | boolean or null | iOS Low Power Mode or Android Battery Saver. |
+| `power.thermalState` | string or null | `nominal`, `fair`, `serious`, or `critical`. Android 10/API 29+ maps none → nominal, light/moderate → fair, severe → serious, critical/emergency/shutdown → critical. Older Android returns `null`. These are qualitative OS signals, not equivalent temperature thresholds. |
+| `timing.firstCallAt` | number | Unix timestamp in milliseconds when native handles the first accepted `getTelemetry()` request in this card session. Stays fixed across later calls and navigation; a newly opened card starts a new session. |
+| `timing.pageLoadStartedAt` | number or null | Unix timestamp in milliseconds of the latest top-level navigation-start callback. |
+| `timing.pageLoadedAt` | number or null | Unix timestamp in milliseconds of the matching successful native page-finish callback. `null` until then. |
+| `timing.pageLoadTimeMs` | number or null | Elapsed milliseconds between those native callbacks, measured using a monotonic clock. `null` until completion. |
+
+Geometry uses iOS points and Android density-independent pixels, not CSS pixels or physical pixels. Window, card, keyboard, fold, and power fields are sampled on each request.
+
+Full navigation, reload, retry, or WebView recovery resets the page timing fields. Duplicate completion callbacks do not change a recorded result. Failed loads leave completion fields `null`. Same-document navigation, card expansion, rotation, and resizing do not start a new page load. A page-finish callback does not guarantee that a checkout's later JavaScript hydration, images fetched after load, or native loading fade has completed. Wall-clock changes can make timestamp subtraction differ from the monotonic duration.
+
+On Android, telemetry becomes ready when the top-level document commits, or finishes on older WebViews. Calls before readiness reject. Requests and replies are scoped to that document; stale requests cannot retrieve a replacement page's telemetry. Outstanding Android requests time out after 10 seconds. On iOS the native reply handler rejects subframe and inactive-session requests.
+
+This API adds no permissions, entitlements, or consent prompts. It reads public native APIs and returns data to the calling page; it does not upload telemetry. It includes no advertising/device identifiers, personal device name, location, contacts, network identity, storage inspection, or installed-app inventory. Hosts remain responsible for the pages they load and any analytics collection performed by those pages.
 
 ### `window.stash_sdk.onPaymentSuccess(order?)`
 

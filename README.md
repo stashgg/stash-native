@@ -25,6 +25,10 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'
     implementation 'androidx.window:window-java:1.4.0'
+    implementation 'androidx.camera:camera-camera2:1.4.2'
+    implementation 'androidx.camera:camera-lifecycle:1.4.2'
+    implementation 'androidx.camera:camera-view:1.4.2'
+    implementation 'com.google.zxing:core:3.5.3'
     // Optional Chrome Custom Tabs support:
     implementation 'androidx.browser:browser:1.7.0'
 }
@@ -113,6 +117,49 @@ stash.openBrowser(activity, checkoutUrl);
 Android uses Chrome Custom Tabs when its optional library is present, otherwise the system browser. Browser-close tracking is internal; hosts do not forward `onActivityResult`. Android `closeBrowser()` has no effect. iOS presents `SFSafariViewController` from the supplied controller.
 
 Android's optional short foreground keep-alive service remains disabled by default. Enable it with `setKeepAliveEnabled(true)` and customize its notification through `KeepAliveConfig`. It improves survival during a browser payment flow but does not guarantee survival under memory pressure. See [Android implementation](docs/android.md).
+
+### CodeLink (iOS and Android)
+
+CodeLink hosts a QR camera in the same responsive native card as checkout. It follows the app's orientation on phones and tablets, including landscape-only games, and uses the same compact, centered card on tablets. The preview fills the card, with a centered scan frame and a “Scan the webshop code” callout.
+
+On iOS, add `NSCameraUsageDescription` to the **host app's** `Info.plist`, for example “Scan a webshop QR code to link it with your game.” Camera access is requested when CodeLink opens. No microphone or photo-library permission is needed; the SDK does not record or upload camera images.
+
+```swift
+stash.delegate = self
+stash.codeLink(from: self)
+
+func stashNativeCardDidScanQRCode(_ content: String) {
+    // The card has closed. Interpret the raw QR content in your app.
+}
+
+func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
+    // Camera access is denied, unavailable, or incorrectly configured.
+}
+```
+
+Objective-C entry point: `-codeLinkFromViewController:`.
+
+```java
+StashNativeCard stash = StashNativeCard.getInstance();
+stash.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    @Override public void onQrCodeScanned(String content) {
+        // The card has closed. Interpret the raw QR content in your app.
+    }
+
+    @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+        // The card remains open with a camera access or availability explanation.
+    }
+});
+stash.codeLink(this);
+```
+
+Android's library manifest declares `CAMERA` and optional camera hardware. The SDK requests camera permission when CodeLink opens; checkout and browser never request it. Android uses CameraX and the bundled ZXing QR decoder, without Play Services or a model download. Standalone AAR consumers must include the dependencies listed in Installation. It requires no microphone, storage, or photo permission. The preview and QR decoding stay on the device.
+
+Only QR codes fully inside the scan frame are accepted. The first nonempty payload stops scanning and shows a brief **Connected** checkmark with success haptic feedback. The card then closes and delivers `stashNativeCardDidScanQRCode:` / `onQrCodeScanned` once on the main thread. The animation respects disabled system animations and allows extra reading time with VoiceOver or TalkBack. The payload is returned unchanged; the confirmation acknowledges the scan and does not perform account linking or open a URL. Success does not emit payment or dismissal callbacks. The close button, native sheet dismissal, and `dismiss()` use the existing dismissal callback; `resetPresentationState()` stays silent, including during the confirmation.
+
+iOS camera errors use `StashNativeCodeLinkErrorDomain` and the public `StashNativeCodeLinkError` codes. Android reports `CodeLinkError.CAMERA_PERMISSION_DENIED`, `CAMERA_UNAVAILABLE`, `CAMERA_CONFIGURATION_FAILED`, or `CAMERA_PERMISSION_NOT_DECLARED`. An error is reported at most once per scanner session. The card remains open with an explanation and, when permission is denied, an **Open Settings** button. Returning after granting access resumes scanning. Capture stops when the card closes or the app leaves the foreground. Platforms without a usable camera, including the iOS Simulator, show the unavailable state. Physical-device testing is required for live scanning.
+
+Both mobile samples include **Link Webshop → Scan QR Code** and display results in the existing callback log. CodeLink is a native API; it is not exposed through the JavaScript bridge.
 
 ## Callbacks
 

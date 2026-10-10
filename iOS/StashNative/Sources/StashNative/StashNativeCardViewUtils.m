@@ -44,27 +44,29 @@ void StashRemoveFormInputAccessoryView(WKWebView *webView) {
 }
 
 NSString *StashInitialContentReadinessScript(void) {
-    return @"const requestedThemeApplied = () => {\n"
+    return @"const intersects = r => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;\n"
+        @"const visible = e => {\n"
+        @"  if (!intersects(e.getBoundingClientRect())) return false;\n"
+        @"  for (let p = e; p; p = p.parentElement) {\n"
+        @"    const s = getComputedStyle(p);\n"
+        @"    if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0) return false;\n"
+        @"  }\n"
+        @"  return true;\n"
+        @"};\n"
+        @"const checkoutPresentationReady = () => {\n"
         @"  const url = new URL(document.URL);\n"
         @"  if (url.username || url.password) return true;\n"
         @"  if (!['https://checkout.stash.gg', 'https://checkout.stashstaging.com'].includes(url.origin)) return true;\n"
+        // Stash checkout can finish navigation while its initial placeholders are still visible.
+        @"  if (Array.from(document.querySelectorAll('.animate-skeletonOpacityFluctuation')).some(visible)) return false;\n"
         @"  const themes = url.searchParams.getAll('theme');\n"
         @"  if (themes.length !== 1 || !['light', 'dark'].includes(themes[0])) return true;\n"
         @"  return document.documentElement?.getAttribute('data-color-scheme') === themes[0];\n"
         @"};\n"
-        @"if (!requestedThemeApplied()) return false;\n"
+        @"if (!checkoutPresentationReady()) return false;\n"
         @"if (!finished) {\n"
         @"  const body = document.body;\n"
         @"  if (!body) return false;\n"
-        @"  const intersects = r => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;\n"
-        @"  const visible = e => {\n"
-        @"    if (!intersects(e.getBoundingClientRect())) return false;\n"
-        @"    for (let p = e; p; p = p.parentElement) {\n"
-        @"      const s = getComputedStyle(p);\n"
-        @"      if (s.display === 'none' || s.visibility !== 'visible' || Number(s.opacity) === 0) return false;\n"
-        @"    }\n"
-        @"    return true;\n"
-        @"  };\n"
         @"  let usable = false;\n"
         @"  const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);\n"
         @"  for (let node = walker.nextNode(), n = 0; node && n < 200; node = walker.nextNode(), n++) {\n"
@@ -89,7 +91,7 @@ NSString *StashInitialContentReadinessScript(void) {
         @"  const timer = setTimeout(finish, 250);\n"
         @"  first = requestAnimationFrame(() => { second = requestAnimationFrame(finish); });\n"
         @"});\n"
-        @"return requestedThemeApplied();";
+        @"return checkoutPresentationReady();";
 }
 
 NSString *NormalizeExternalPaymentURL(NSString *raw) {
@@ -112,6 +114,8 @@ NSString *StashBridgeScript(void) {
     return @"(function(){if(window!==window.top)return;"
     "var s=window.stash_sdk=window.stash_sdk||{};"
     "function send(n,b){window.webkit.messageHandlers[n].postMessage(b);}"
+    "s.getTelemetry=function(){return new Promise(function(resolve,reject){"
+    "try{resolve(window.webkit.messageHandlers.stashTelemetry.postMessage({}));}catch(e){reject(e);}});};"
     "s.onPaymentSuccess=function(o){send('stashNativementSuccess',o==null?'':typeof o==='string'?o:JSON.stringify(o));};"
     "s.onPaymentFailure=function(){send('stashNativementFailure',{});};"
     "s.onPurchaseProcessing=function(){send('stashPurchaseProcessing',{});};"

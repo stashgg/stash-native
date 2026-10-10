@@ -3,6 +3,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+FOUNDATION_EXPORT NSErrorDomain const StashNativeCodeLinkErrorDomain;
+typedef NS_ERROR_ENUM(StashNativeCodeLinkErrorDomain, StashNativeCodeLinkError) {
+    StashNativeCodeLinkErrorCameraPermissionDenied = 1,
+    StashNativeCodeLinkErrorCameraUnavailable,
+    StashNativeCodeLinkErrorCameraConfigurationFailed,
+    StashNativeCodeLinkErrorMissingCameraUsageDescription
+};
+
 typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
     StashNativeOrientationPreferenceFollowHost = 0,
     StashNativeOrientationPreferencePortrait = 1
@@ -87,9 +95,21 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  */
 - (void)stashNativeCardDidCloseBrowser;
 
+/** CodeLink returns the unmodified QR payload once, after the scanner card has closed.
+ * No URL is opened and no payment callback or user-dismiss callback is emitted on success.
+ */
+- (void)stashNativeCardDidScanQRCode:(NSString *)content
+    NS_SWIFT_NAME(stashNativeCardDidScanQRCode(_:));
+
+/** CodeLink cannot use the camera. Delivered once per scanner session; the card stays
+ * open so the user can close it or grant access in Settings and return to scanning.
+ */
+- (void)stashNativeCardCodeLinkDidEncounterError:(NSError *)error
+    NS_SWIFT_NAME(stashNativeCardCodeLinkDidEncounterError(_:));
+
 @end
 
-/** One active checkout or browser per SDK instance. Callbacks are delivered on the main thread. */
+/** One active checkout, CodeLink scanner, or browser per instance. Callbacks use the main thread. */
 @interface StashNativeCard : NSObject
 #if __has_feature(objc_arc)
 @property (nonatomic, weak, nullable) id<StashNativeCardDelegate> delegate;
@@ -107,6 +127,12 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
                config:(nullable StashNativeCardConfig *)config NS_SWIFT_NAME(openCard(withURL:from:config:));
 - (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter
     NS_SWIFT_NAME(openBrowser(withURL:from:));
+/** Opens a QR camera in the responsive native card, following the host app's orientation.
+ * The host must provide NSCameraUsageDescription. Requests camera access when opened;
+ * uses no microphone and saves no images. The first framed QR code shows a brief Connected
+ * confirmation, then closes the card before delivering the scan callback.
+ */
+- (void)codeLinkFromViewController:(UIViewController *)presenter NS_SWIFT_NAME(codeLink(from:));
 /** Programmatic dismissal remains available while purchase processing prevents user dismissal. */
 - (void)dismiss;
 /** Immediately tears down the session without delegate callbacks. */
