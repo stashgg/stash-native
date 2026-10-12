@@ -23,7 +23,7 @@ The Objective-C delegate property supports both ARC and non-ARC consumers. Valid
 
 ## Binary dependencies
 
-Distribute the versioned AAR and all dependencies in the [README](../README.md#android), including WindowManager 1.4.0 and its Java adapter. Do not add sample UI dependencies to the SDK runtime graph. Test the engine's resolved dependency tree and a minified build.
+Distribute the versioned AAR and the base dependencies in the [README](../README.md#android), including WindowManager 1.4.0 and its Java adapter. Add CameraX and ZXing only when the wrapper enables CodeLink; add Browser for Custom Tabs. Do not add sample UI dependencies to the SDK runtime graph. Test the engine's resolved dependency tree and a minified build.
 
 On iOS embed the XCFramework or use SPM. Build the host executable with SDK 27.1 for full Duo behaviour; the framework alone cannot opt an older host into that layout. iOS 15 is the minimum runtime. On iPhone, the SDK hosts portrait checkout in its own UIKit window and manages orientation overrides and restoration, including landscape-only plists. iPad ignores the portrait flag. Validate engine reactions to scene geometry notifications, keyboard entry, browser handoff, cancellation, and return to the game. System windowing restrictions still apply.
 

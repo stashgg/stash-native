@@ -41,8 +41,8 @@ public class WebViewFailureTest {
   }
 
   @After public void cleanup() {
-    StashCheckoutWebViewSupport.cancelLoadTimers(activity);
-    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
+    StashCheckoutLoadingSupport.cancelLoadTimers(activity);
+    StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
     activity.contentRevealSupport.dispose();
     web.destroy();
   }

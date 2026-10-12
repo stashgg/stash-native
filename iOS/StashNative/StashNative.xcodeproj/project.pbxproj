@@ -24,6 +24,9 @@
 		STN009 /* StashNativeCard.h in Headers */ = {isa = PBXBuildFile; fileRef = STN00A /* StashNativeCard.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		STN00B /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00C /* SafariServices.framework */; };
 		STN00D /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00E /* WebKit.framework */; };
+		STN044 /* StashNativeCardKeyboard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN045 /* StashNativeCardKeyboard.m */; };
+		STN046 /* StashNativeCardGestures.m in Sources */ = {isa = PBXBuildFile; fileRef = STN047 /* StashNativeCardGestures.m */; };
+		STN048 /* StashNativeCardPresentation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN049 /* StashNativeCardPresentation.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +49,9 @@
 		STN00C /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
 		STN00E /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		STN021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		STN045 /* StashNativeCardKeyboard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardKeyboard.m; sourceTree = "<group>"; };
+		STN047 /* StashNativeCardGestures.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardGestures.m; sourceTree = "<group>"; };
+		STN049 /* StashNativeCardPresentation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardPresentation.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,6 +92,9 @@
 				STN033 /* StashNativeCardGeometry.m */,
 				STN016 /* StashNativeCardPrivate.h */,
 				STN035 /* StashNativeCardTheme.m */,
+				STN045 /* StashNativeCardKeyboard.m */,
+				STN047 /* StashNativeCardGestures.m */,
+				STN049 /* StashNativeCardPresentation.m */,
 				STN004 /* StashNativeCardViewControllers.m */,
 				STN037 /* StashNativeCardViewUtils.m */,
 				STN006 /* StashNativeCardWebViewDelegates.m */,
@@ -199,6 +208,9 @@
 				STN040 /* StashNativeCodeLink.m in Sources */,
 				STN032 /* StashNativeCardGeometry.m in Sources */,
 				STN034 /* StashNativeCardTheme.m in Sources */,
+				STN044 /* StashNativeCardKeyboard.m in Sources */,
+				STN046 /* StashNativeCardGestures.m in Sources */,
+				STN048 /* StashNativeCardPresentation.m in Sources */,
 				STN003 /* StashNativeCardViewControllers.m in Sources */,
 				STN036 /* StashNativeCardViewUtils.m in Sources */,
 				STN005 /* StashNativeCardWebViewDelegates.m in Sources */,

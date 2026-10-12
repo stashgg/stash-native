@@ -79,10 +79,12 @@ export GRADLE_USER_HOME="$AUDIT_WORK/gradle-home"
 cd Android
 ./gradlew :stashnative:assembleRelease :stashnative:testDebugUnitTest \
   :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease :stashnative:lintRelease
+./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease \
+  :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease
 cd ..
 ```
 
-JUnit tests using Android parsing or lifecycle APIs must use Robolectric or instrumentation. Default-returning Android stubs do not verify URI behavior. Device checks still cover browser return, activity recreation, WebView teardown, a differently signed sender APK, and R8 consumers with old/absent AndroidX Browser.
+JUnit tests using Android parsing or lifecycle APIs must use Robolectric or instrumentation. Default-returning Android stubs do not verify URI behavior. Device checks still cover browser return, activity recreation, WebView teardown, and a differently signed sender APK. The R8 consumer variants cover all optional libraries (`current`), old Browser without scanning libraries (`legacy`), no optional libraries (`absent`), and CameraX without ZXing (`cameraOnly`). Verify checkout/browser and the missing-dependency CodeLink callback on-device, not just compilation.
 
 ### iOS
 

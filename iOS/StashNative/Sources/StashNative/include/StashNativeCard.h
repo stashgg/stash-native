@@ -26,10 +26,27 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 /** Zero uses all available height. */
 @property (nonatomic) CGFloat maximumContentHeight;
 @property (nonatomic) CGFloat edgeMargin;
+/** Allows user dismissal. Page close, payment callbacks, and native dismiss are independent. */
 @property (nonatomic) BOOL allowDismiss;
 @property (nonatomic) BOOL autoClose;
 /** On iPhone, presents portrait checkout in an SDK window, including landscape-only hosts. Ignored on iPad. */
 @property (nonatomic) StashNativeOrientationPreference orientationPreference;
+@end
+
+/** Scanner copy. Nil or empty text uses the built-in wording. Copied when CodeLink opens. */
+@interface StashNativeCodeLinkConfig : NSObject <NSCopying>
+/** Default: "Scan QR code". */
+@property (nonatomic, copy, nullable) NSString *headerText;
+/** Default: "Scan the webshop code". */
+@property (nonatomic, copy, nullable) NSString *calloutTitle;
+/** Default: "Keep the QR code centered inside the frame." */
+@property (nonatomic, copy, nullable) NSString *calloutSubtitle;
+/** Default: "Camera unavailable". */
+@property (nonatomic, copy, nullable) NSString *cameraUnavailableText;
+/** Default: "Connected". */
+@property (nonatomic, copy, nullable) NSString *connectedText;
+/** Defaults to YES. NO removes the callout and gives its space to the scan frame. */
+@property (nonatomic) BOOL showCallout;
 @end
 
 @protocol StashNativeCardDelegate <NSObject>
@@ -56,15 +73,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 - (void)stashNativeCardDidFailPayment;
 
 /**
- * Called after user dismissal, a permitted page window.close(), or programmatic dismiss.
+ * Called after user dismissal, page window.close() outside processing, or programmatic dismiss.
  */
 - (void)stashNativeCardDidDismiss;
-
-/**
- * Called when an opt-in response is received.
- * @param optinType The type of opt-in response
- */
-- (void)stashNativeCardDidReceiveOptIn:(NSString *)optinType;
 
 /**
  * Called when the checkout page finishes loading.
@@ -133,6 +144,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  * confirmation, then closes the card before delivering the scan callback.
  */
 - (void)codeLinkFromViewController:(UIViewController *)presenter NS_SWIFT_NAME(codeLink(from:));
+/** Opens CodeLink with optional custom scanner copy and callout visibility. */
+- (void)codeLinkFromViewController:(UIViewController *)presenter config:(nullable StashNativeCodeLinkConfig *)config
+    NS_SWIFT_NAME(codeLink(from:config:));
 /** Programmatic dismissal remains available while purchase processing prevents user dismissal. */
 - (void)dismiss;
 /** Immediately tears down the session without delegate callbacks. */

@@ -34,6 +34,7 @@ import androidx.camera.view.PreviewView;
 @SuppressLint("ViewConstructor") // Created by the card; never inflated from XML.
 final class StashCodeLinkView extends FrameLayout {
   final PreviewView preview;
+  private final StashCodeLinkOptions options;
   private final Guide guide;
   private final TextView heading;
   private final Symbol close;
@@ -49,8 +50,10 @@ final class StashCodeLinkView extends FrameLayout {
   private int bottomInset;
   private Runnable geometryListener;
 
-  StashCodeLinkView(Context context, Runnable dismiss, Runnable openSettings) {
+  StashCodeLinkView(Context context, StashCodeLinkOptions options,
+      Runnable dismiss, Runnable openSettings) {
     super(context);
+    this.options = options;
     setBackgroundColor(Color.BLACK);
     preview = new PreviewView(context);
     preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
@@ -59,6 +62,7 @@ final class StashCodeLinkView extends FrameLayout {
     guide = new Guide(context);
     addView(guide, new LayoutParams(-1, -1));
     heading = label(R.string.stash_code_link_heading, 20, false);
+    setCustomText(heading, options.headerText);
     addView(heading);
     close = new Symbol(context, Symbol.CLOSE);
     close.setContentDescription(context.getString(R.string.stash_code_link_close));
@@ -77,22 +81,26 @@ final class StashCodeLinkView extends FrameLayout {
     LinearLayout text = new LinearLayout(context);
     text.setOrientation(LinearLayout.VERTICAL);
     TextView title = label(R.string.stash_code_link_callout, 16, true);
+    setCustomText(title, options.calloutTitle);
     text.addView(title);
     TextView subtitle = label(R.string.stash_code_link_instruction, 13, false);
+    setCustomText(subtitle, options.calloutSubtitle);
     subtitle.setTextColor(0xffb7b7bd);
     subtitle.setPadding(0, dp(4), 0, 0);
     text.addView(subtitle);
     LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, -2, 1);
-    textParams.leftMargin = dp(12);
+    textParams.setMarginStart(dp(12));
     callout.addView(text, textParams);
     addView(callout);
+    callout.setVisibility(options.showCallout ? VISIBLE : GONE);
     status = new LinearLayout(context);
     status.setOrientation(LinearLayout.VERTICAL);
     status.setGravity(Gravity.CENTER);
     spinner = new ProgressBar(context);
     spinner.setIndeterminateTintList(ColorStateList.valueOf(Color.WHITE));
     status.addView(spinner, new LinearLayout.LayoutParams(dp(28), dp(28)));
-    statusText = label(R.string.stash_code_link_starting, 15, false);
+    statusText = label(0, 15, false);
+    statusText.setVisibility(GONE);
     statusText.setGravity(Gravity.CENTER);
     statusText.setPadding(0, dp(12), 0, dp(8));
     status.addView(statusText);
@@ -125,7 +133,11 @@ final class StashCodeLinkView extends FrameLayout {
   }
 
   void showStatus(int message, boolean loading, boolean showSettings) {
-    statusText.setText(message);
+    statusText.setText(loading ? null : getContext().getText(message));
+    if (!loading && message == R.string.stash_code_link_unavailable) {
+      setCustomText(statusText, options.cameraUnavailableText);
+    }
+    statusText.setVisibility(loading ? GONE : VISIBLE);
     spinner.setVisibility(loading ? VISIBLE : GONE);
     settings.setVisibility(showSettings ? VISIBLE : GONE);
     status.setVisibility(VISIBLE);
@@ -152,7 +164,9 @@ final class StashCodeLinkView extends FrameLayout {
     }
     heading.setVisibility(INVISIBLE);
     close.setVisibility(INVISIBLE);
-    callout.setVisibility(INVISIBLE);
+    if (callout.getVisibility() != GONE) {
+      callout.setVisibility(INVISIBLE);
+    }
     guide.setVisibility(INVISIBLE);
     status.setVisibility(GONE);
     confirmation = new LinearLayout(getContext());
@@ -163,6 +177,7 @@ final class StashCodeLinkView extends FrameLayout {
     Symbol check = new Symbol(getContext(), Symbol.CHECK);
     confirmation.addView(check, new LinearLayout.LayoutParams(dp(80), dp(80)));
     TextView title = label(R.string.stash_code_link_connected, 22, true);
+    setCustomText(title, options.connectedText);
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, dp(12), 0, 0);
     confirmation.addView(title);
@@ -177,7 +192,7 @@ final class StashCodeLinkView extends FrameLayout {
     }
     performHapticFeedback(Build.VERSION.SDK_INT >= 30
         ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
-    announceForAccessibility(getContext().getString(R.string.stash_code_link_connected));
+    announceForAccessibility(title.getText());
     AccessibilityManager accessibility =
         (AccessibilityManager) getContext().getSystemService(Context.ACCESSIBILITY_SERVICE);
     int delay = accessibility != null && accessibility.isTouchExplorationEnabled() ? 1400 : 850;
@@ -238,7 +253,7 @@ final class StashCodeLinkView extends FrameLayout {
     int calloutTop = Math.max(headerTop + dp(48), calloutBottom - callout.getMeasuredHeight());
     callout.layout(dp(16), calloutTop, width - dp(16), calloutBottom);
     float start = Math.max(heading.getBottom(), close.getBottom()) + dp(20);
-    float end = calloutTop - dp(20);
+    float end = callout.getVisibility() == GONE ? calloutBottom : calloutTop - dp(20);
     float side = Math.max(0, Math.min((width - dp(32)) * 0.84f, end - start));
     final RectF previousFrame = new RectF(scanFrame);
     scanFrame.set((width - side) / 2, start + Math.max(0, (end - start - side) / 2),
@@ -253,13 +268,21 @@ final class StashCodeLinkView extends FrameLayout {
 
   private TextView label(int text, int size, boolean bold) {
     TextView label = new TextView(getContext());
-    label.setText(text);
+    if (text != 0) {
+      label.setText(text);
+    }
     label.setTextColor(Color.WHITE);
     label.setTextSize(size);
     if (bold) {
       label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
     }
     return label;
+  }
+
+  private static void setCustomText(TextView label, String text) {
+    if (text != null && !text.isEmpty()) {
+      label.setText(text);
+    }
   }
 
   private GradientDrawable rounded(int color, int radius) {

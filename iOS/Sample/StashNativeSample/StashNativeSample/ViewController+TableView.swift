@@ -21,7 +21,7 @@ extension ViewController {
         case .card: return 3
         case .browser: return 3
         case .codeLink: return 1
-        case .presentationOptions: return 1
+        case .presentationOptions: return 2
         case .other: return 1
         case .about: return 1
         case .checkoutGenerationSettings: return apiKeys.count

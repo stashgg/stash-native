@@ -42,7 +42,7 @@ extension ViewController {
     }
 
     @objc func codeLinkTapped() {
-        StashNativeCard.sharedInstance().codeLink(from: self)
+        StashNativeCard.sharedInstance().codeLink(from: self, config: codeLinkConfig)
     }
 
     func buildCardConfig() -> StashNativeCardConfig {

@@ -43,7 +43,7 @@ public class StashCheckoutActivity extends Activity {
   StashPresentationController presentation;
   StashContentSizeSupport contentSizeSupport;
   StashTelemetrySupport telemetrySupport;
-  StashCodeLinkSupport codeLinkSupport;
+  StashCodeLinkSession codeLinkSupport;
   boolean codeLink;
   boolean codeLinkCompleted;
   private boolean codeLinkCancelled;
@@ -142,7 +142,13 @@ public class StashCheckoutActivity extends Activity {
     StashWindowCompat.setDecorFitsSystemWindows(window, false);
     StashWebViewUtils.applySystemBarAppearanceForSheet(
         window, window.getDecorView());
-    createUI();
+    if (!createUI()) {
+      callbackSent = true;
+      isDismissing = true;
+      finishActivityWithNoAnimation();
+      plugin.codeLinkUnavailable(this);
+      return;
+    }
     if (Build.VERSION.SDK_INT >= 33) {
       backCallback = this::requestUserDismiss;
       getOnBackInvokedDispatcher()
@@ -151,7 +157,7 @@ public class StashCheckoutActivity extends Activity {
     }
   }
 
-  private void createUI() {
+  private boolean createUI() {
     rootLayout = new FrameLayout(this);
     backdropView = new View(this);
     backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
@@ -165,8 +171,11 @@ public class StashCheckoutActivity extends Activity {
     presentation = new StashPresentationController(this, options);
     cardContainer.controller = presentation;
     if (codeLink) {
-      codeLinkSupport = new StashCodeLinkSupport(this);
-      cardContainer.addView(codeLinkSupport.view, new FrameLayout.LayoutParams(-1, -1));
+      codeLinkSupport = StashCodeLinkSession.create(this);
+      if (codeLinkSupport == null) {
+        return false;
+      }
+      cardContainer.addView(codeLinkSupport.getView(), new FrameLayout.LayoutParams(-1, -1));
     } else {
       contentSizeSupport = new StashContentSizeSupport(this);
       telemetrySupport = new StashTelemetrySupport(this);
@@ -178,6 +187,7 @@ public class StashCheckoutActivity extends Activity {
     }
     setContentView(rootLayout);
     presentation.attach();
+    return true;
   }
 
   private void addDragHandle() {
@@ -258,7 +268,13 @@ public class StashCheckoutActivity extends Activity {
   }
 
   void requestUserDismiss() {
-    if (isInteractionLocked() || options == null || !options.allowDismiss) {
+    if (options != null && options.allowDismiss) {
+      requestCloseFromPage();
+    }
+  }
+
+  void requestCloseFromPage() {
+    if (isInteractionLocked() || options == null) {
       return;
     }
     if (awaitingExternalBrowserDimOverlay) {
@@ -273,7 +289,7 @@ public class StashCheckoutActivity extends Activity {
       return;
     }
     networkErrorHandled = true;
-    StashCheckoutWebViewSupport.cancelLoadTimers(this);
+    StashCheckoutLoadingSupport.cancelLoadTimers(this);
     StashCheckoutBridge.emitNetworkError(this);
     callbackSent = true;
     finishActivityWithNoAnimation();
@@ -361,67 +377,32 @@ public class StashCheckoutActivity extends Activity {
     }
   }
 
-  void notifyListenerAndDismiss(String messageType, String messageBody, boolean success) {
+  void notifyPaymentResult(boolean success, String order) {
     try {
       runOnUiThread(
           () -> {
             try {
-              if (isDismissing) {
+              if (isDismissing || (options.autoClose && paymentResultHandled)) {
                 return;
               }
-              if (success) {
-                // Always re-enable interaction so the user can dismiss the card after the result.
-                isPurchaseProcessing = false;
-                applyDragHandlePurchaseProcessingFade(false);
-                // Only latch callbackSent (which suppresses the onDestroy dismiss callback) when
-                // the
-                // card actually auto-closes as part of this payment event. With autoClose = false
-                // the
-                // card stays open and the later, user-initiated close must still emit
-                // onDialogDismissed.
-                if (options.autoClose) {
-                  callbackSent = true;
-                }
-              }
-
-              boolean isPaymentEvent =
-                  CardConstants.MESSAGE_TYPE_SUCCESS.equals(messageType)
-                      || CardConstants.MESSAGE_TYPE_FAILURE.equals(messageType);
-
-              // Once-guard: with autoClose on, only the first payment result is delivered (parity
-              // with
-              // iOS handlePaymentSuccessSignal / handlePaymentFailureSignal). autoClose off never
-              // gates.
-              if (isPaymentEvent && options.autoClose) {
-                if (paymentResultHandled) {
-                  return;
-                }
+              isPurchaseProcessing = false;
+              applyDragHandlePurchaseProcessingFade(false);
+              if (options.autoClose) {
+                callbackSent = true;
                 paymentResultHandled = true;
               }
-
-              switch (messageType) {
-                case CardConstants.MESSAGE_TYPE_SUCCESS:
-                  StashCheckoutBridge.emitPaymentSuccess(
-                      StashCheckoutActivity.this,
-                      messageBody != null && !messageBody.isEmpty() ? messageBody : null,
-                      options.autoClose);
-                  break;
-                case CardConstants.MESSAGE_TYPE_FAILURE:
-                  StashCheckoutBridge.emitPaymentFailure(
-                      StashCheckoutActivity.this, options.autoClose);
-                  break;
-                case CardConstants.MESSAGE_TYPE_OPTIN:
-                  StashCheckoutBridge.emitOptIn(StashCheckoutActivity.this, messageBody);
-                  break;
-                default:
-                  break;
+              if (success) {
+                StashCheckoutBridge.emitPaymentSuccess(
+                    StashCheckoutActivity.this, order, options.autoClose);
+              } else {
+                StashCheckoutBridge.emitPaymentFailure(
+                    StashCheckoutActivity.this, options.autoClose);
               }
-
-              if (!isPaymentEvent || options.autoClose) {
+              if (options.autoClose) {
                 dismissWithAnimation();
               }
             } catch (Exception e) {
-              Log.w(TAG, "Error in notifyListenerAndDismiss UI thread: " + e.getMessage(), e);
+              Log.w(TAG, "Error delivering payment result: " + e.getMessage(), e);
               try {
                 finish();
               } catch (Exception e2) {
@@ -430,7 +411,7 @@ public class StashCheckoutActivity extends Activity {
             }
           });
     } catch (Exception e) {
-      Log.w(TAG, "Error scheduling notifyListenerAndDismiss: " + e.getMessage(), e);
+      Log.w(TAG, "Error scheduling payment result: " + e.getMessage(), e);
     }
   }
 
@@ -455,7 +436,7 @@ public class StashCheckoutActivity extends Activity {
         networkDeadlineRemainingMs =
             Math.max(0L, networkDeadlineTargetUptime - android.os.SystemClock.uptimeMillis());
       }
-      StashCheckoutWebViewSupport.cancelLoadTimers(this);
+      StashCheckoutLoadingSupport.cancelLoadTimers(this);
     }
   }
 
@@ -481,7 +462,7 @@ public class StashCheckoutActivity extends Activity {
             android.os.SystemClock.uptimeMillis() + networkDeadlineRemainingMs;
         networkDeadlineRemainingMs = -1L;
       }
-      StashCheckoutWebViewSupport.scheduleInitialLoadTimers(this);
+      StashCheckoutLoadingSupport.scheduleInitialLoadTimers(this);
     }
   }
 
@@ -542,7 +523,7 @@ public class StashCheckoutActivity extends Activity {
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
     super.onRequestPermissionsResult(requestCode, permissions, results);
-    if (requestCode == StashCodeLinkSupport.CAMERA_PERMISSION_REQUEST && codeLinkSupport != null) {
+    if (requestCode == StashCodeLinkSession.CAMERA_PERMISSION_REQUEST && codeLinkSupport != null) {
       codeLinkSupport.permissionResult();
     }
   }
@@ -562,8 +543,8 @@ public class StashCheckoutActivity extends Activity {
       telemetrySupport.dispose();
     }
     StashNativeCardPlugin.getInstance().clearCheckoutActivity(this);
-    StashCheckoutWebViewSupport.cancelLoadTimers(this);
-    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(this);
+    StashCheckoutLoadingSupport.cancelLoadTimers(this);
+    StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(this);
     if (contentRevealSupport != null) {
       contentRevealSupport.dispose();
     }

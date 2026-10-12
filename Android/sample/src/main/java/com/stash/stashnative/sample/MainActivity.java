@@ -3,6 +3,7 @@ package com.stash.stashnative.sample;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -16,6 +17,11 @@ import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -59,18 +65,18 @@ public class MainActivity extends AppCompatActivity {
 
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
-    androidx.core.view.WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-    androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, insets) -> {
-      androidx.core.graphics.Insets bars = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars()
-          | androidx.core.view.WindowInsetsCompat.Type.displayCutout());
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+    ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, insets) -> {
+      Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+          | WindowInsetsCompat.Type.displayCutout());
       view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
       boolean dark = (getResources().getConfiguration().uiMode
-          & android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-      androidx.core.view.WindowInsetsControllerCompat controller =
-          androidx.core.view.WindowCompat.getInsetsController(getWindow(), view);
+          & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+      WindowInsetsControllerCompat controller =
+          WindowCompat.getInsetsController(getWindow(), view);
       controller.setAppearanceLightStatusBars(!dark);
       controller.setAppearanceLightNavigationBars(!dark);
-      return androidx.core.view.WindowInsetsCompat.CONSUMED;
+      return WindowInsetsCompat.CONSUMED;
     });
 
     viewModel = new ViewModelProvider(
@@ -82,7 +88,7 @@ public class MainActivity extends AppCompatActivity {
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
       public void onCodeLink() {
-        StashNativeCard.getInstance().codeLink(MainActivity.this);
+        StashNativeCard.getInstance().codeLink(MainActivity.this, viewModel.getCodeLinkConfig());
       }
 
       @Override
@@ -231,12 +237,6 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onOptInResponse(String optinType) {
-        Log.i(TAG, "Opt-in response received");
-        runOnUiThread(() -> addCallbackChip("Opt-In: " + optinType));
-      }
-
-      @Override
       public void onPageLoaded(long loadTimeMs) {
         Log.i(TAG, "Page loaded in " + loadTimeMs + "ms");
         runOnUiThread(() -> addCallbackChip("Page Loaded · " + loadTimeMs + " ms"));
@@ -322,7 +322,9 @@ public class MainActivity extends AppCompatActivity {
     }
   }
 
-  private StashNativeCard.CardConfig buildCardConfig() { return viewModel.getCardConfig(); }
+  private StashNativeCard.CardConfig buildCardConfig() {
+    return viewModel.getCardConfig();
+  }
 
   private void syncKeepAlive() {
     StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
@@ -361,7 +363,7 @@ public class MainActivity extends AppCompatActivity {
     if (binding == null) {
       return;
     }
-    LinearLayout container = binding.callbackChipContainer;
+    final LinearLayout container = binding.callbackChipContainer;
 
     LinearLayout row = new LinearLayout(this);
     row.setOrientation(LinearLayout.HORIZONTAL);
@@ -438,6 +440,7 @@ public class MainActivity extends AppCompatActivity {
       case INSTANCE_DETAILS:
         return MainViewModel.Screen.API;
       case CARD_OPTIONS:
+      case CODE_LINK_OPTIONS:
         return MainViewModel.Screen.SETTINGS;
       default:
         return null;
@@ -481,7 +484,9 @@ public class MainActivity extends AppCompatActivity {
         binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
         break;
       case CARD_OPTIONS:
-        binding.toolbar.setTitle(R.string.nav_card_options);
+      case CODE_LINK_OPTIONS:
+        binding.toolbar.setTitle(screen == MainViewModel.Screen.CARD_OPTIONS
+            ? R.string.nav_card_options : R.string.nav_code_link_options);
         binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
         binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
         break;

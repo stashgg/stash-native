@@ -17,13 +17,4 @@
         <item name="android:textSize">14sp</item>
         <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
     </style>
-    <!-- Headline for header -->
-    <style name="TextAppearance.StashNative.HeadlineMedium" parent="TextAppearance.MaterialComponents.Headline6">
-        <item name="android:textSize">28sp</item>
-        <item name="android:textColor">?attr/colorOnSurface</item>
-    </style>
-    <style name="TextAppearance.StashNative.BodyLarge" parent="TextAppearance.MaterialComponents.Body1">
-        <item name="android:textSize">16sp</item>
-        <item name="android:textColor">?attr/colorOnSurfaceVariant</item>
-    </style>
 </resources>

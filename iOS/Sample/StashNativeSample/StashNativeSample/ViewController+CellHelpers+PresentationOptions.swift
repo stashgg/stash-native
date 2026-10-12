@@ -27,12 +27,15 @@ extension ViewController {
     // MARK: - Presentation options section (main screen)
 
     func presentationOptionCell(for indexPath: IndexPath) -> UITableViewCell {
-        navCell("Card options")
+        navCell(indexPath.row == 0 ? "Card options" : "QR Code scan options")
     }
 
     func handlePresentationOptionsSelection(at indexPath: IndexPath) {
         switch indexPath.row {
         case 0: openCardOptionsTapped()
+        case 1:
+            navigationController?.pushViewController(
+                CodeLinkOptionsViewController(config: codeLinkConfig), animated: true)
         default: break
         }
     }

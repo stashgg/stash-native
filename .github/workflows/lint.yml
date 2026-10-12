@@ -89,7 +89,7 @@ jobs:
         run: cd Android && ./gradlew :stashnative:lintRelease :sample:lintDebug
 
       - name: Build minimal Java AAR consumers with R8
-        run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease
+        run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease
 
   test-ios:
     name: Test iOS Library

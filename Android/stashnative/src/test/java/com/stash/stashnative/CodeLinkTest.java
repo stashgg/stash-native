@@ -9,8 +9,11 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.os.Parcel;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.common.BitMatrix;
@@ -31,6 +34,7 @@ import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
+import org.robolectric.util.ReflectionHelpers;
 
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = {21, 28})
@@ -66,6 +70,166 @@ public class CodeLinkTest {
     plugin.codeLink(host);
     plugin.openCard(host, "https://example.com", null);
     assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+  }
+
+  @Test public void unavailableScannerReportsOnceAndAllowsCheckoutFromCallback() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    plugin.codeLink(host);
+    RecordingCheckout unavailable = Robolectric.buildActivity(RecordingCheckout.class).get();
+    unavailable.setIntent(Shadows.shadowOf(host).getNextStartedActivity());
+    plugin.setCheckoutActivity(unavailable);
+    unavailable.isDismissing = true;
+    unavailable.finish();
+    int[] errors = {0};
+    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+        assertEquals(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED, error);
+        assertFalse(plugin.isCurrentlyPresented());
+        errors[0]++;
+        plugin.openCard(host, "https://example.com", null);
+      }
+    });
+    plugin.codeLinkUnavailable(unavailable);
+    assertEquals(1, errors[0]);
+    assertTrue(plugin.isCurrentlyPresented());
+    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
+    plugin.codeLinkUnavailable(unavailable);
+    assertEquals(1, errors[0]);
+    assertTrue(plugin.isCurrentlyPresented());
+  }
+
+  @Test public void configurationIsSnapshottedBeforeMainDispatchAndSurvivesIntentTransport()
+      throws Exception {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
+    config.headerText = "Propojte svůj účet";
+    config.calloutTitle = "Naskenujte kód obchodu";
+    config.calloutSubtitle = "Umístěte QR kód doprostřed.\nاستخدم رمز المتجر";
+    config.cameraUnavailableText = "Kamera není dostupná";
+    config.connectedText = "Připojeno";
+    config.showCallout = false;
+    Thread worker = new Thread(() -> plugin.codeLink(host, config));
+    worker.start();
+    worker.join();
+    config.headerText = "changed";
+    config.calloutTitle = null;
+    config.calloutSubtitle = null;
+    config.cameraUnavailableText = null;
+    config.connectedText = null;
+    config.showCallout = true;
+    idle(0);
+    Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(intent);
+    Parcel parcel = Parcel.obtain();
+    try {
+      intent.writeToParcel(parcel, 0);
+      parcel.setDataPosition(0);
+      StashCodeLinkOptions restored = StashCodeLinkOptions.read(Intent.CREATOR.createFromParcel(parcel));
+      assertEquals("Propojte svůj účet", restored.headerText);
+      assertEquals("Naskenujte kód obchodu", restored.calloutTitle);
+      assertEquals("Umístěte QR kód doprostřed.\nاستخدم رمز المتجر", restored.calloutSubtitle);
+      assertEquals("Kamera není dostupná", restored.cameraUnavailableText);
+      assertEquals("Připojeno", restored.connectedText);
+      assertFalse(restored.showCallout);
+      assertEquals(StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST,
+          StashPresentationOptions.read(intent).orientation);
+    } finally {
+      parcel.recycle();
+    }
+  }
+
+  @Test public void defaultsEmptyTextAndCustomCopyReachScannerViews() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
+    assertTrue(config.showCallout);
+    config.headerText = "";
+    config.calloutTitle = "";
+    config.calloutSubtitle = "";
+    config.cameraUnavailableText = "";
+    config.connectedText = "";
+    StashCodeLinkView defaults = new StashCodeLinkView(host,
+        StashCodeLinkOptions.from(config), () -> {}, () -> {});
+    assertTrue(hasText(defaults, "Scan QR code"));
+    assertTrue(hasText(defaults, "Scan the webshop code"));
+    assertTrue(hasText(defaults, "Keep the QR code centered inside the frame."));
+    TextView statusText = ReflectionHelpers.getField(defaults, "statusText");
+    View spinner = ReflectionHelpers.getField(defaults, "spinner");
+    assertEquals(View.GONE, statusText.getVisibility());
+    assertEquals(View.VISIBLE, spinner.getVisibility());
+    defaults.showStatus(R.string.stash_code_link_permission, false, true);
+    assertEquals(View.VISIBLE, statusText.getVisibility());
+    assertEquals(View.GONE, spinner.getVisibility());
+    defaults.showStatus(0, true, false);
+    assertEquals(View.GONE, statusText.getVisibility());
+    assertEquals(View.VISIBLE, spinner.getVisibility());
+    defaults.showStatus(R.string.stash_code_link_unavailable, false, false);
+    assertEquals("Camera unavailable", statusText.getText().toString());
+    assertEquals(View.VISIBLE, statusText.getVisibility());
+    assertEquals(View.GONE, spinner.getVisibility());
+    defaults.showConnected();
+    assertTrue(hasText(defaults, "Connected"));
+    defaults.dispose();
+    config.headerText = "Propojte svůj účet";
+    config.calloutTitle = "Naskenujte kód obchodu";
+    config.calloutSubtitle = "Umístěte QR kód doprostřed rámečku.\nاستخدم رمز المتجر";
+    config.cameraUnavailableText = "Kamera není dostupná";
+    config.connectedText = "Připojeno";
+    for (int[] size : new int[][] {{320, 480}, {400, 330}, {400, 560}, {660, 330}}) {
+      config.showCallout = true;
+      StashCodeLinkView shown = new StashCodeLinkView(host,
+          StashCodeLinkOptions.from(config), () -> {}, () -> {});
+      layoutScanner(shown, size);
+      assertTrue(hasText(shown, config.headerText));
+      assertTrue(hasText(shown, config.calloutTitle));
+      assertTrue(hasText(shown, config.calloutSubtitle));
+      TextView heading = ReflectionHelpers.getField(shown, "heading");
+      View callout = ReflectionHelpers.getField(shown, "callout");
+      assertTrue(shown.scanFrame().top > heading.getBottom());
+      assertTrue(shown.scanFrame().bottom < callout.getTop());
+      assertTrue(shown.scanFrame().width() > 0);
+      config.showCallout = false;
+      StashCodeLinkView hidden = new StashCodeLinkView(host,
+          StashCodeLinkOptions.from(config), () -> {}, () -> {});
+      layoutScanner(hidden, size);
+      assertFalse(hasText(hidden, config.calloutTitle));
+      assertFalse(hasText(hidden, config.calloutSubtitle));
+      assertTrue(hidden.scanFrame().width() >= shown.scanFrame().width());
+      assertTrue(hidden.scanFrame().bottom < size[1] - 24);
+      shown.showStatus(R.string.stash_code_link_unavailable, false, false);
+      assertTrue(hasText(shown, config.cameraUnavailableText));
+      shown.showStatus(R.string.stash_code_link_permission, false, true);
+      assertTrue(hasText(shown, host.getString(R.string.stash_code_link_permission)));
+      assertFalse(hasText(shown, config.cameraUnavailableText));
+      shown.showConnected();
+      assertTrue(hasText(shown, config.connectedText));
+      shown.dispose();
+      hidden.dispose();
+    }
+  }
+
+  private static void layoutScanner(StashCodeLinkView view, int[] size) {
+    view.setBottomInset(24);
+    view.measure(View.MeasureSpec.makeMeasureSpec(size[0], View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(size[1], View.MeasureSpec.EXACTLY));
+    view.layout(0, 0, size[0], size[1]);
+  }
+
+  private static boolean hasText(View view, String text) {
+    if (view.getVisibility() != View.VISIBLE) {
+      return false;
+    }
+    if (view instanceof TextView && text.contentEquals(((TextView) view).getText())) {
+      return true;
+    }
+    if (view instanceof ViewGroup) {
+      ViewGroup group = (ViewGroup) view;
+      for (int index = 0; index < group.getChildCount(); index++) {
+        if (hasText(group.getChildAt(index), text)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   @Test public void decoderPreservesPayloadWithRotationInversionAndPaddedPlanes() throws Exception {
@@ -114,7 +278,7 @@ public class CodeLinkTest {
 
   @Test public void scanFrameFitsPortraitLandscapeAndTabletCards() {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
-    StashCodeLinkView view = new StashCodeLinkView(host, () -> {}, () -> {});
+    StashCodeLinkView view = new StashCodeLinkView(host, StashCodeLinkOptions.from(null), () -> {}, () -> {});
     for (int[] size : new int[][] {{360, 560}, {400, 320}, {400, 560}, {320, 480}}) {
       view.setBottomInset(24);
       view.measure(View.MeasureSpec.makeMeasureSpec(size[0], View.MeasureSpec.EXACTLY),
@@ -134,7 +298,7 @@ public class CodeLinkTest {
 
   @Test public void navigationInsetMovesDetectionRegionWithoutResizingCard() {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
-    StashCodeLinkView view = new StashCodeLinkView(host, () -> {}, () -> {});
+    StashCodeLinkView view = new StashCodeLinkView(host, StashCodeLinkOptions.from(null), () -> {}, () -> {});
     int[] geometryChanges = {0};
     view.setGeometryListener(() -> geometryChanges[0]++);
     int width = View.MeasureSpec.makeMeasureSpec(360, View.MeasureSpec.EXACTLY);
@@ -246,8 +410,9 @@ public class CodeLinkTest {
     activity.cardContainer = new StashSheetLayout(activity, 28);
     activity.cardContainer.setLayoutParams(new FrameLayout.LayoutParams(400, 560));
     activity.presentation = new StashPresentationController(activity, activity.options);
-    activity.codeLinkSupport = new StashCodeLinkSupport(activity);
-    activity.cardContainer.addView(activity.codeLinkSupport.view);
+    activity.codeLinkSupport = StashCodeLinkSession.create(activity);
+    assertNotNull(activity.codeLinkSupport);
+    activity.cardContainer.addView(activity.codeLinkSupport.getView());
     Shadows.shadowOf((Application) activity.getApplicationContext())
         .denyPermissions(Manifest.permission.CAMERA);
     activity.codeLinkSupport.resume();

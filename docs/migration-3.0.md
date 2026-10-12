@@ -62,6 +62,10 @@ Remove wrapper-owned orientation-unlock integration and screenshot-backdrop work
 
 Existing payment, processing, external-link, and close messages retain their meanings. Keep backend payment verification; UI callbacks alone are not purchase fulfilment evidence.
 
+`allowDismiss` now controls only user dismissal by swipe, backdrop tap, or Android Back. Page `window.close()` and callback-driven closure work with either flag value. Purchase processing still blocks user dismissal and page close.
+
+The opt-in API is removed: delete calls to `stash_sdk.setPaymentChannel(...)` and native `onOptInResponse` / `stashNativeCardDidReceiveOptIn:` implementations.
+
 `expand()` and `collapse()` operate on card states across window sizes. Optional `setContentHeight(...)` and `[data-stash-content]` enable card content sizing; they are never required for a page to render.
 
 On iOS, checkout now paints through the bottom safe area. The SDK supplies `viewport-fit=cover` and insets scroll indicators; pages own `env(safe-area-inset-bottom)` padding for scrolling content and fixed or sticky bottom controls. The SDK adds no native content inset or automatic page padding. Put the intrinsic content marker inside any outer safe-area padding, and exclude that padding from explicit height reports. See [responsive presentation](responsive-presentation.md) for the hosting contract.
@@ -69,6 +73,8 @@ On iOS, checkout now paints through the bottom safe area. The SDK supplies `view
 ## Android dependencies
 
 Standalone AAR consumers must add the dependencies listed in the root README, including WindowManager 1.4.0 and its Java adapter. A plain AAR does not carry transitive dependency metadata. Do not substitute WindowManager 1.5.x while promising API 21: that line raises its minimum to API 23.
+
+CameraX and ZXing are optional and required only for CodeLink. Add them explicitly when using QR scanning, including in source-module integrations. Browser remains optional for Custom Tabs. See [the dependency groups](../README.md#android).
 
 ## Integration checks
 

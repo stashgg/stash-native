@@ -70,6 +70,7 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 @property (nonatomic, strong) StashNativeCardConfig *config;
 @property (nonatomic, strong) StashCheckoutViewController *controller;
 @property (nonatomic) BOOL codeLink;
+@property (nonatomic, copy) StashNativeCodeLinkConfig *codeLinkConfig;
 @property (nonatomic) BOOL codeLinkCompleted;
 @property (nonatomic, strong) StashCodeLinkViewController *codeLinkController;
 @property (nonatomic, strong) WKWebView *webView;
@@ -193,13 +194,15 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 @property (nonatomic) BOOL hasKeyboardGuideFrame;
 @property (nonatomic) BOOL keyboardGuideUndocked;
 @property (nonatomic) BOOL keyboardGuideLayoutQueued;
-@property (nonatomic, strong) UIView *keyboardGuideTracker;
 @property (nonatomic) CGFloat previousWidth;
 @property (nonatomic) BOOL updatingLayout;
 @property (nonatomic) BOOL awaitingHostSafeAreaUpdate;
 @property (nonatomic) CGFloat hostSafeAreaBeforeUpdate;
 @property (nonatomic) NSUInteger hostSafeAreaUpdateGeneration;
 @property (nonatomic) BOOL dragging;
+@property (nonatomic) BOOL contentExpansionActive;
+@property (nonatomic) CGFloat contentExpansionStartHeight;
+@property (nonatomic) CGFloat contentExpansionHeight;
 @property (nonatomic) BOOL deferredContentLayout;
 @property (nonatomic) BOOL singleDetent;
 @property (nonatomic) BOOL configuredFloatingNativeSizing;
@@ -225,26 +228,51 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 @property (nonatomic) BOOL entranceCorrectionApplied;
 @property (nonatomic) CGRect previousAvailableBounds;
 @property (nonatomic) CGRect previousContentBounds;
-- (void)configurePresentation;
-- (void)nativePanChanged:(UIPanGestureRecognizer *)gesture;
-- (BOOL)usesFloatingNativeSizing;
-- (void)reconcileNativeSizingPolicy;
-- (NSString *)nativeDetentIdentifierForExpanded:(BOOL)expanded;
-- (BOOL)nativeSelectionIsExpanded;
 - (void)updateTopChromeBackgroundColor;
-- (void)updatePresentationAnimated:(BOOL)animated;
 - (void)stopNativeEntrance;
-- (CGRect)availableBoundsInView:(UIView *)view;
-- (CGRect)availableBoundsInView:(UIView *)view expanded:(BOOL)expanded;
-- (CGFloat)contentHeightForMaximum:(CGFloat)maximum expanded:(BOOL)expanded;
-- (void)updateDismissalPolicy;
-- (void)contentHeightDidChange;
 - (void)completeHostSafeAreaUpdate:(NSUInteger)generation;
 - (void)revealInitialContentAnimated:(BOOL)animated;
+@end
+
+@interface StashCheckoutViewController (Keyboard)
+- (void)keyboardChanged:(NSNotification *)note;
+- (void)keyboardSettled:(NSNotification *)note;
+- (void)updateKeyboardGuideOcclusion;
+- (CGRect)resolvedKeyboardFrameInView:(UIView *)view dockedOnly:(BOOL)dockedOnly;
+- (NSArray<NSNumber *> *)focusKeyboardOcclusion;
 - (void)scheduleFocusReveal;
 - (BOOL)canNormalizeIdleRootScrollOffset;
 - (BOOL)normalizeIdleRootScrollOffset;
-- (CGRect)resolvedKeyboardFrameInView:(UIView *)view dockedOnly:(BOOL)dockedOnly;
-- (NSArray<NSNumber *> *)focusKeyboardOcclusion;
+@end
+
+@interface StashCheckoutViewController (Gestures)
+- (void)observeContentScrollPans:(UIView *)view;
+- (void)observeNativePans:(UIView *)view;
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch;
+- (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer;
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer;
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer
+    shouldBeRequiredToFailByGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer;
+- (void)nativePanChanged:(UIPanGestureRecognizer *)gesture;
+- (void)cancelContentExpansion;
+- (void)updateDismissalPolicy;
+@end
+
+@interface StashCheckoutViewController (Presentation)
+- (UIView *)layoutContainer;
+- (BOOL)usesFloatingNativeSizing;
+- (void)reconcileNativeSizingPolicy;
+- (void)configurePresentation;
+- (NSString *)nativeDetentIdentifierForExpanded:(BOOL)expanded;
+- (BOOL)nativeSelectionIsExpanded;
+- (CGRect)availableBoundsInView:(UIView *)view;
+- (CGRect)availableBoundsInView:(UIView *)view expanded:(BOOL)expanded;
+- (CGFloat)contentHeightForMaximum:(CGFloat)maximum expanded:(BOOL)expanded;
 - (void)reconcileNativeContentSafeArea:(CGFloat)bottomPadding;
+- (void)updatePresentationAnimated:(BOOL)animated;
+- (void)updateNativeLoadingBackground;
+- (void)configureNativeDetents;
+- (CGFloat)resolvedNativeHeightForMaximum:(CGFloat)maximum expanded:(BOOL)expanded;
+- (void)contentHeightDidChange;
 @end

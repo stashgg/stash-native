@@ -7,6 +7,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.animation.ValueAnimator;
+import android.content.Intent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.RenderProcessGoneDetail;
@@ -15,6 +16,7 @@ import android.widget.FrameLayout;
 import androidx.core.graphics.Insets;
 import androidx.core.view.WindowInsetsCompat;
 import java.lang.reflect.Field;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,8 +49,8 @@ public class PresentationSafetyTest {
 
   @After public void cleanup() {
     activity.presentation.dispose();
-    StashCheckoutWebViewSupport.cancelLoadTimers(activity);
-    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
+    StashCheckoutLoadingSupport.cancelLoadTimers(activity);
+    StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
     if (activity.webView != null) activity.webView.destroy();
   }
 
@@ -57,11 +59,11 @@ public class PresentationSafetyTest {
     activity.loadingView = new View(activity);
     activity.cardContainer.addView(activity.webView);
     activity.cardContainer.addView(activity.loadingView);
-    StashCheckoutWebViewSupport.revealWebViewAndRemoveLoading(activity);
+    StashCheckoutLoadingSupport.revealWebViewAndRemoveLoading(activity);
     android.animation.Animator fade = activity.webViewRevealAnimator;
     assertNotNull(fade);
     assertTrue(fade.isStarted());
-    StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
+    StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
     assertFalse(fade.isStarted());
     Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
     assertEquals(0, activity.webView.getAlpha(), 0);
@@ -84,6 +86,9 @@ public class PresentationSafetyTest {
   }
 
   @Test public void processingAndCloseQueuedTogetherCannotDismissPendingPurchase() throws Exception {
+    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    config.allowDismiss = false;
+    activity.options = StashPresentationOptions.card(config);
     StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
     Thread worker = new Thread(() -> {
       bridge.onPurchaseProcessing();
@@ -99,15 +104,77 @@ public class PresentationSafetyTest {
     assertEquals(1, activity.dismissCalls);
   }
 
-  @Test public void pageCloseObeysAllowDismiss() {
+  @Test public void allowDismissBlocksUserDismissalButNotPageClose() {
     StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
     config.allowDismiss = false;
     activity.options = StashPresentationOptions.card(config);
-    new StashCheckoutJsInterface(activity).requestCloseFromPage();
+    activity.requestUserDismiss();
     assertEquals(0, activity.dismissCalls);
+    new StashCheckoutJsInterface(activity).requestCloseFromPage();
+    assertEquals(1, activity.dismissCalls);
     config.allowDismiss = true;
     activity.options = StashPresentationOptions.card(config);
+    activity.requestUserDismiss();
+    assertEquals(2, activity.dismissCalls);
     new StashCheckoutJsInterface(activity).requestCloseFromPage();
+    assertEquals(3, activity.dismissCalls);
+  }
+
+  @Test public void cancelDeeplinkIgnoresAllowDismissButRespectsProcessing() {
+    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    config.allowDismiss = false;
+    activity.options = StashPresentationOptions.card(config);
+    activity.isPurchaseProcessing = true;
+    assertTrue(StashCheckoutNavigationSupport.handleDeeplinkNavigation(
+        activity, "testapp://stash-pay/cancel"));
+    assertEquals(0, activity.dismissCalls);
+    activity.isPurchaseProcessing = false;
+    assertTrue(StashCheckoutNavigationSupport.handleDeeplinkNavigation(
+        activity, "testapp://stash-pay/cancel"));
+    assertEquals(1, activity.dismissCalls);
+  }
+
+  @Test public void paymentResultsIgnoreAllowDismissAndAutoCloseOnce() {
+    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    config.allowDismiss = false;
+    for (boolean success : new boolean[] {true, false}) {
+      RecordingCheckout checkout = Robolectric.buildActivity(RecordingCheckout.class).get();
+      checkout.options = StashPresentationOptions.card(config);
+      checkout.isPurchaseProcessing = true;
+      StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(checkout);
+      List<Intent> broadcasts = Shadows.shadowOf(checkout.getApplication()).getBroadcastIntents();
+      int previousCount = broadcasts.size();
+      for (int attempt = 0; attempt < 2; attempt++) {
+        if (success) bridge.onPaymentSuccess("order-1");
+        else bridge.onPaymentFailure();
+      }
+      broadcasts = Shadows.shadowOf(checkout.getApplication()).getBroadcastIntents();
+      assertEquals(previousCount + 1, broadcasts.size());
+      Intent event = broadcasts.get(previousCount);
+      assertEquals(success ? CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS
+          : CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE, event.getAction());
+      assertEquals(success ? "order-1" : null,
+          event.getStringExtra(CardConstants.BROADCAST_EXTRA_PAYMENT_ORDER));
+      assertTrue(event.getBooleanExtra(CardConstants.BROADCAST_EXTRA_WILL_CLOSE, false));
+      assertFalse(checkout.isPurchaseProcessing);
+      assertTrue(checkout.callbackSent);
+      assertEquals(1, checkout.dismissCalls);
+    }
+  }
+
+  @Test public void paymentRetryWithAutoCloseDisabledCanStillCloseFromPage() {
+    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    config.allowDismiss = false;
+    config.autoClose = false;
+    activity.options = StashPresentationOptions.card(config);
+    StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
+    activity.isPurchaseProcessing = true;
+    bridge.onPaymentFailure();
+    assertFalse(activity.isPurchaseProcessing);
+    bridge.onPaymentSuccess("retry-order");
+    assertFalse(activity.callbackSent);
+    assertEquals(0, activity.dismissCalls);
+    bridge.requestCloseFromPage();
     assertEquals(1, activity.dismissCalls);
   }
 
@@ -185,7 +252,7 @@ public class PresentationSafetyTest {
     }
   }
 
-  @Test public void upwardContentExpansionCannotReverseIntoCollapseOrDismissal() throws Exception {
+  @Test public void upwardContentDragCanReturnToRestingWithoutDismissing() throws Exception {
     activity.rootLayout.setRight(390);
     activity.presentation.environmentChanged();
     Field animation = StashPresentationController.class.getDeclaredField("animator");
@@ -200,13 +267,86 @@ public class PresentationSafetyTest {
     activity.presentation.onTouch(activity.cardContainer, upMove);
     activity.presentation.onTouch(activity.cardContainer, reversal);
     activity.presentation.onTouch(activity.cardContainer, up);
-    assertTrue(activity.presentation.state.expanded);
+    assertFalse(activity.presentation.state.expanded);
     assertEquals(0, activity.cardContainer.getTranslationY(), 0);
     assertEquals(0, activity.dismissCalls);
     down.recycle();
     upMove.recycle();
     reversal.recycle();
     up.recycle();
+  }
+
+  @Test public void contentExpansionFollowsFingerAndSmallPullReturnsToResting() {
+    prepareContentDrag();
+    int resting = activity.cardContainer.getLayoutParams().height;
+    contentTouch(MotionEvent.ACTION_DOWN, 600, 0);
+    contentTouch(MotionEvent.ACTION_MOVE, 565, 200);
+    assertEquals(resting + 35, activity.cardContainer.getLayoutParams().height);
+    assertFalse(activity.presentation.state.expanded);
+    contentTouch(MotionEvent.ACTION_MOVE, 550, 400);
+    assertEquals(resting + 50, activity.cardContainer.getLayoutParams().height);
+    assertFalse(activity.presentation.state.expanded);
+    contentTouch(MotionEvent.ACTION_UP, 550, 1400);
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+    assertEquals(resting, activity.cardContainer.getLayoutParams().height);
+    assertFalse(activity.presentation.state.expanded);
+    assertEquals(0, activity.dismissCalls);
+  }
+
+  @Test public void longContentPullSettlesExpandedOnlyAfterRelease() {
+    prepareContentDrag();
+    int resting = activity.cardContainer.getLayoutParams().height;
+    contentTouch(MotionEvent.ACTION_DOWN, 600, 0);
+    contentTouch(MotionEvent.ACTION_MOVE, 500, 500);
+    assertEquals(resting + 100, activity.cardContainer.getLayoutParams().height);
+    assertFalse(activity.presentation.state.expanded);
+    contentTouch(MotionEvent.ACTION_UP, 500, 1500);
+    assertTrue(activity.presentation.state.expanded);
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+    assertEquals(720, activity.cardContainer.getLayoutParams().height);
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+  }
+
+  @Test public void contentOverdragStaysCappedAndCancellationRestoresSelection() {
+    prepareContentDrag();
+    int resting = activity.cardContainer.getLayoutParams().height;
+    contentTouch(MotionEvent.ACTION_DOWN, 600, 0);
+    contentTouch(MotionEvent.ACTION_MOVE, 100, 500);
+    assertEquals(720, activity.cardContainer.getLayoutParams().height);
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    assertFalse(activity.presentation.state.expanded);
+    contentTouch(MotionEvent.ACTION_CANCEL, 100, 600);
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+    assertEquals(resting, activity.cardContainer.getLayoutParams().height);
+    assertFalse(activity.presentation.state.expanded);
+    assertEquals(0, activity.dismissCalls);
+  }
+
+  @Test public void programmaticSelectionInterruptsContentDrag() {
+    prepareContentDrag();
+    contentTouch(MotionEvent.ACTION_DOWN, 600, 0);
+    contentTouch(MotionEvent.ACTION_MOVE, 565, 200);
+    activity.presentation.setExpanded(true);
+    contentTouch(MotionEvent.ACTION_MOVE, 750, 400);
+    contentTouch(MotionEvent.ACTION_UP, 750, 500);
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+    assertTrue(activity.presentation.state.expanded);
+    assertEquals(720, activity.cardContainer.getLayoutParams().height);
+    assertEquals(0, activity.dismissCalls);
+  }
+
+  private void prepareContentDrag() {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1));
+  }
+
+  private void contentTouch(int action, float y, long time) {
+    MotionEvent event = MotionEvent.obtain(0, time, action, 180, y, 0);
+    if (activity.presentation.interceptTouch(event)) {
+      activity.presentation.onTouch(activity.cardContainer, event);
+    }
+    event.recycle();
   }
 
   @Test public void resizingWindowCancelsHandleDragBeforeItsOldCoordinatesCanDismiss() {

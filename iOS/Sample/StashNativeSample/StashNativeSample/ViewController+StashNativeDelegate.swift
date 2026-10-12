@@ -46,12 +46,6 @@ extension ViewController: StashNativeCardDelegate {
         }
     }
 
-    func stashNativeCardDidReceiveOpt(in optinType: String) {
-        DispatchQueue.main.async {
-            self.addCallbackChip("Opt-In: \(optinType)")
-        }
-    }
-
     func stashNativeCardDidLoadPage(_ loadTimeMs: Double) {
         DispatchQueue.main.async {
             self.addCallbackChip("Page Loaded · \(Int(loadTimeMs)) ms")

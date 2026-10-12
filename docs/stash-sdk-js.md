@@ -160,7 +160,7 @@ Signals payment failure.
 - **Argument:** Ignored. Neither platform exposes a failure payload to the host.
 - **Native result:** Failure callback on the host.
 
-> **Auto-close behavior:** By default the card dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Web pages should not assume the dialog has been torn down by the time these callbacks return.
+> **Auto-close behavior:** By default the card dismisses immediately after `onPaymentSuccess` or `onPaymentFailure`. Native integrators may opt out by setting `autoClose = false` on the card config; in that case the dialog stays open after the callback fires and the host app (or `window.close()` from the page) is responsible for dismissing it. Payment callbacks and auto-close work regardless of `allowDismiss`. Web pages should not assume the dialog has been torn down by the time these callbacks return.
 
 ### `window.stash_sdk.onPurchaseProcessing(data?)`
 
@@ -171,17 +171,10 @@ Signals that a purchase is still processing. While processing, the SDK locks the
 
 ### `window.stash_sdk.onProcessingCompleted(data?)`
 
-Reverses `onPurchaseProcessing`. Signals that the purchase is no longer processing: the SDK re-enables dismissal (swipe, backdrop / overlay tap, back button, and `window.close()`) and fades the drag handle back in. Call it when a purchase that previously called `onPurchaseProcessing` finishes or is cancelled without auto-closing the card.
+Reverses `onPurchaseProcessing`. Signals that the purchase is no longer processing: the SDK permits `window.close()` again, restores user dismissal if `allowDismiss` is true, and fades the drag handle back in. Call it when a purchase that previously called `onPurchaseProcessing` finishes or is cancelled without auto-closing the card.
 
 - **Argument:** Ignored; this call changes processing state.
 - **Native result:** Restores the dismissable card state set up before `onPurchaseProcessing`. No-op if no processing state was active.
-
-### `window.stash_sdk.setPaymentChannel(optinType?)`
-
-Sends opt-in or payment channel selection as a string.
-
-- **Argument:** Coerced with `optinType || ''` (empty string if omitted).
-- **Native result:** Opt-in / payment channel listener (for example `stashNativeCardDidReceiveOptIn:` on iOS), followed by checkout closure. This is independent of payment `autoClose`.
 
 ### `window.stash_sdk.expand()`
 
@@ -239,7 +232,7 @@ Navigations to any non-web scheme (anything other than http/https/about/blob/dat
 
 iOS universal links: a user-tapped (link-activated) main-frame https navigation is offered to any installed app that claims it as a universal link (via `openURL:` with `UniversalLinksOnly`); if no app claims it, it loads normally in the checkout. This is gated to link activations so the initial checkout load and provider redirects always stay in the card, and it requires the target app's associated domains.
 
-Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
+Implementation: `decidePolicyForNavigationAction` in [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m); `shouldOverrideUrlLoading` in [`StashCheckoutWebViewClient.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewClient.java); classification in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
 
 Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `shouldOverrideUrlLoading(WebView, String)` callback, which carries no frame information; web-scheme sub-frame navigations cannot be distinguished there, but non-web-scheme deeplinks are still intercepted.
 
@@ -247,14 +240,14 @@ Caveat: on Android 5-6 (API 21-23) the framework only invokes the legacy `should
 
 A WebView has no second tab, so any navigation that requests a new window - an anchor with `target="_blank"` or a `window.open(url)` call, from the main frame or an iframe - is opened in the external browser instead, and the checkout stays presented (same semantics as `openLink`: no `theme` parameter, no dismissal, no host callback). http/https URLs open in the system browser; any other scheme flows through the deeplink handling above. Empty / `about:blank` placeholder popups are dropped so the live checkout document is never replaced.
 
-- Android: `WebView` settings enable `setSupportMultipleWindows(true)`; `WebChromeClient.onCreateWindow` captures the destination via a temporary transport `WebView` and opens it externally (`openTargetBlankWindow` in [`StashCheckoutWebViewSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutWebViewSupport.java)). The temporary WebView is destroyed after resolving the destination.
+- Android: `WebView` settings enable `setSupportMultipleWindows(true)`; `WebChromeClient.onCreateWindow` captures the destination via a temporary transport `WebView` and opens it externally (`openTargetBlankWindow` in [`StashCheckoutNavigationSupport.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutNavigationSupport.java)). The temporary WebView is destroyed after resolving the destination.
 - iOS: `WKUIDelegate createWebViewWithConfiguration:forNavigationAction:` opens the destination via `UIApplication openURL:` and returns `nil` (no new `WKWebView`). See [`StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m).
 
 ### `window.close()`
 
 The injected script replaces `window.close` with a function that requests closing the checkout from the native side (`requestCloseFromPage` on Android, `stashWindowClose` message on iOS).
 
-- **Native result:** User-dismiss style flow, permitted only when `allowDismiss` is true and purchase processing is inactive; see delegate `stashNativeCardDidDismiss` on iOS and equivalent listener behavior on Android. Explicit host dismissal remains available regardless of these page/user guards.
+- **Native result:** Closes the card and emits `stashNativeCardDidDismiss` on iOS or `onDialogDismissed` on Android. Works with either value of `allowDismiss`; that flag controls user dismissal by swipe, backdrop tap, or Android Back. Purchase processing still blocks page close until `onProcessingCompleted` or a payment result clears the lock. Explicit host dismissal remains available regardless of these guards.
 
 ## Page Load Signaling (Not Part of `stash_sdk`)
 

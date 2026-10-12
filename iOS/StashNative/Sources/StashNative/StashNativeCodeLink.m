@@ -87,7 +87,9 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.frameLayer.strokeColor = UIColor.whiteColor.CGColor;
     self.frameLayer.lineWidth = 2;
     [self.view.layer addSublayer:self.frameLayer];
-    self.heading = StashCodeLinkLabel(@"Scan QR code", UIFontTextStyleTitle3, 1);
+    NSString *header = self.session.codeLinkConfig.headerText;
+    self.heading = StashCodeLinkLabel(header.length ? header : @"Scan QR code", UIFontTextStyleTitle3, 1);
+    self.heading.accessibilityIdentifier = @"stash-code-link-header";
     [self.view addSubview:self.heading];
     self.closeButton = [UIButton buttonWithType:UIButtonTypeClose];
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
@@ -104,7 +106,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.closeButton.accessibilityIdentifier = @"stash-code-link-close";
     [self.closeButton addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.closeButton];
-    [self installCallout];
+    if (!self.session.codeLinkConfig || self.session.codeLinkConfig.showCallout) [self installCallout];
     [self installStatus];
 #if !__has_feature(objc_arc)
     [preview release];
@@ -125,8 +127,13 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     icon.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.06];
     icon.layer.cornerRadius = 12;
     icon.isAccessibilityElement = NO;
-    UILabel *title = StashCodeLinkLabel(@"Scan the webshop code", UIFontTextStyleHeadline, 1);
-    UILabel *subtitle = StashCodeLinkLabel(@"Keep the QR code centered inside the frame.", UIFontTextStyleFootnote, 0.65);
+    StashNativeCodeLinkConfig *config = self.session.codeLinkConfig;
+    UILabel *title = StashCodeLinkLabel(config.calloutTitle.length ? config.calloutTitle : @"Scan the webshop code",
+        UIFontTextStyleHeadline, 1);
+    UILabel *subtitle = StashCodeLinkLabel(config.calloutSubtitle.length ? config.calloutSubtitle :
+        @"Keep the QR code centered inside the frame.", UIFontTextStyleFootnote, 0.65);
+    title.accessibilityIdentifier = @"stash-code-link-callout-title";
+    subtitle.accessibilityIdentifier = @"stash-code-link-callout-subtitle";
     UIStackView *text = [[UIStackView alloc] initWithArrangedSubviews:@[title, subtitle]];
     text.axis = UILayoutConstraintAxisVertical;
     text.spacing = 4;
@@ -150,8 +157,9 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner = spinner;
     [spinner startAnimating];
-    self.statusTitle = StashCodeLinkLabel(@"Starting camera", UIFontTextStyleHeadline, 1);
+    self.statusTitle = StashCodeLinkLabel(@"", UIFontTextStyleHeadline, 1);
     self.statusMessage = StashCodeLinkLabel(@"", UIFontTextStyleFootnote, 0.7);
+    self.statusTitle.hidden = self.statusMessage.hidden = YES;
     self.statusTitle.textAlignment = NSTextAlignmentCenter;
     self.statusMessage.textAlignment = NSTextAlignmentCenter;
     self.settingsButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -187,7 +195,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
         withHorizontalFittingPriority:UILayoutPriorityRequired verticalFittingPriority:UILayoutPriorityFittingSizeLevel];
     self.callout.frame = CGRectMake(left, MAX(0, bounds.size.height - safe.bottom - 16 - callout.height), width, callout.height);
     CGFloat start = MAX(CGRectGetMaxY(self.heading.frame), CGRectGetMaxY(self.closeButton.frame)) + 20;
-    CGFloat end = CGRectGetMinY(self.callout.frame) - 20;
+    CGFloat end = self.callout ? CGRectGetMinY(self.callout.frame) - 20 : bounds.size.height - safe.bottom - 16;
     CGFloat side = MAX(0, MIN(width * 0.84, end - start));
     self.scanFrame = CGRectMake((bounds.size.width - side) / 2, start + MAX(0, (end - start - side) / 2), side, side);
     UIBezierPath *frame = [UIBezierPath bezierPathWithRoundedRect:self.scanFrame cornerRadius:MIN(28, side / 8)];
@@ -356,6 +364,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.status.hidden = NO;
     self.statusTitle.text = title;
     self.statusMessage.text = message;
+    self.statusTitle.hidden = title.length == 0;
+    self.statusMessage.hidden = message.length == 0;
     self.settingsButton.hidden = !settings;
     [self.view setNeedsLayout];
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, self.statusTitle);
@@ -364,9 +374,10 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     if (self.disposed || self.session.codeLinkCompleted || ![self.session isActive]) return;
     self.scanning = NO;
     BOOL denied = code == StashNativeCodeLinkErrorCameraPermissionDenied;
-    [self showStatus:denied ? @"Allow camera access" : @"Camera unavailable"
+    NSString *unavailable = self.session.codeLinkConfig.cameraUnavailableText;
+    [self showStatus:denied ? @"Allow camera access" : (unavailable.length ? unavailable : @"Camera unavailable")
         message:denied ? @"Enable camera access in Settings to scan your webshop code."
-        : @"Use a device with an available camera to scan your webshop code." settings:denied];
+        : @"" settings:denied];
     if (self.errorReported) return;
     self.errorReported = YES;
     id<StashNativeCardDelegate> delegate = self.session.owner.delegate;
@@ -407,7 +418,9 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     checkmark.tintColor = UIColor.whiteColor;
     checkmark.contentMode = UIViewContentModeCenter;
     checkmark.isAccessibilityElement = NO;
-    UILabel *title = StashCodeLinkLabel(@"Connected", UIFontTextStyleTitle2, 1);
+    NSString *connected = self.session.codeLinkConfig.connectedText;
+    UILabel *title = StashCodeLinkLabel(connected.length ? connected : @"Connected", UIFontTextStyleTitle2, 1);
+    title.accessibilityIdentifier = @"stash-code-link-connected-title";
     title.textAlignment = NSTextAlignmentCenter;
     UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:@[checkmark, title]];
     content.axis = UILayoutConstraintAxisVertical;

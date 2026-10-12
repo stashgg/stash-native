@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_code_link_options">QR Code scan options</string>
+    <string name="code_link_header">Header text</string>
+    <string name="code_link_callout">Info callout</string>
+    <string name="code_link_callout_title">Callout title</string>
+    <string name="code_link_callout_subtitle">Callout subtitle</string>
+    <string name="code_link_status">Status text</string>
+    <string name="code_link_camera_unavailable">Camera unavailable text</string>
+    <string name="code_link_connected">Connected text</string>
+    <string name="code_link_show_callout">Show info callout</string>
+    <string name="code_link_text_help">Empty text uses the default wording.</string>
+    <string name="code_link_reset">Reset to defaults</string>
     <string name="section_link_webshop">Link Webshop</string>
     <string name="scan_qr_code">Scan QR Code</string>
     <string name="app_name">Stash Native</string>

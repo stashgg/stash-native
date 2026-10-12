@@ -9,9 +9,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import java.lang.reflect.Method;
 
 /**
- * Avoids hard links to {@code WindowCompat} APIs that require newer AndroidX Core (e.g. Unity and
- * other hosts that still resolve {@code androidx.core:core:1.2.x}). Uses platform APIs on API 30+ and
- * reflection where possible, with no-op or null fallbacks.
+ * Uses platform APIs or reflection to support hosts with older AndroidX Core dependencies.
  */
 final class StashWindowCompat {
 

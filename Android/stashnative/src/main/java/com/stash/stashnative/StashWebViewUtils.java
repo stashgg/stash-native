@@ -16,9 +16,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 /**
  * Utility class for WebView configuration and common operations.
@@ -104,11 +104,6 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".onProcessingCompleted(); } catch(e) {}"
       + "  };"
-      + "  window.stash_sdk.setPaymentChannel = function(optinType) {"
-      + "    try { "
-      + JS_INTERFACE_NAME
-      + ".setPaymentChannel(optinType || ''); } catch(e) {}"
-      + "  };"
       + "  window.stash_sdk.setContentHeight = window.stash_sdk.setContentHeight || function() {};"
       + "  window.stash_sdk.expand = function() {"
       + "    try { "
@@ -123,7 +118,8 @@ public class StashWebViewUtils {
       + "  window.stash_sdk.openExternalBrowser = function(url) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : '');"
+      + " } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.openLink = function(url) {"
       + "    try { "
@@ -243,7 +239,7 @@ public class StashWebViewUtils {
           algorithmicDarkeningApplied = true;
         }
       } catch (NoClassDefFoundError unused) {
-        // androidx.webkit not packaged (e.g. AAR-only Unity); fall back to WebSettings#setForceDark.
+        // AAR-only hosts may omit AndroidX WebKit; use the platform fallback.
       }
     }
     if (!algorithmicDarkeningApplied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -298,6 +294,7 @@ public class StashWebViewUtils {
     }
   }
 
+  /** Replaces any existing theme parameter with the resolved checkout theme. */
   public static String appendThemeQueryParameter(String url, boolean isDarkTheme) {
     if (url == null || url.isEmpty()) {
       return url;
@@ -423,12 +420,7 @@ public class StashWebViewUtils {
     }
   }
 
-  /**
-   * Opens the URL using Custom Tabs when possible, else system browser.
-   * Uses request code 0 (no {@code startActivityForResult}); use {@link StashUrlLauncher#openExternalUrl}
-   * with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB} when integrating {@link
-   * StashNativeCard#onActivityResult}.
-   */
+  /** Opens a URL externally without tracking browser closure. */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
       return;

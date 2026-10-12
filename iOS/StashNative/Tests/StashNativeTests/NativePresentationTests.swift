@@ -2,9 +2,16 @@ import XCTest
 import RegressionSupport
 
 final class NativePresentationTests: XCTestCase {
-    @MainActor func testContentPansPreserveScrollingAndClaimOnlyExpansionOrEdgePulls() throws {
+    @MainActor func testContentPansPrioritizeExpansionAndPreservePageScrolling() throws {
         let result = try XCTUnwrap(StashContentPanPolicyProbe())
-        XCTAssertEqual(result.count, 9)
+        XCTAssertEqual(result.count, 10)
+        for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
+    }
+
+    @MainActor func testContentExpansionTracksDragAndSettlesOnlyOnRelease() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("Custom detents require iOS 16") }
+        let result = try XCTUnwrap(StashContentExpansionProbe())
+        XCTAssertEqual(result.count, 10)
         for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
     }
 

@@ -38,12 +38,6 @@ final class StashCheckoutBridge {
     context.getApplicationContext().sendBroadcast(intent);
   }
 
-  static void emitOptIn(Context context, String optinType) {
-    Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_OPT_IN);
-    intent.putExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE, optinType != null ? optinType : "");
-    context.getApplicationContext().sendBroadcast(intent);
-  }
-
   static void emitNetworkError(Context context) {
     context.getApplicationContext().sendBroadcast(
         baseIntent(context, CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR));

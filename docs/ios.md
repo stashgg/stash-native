@@ -1,12 +1,12 @@
 # iOS implementation
 
-The SDK exposes `StashNativeCard` and `StashNativeCardConfig` through `StashNativeCard.h`. The singleton owns one active `StashCheckoutSession`. All presentations receive the initiating view controller explicitly; the SDK does not select an arbitrary connected scene.
+The SDK exposes `StashNativeCard`, `StashNativeCardConfig`, and `StashNativeCodeLinkConfig` through `StashNativeCard.h`. The singleton owns one active `StashCheckoutSession`. All presentations receive the initiating view controller explicitly; the SDK does not select an arbitrary connected scene.
 
 ## Ownership
 
 `StashNativeCard.m` dispatches public operations and creates the session. `StashNativeCardPrivate.h` declares internal interfaces. `StashNativeCardInternal.m` implements the session's WebView, callbacks, processing state, loading deadline, dismissal, and document-height handling.
 
-Configuration is normalized and copied by `StashNativeCardConfigs.m`. Geometry calculations live in `StashNativeCardGeometry.m`. Presentation controllers live in `StashNativeCardViewControllers.m`; URL and view helpers and injected scripts live in `StashNativeCardViewUtils.m`. Navigation delegates are implemented in `StashNativeCardWebViewDelegates.m`, with shared color/theme helpers in `StashNativeCardTheme.m`.
+Configuration is normalized and copied by `StashNativeCardConfigs.m`. Geometry calculations live in `StashNativeCardGeometry.m`. `StashNativeCardViewControllers.m` owns controller lifecycle and view layout. Its Keyboard, Gestures, and Presentation categories separate keyboard accommodation, touch arbitration, and native detent configuration without adding another controller or presenter. URL and view helpers and injected scripts live in `StashNativeCardViewUtils.m`. Navigation delegates are implemented in `StashNativeCardWebViewDelegates.m`, with shared color/theme helpers in `StashNativeCardTheme.m`.
 
 Keep retained state on its session/controller owner. Teardown must invalidate timers, unregister message handlers, detach delegates, and make queued callbacks harmless. A callback that opens a new session must not let an older session tear it down.
 
@@ -40,11 +40,17 @@ Observe late WebKit root-scroll changes and normalize offsets after interaction 
 
 Place `[data-stash-content]` inside outer safe-area padding, and exclude that padding from explicit height reports. See [responsive presentation](responsive-presentation.md) for the page contract.
 
+## CodeLink
+
+`codeLink(from:config:)` accepts `StashNativeCodeLinkConfig` with `headerText`, `calloutTitle`, `calloutSubtitle`, `cameraUnavailableText`, `connectedText`, and `showCallout` (default `true`). Nil or empty text uses the built-in wording. The unavailable status has no subtitle; the confirmation's accessibility announcement uses `connectedText`. `codeLink(from:)` keeps the defaults. See [CodeLink configuration](../README.md#codelink-ios-and-android) for examples and default text.
+
+The SDK copies the configuration before dispatch to the main thread and stores a per-session copy. `StashNativeCodeLink.m` renders plain, wrapping labels in the existing native card. Hiding the callout removes its view and frees that space for the scan frame; the camera's region of interest follows the new geometry. CodeLink continues to follow host orientation and retains its existing camera permissions, Connected confirmation, and callback lifecycle.
+
 ## Web contract and navigation
 
 `StashBridgeScript()` injects `window.stash_sdk` into the main document. Keep the established message-handler spellings, including `stashNativementSuccess` and `stashNativementFailure`. The card installs a document-scoped content script separately.
 
-The bridge forwards payment results, processing locks, opt-in, expansion/collapse, close, and external navigation. Refer to [the JS contract](stash-sdk-js.md) for payloads and callback ordering. External-payment handoff closes embedded checkout without a normal dismissal event; ordinary external links leave it open.
+The bridge forwards payment results, processing locks, expansion/collapse, close, and external navigation. Refer to [the JS contract](stash-sdk-js.md) for payloads and callback ordering. External-payment handoff closes embedded checkout without a normal dismissal event; ordinary external links leave it open.
 
 Checkout fields hide WebKit's previous/next/Done accessory toolbar to preserve editing space. Keyboard predictions and payment autofill remain available. Accessory suppression applies only to the checkout's WebView responders; it does not change WebKit's shared implementation or the host app's fields.
 

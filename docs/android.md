@@ -14,7 +14,7 @@ WindowManager supplies fold layout information. Handle viewport-related configur
 
 ## Bridge and navigation
 
-`StashWebViewUtils.JS_SDK_SCRIPT` defines the public page API. `StashCheckoutJsInterface` routes native calls on the UI thread. `StashCheckoutWebViewSupport` handles WebView setup, navigation, loading errors, and external-link decisions. `StashContentSizeSupport` installs the optional card-only document reporter after navigation and rejects stale document/viewport measurements.
+`StashWebViewUtils.JS_SDK_SCRIPT` defines the public page API. `StashCheckoutJsInterface` routes native calls through one UI-thread dispatch boundary. `StashCheckoutWebViewSupport` creates the WebView and starts navigation after layout. `StashCheckoutWebViewClient` handles navigation callbacks and load failures; `StashCheckoutNavigationSupport` routes external links and deeplinks. `StashCheckoutLoadingSupport` manages deadlines and the initial crossfade, with mutable loading state owned by the activity. `StashContentSizeSupport` installs the optional card-only document reporter after navigation and rejects stale document/viewport measurements.
 
 `StashWebInteractionSupport` keeps checkout at native scale and suppresses browser menus on noneditable content. It installs at document start when the WebView provider supports that feature, with navigation callbacks as a fallback. Form fields retain native selection, clipboard actions, and autofill, including embedded payment fields. Sheet gestures cancel when another finger touches or processing starts.
 
@@ -26,11 +26,37 @@ The opt-in keep-alive service uses a short foreground notification during extern
 
 ## Dependencies
 
-The SDK builds with JDK 17, Java 8 source compatibility, compile SDK 34, and minimum API 21. Required libraries are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0 and `window-java:1.4.0`, CameraX camera-camera2/camera-lifecycle/camera-view 1.4.2, and ZXing core 3.5.3. These CameraX versions preserve the SDK's API 21 and compile SDK 34 baseline. The WindowManager graph includes Kotlin stdlib, coroutines, window-core, collections, and annotations. Browser 1.7.0 remains optional. Sample UI dependencies are not SDK runtime dependencies.
+The SDK builds with JDK 17, Java 8 source compatibility, compile SDK 34, and minimum API 21.
 
-Standalone AAR consumers must declare these dependencies themselves. Inspect the resolved graph when changing versions; WindowManager 1.5.x requires API 23. Preserve narrow consumer shrinking rules and test packaged AAR consumers, including absent/older optional Browser versions.
+| Dependency | Purpose | Required |
+| --- | --- | --- |
+| `androidx.core:core:1.12.0` | Window insets, colors, and notifications | Base SDK |
+| `androidx.webkit:webkit:1.11.0` | Checkout WebView features, document-start scripts, and color handling | Base SDK |
+| `androidx.window:window:1.4.0` and `window-java:1.4.0` | Responsive card layout and fold information | Base SDK |
+| `androidx.browser:browser:1.7.0` | Custom Tabs for browser checkout and external payment links | Optional; falls back to the system browser |
+| `androidx.camera:camera-camera2:1.4.2`, `camera-lifecycle:1.4.2`, `camera-view:1.4.2` | Camera capture, lifecycle, and preview | Only for CodeLink |
+| `com.google.zxing:core:3.5.3` | Local QR decoding | Only for CodeLink |
+
+Standalone AAR consumers declare the base dependencies and any optional groups they use. Source-module consumers inherit the base group; Browser, CameraX, and ZXing are `compileOnly` in the SDK and must be added explicitly by hosts using those features. The sample includes all groups. See the [installation examples](../README.md#android). Sample UI dependencies are not SDK runtime dependencies.
+
+`StashCodeLinkSession` isolates the activity from CameraX and ZXing types. Its factory loads the scanner reflectively and catches linkage failures. If the dependencies are missing or incompatible, CodeLink reports `CAMERA_CONFIGURATION_FAILED`, closes without a dismissal callback, and releases presentation state before the error callback. Checkout and browser remain usable. The AAR includes narrow shrinking rules for the optional scanner; hosts do not need blanket keep rules or warning suppression.
+
+CameraX 1.4.2 preserves the SDK's API 21 and compile SDK 34 baseline. WindowManager brings Kotlin stdlib, coroutines, window-core, collections, and annotations. Inspect the resolved graph when changing versions; WindowManager 1.5.x requires API 23. Test packaged AAR consumers with absent scanner libraries and absent/older Browser versions.
+
+The SDK manifest declares `CAMERA`, but checkout and browser never request it. Apps that do not use CodeLink may remove the declaration from their merged manifest:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
+</manifest>
+```
 
 ## CodeLink
+
+`codeLink(activity, config)` accepts `StashNativeCard.CodeLinkConfig` with `headerText`, `calloutTitle`, `calloutSubtitle`, `cameraUnavailableText`, `connectedText`, and `showCallout` (default `true`). Null or empty text keeps the bundled wording, including any Android resource translations. The unavailable status has no subtitle; the confirmation's accessibility announcement uses `connectedText`. The no-config overload preserves the defaults. See [CodeLink configuration](../README.md#codelink-ios-and-android) for examples and default text.
+
+`StashCodeLinkOptions` snapshots these values before dispatch to the main thread and carries them in the checkout Intent for activity recreation. The view wraps custom text and removes a hidden callout from layout and accessibility. The scan region uses the resulting free space, including after rotation or resizing. Configuration does not alter orientation, camera access, confirmation, or callback behavior.
 
 CodeLink uses the same activity, sheet layout, sizing, and presentation controller as checkout. It always follows the host orientation, including landscape-only games. `StashCodeLinkSupport` owns a camera lifecycle and binds only its own CameraX preview and analysis use cases; it never calls `unbindAll`. `PreviewView` uses its texture implementation so the camera obeys the card's clipping and transformations. Preview and analysis share a viewport, and scan coordinates are remapped after rotation or resizing. Late frames from earlier geometry are discarded.
 

@@ -14,9 +14,9 @@ Android checkout runs in the host app process. It must not acquire an `android:p
 
 ## Dependencies and packaging
 
-Android's required runtime dependencies are Core 1.12.0, WebKit 1.11.0, WindowManager 1.4.0 and its Java adapter, CameraX 1.4.2 (camera2, lifecycle, and view), and ZXing Core 3.5.3. CodeLink uses CameraX and ZXing. Their resolved graph includes Kotlin and coroutines. The SDK does not require AppCompat, Material, or Compose. Browser 1.7.0 is optional for Custom Tabs; absent browser support falls back to `ACTION_VIEW`.
+Android's base runtime dependencies are Core 1.12.0, WebKit 1.11.0, and WindowManager 1.4.0 with its Java adapter. Their resolved graph includes Kotlin and coroutines. CameraX 1.4.2 (camera2, lifecycle, and view) and ZXing Core 3.5.3 are required only for CodeLink. Source-module consumers must also add these optional scanning libraries explicitly. Without them, checkout/browser work and a CodeLink attempt reports `CAMERA_CONFIGURATION_FAILED` without requesting camera access. The SDK does not require AppCompat, Material, or Compose. Browser 1.7.0 is optional for Custom Tabs; absent browser support falls back to `ACTION_VIEW`.
 
-Plain AAR files do not carry transitive dependency metadata. Include the dependencies from the [README](README.md#android). Keep consumer shrinking rules and test a minified host; an unminified SDK AAR does not mean internal classes will escape the host shrinker.
+Plain AAR files do not carry transitive dependency metadata. Include the base dependencies and the feature groups you use from the [README](README.md#android). Keep consumer shrinking rules and test a minified host; an unminified SDK AAR does not mean internal classes will escape the host shrinker.
 
 The iOS public header supports ARC and non-ARC consumers. New implementation files must belong to both the Xcode project and SPM source tree.
 

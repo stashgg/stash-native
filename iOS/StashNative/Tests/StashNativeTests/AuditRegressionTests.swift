@@ -8,10 +8,11 @@ final class AuditRegressionTests: XCTestCase {
         DispatchQueue.main.async {
             let result = StashCallbackProbe() as! [String: NSNumber]
             XCTAssertEqual(result["successes"]?.intValue, 2)
-            XCTAssertEqual(result["failures"]?.intValue, 1)
+            XCTAssertEqual(result["failures"]?.intValue, 2)
             XCTAssertEqual(result["dismissals"]?.intValue, 0)
             XCTAssertEqual(result["retryRemainsOpen"]?.boolValue, true)
             XCTAssertEqual(result["closedAfterSuccess"]?.boolValue, true)
+            XCTAssertEqual(result["closedAfterFailure"]?.boolValue, true)
             XCTAssertEqual(result["networkErrors"]?.intValue, 1)
             XCTAssertEqual(result["closedBeforeNetworkCallback"]?.boolValue, true)
             done.fulfill()
@@ -19,20 +20,23 @@ final class AuditRegressionTests: XCTestCase {
         wait(for: [done], timeout: 5)
     }
 
-    func testQueuedPageCloseRespectsReplacementProcessingAndDismissPolicy() {
-        for (replace, processing, allowDismiss, survives) in [
-            (true, false, true, true), (false, true, true, true),
-            (false, false, false, true), (false, false, true, false)
-        ] {
-            let done = expectation(description: "queued close")
-            DispatchQueue.main.async {
-                StashQueuedCloseProbe(replace, processing, allowDismiss) { presented, dismissals in
-                    XCTAssertEqual(presented, survives)
-                    XCTAssertEqual(dismissals, survives ? 0 : 1)
-                    done.fulfill()
+    func testPageCloseIgnoresAllowDismissButRespectsReplacementAndProcessing() {
+        for source in ["bridge", "window", "cancel"] {
+            for (replace, processing, allowDismiss, survives) in [
+                (true, false, true, true), (true, false, false, true),
+                (false, true, true, true), (false, true, false, true),
+                (false, false, false, false), (false, false, true, false)
+            ] {
+                let done = expectation(description: "queued \(source) close, allowDismiss=\(allowDismiss)")
+                DispatchQueue.main.async {
+                    StashQueuedCloseProbe(source, replace, processing, allowDismiss) { presented, dismissals in
+                        XCTAssertEqual(presented, survives, done.expectationDescription)
+                        XCTAssertEqual(dismissals, survives ? 0 : 1, done.expectationDescription)
+                        done.fulfill()
+                    }
                 }
+                wait(for: [done], timeout: 5)
             }
-            wait(for: [done], timeout: 5)
         }
     }
 

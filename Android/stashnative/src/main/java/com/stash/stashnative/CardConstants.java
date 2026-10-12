@@ -36,9 +36,6 @@ final class CardConstants {
   public static final String BROADCAST_CHECKOUT_PAYMENT_FAILURE =
       "com.stash.stashnative.internal.CHECKOUT_PAYMENT_FAILURE";
 
-  public static final String BROADCAST_CHECKOUT_OPT_IN =
-      "com.stash.stashnative.internal.CHECKOUT_OPT_IN";
-
   public static final String BROADCAST_CHECKOUT_NETWORK_ERROR =
       "com.stash.stashnative.internal.CHECKOUT_NETWORK_ERROR";
 
@@ -48,19 +45,11 @@ final class CardConstants {
   public static final String BROADCAST_CHECKOUT_PAGE_LOADED =
       "com.stash.stashnative.internal.CHECKOUT_PAGE_LOADED";
 
-  public static final String BROADCAST_EXTRA_OPTIN_TYPE = "stashOptinType";
-
   public static final String BROADCAST_EXTRA_PAGE_LOAD_MS = "stashPageLoadMs";
 
   public static final String BROADCAST_EXTRA_PAYMENT_ORDER = "stashPaymentOrder";
 
   public static final String BROADCAST_EXTRA_WILL_CLOSE = "stashWillClose";
-
-  public static final String MESSAGE_TYPE_SUCCESS = "success";
-
-  public static final String MESSAGE_TYPE_FAILURE = "failure";
-
-  public static final String MESSAGE_TYPE_OPTIN = "optin";
 
   public static final String COLOR_BACKGROUND_DIM = COLOR_OVERLAY_DIM;
 

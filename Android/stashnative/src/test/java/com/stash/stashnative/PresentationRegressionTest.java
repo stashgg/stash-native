@@ -147,7 +147,7 @@ public class PresentationRegressionTest {
 
   @Test @Config(sdk = {21, 23, 28})
   public void selectorIsStrippedBeforeLaunchingIntentUri() {
-    StashCheckoutWebViewSupport.openDeeplinkExternally(host,
+    StashCheckoutNavigationSupport.openDeeplinkExternally(host,
         "intent://example.invalid/#Intent;scheme=demo;SEL;component=com.example/.PrivateActivity;end");
     Intent launched = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(launched);

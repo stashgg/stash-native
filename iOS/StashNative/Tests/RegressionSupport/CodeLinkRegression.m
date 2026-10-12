@@ -6,6 +6,10 @@
 @property (nonatomic, readonly) UIView *callout;
 @property (nonatomic, readonly) UIView *closeButton;
 @property (nonatomic, readonly) UIView *confirmation;
+@property (nonatomic, readonly) UILabel *heading;
+@property (nonatomic, readonly) UILabel *statusTitle;
+@property (nonatomic, readonly) UILabel *statusMessage;
+@property (nonatomic, readonly) UIActivityIndicatorView *spinner;
 - (void)cameraFailed:(StashNativeCodeLinkError)code message:(NSString *)message;
 @end
 
@@ -115,19 +119,53 @@ void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NS
 }
 
 NSDictionary *StashCodeLinkLayoutProbe(CGSize size) {
+    return StashCodeLinkConfiguredLayoutProbe(size, nil);
+}
+
+static NSString *StashScannerText(UIView *view, NSString *identifier) {
+    if ([view.accessibilityIdentifier isEqualToString:identifier] && [view isKindOfClass:UILabel.class])
+        return ((UILabel *)view).text;
+    for (UIView *child in view.subviews) {
+        NSString *text = StashScannerText(child, identifier);
+        if (text) return text;
+    }
+    return nil;
+}
+
+NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLinkConfig *config) {
+    StashNativeCard *owner = [StashNativeCard new];
+    StashCheckoutSession *session = [StashCheckoutSession new];
+    session.owner = owner;
+    owner.session = session;
+    session.codeLinkConfig = config;
     StashCodeLinkViewController *scanner = [StashCodeLinkViewController new];
+    scanner.session = session;
     scanner.view.frame = (CGRect){CGPointZero, size};
     [scanner.view setNeedsLayout];
     [scanner.view layoutIfNeeded];
     CGRect frame = scanner.scanFrame;
     CGRect callout = scanner.callout.frame;
     CGRect close = scanner.closeButton.frame;
-    BOOL bounded = CGRectContainsRect(scanner.view.bounds, frame) && CGRectContainsRect(scanner.view.bounds, callout) &&
+    BOOL bounded = CGRectContainsRect(scanner.view.bounds, frame) &&
+        (!scanner.callout || CGRectContainsRect(scanner.view.bounds, callout)) &&
         CGRectContainsRect(scanner.view.bounds, close);
-    NSDictionary *result = @{@"bounded":@(bounded), @"frameWidth":@(frame.size.width),
+    BOOL separate = MAX(CGRectGetMaxY(close), CGRectGetMaxY(scanner.heading.frame)) < CGRectGetMinY(frame) &&
+        (!scanner.callout || CGRectGetMaxY(frame) < CGRectGetMinY(callout));
+    NSMutableDictionary *result = [@{@"bounded":@(bounded), @"frameWidth":@(frame.size.width),
         @"frameHeight":@(frame.size.height), @"centerX":@(CGRectGetMidX(frame)),
-        @"controlsSeparate":@(CGRectGetMaxY(close) < CGRectGetMinY(frame) && CGRectGetMaxY(frame) < CGRectGetMinY(callout)),
-        @"closeTargetWidth":@(close.size.width), @"closeTargetHeight":@(close.size.height)};
+        @"controlsSeparate":@(separate), @"showCallout":@(scanner.callout != nil),
+        @"headerText":scanner.heading.text ?: @"",
+        @"calloutTitle":StashScannerText(scanner.view, @"stash-code-link-callout-title") ?: @"",
+        @"calloutSubtitle":StashScannerText(scanner.view, @"stash-code-link-callout-subtitle") ?: @"",
+        @"snapshot":@(!config || session.codeLinkConfig != config),
+        @"spinnerOnly":@(scanner.spinner.isAnimating && scanner.statusTitle.hidden && scanner.statusMessage.hidden),
+        @"closeTargetWidth":@(close.size.width), @"closeTargetHeight":@(close.size.height)} mutableCopy];
+    [scanner cameraFailed:StashNativeCodeLinkErrorCameraPermissionDenied message:@"Denied"];
+    [scanner cameraFailed:StashNativeCodeLinkErrorCameraUnavailable message:@"Diagnostic detail"];
+    result[@"cameraUnavailableText"] = scanner.statusTitle.text;
+    result[@"unavailableMessageHidden"] = @(scanner.statusMessage.hidden && scanner.statusMessage.text.length == 0);
+    [scanner showConnectedWithCompletion:nil];
+    result[@"connectedText"] = StashScannerText(scanner.confirmation, @"stash-code-link-connected-title");
     [scanner dispose];
     return result;
 }

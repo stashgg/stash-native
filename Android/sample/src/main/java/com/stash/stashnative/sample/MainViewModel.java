@@ -55,6 +55,7 @@ public class MainViewModel extends AndroidViewModel {
     SETTINGS,
     API,
     CARD_OPTIONS,
+    CODE_LINK_OPTIONS,
     INSTANCE_DETAILS,
     CHECKOUT_PAYLOAD,
     WEBSHOP_PAYLOAD
@@ -84,6 +85,8 @@ public class MainViewModel extends AndroidViewModel {
   private String payloadDraft = "";
 
   private final StashNativeCard.CardConfig cardConfig = new StashNativeCard.CardConfig();
+  private final StashNativeCard.CodeLinkConfig codeLinkConfig =
+      new StashNativeCard.CodeLinkConfig();
 
   /** Restores saved keys and payloads from prefs. */
   public MainViewModel(Application application) {
@@ -257,6 +260,7 @@ public class MainViewModel extends AndroidViewModel {
           apiKeys.add(ApiKeyEntry.fromJson(arr.getJSONObject(i)));
         }
       } catch (JSONException ignored) {
+        // Recover malformed saved entries using the bundled defaults.
       }
     }
     if (apiKeys.isEmpty()) {
@@ -322,6 +326,7 @@ public class MainViewModel extends AndroidViewModel {
             .show();
       }
     } catch (JSONException ignored) {
+      // Keep the in-memory entries if they cannot be serialized.
     }
   }
 
@@ -352,6 +357,7 @@ public class MainViewModel extends AndroidViewModel {
     return findApiKey(selectedApiKeyId);
   }
 
+  /** Selects a saved instance and refreshes its settings. */
   public void selectApiKey(String id) {
     if (findApiKey(id) != null) {
       selectedApiKeyId = id;
@@ -379,8 +385,7 @@ public class MainViewModel extends AndroidViewModel {
     return findApiKey(editingInstanceId);
   }
 
-  // Detail fields commit live (like the URL rows) and must not refresh the list, or the rebind
-  // would move the caret while the user is still typing.
+  /** Saves the name without rebinding the active text field. */
   public void setEditingName(String name) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -389,6 +394,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the app ID without rebinding the active text field. */
   public void setEditingAppId(String appId) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -397,6 +403,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the secret without rebinding the active text field. */
   public void setEditingSecret(String secret) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -405,6 +412,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the selected instance's API environment. */
   public void setEditingProduction(boolean production) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -429,6 +437,7 @@ public class MainViewModel extends AndroidViewModel {
     return true;
   }
 
+  /** Removes an instance, restoring a default entry when the list becomes empty. */
   public void deleteApiKey(String id) {
     ApiKeyEntry entry = findApiKey(id);
     if (entry == null) {
@@ -590,6 +599,37 @@ public class MainViewModel extends AndroidViewModel {
     return cardConfig;
   }
 
+  public StashNativeCard.CodeLinkConfig getCodeLinkConfig() {
+    return codeLinkConfig;
+  }
+
+  /** Updates scanner copy without rebinding the active editor. */
+  public void setCodeLinkText(int title, String text) {
+    if (title == R.string.code_link_header) {
+      codeLinkConfig.headerText = text;
+    } else if (title == R.string.code_link_callout_title) {
+      codeLinkConfig.calloutTitle = text;
+    } else if (title == R.string.code_link_callout_subtitle) {
+      codeLinkConfig.calloutSubtitle = text;
+    } else if (title == R.string.code_link_camera_unavailable) {
+      codeLinkConfig.cameraUnavailableText = text;
+    } else if (title == R.string.code_link_connected) {
+      codeLinkConfig.connectedText = text;
+    }
+  }
+
+  /** Restores the scanner's default text and callout visibility. */
+  public void resetCodeLinkConfig() {
+    codeLinkConfig.headerText = null;
+    codeLinkConfig.calloutTitle = null;
+    codeLinkConfig.calloutSubtitle = null;
+    codeLinkConfig.cameraUnavailableText = null;
+    codeLinkConfig.connectedText = null;
+    codeLinkConfig.showCallout = true;
+    refreshList();
+  }
+
+  /** Updates the checkout orientation preference. */
   public void setForcePortraitOnCheckout(boolean on) {
     cardConfig.orientationPreference =
         on
@@ -608,6 +648,7 @@ public class MainViewModel extends AndroidViewModel {
     refreshList();
   }
 
+  /** Updates the card dimension associated with a settings row. */
   public void setDimension(int title, int value) {
     if (title == R.string.preferred_content_width) {
       cardConfig.preferredContentWidth = Math.max(1, value);
@@ -625,6 +666,9 @@ public class MainViewModel extends AndroidViewModel {
     switch (currentScreen) {
       case CARD_OPTIONS:
         items.setValue(buildCardOptionsList());
+        return;
+      case CODE_LINK_OPTIONS:
+        items.setValue(buildCodeLinkOptionsList());
         return;
       case INSTANCE_DETAILS:
         items.setValue(buildInstanceDetailsList());
@@ -675,7 +719,8 @@ public class MainViewModel extends AndroidViewModel {
   private List<SettingsItem> buildSettingsList() {
     List<SettingsItem> list = new ArrayList<>();
     list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
-    list.add(SettingsItem.actionPreference(R.string.nav_card_options, false, true));
+    list.add(SettingsItem.actionPreference(R.string.nav_card_options, false, false));
+    list.add(SettingsItem.actionPreference(R.string.nav_code_link_options, false, true));
     // Other
     list.add(SettingsItem.sectionHeader(R.string.section_other, true, false));
     list.add(
@@ -693,6 +738,27 @@ public class MainViewModel extends AndroidViewModel {
     list.add(
         SettingsItem.infoPreference(
             R.string.option_sdk_version, StashNativeCard.getVersion(), false, true));
+    return list;
+  }
+
+  private List<SettingsItem> buildCodeLinkOptionsList() {
+    List<SettingsItem> list = new ArrayList<>();
+    list.add(SettingsItem.sectionHeader(R.string.code_link_header, true, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_header, codeLinkConfig.headerText,
+        0, false, true));
+    list.add(SettingsItem.sectionHeader(R.string.code_link_callout, true, false));
+    list.add(SettingsItem.switchPreference(R.string.code_link_show_callout, 0,
+        codeLinkConfig.showCallout, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_callout_title,
+        codeLinkConfig.calloutTitle, 0, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_callout_subtitle,
+        codeLinkConfig.calloutSubtitle, 0, false, true));
+    list.add(SettingsItem.sectionHeader(R.string.code_link_status, true, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_camera_unavailable,
+        codeLinkConfig.cameraUnavailableText, 0, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_connected,
+        codeLinkConfig.connectedText, 0, false, true));
+    list.add(SettingsItem.actionPreference(R.string.code_link_reset, true, true));
     return list;
   }
 

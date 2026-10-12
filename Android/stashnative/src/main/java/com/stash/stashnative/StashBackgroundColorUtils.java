@@ -32,7 +32,8 @@ public final class StashBackgroundColorUtils {
   }
 
   public static int dragHandleFor(int sheetArgb) {
-    return isDarkBackground(sheetArgb) ? dragHandleOnDarkBackground() : dragHandleOnLightBackground();
+    return isDarkBackground(sheetArgb)
+        ? dragHandleOnDarkBackground() : dragHandleOnLightBackground();
   }
 
   public static int spinnerAccentFor(int sheetArgb) {

@@ -248,6 +248,8 @@ final class StashPresentationController implements View.OnTouchListener {
     if (activity.isDismissing || disposed) {
       return;
     }
+    gestureCancelled = true;
+    dragging = false;
     state.selectExpanded(expanded);
     relayoutAnimated();
   }
@@ -312,7 +314,7 @@ final class StashPresentationController implements View.OnTouchListener {
     activity.cardContainer.setBottomAttached(layout != null && layout.bottomAttached);
     int bottomInset = layout == null ? 0 : layout.bottomInset;
     if (activity.codeLinkSupport != null) {
-      activity.codeLinkSupport.view.setBottomInset(bottomInset);
+      activity.codeLinkSupport.setBottomInset(bottomInset);
     }
     if (appliedBottomInset != bottomInset) {
       appliedBottomInset = bottomInset;
@@ -426,9 +428,10 @@ final class StashPresentationController implements View.OnTouchListener {
           && layout.expandedHeight > layout.restingHeight
           && vertical
           && -delta > ViewConfiguration.get(activity).getScaledTouchSlop()) {
-        // Content can request expansion, but never drags or dismisses the surface.
+        // Capture the upward drag; selection changes only when the finger lifts.
         contentExpansion = true;
-        setExpanded(true);
+        dragging = true;
+        cancelAnimation();
         return true;
       }
     }
@@ -499,7 +502,7 @@ final class StashPresentationController implements View.OnTouchListener {
     }
     boolean ended = event.getActionMasked() == MotionEvent.ACTION_UP
         || event.getActionMasked() == MotionEvent.ACTION_CANCEL;
-    if (contentExpansion || !headerGesture) {
+    if (!contentExpansion && !headerGesture) {
       if (ended) {
         finishTouch();
       }
@@ -528,7 +531,8 @@ final class StashPresentationController implements View.OnTouchListener {
               Math.min(layout.expandedHeight, Math.round(dragHeight - delta)));
       applyFrame(StashCheckoutSizing.frameAtHeight(layout, height));
       activity.cardContainer.setTranslationY(
-          options.allowDismiss ? Math.max(0, delta - (dragHeight - height)) : 0);
+          headerGesture && options.allowDismiss
+              ? Math.max(0, delta - (dragHeight - height)) : 0);
       return true;
     }
     if (ended) {
@@ -541,15 +545,16 @@ final class StashPresentationController implements View.OnTouchListener {
         velocity = null;
       }
       boolean cancel = event.getActionMasked() == MotionEvent.ACTION_CANCEL;
-      if (!cancel && !dragging) {
+      if (!cancel && !dragging && headerGesture) {
         finishTouch();
         view.performClick();
         return true;
       }
+      boolean canDismiss = headerGesture && options.allowDismiss;
       finishTouch();
       float translation = activity.cardContainer.getTranslationY();
       if (!cancel
-          && options.allowDismiss
+          && canDismiss
           && (translation > dp(100) || (translation > dp(20) && speed > 700))) {
         activity.dismissWithAnimation();
       } else {

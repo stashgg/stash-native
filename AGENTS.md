@@ -8,7 +8,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ## Architecture
 
-- iOS: Objective-C `StashNativeCard` facade owns the active `StashCheckoutSession`. Configs, Geometry, Theme, ViewUtils, Internal, ViewControllers, and WebViewDelegates contain focused implementation units; internal interfaces live in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
+- iOS: Objective-C `StashNativeCard` facade owns the active `StashCheckoutSession`. The checkout controller separates lifecycle/layout from its Keyboard, Gestures, and Presentation categories. Configs, Geometry, Theme, ViewUtils, Internal, and WebViewDelegates contain other focused implementation units; internal interfaces live in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
 - Android: Java `StashNativeCard` facade, internal `StashNativeCardPlugin`, and same-process `StashCheckoutActivity`. `StashPresentationController` owns responsive layout and state; package-private support classes handle WebView, bridge, and browser concerns. Distribution uses an AAR.
 - Desktop, when present: `Desktop/shared` contains the C++17 session, configuration, URL, theme, JSON, and JS bridge contract. The macOS host uses Objective-C++/AppKit/WKWebView with a Swift sample; Windows uses C++/Win32/WebView2 with a C++ sample. Both export `Desktop/include/StashNativeDesktop.h` through a bundle or DLL.
 - Desktop development currently lives on `desktop/*` branches, with the combined implementation on `desktop/integration`. Discover the actual files and resolve refs before treating desktop as absent or using a branch's documentation.

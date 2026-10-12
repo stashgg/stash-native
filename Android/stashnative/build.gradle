@@ -55,12 +55,17 @@ dependencies {
 
     implementation 'androidx.window:window:1.4.0'
     implementation 'androidx.window:window-java:1.4.0'
-    implementation 'androidx.camera:camera-camera2:1.4.2'
-    implementation 'androidx.camera:camera-lifecycle:1.4.2'
-    implementation 'androidx.camera:camera-view:1.4.2'
-    implementation 'com.google.zxing:core:3.5.3'
+    // CodeLink only; checkout/browser hosts can omit the scanner libraries.
+    compileOnly 'androidx.camera:camera-camera2:1.4.2'
+    compileOnly 'androidx.camera:camera-lifecycle:1.4.2'
+    compileOnly 'androidx.camera:camera-view:1.4.2'
+    compileOnly 'com.google.zxing:core:3.5.3'
 
     testImplementation 'androidx.browser:browser:1.7.0'
+    testImplementation 'androidx.camera:camera-camera2:1.4.2'
+    testImplementation 'androidx.camera:camera-lifecycle:1.4.2'
+    testImplementation 'androidx.camera:camera-view:1.4.2'
+    testImplementation 'com.google.zxing:core:3.5.3'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.robolectric:robolectric:4.11.1'
 }

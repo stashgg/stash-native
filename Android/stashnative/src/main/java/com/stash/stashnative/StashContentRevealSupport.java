@@ -55,7 +55,7 @@ final class StashContentRevealSupport {
     done = false;
     started = true;
     if (activity.webViewRevealAnimationRunning) {
-      StashCheckoutWebViewSupport.cancelLoadingRevealAnimation(activity);
+      StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
     }
     check();
   }
@@ -146,7 +146,7 @@ final class StashContentRevealSupport {
     generation++;
     pending = false;
     handler.removeCallbacks(poll);
-    StashCheckoutWebViewSupport.revealWebViewAndRemoveLoading(activity);
+    StashCheckoutLoadingSupport.revealWebViewAndRemoveLoading(activity);
   }
 
   void pause() {

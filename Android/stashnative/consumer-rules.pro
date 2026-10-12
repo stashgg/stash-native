@@ -16,6 +16,13 @@
     public static void unbindIfBound(android.content.Context);
 }
 
+# Optional scanner implementation, loaded only when CodeLink is opened.
+-keep class com.stash.stashnative.StashCodeLinkSupport {
+    <init>(com.stash.stashnative.StashCheckoutActivity);
+}
+-dontwarn androidx.camera.**
+-dontwarn com.google.zxing.**
+
 # Optional Custom Tabs fallback accessed reflectively by StashUrlLauncher.
 -keep,allowoptimization class androidx.browser.customtabs.CustomTabsIntent {
     public android.content.Intent intent;

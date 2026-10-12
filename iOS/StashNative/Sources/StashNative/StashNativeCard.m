@@ -25,8 +25,15 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     [self openURL:url presenter:presenter config:nil browser:YES];
 }
 - (void)codeLinkFromViewController:(UIViewController *)presenter {
+    [self codeLinkFromViewController:presenter config:nil];
+}
+- (void)codeLinkFromViewController:(UIViewController *)presenter config:(StashNativeCodeLinkConfig *)config {
     if (!NSThread.isMainThread) {
-        dispatch_async(dispatch_get_main_queue(), ^{ [self codeLinkFromViewController:presenter]; });
+        StashNativeCodeLinkConfig *snapshot = [config copy];
+        dispatch_async(dispatch_get_main_queue(), ^{ [self codeLinkFromViewController:presenter config:snapshot]; });
+#if !__has_feature(objc_arc)
+        [snapshot release];
+#endif
         return;
     }
     if (self.session || !presenter.viewIfLoaded.window || presenter.isBeingDismissed) return;
@@ -38,6 +45,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     session.config = StashNormalizedConfig(nil);
     session.config.orientationPreference = StashNativeOrientationPreferenceFollowHost;
     session.codeLink = YES;
+    session.codeLinkConfig = config;
     self.session = session;
     [session presentCheckout];
 #if !__has_feature(objc_arc)

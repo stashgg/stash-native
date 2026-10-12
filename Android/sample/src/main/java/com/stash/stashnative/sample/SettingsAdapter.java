@@ -231,14 +231,22 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       boundPosition = position;
       boundTitleRes = item.titleRes;
       binding.preferenceIcon.setImageResource(item.iconRes);
+      binding.preferenceIcon.setVisibility(item.iconRes == 0 ? View.GONE : View.VISIBLE);
       binding.urlInputLayout.setHint(item.titleRes);
       // setInputType resets the KeyListener and clobbers selection, so set it before setText.
       int t = item.titleRes;
       boolean isUrl = t == R.string.hint_checkout_url
           || t == R.string.hint_browser_url;
+      int codeLinkDefault = codeLinkDefaultText(t);
+      binding.urlInputLayout.setPlaceholderText(codeLinkDefault == 0 ? null
+          : itemView.getContext().getString(codeLinkDefault));
+      binding.urlInputLayout.setHelperText(codeLinkDefault == 0 ? null
+          : itemView.getContext().getString(R.string.code_link_text_help));
       int inputType;
       if (isUrl) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
+      } else if (codeLinkDefault != 0) {
+        inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
       } else if (t == R.string.instance_name) {
         inputType = InputType.TYPE_CLASS_TEXT;
       } else {
@@ -298,6 +306,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setEditingAppId(text);
         } else if (boundTitleRes == R.string.instance_secret) {
           viewModel.setEditingSecret(text);
+        } else if (codeLinkDefaultText(boundTitleRes) != 0) {
+          viewModel.setCodeLinkText(boundTitleRes, text);
         }
       }
     };
@@ -320,12 +330,17 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
               : com.google.android.material.R.attr.colorPrimary));
       // Navigation rows carry a chevron; action buttons are text-only.
       boolean isNav = item.titleRes == R.string.nav_card_options
+          || item.titleRes == R.string.nav_code_link_options
           || item.titleRes == R.string.nav_checkout_payload
           || item.titleRes == R.string.nav_webshop_payload;
       binding.actionChevron.setVisibility(isNav ? View.VISIBLE : View.GONE);
       binding.actionRow.setOnClickListener(v -> {
         if (item.titleRes == R.string.nav_card_options) {
           viewModel.navigateTo(MainViewModel.Screen.CARD_OPTIONS);
+        } else if (item.titleRes == R.string.nav_code_link_options) {
+          viewModel.navigateTo(MainViewModel.Screen.CODE_LINK_OPTIONS);
+        } else if (item.titleRes == R.string.code_link_reset) {
+          viewModel.resetCodeLinkConfig();
         } else if (item.titleRes == R.string.nav_checkout_payload) {
           viewModel.navigateTo(MainViewModel.Screen.CHECKOUT_PAYLOAD);
         } else if (item.titleRes == R.string.nav_webshop_payload) {
@@ -378,9 +393,30 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           callbacks.onLockLandscapeChanged(isChecked);
         } else if (item.titleRes == R.string.instance_production) {
           viewModel.setEditingProduction(isChecked);
+        } else if (item.titleRes == R.string.code_link_show_callout) {
+          viewModel.getCodeLinkConfig().showCallout = isChecked;
         }
       });
     }
+  }
+
+  private static int codeLinkDefaultText(int title) {
+    if (title == R.string.code_link_header) {
+      return com.stash.stashnative.R.string.stash_code_link_heading;
+    }
+    if (title == R.string.code_link_callout_title) {
+      return com.stash.stashnative.R.string.stash_code_link_callout;
+    }
+    if (title == R.string.code_link_callout_subtitle) {
+      return com.stash.stashnative.R.string.stash_code_link_instruction;
+    }
+    if (title == R.string.code_link_camera_unavailable) {
+      return com.stash.stashnative.R.string.stash_code_link_unavailable;
+    }
+    if (title == R.string.code_link_connected) {
+      return com.stash.stashnative.R.string.stash_code_link_connected;
+    }
+    return 0;
   }
 
   class SliderPreferenceVH extends RecyclerView.ViewHolder {
@@ -408,7 +444,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           if (!fromUser) {
             return;
           }
-          String label = progress == 0 && item.titleRes == R.string.maximum_content_height ? "Available" : progress + " dp";
+          String label = progress == 0 && item.titleRes == R.string.maximum_content_height
+              ? "Available" : progress + " dp";
           binding.sliderValue.setText(label);
           viewModel.setDimension(item.titleRes, progress);
         }

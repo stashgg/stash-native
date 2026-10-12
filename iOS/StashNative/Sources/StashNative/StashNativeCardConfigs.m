@@ -26,6 +26,30 @@
 }
 @end
 
+@implementation StashNativeCodeLinkConfig
+- (instancetype)init {
+    if ((self = [super init])) _showCallout = YES;
+    return self;
+}
+- (id)copyWithZone:(NSZone *)zone {
+    StashNativeCodeLinkConfig *copy = [[[self class] allocWithZone:zone] init];
+    copy.headerText = self.headerText;
+    copy.calloutTitle = self.calloutTitle;
+    copy.calloutSubtitle = self.calloutSubtitle;
+    copy.cameraUnavailableText = self.cameraUnavailableText;
+    copy.connectedText = self.connectedText;
+    copy.showCallout = self.showCallout;
+    return copy;
+}
+- (void)dealloc {
+#if !__has_feature(objc_arc)
+    [_headerText release]; [_calloutTitle release]; [_calloutSubtitle release];
+    [_cameraUnavailableText release]; [_connectedText release];
+    [super dealloc];
+#endif
+}
+@end
+
 CGFloat StashFinitePositive(CGFloat value, CGFloat fallback) {
     return isfinite(value) && value > 0 ? value : fallback;
 }

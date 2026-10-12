@@ -13,12 +13,7 @@ import android.os.Looper;
 import android.util.Log;
 import java.lang.ref.WeakReference;
 
-/**
- * Internal plugin class that handles the WebView and dialog management. Use {@link StashNativeCard}
- * for the public API.
- *
- * <p>Memory optimization: Uses WeakReference for Activity to prevent leaks.
- */
+/** Coordinates checkout sessions and browser handoff for the public {@link StashNativeCard} API. */
 public class StashNativeCardPlugin {
   private static final String TAG = "StashNativeCard";
 
@@ -27,7 +22,6 @@ public class StashNativeCardPlugin {
     static final StashNativeCardPlugin INSTANCE = new StashNativeCardPlugin();
   }
 
-  // Use WeakReference to prevent Activity memory leaks
   private WeakReference<Activity> activityRef;
 
   /** Live checkout activity (card path); set in its onCreate, cleared in onDestroy. */
@@ -46,8 +40,6 @@ public class StashNativeCardPlugin {
 
   /** Identifies callbacks and cleanup belonging to the admitted presentation. */
   volatile long presentationSessionId;
-
-  volatile boolean isPurchaseProcessing;
 
   private BroadcastReceiver checkoutBridgeReceiver;
   private boolean checkoutBridgeReceiverRegistered;
@@ -192,7 +184,6 @@ public class StashNativeCardPlugin {
     IntentFilter filter = new IntentFilter();
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAYMENT_SUCCESS);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAYMENT_FAILURE);
-    filter.addAction(CardConstants.BROADCAST_CHECKOUT_OPT_IN);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
@@ -230,13 +221,6 @@ public class StashNativeCardPlugin {
         if (l != null) {
           l.onCodeLinkError(StashNativeCard.CodeLinkError.valueOf(
               intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR)));
-        }
-        return;
-      }
-      if (CardConstants.BROADCAST_CHECKOUT_OPT_IN.equals(action)) {
-        if (l != null) {
-          String type = intent.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE);
-          l.onOptInResponse(type != null ? type : "");
         }
         return;
       }
@@ -280,22 +264,14 @@ public class StashNativeCardPlugin {
     return listener;
   }
 
-  /**
-   * Returns the singleton plugin instance.
-   *
-   * @return the plugin instance
-   */
+  /** Returns the singleton plugin instance. */
   public static StashNativeCardPlugin getInstance() {
     return Holder.INSTANCE;
   }
 
   private StashNativeCardPlugin() {}
 
-  /**
-   * Sets the Activity reference using WeakReference to prevent memory leaks.
-   *
-   * @param activity The activity to use for UI operations
-   */
+  /** Observes the current host without retaining it. */
   void setActivity(Activity activity) {
     this.activityRef = new WeakReference<>(activity);
     if (activity != null) {
@@ -303,12 +279,6 @@ public class StashNativeCardPlugin {
     }
   }
 
-  /**
-   * Gets the Activity if still available, or null if it was garbage collected. Always check for
-   * null before using.
-   *
-   * @return The activity or null if no longer available
-   */
   Activity getActivity() {
     return activityRef != null ? activityRef.get() : null;
   }
@@ -603,39 +573,64 @@ public class StashNativeCardPlugin {
   }
 
   void openCard(Activity host, String url, StashNativeCard.CardConfig config) {
-    openPresentation(host, url, StashPresentationOptions.card(config));
+    openPresentation(host, url, StashPresentationOptions.card(config), null);
   }
 
   void codeLink(Activity host) {
+    codeLink(host, null);
+  }
+
+  void codeLink(Activity host, StashNativeCard.CodeLinkConfig config) {
+    openPresentation(host, null, StashPresentationOptions.card(null),
+        StashCodeLinkOptions.from(config));
+  }
+
+  void codeLinkUnavailable(StashCheckoutActivity checkout) {
+    if (checkout == null || checkout != getCheckoutActivity()
+        || checkout.getPresentationSessionId() != presentationSessionId) {
+      return;
+    }
+    isCurrentlyPresented = false;
+    checkoutActivityRef = null;
+    StashNativeCard.StashNativeCardListener current = getListener();
+    if (current != null) {
+      try {
+        current.onCodeLinkError(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+      } catch (Exception error) {
+        Log.w(TAG, "Error delivering CodeLink configuration failure", error);
+      }
+    }
+  }
+
+  private void openPresentation(
+      Activity host, String url, StashPresentationOptions options, StashCodeLinkOptions codeLink) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
-      mainHandler.post(() -> codeLink(host));
+      mainHandler.post(() -> openPresentation(host, url, options, codeLink));
       return;
     }
     if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()) {
       return;
     }
     setActivity(host);
+    String normalized = codeLink != null ? null
+        : StashWebViewUtils.normalizeExternalPaymentUrl(url);
+    if (codeLink == null && normalized == null) {
+      return;
+    }
+    // A terminal callback may reopen before the previous dismissal animation finishes.
     cleanupAllViews();
     presentationSessionId++;
     isCurrentlyPresented = true;
-    presentationOptions = StashPresentationOptions.card(null);
-    launchCheckoutActivity(null, host);
-  }
-
-  private void openPresentation(Activity host, String url, StashPresentationOptions options) {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      mainHandler.post(() -> openPresentation(host, url, options));
-      return;
-    }
-    if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()) {
-      return;
-    }
-    setActivity(host);
-    if (!beginPresentation(url)) {
-      return;
-    }
     presentationOptions = options;
-    openUrlInternal(url);
+    if (codeLink == null) {
+      try {
+        normalized = StashWebViewUtils.appendThemeQueryParameter(
+            normalized, StashWebViewUtils.isDarkTheme(host));
+      } catch (Exception error) {
+        Log.w(TAG, "Cannot apply checkout theme", error);
+      }
+    }
+    launchCheckoutActivity(normalized, host, codeLink);
   }
 
   /**
@@ -732,6 +727,7 @@ public class StashNativeCardPlugin {
     }
   }
 
+  /** Removes session observers, browser tracking, and retained callbacks. */
   public void cleanup() {
     cleanupAllViews();
     Context appContext = registeredAppContext;
@@ -789,69 +785,18 @@ public class StashNativeCardPlugin {
       return false;
     }
     return checkout != null && checkout.getPresentationSessionId() == presentationSessionId
-        ? checkout.isPurchaseProcessing
-        : isPurchaseProcessing;
+        && checkout.isPurchaseProcessing;
   }
 
-  private boolean beginPresentation(String url) {
-    Activity host = getActivity();
-    if (isCurrentlyPresented
-        || host == null
-        || host.isFinishing()
-        || host.isDestroyed()
-        || StashWebViewUtils.normalizeExternalPaymentUrl(url) == null) {
-      return false;
-    }
-    // A terminal callback may open again before the previous presentation animation finishes.
-    cleanupAllViews();
-    presentationSessionId++;
-    isCurrentlyPresented = true;
-    return true;
-  }
-
-  private void openUrlInternal(String url) {
-    try {
-      Activity activity = getActivity();
-      url = StashWebViewUtils.normalizeExternalPaymentUrl(url);
-      if (activity == null || url == null) {
-        Log.e(TAG, "Invalid activity or URL");
-        isCurrentlyPresented = false;
-        return;
-      }
-
-      ensureCheckoutBridgeReceiver(activity);
-
-      try {
-        url =
-            StashWebViewUtils.appendThemeQueryParameter(
-                url, StashWebViewUtils.isDarkTheme(activity));
-      } catch (Exception e) {
-        Log.d(TAG, "Error appending theme parameter: " + e.getMessage(), e);
-      }
-
-      final String finalUrl = url;
-      final Activity finalActivity = activity;
-
-      activity.runOnUiThread(
-          () -> {
-            try {
-              launchCheckoutActivity(finalUrl, finalActivity);
-            } catch (Exception e) {
-              Log.w(TAG, "Error in UI thread operation: " + e.getMessage(), e);
-              cleanupAllViews();
-            }
-          });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in openUrlInternal: " + e.getMessage(), e);
-      cleanupAllViews();
-    }
-  }
-
-  private void launchCheckoutActivity(String url, Activity activity) {
+  private void launchCheckoutActivity(
+      String url, Activity activity, StashCodeLinkOptions codeLink) {
     try {
       Intent intent = new Intent(activity, StashCheckoutActivity.class);
       intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
-      intent.putExtra(CardConstants.INTENT_EXTRA_CODE_LINK, url == null);
+      intent.putExtra(CardConstants.INTENT_EXTRA_CODE_LINK, codeLink != null);
+      if (codeLink != null) {
+        codeLink.put(intent);
+      }
       intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, presentationSessionId);
       presentationOptions.put(intent);
       intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
@@ -865,7 +810,6 @@ public class StashNativeCardPlugin {
 
   void cleanupAllViews() {
     isCurrentlyPresented = false;
-    isPurchaseProcessing = false;
     presentationOptions = null;
   }
 }

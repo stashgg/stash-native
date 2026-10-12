@@ -44,8 +44,8 @@ import java.util.concurrent.Executors;
 
 /** Owns camera permission, capture lifetime, scan geometry, and the confirmation hold. */
 @OptIn(markerClass = TransformExperimental.class)
-final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.DisplayListener {
-  static final int CAMERA_PERMISSION_REQUEST = 0x7371;
+final class StashCodeLinkSupport extends StashCodeLinkSession
+    implements LifecycleOwner, DisplayManager.DisplayListener {
   final StashCodeLinkView view;
   private final StashCheckoutActivity activity;
   private final Handler main = new Handler(Looper.getMainLooper());
@@ -83,7 +83,8 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     this.activity = activity;
     lifecycle.setCurrentState(Lifecycle.State.CREATED);
     displays = (DisplayManager) activity.getSystemService(Context.DISPLAY_SERVICE);
-    view = new StashCodeLinkView(activity, activity::requestUserDismiss, this::openSettings);
+    view = new StashCodeLinkView(activity, StashCodeLinkOptions.read(activity.getIntent()),
+        activity::requestUserDismiss, this::openSettings);
     view.setGeometryListener(this::geometryChanged);
     view.preview.getPreviewStreamState().observe(this, stream -> {
       if (!disposed && !confirming && resumed && stream == PreviewView.StreamState.STREAMING) {
@@ -99,6 +100,17 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     return lifecycle;
   }
 
+  @Override
+  StashCodeLinkView getView() {
+    return view;
+  }
+
+  @Override
+  void setBottomInset(int inset) {
+    view.setBottomInset(inset);
+  }
+
+  @Override
   void resume() {
     if (disposed || resumed) {
       return;
@@ -124,6 +136,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     }
   }
 
+  @Override
   void permissionResult() {
     if (disposed || confirming) {
       return;
@@ -161,7 +174,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
 
   private void startAuthorized() {
     lifecycle.setCurrentState(Lifecycle.State.RESUMED);
-    view.showStatus(R.string.stash_code_link_starting, true, false);
+    view.showStatus(0, true, false);
     if (provider != null) {
       geometryChanged();
       return;
@@ -192,6 +205,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     }, main::post);
   }
 
+  @Override
   void geometryChanged() {
     generation++;
     region = null;
@@ -302,6 +316,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     }
   }
 
+  @Override
   void showConnected(Runnable completion) {
     confirming = true;
     generation++;
@@ -343,6 +358,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     }
   }
 
+  @Override
   void pause() {
     if (resumed && confirming && connectedCompletion != null) {
       holdRemaining = Math.max(0, holdDeadline - SystemClock.uptimeMillis());
@@ -378,6 +394,7 @@ final class StashCodeLinkSupport implements LifecycleOwner, DisplayManager.Displ
     region = null;
   }
 
+  @Override
   void dispose() {
     if (disposed) {
       return;

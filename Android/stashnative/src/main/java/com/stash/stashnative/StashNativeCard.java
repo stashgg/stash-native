@@ -14,7 +14,7 @@ import android.app.Activity;
  * StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListener() {
  *     {@literal @}Override
  *     public void onPaymentSuccess(String order) {
- *         // Handle successful payment; {@code order} is plain or JSON string from the page, or null
+ *         // The page supplies order as a string or null.
  *     }
  *
  *     {@literal @}Override
@@ -25,11 +25,6 @@ import android.app.Activity;
  *     {@literal @}Override
  *     public void onDialogDismissed() {
  *         // Handle dialog dismissed
- *     }
- *
- *     {@literal @}Override
- *     public void onOptInResponse(String optinType) {
- *         // Handle opt-in response
  *     }
  *
  *     {@literal @}Override
@@ -44,7 +39,7 @@ import android.app.Activity;
  *
  *     {@literal @}Override
  *     public void onExternalPayment(String url) {
- *         // {@code window.stash_sdk.openExternalBrowser(url)} — URL includes theme query when applicable
+ *         // The external payment URL includes the checkout theme.
  *     }
  *
  *     {@literal @}Override
@@ -72,7 +67,10 @@ public class StashNativeCard {
     /** Returns the unchanged QR payload once, after Connected and the card's dismissal. */
     default void onQrCodeScanned(String content) {}
 
-    /** Reports a camera error at most once per CodeLink session; the card stays open. */
+    /**
+     * Reports an error once per CodeLink session. Missing scanner dependencies close the card;
+     * other camera errors leave it open.
+     */
     default void onCodeLinkError(CodeLinkError error) {}
 
     /**
@@ -94,13 +92,6 @@ public class StashNativeCard {
     void onDialogDismissed();
 
     /**
-     * Called when an opt-in response is received.
-     *
-     * @param optinType The type of opt-in response
-     */
-    void onOptInResponse(String optinType);
-
-    /**
      * Called when the checkout page finishes loading.
      *
      * @param loadTimeMs The page load time in milliseconds
@@ -110,7 +101,7 @@ public class StashNativeCard {
     /**
      * Called when checkout cannot be shown or must be torn down due to a load failure. This
      * includes: no network connection, page load failure, a 15-second foreground timeout, and
-     * (on Android 8.0+, API 26+) when the WebView renderer process crashes or is killed; in that case
+     * renderer termination on Android 8.0+ (API 26+). For renderer termination,
      * the card is dismissed before this callback runs.
      */
     void onNetworkError();
@@ -155,9 +146,6 @@ public class StashNativeCard {
     public void onDialogDismissed() {}
 
     @Override
-    public void onOptInResponse(String optinType) {}
-
-    @Override
     public void onPageLoaded(long loadTimeMs) {}
 
     @Override
@@ -184,8 +172,25 @@ public class StashNativeCard {
 
     /** Portrait applies to compact fullscreen windows; tablets and multi-window follow the host. */
     public int orientationPreference = ORIENTATION_FOLLOW_HOST;
+    /** Allows user dismissal. Page close, payment callbacks, and native dismiss are independent. */
     public boolean allowDismiss = true;
     public boolean autoClose = true;
+  }
+
+  /** Scanner copy, snapshotted when CodeLink opens. Null or empty text uses bundled defaults. */
+  public static final class CodeLinkConfig {
+    /** Default: "Scan QR code". */
+    public String headerText;
+    /** Default: "Scan the webshop code". */
+    public String calloutTitle;
+    /** Default: "Keep the QR code centered inside the frame." */
+    public String calloutSubtitle;
+    /** Default: "Camera unavailable". */
+    public String cameraUnavailableText;
+    /** Default: "Connected". */
+    public String connectedText;
+    /** False removes the callout and gives its space to the scan frame. */
+    public boolean showCallout = true;
   }
 
   /**
@@ -230,9 +235,7 @@ public class StashNativeCard {
     inspectableWebViewsEnabled = enabled;
   }
 
-  /**
-   * @return whether webview inspection is enabled. Default false.
-   */
+  /** Returns whether WebView inspection is enabled; disabled by default. */
   public static boolean isInspectableWebViewsEnabled() {
     return inspectableWebViewsEnabled;
   }
@@ -285,10 +288,18 @@ public class StashNativeCard {
 
   /** Opens the QR scanner in the responsive card, following the host app's orientation. */
   public void codeLink(Activity activity) {
-    plugin.codeLink(activity);
+    codeLink(activity, null);
   }
 
-  /** Camera errors reported by CodeLink. The scanner remains open with an explanation. */
+  /**
+   * Opens CodeLink with optional scanner copy. Requires the optional CameraX and ZXing libraries;
+   * missing dependencies report {@link CodeLinkError#CAMERA_CONFIGURATION_FAILED} and close.
+   */
+  public void codeLink(Activity activity, CodeLinkConfig config) {
+    plugin.codeLink(activity, config);
+  }
+
+  /** Camera and dependency errors reported by CodeLink. */
   public enum CodeLinkError {
     CAMERA_PERMISSION_DENIED,
     CAMERA_UNAVAILABLE,
@@ -361,9 +372,7 @@ public class StashNativeCard {
     plugin.setKeepAliveEnabled(enabled);
   }
 
-  /**
-   * @return whether the keep-alive foreground service is enabled
-   */
+  /** Returns whether the keep-alive foreground service is enabled. */
   public boolean isKeepAliveEnabled() {
     return plugin.isKeepAliveEnabled();
   }

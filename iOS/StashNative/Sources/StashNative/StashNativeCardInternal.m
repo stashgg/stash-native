@@ -539,6 +539,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated {
     if (![self isActive]) return;
+    [self.controller cancelContentExpansion];
     _expanded = expanded;
     self.controller.hasRequestedNativeSelection = NO;
     [self.controller updatePresentationAnimated:animated];
@@ -554,11 +555,13 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self paymentSucceeded:NO order:nil];
     } else if ([name isEqualToString:@"stashPurchaseProcessing"] || [name isEqualToString:@"stashProcessingCompleted"]) {
         self.processing = [name isEqualToString:@"stashPurchaseProcessing"];
+        if (self.processing) [self.controller cancelContentExpansion];
         [self.controller updateDismissalPolicy];
     } else if ([name isEqualToString:@"stashWindowClose"]) {
         WKWebView *web = self.webView;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if ([self canUserDismiss] && !self.browserHandoff && self.webView == web)
+            if ([self isActive] && !self.processing && !self.codeLinkCompleted &&
+                !self.browserHandoff && self.webView == web)
                 [self finishWithUserDismiss:YES completion:nil];
         });
     } else if ([name isEqualToString:@"stashExpand"]) {
@@ -567,11 +570,6 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self setExpanded:NO animated:YES];
     } else if ([name isEqualToString:@"stashContentHeight"]) {
         if ([body isKindOfClass:NSDictionary.class]) [self acceptContentHeight:body];
-    } else if ([name isEqualToString:@"stashOptin"]) {
-        NSString *value = [body isKindOfClass:NSString.class] ? body : @"";
-        id<StashNativeCardDelegate> delegate = self.owner.delegate;
-        if ([delegate respondsToSelector:@selector(stashNativeCardDidReceiveOptIn:)]) [delegate stashNativeCardDidReceiveOptIn:value];
-        [self finishWithUserDismiss:NO completion:nil];
     } else if ([name isEqualToString:@"stashOpenLink"] || [name isEqualToString:@"stashExternalPayment"]) {
         NSString *url = NormalizeExternalPaymentURL(body);
         if (!url) return;
@@ -710,7 +708,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)dealloc {
     [self cleanup];
 #if !__has_feature(objc_arc)
-    [_config release]; [_url release]; [super dealloc];
+    [_config release]; [_codeLinkConfig release]; [_url release]; [super dealloc];
 #endif
 }
 @end

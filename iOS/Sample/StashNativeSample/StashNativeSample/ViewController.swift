@@ -98,6 +98,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let cardMaximumHeightLabel = UILabel()
     let cardEdgeMarginSlider = UISlider()
     let cardEdgeMarginLabel = UILabel()
+    let codeLinkConfig = StashNativeCodeLinkConfig()
 
     // API keys: named, each production or test; Keychain-persisted (survives reinstall).
     var apiKeys: [ApiKeyEntry] = []
