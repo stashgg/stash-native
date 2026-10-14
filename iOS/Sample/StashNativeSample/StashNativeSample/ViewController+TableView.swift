@@ -18,10 +18,10 @@ extension ViewController {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let sectionType = visibleSection(at: section) else { return 0 }
         switch sectionType {
-        case .card: return 3
+        case .card: return 2
         case .browser: return 3
         case .codeLink: return 1
-        case .presentationOptions: return 2
+        case .presentationOptions: return 3
         case .other: return 1
         case .about: return 1
         case .checkoutGenerationSettings: return apiKeys.count
@@ -32,7 +32,7 @@ extension ViewController {
         guard let sectionType = visibleSection(at: section) else { return nil }
         let title: String?
         switch sectionType {
-        case .card: title = "CARD"
+        case .card: title = "CHECKOUT CARD"
         case .browser: title = "BROWSER"
         case .codeLink: title = "LINK WEBSHOP"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
@@ -41,20 +41,7 @@ extension ViewController {
         case .checkoutGenerationSettings: title = "INSTANCES"
         }
         guard let titleText = title else { return nil }
-        let label = UILabel()
-        label.text = titleText
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
-        label.textColor = .secondaryLabel
-        label.translatesAutoresizingMaskIntoConstraints = false
-        let container = UIView()
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
-        ])
-        return container
+        return SampleSectionHeaderView(titleText)
     }
 
     // No footers; 0 kills the grouped-style inter-section gap.
@@ -73,7 +60,6 @@ extension ViewController {
             return browserSectionCell(for: indexPath)
         case .codeLink:
             let cell = actionCell("Scan QR Code")
-            cell.imageView?.image = UIImage(systemName: "qrcode.viewfinder")
             cell.accessibilityIdentifier = "code-link-open"
             return cell
         case .presentationOptions:
@@ -93,8 +79,6 @@ extension ViewController {
         switch sectionType {
         case .card where indexPath.row == 1:
             generateCheckoutTapped()
-        case .card where indexPath.row == 2:
-            openWebshopTapped()
         case .browser where indexPath.row == 1:
             generateCheckoutForBrowserTapped()
         case .browser where indexPath.row == 2:

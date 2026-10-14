@@ -106,7 +106,7 @@ NSString *NormalizeExternalPaymentURL(NSString *raw) {
 
 NSArray<NSString *> *StashScriptHandlerNames(void) {
     return @[@"stashNativementSuccess", @"stashNativementFailure", @"stashPurchaseProcessing",
-        @"stashProcessingCompleted", @"stashExpand", @"stashCollapse",
+        @"stashProcessingCompleted", @"stashExpand", @"stashCollapse", @"stashTriggerHaptic",
         @"stashWindowClose", @"stashExternalPayment", @"stashOpenLink", @"stashContentHeight"];
 }
 
@@ -116,6 +116,7 @@ NSString *StashBridgeScript(void) {
     "function send(n,b){window.webkit.messageHandlers[n].postMessage(b);}"
     "s.getTelemetry=function(){return new Promise(function(resolve,reject){"
     "try{resolve(window.webkit.messageHandlers.stashTelemetry.postMessage({}));}catch(e){reject(e);}});};"
+    "s.triggerHaptic=function(){send('stashTriggerHaptic',{});};"
     "s.onPaymentSuccess=function(o){send('stashNativementSuccess',o==null?'':typeof o==='string'?o:JSON.stringify(o));};"
     "s.onPaymentFailure=function(){send('stashNativementFailure',{});};"
     "s.onPurchaseProcessing=function(){send('stashPurchaseProcessing',{});};"

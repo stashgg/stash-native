@@ -81,6 +81,9 @@ public class StashWebViewUtils {
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + StashTelemetrySupport.API_SCRIPT
+      + "  window.stash_sdk.triggerHaptic = function() {"
+      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(); } catch(e) {}"
+      + "  };"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
       + "    try { var p=null;"
       + "      if(arguments.length>0&&order!==undefined&&order!==null){"

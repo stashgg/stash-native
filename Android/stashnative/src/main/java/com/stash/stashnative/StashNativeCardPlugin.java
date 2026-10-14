@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -34,6 +35,10 @@ public class StashNativeCardPlugin {
   StashNativeCard.StashNativeCardListener listener;
 
   StashPresentationOptions presentationOptions;
+
+  private Bitmap pendingBackdropBitmap;
+  private StashHostBackdropSupport launchingBackdrop;
+  private long backdropSessionId;
 
   /** Accessed from UI and JS threads; volatile for visibility. */
   volatile boolean isCurrentlyPresented;
@@ -576,6 +581,35 @@ public class StashNativeCardPlugin {
     openPresentation(host, url, StashPresentationOptions.card(config), null);
   }
 
+  synchronized void setBackdropBitmap(Bitmap bitmap) {
+    if (pendingBackdropBitmap != bitmap) {
+      StashHostBackdropSupport.recycle(pendingBackdropBitmap);
+      pendingBackdropBitmap = bitmap != null && !bitmap.isRecycled() ? bitmap : null;
+    }
+  }
+
+  private synchronized Bitmap takePendingBackdrop() {
+    Bitmap bitmap = pendingBackdropBitmap;
+    pendingBackdropBitmap = null;
+    return bitmap;
+  }
+
+  StashHostBackdropSupport takeBackdrop(long sessionId) {
+    if (sessionId != backdropSessionId) {
+      return null;
+    }
+    StashHostBackdropSupport backdrop = launchingBackdrop;
+    launchingBackdrop = null;
+    return backdrop;
+  }
+
+  private void releaseLaunchingBackdrop() {
+    if (launchingBackdrop != null) {
+      launchingBackdrop.dispose();
+      launchingBackdrop = null;
+    }
+  }
+
   void codeLink(Activity host) {
     codeLink(host, null);
   }
@@ -623,6 +657,13 @@ public class StashNativeCardPlugin {
     isCurrentlyPresented = true;
     presentationOptions = options;
     if (codeLink == null) {
+      Bitmap backdrop = takePendingBackdrop();
+      if (options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT) {
+        launchingBackdrop = StashHostBackdropSupport.create(host, backdrop);
+        backdropSessionId = presentationSessionId;
+      } else {
+        StashHostBackdropSupport.recycle(backdrop);
+      }
       try {
         normalized = StashWebViewUtils.appendThemeQueryParameter(
             normalized, StashWebViewUtils.isDarkTheme(host));
@@ -700,6 +741,9 @@ public class StashNativeCardPlugin {
   }
 
   void clearCheckoutActivity(StashCheckoutActivity activity) {
+    if (activity.getPresentationSessionId() == backdropSessionId) {
+      releaseLaunchingBackdrop();
+    }
     if (checkoutActivityRef != null && checkoutActivityRef.get() == activity) {
       checkoutActivityRef = null;
     }
@@ -730,6 +774,7 @@ public class StashNativeCardPlugin {
   /** Removes session observers, browser tracking, and retained callbacks. */
   public void cleanup() {
     cleanupAllViews();
+    setBackdropBitmap(null);
     Context appContext = registeredAppContext;
     if (appContext == null) {
       Activity activity = getActivity();
@@ -805,10 +850,12 @@ public class StashNativeCardPlugin {
     } catch (Exception e) {
       Log.e(TAG, "Failed to launch checkout", e);
       isCurrentlyPresented = false;
+      releaseLaunchingBackdrop();
     }
   }
 
   void cleanupAllViews() {
+    releaseLaunchingBackdrop();
     isCurrentlyPresented = false;
     presentationOptions = null;
   }

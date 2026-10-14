@@ -1,6 +1,6 @@
 # iOS implementation
 
-The SDK exposes `StashNativeCard`, `StashNativeCardConfig`, and `StashNativeCodeLinkConfig` through `StashNativeCard.h`. The singleton owns one active `StashCheckoutSession`. All presentations receive the initiating view controller explicitly; the SDK does not select an arbitrary connected scene.
+The SDK exposes `StashNativeCard`, `StashNativeCardConfig`, `StashNativeBrowserConfig`, and `StashNativeCodeLinkConfig` through `StashNativeCard.h`. The singleton owns one active `StashCheckoutSession`. All presentations receive the initiating view controller explicitly; the SDK does not select an arbitrary connected scene.
 
 ## Ownership
 
@@ -28,9 +28,11 @@ Use the actual container and scene, independent safe-area edges, keyboard overla
 
 `orientationPreference = .portrait` presents the existing native card in a separate UIKit window on iPhone, including landscape-only games. The SDK scopes AppDelegate orientation overrides to its own window and, on iOS 27+, temporarily adds its requested orientation to the owning scene's policy. It never changes the game controller's orientation mask or autorotation method. iPad ignores the flag.
 
-The card opens after portrait geometry settles. On dismissal, the SDK restores the previous permitted orientation before returning key-window status to the game. External-payment handoff presents Safari as a native sheet in the same portrait window until the browser closes. iOS 16+ uses scene geometry requests; iOS 15 retains the legacy device-orientation fallback and UIKit autorotation. System windowing restrictions may prevent rotation, in which case the card uses the available host geometry.
+The card opens after portrait geometry settles. On dismissal, the SDK restores the previous permitted orientation before returning key-window status to the game. External-payment handoff presents full-screen Safari in the same portrait window until the browser closes. iOS 16+ uses scene geometry requests; iOS 15 retains the legacy device-orientation fallback and UIKit autorotation. System windowing restrictions may prevent rotation, in which case the card uses the available host geometry.
 
-The owning scene reports the checkout orientation while that window is active, even when the landscape game window retains its dimensions. Engines that react directly to scene notifications need integration testing. Default Follow Host and standalone OpenBrowser do not install portrait hosting.
+The owning scene reports the checkout orientation while that window is active, even when the landscape game window retains its dimensions. Engines that react directly to scene notifications need integration testing. Default Follow Host does not install portrait hosting.
+
+`openBrowser(withURL:from:config:)` accepts `StashNativeBrowserConfig` with the same `orientationPreference`. Portrait Safari on iPhone uses a full-screen presentation with the card's window, scoped orientation hooks, geometry preparation, and restoration. The original two-argument method follows the host. iPad ignores the preference. Configuration is captured before main-thread dispatch. `closeBrowser()` and reset can cancel an opening browser while portrait geometry is pending; a late geometry completion cannot reopen it. Safari keeps its native controls.
 
 Native compact resting detents keep the entire surface below top status occlusions. Expanded native sheets can extend their background behind those regions; the WebView uses an unobstructed content pane. Resolve the two detents independently of the selected state, preserve UIKit's selection during a drag, and update the content pane as the surface moves. The interaction script maintains the mobile viewport when pages replace metadata or the document head, while preserving field editing. Observe WebKit's public `underPageBackgroundColor` for native surface colors; do not rewrite checkout's background CSS.
 

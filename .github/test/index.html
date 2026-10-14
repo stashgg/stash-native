@@ -955,6 +955,7 @@
                 <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-labelledby="tab-btn-callbacks">
                 <div class="stack-gap-md">
                     <p><a href="responsive.html">Open responsive sizing and state-preservation tests</a></p>
+                    <button type="button" class="btn btn-primary" onclick="triggerHaptic()">Trigger confirmation haptic</button>
                     <button type="button" class="btn btn-primary" onclick="readTelemetry()">Read native telemetry</button>
                     <pre id="telemetry-result" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre>
                     <div class="input-wrap">
@@ -1427,6 +1428,15 @@
                     updateThemeInfo();
                 }
             });
+        }
+
+        function triggerHaptic() {
+            if (!window.stash_sdk || typeof window.stash_sdk.triggerHaptic !== 'function') {
+                updateStatus('triggerHaptic requires the native Stash bridge.');
+                return;
+            }
+            window.stash_sdk.triggerHaptic();
+            updateStatus('Requested confirmation haptic. Check on a device with haptics enabled.');
         }
 
         async function readTelemetry() {

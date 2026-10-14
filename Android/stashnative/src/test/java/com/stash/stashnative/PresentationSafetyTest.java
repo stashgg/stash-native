@@ -39,12 +39,13 @@ public class PresentationSafetyTest {
     activity = Robolectric.buildActivity(RecordingCheckout.class).get();
     activity.options = StashPresentationOptions.card(null);
     activity.rootLayout = new FrameLayout(activity);
-    activity.rootLayout.setRight(800);
-    activity.rootLayout.setBottom(1400);
     activity.backdropView = new View(activity);
     activity.cardContainer = new StashSheetLayout(activity, 16);
     activity.cardContainer.setLayoutParams(new FrameLayout.LayoutParams(1, 1));
     activity.presentation = new StashPresentationController(activity, activity.options);
+    activity.onEnterAnimationComplete();
+    activity.rootLayout.setRight(800);
+    activity.rootLayout.setBottom(1400);
   }
 
   @After public void cleanup() {
@@ -72,17 +73,141 @@ public class PresentationSafetyTest {
     assertFalse(activity.pageLoadedCallbackSent);
   }
 
-  @Test public void contentReportReplacingEntryAnimationRestoresFullVisibility() throws Exception {
+  @Test public void contentReportPreservesEntryAnimation() throws Exception {
     activity.presentation.environmentChanged();
-    Field field = StashPresentationController.class.getDeclaredField("animator");
-    field.setAccessible(true);
-    ValueAnimator entering = (ValueAnimator) field.get(activity.presentation);
+    ValueAnimator entering = currentAnimation();
     assertNotNull(entering);
     entering.setCurrentPlayTime(60);
-    assertTrue(activity.backdropView.getAlpha() < 1);
+    float opacity = activity.backdropView.getAlpha();
+    assertTrue(opacity > 0 && opacity < 1);
     activity.presentation.contentChanged(250, 480);
+    assertTrue(entering.isStarted());
+    assertEquals(opacity, activity.backdropView.getAlpha(), 0);
+    assertEquals(opacity, activity.cardContainer.getAlpha(), 0);
+    entering.end();
     assertEquals(1, activity.backdropView.getAlpha(), 0);
     assertEquals(1, activity.cardContainer.getAlpha(), 0);
+  }
+
+  @Test @Config(sdk = {21, 28})
+  public void entranceWaitsForWindowTransitionAndStartsOnlyOnce() throws Exception {
+    activity.presentation.dispose();
+    activity.presentation = new StashPresentationController(activity, activity.options);
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    activity.presentation.contentChanged(250, 390);
+    assertNull(currentAnimation());
+    assertEquals(0, activity.backdropView.getAlpha(), 0);
+    assertEquals(activity.cardContainer.getLayoutParams().height,
+        activity.cardContainer.getTranslationY(), 0);
+    activity.onEnterAnimationComplete();
+    ValueAnimator entering = currentAnimation();
+    assertNotNull(entering);
+    entering.setCurrentPlayTime(60);
+    float translation = activity.cardContainer.getTranslationY();
+    activity.onEnterAnimationComplete();
+    assertTrue(entering.isStarted());
+    assertEquals(translation, activity.cardContainer.getTranslationY(), 0);
+    entering.end();
+    activity.onEnterAnimationComplete();
+    assertNull(currentAnimation());
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+  }
+
+  @Test @Config(sdk = {21, 28})
+  public void lateWindowTransitionCannotPresentADismissedCard() throws Exception {
+    activity.presentation.dispose();
+    activity.presentation = new StashPresentationController(activity, activity.options);
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    activity.isDismissing = true;
+    int[] completed = {0};
+    activity.presentation.dismiss(() -> completed[0]++);
+    ValueAnimator dismissing = currentAnimation();
+    activity.onEnterAnimationComplete();
+    assertTrue(dismissing.isStarted());
+    assertEquals(0, activity.backdropView.getAlpha(), 0);
+    dismissing.end();
+    activity.onEnterAnimationComplete();
+    assertNull(currentAnimation());
+    assertEquals(1, completed[0]);
+  }
+
+  @Test public void repeatedLayoutAndInsetsUpdatesDoNotCancelSlideIn() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    ValueAnimator entering = currentAnimation();
+    entering.setCurrentPlayTime(60);
+    float opacity = activity.backdropView.getAlpha();
+    float translation = activity.cardContainer.getTranslationY();
+    assertTrue(translation > 0);
+    activity.presentation.environmentChanged();
+    assertEquals(translation, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(opacity, activity.backdropView.getAlpha(), 0);
+    applyKeyboardInsets(0);
+    assertTrue(entering.isStarted());
+    assertEquals(opacity, activity.backdropView.getAlpha(), 0);
+    assertEquals(activity.cardContainer.getLayoutParams().height * (1 - opacity),
+        activity.cardContainer.getTranslationY(), 0.01f);
+    entering.end();
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    activity.presentation.environmentChanged();
+    assertNull(currentAnimation());
+  }
+
+  @Test public void windowResizeDuringEntryKeepsProgressAndUsesNewBounds() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    ValueAnimator entering = currentAnimation();
+    entering.setCurrentPlayTime(60);
+    float opacity = activity.backdropView.getAlpha();
+    activity.rootLayout.setBottom(400);
+    activity.presentation.environmentChanged();
+    FrameLayout.LayoutParams frame =
+        (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    assertEquals(400, frame.topMargin + frame.height);
+    assertEquals(frame.height * (1 - opacity), activity.cardContainer.getTranslationY(), 0.01f);
+    entering.setCurrentPlayTime(120);
+    assertEquals(frame.height * (1 - activity.backdropView.getAlpha()),
+        activity.cardContainer.getTranslationY(), 0.01f);
+    activity.rootLayout.setRight(800);
+    activity.presentation.environmentChanged();
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(activity.backdropView.getAlpha(), activity.cardContainer.getAlpha(), 0);
+    assertTrue(entering.isStarted());
+    entering.end();
+    assertEquals(1, activity.cardContainer.getAlpha(), 0);
+  }
+
+  @Test public void dismissalDuringEntryKeepsPositionAndOpacityAndCompletesOnce() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    ValueAnimator entering = currentAnimation();
+    entering.setCurrentPlayTime(60);
+    float translation = activity.cardContainer.getTranslationY();
+    float opacity = activity.backdropView.getAlpha();
+    activity.isDismissing = true;
+    int[] completed = {0};
+    activity.presentation.dismiss(() -> completed[0]++);
+    assertFalse(entering.isStarted());
+    assertEquals(translation, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(opacity, activity.backdropView.getAlpha(), 0);
+    activity.presentation.environmentChanged();
+    ValueAnimator dismissing = currentAnimation();
+    dismissing.setCurrentPlayTime(60);
+    assertTrue(activity.cardContainer.getTranslationY() > translation);
+    assertTrue(activity.backdropView.getAlpha() < opacity);
+    dismissing.end();
+    assertEquals(1, completed[0]);
+    assertEquals(0, activity.backdropView.getAlpha(), 0);
+    activity.presentation.dispose();
+    assertEquals(1, completed[0]);
+  }
+
+  private ValueAnimator currentAnimation() throws Exception {
+    Field field = StashPresentationController.class.getDeclaredField("animator");
+    field.setAccessible(true);
+    return (ValueAnimator) field.get(activity.presentation);
   }
 
   @Test public void processingAndCloseQueuedTogetherCannotDismissPendingPurchase() throws Exception {
@@ -230,8 +355,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void downwardContentSwipeNeverMovesCollapsedOrExpandedCard() {
-    activity.rootLayout.setRight(390);
-    activity.presentation.environmentChanged();
+    prepareContentDrag();
     for (boolean expanded : new boolean[] {false, true}) {
       activity.presentation.state.selectExpanded(expanded);
       activity.presentation.environmentChanged();

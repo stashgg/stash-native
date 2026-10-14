@@ -56,7 +56,9 @@ There is no ratio-to-dimension conversion that preserves every former device lay
 
 Replace `forcePortrait` with the card's `orientationPreference`. The default follows the host window. On iPhone, `.portrait` uses SDK-managed orientation overrides and a separate UIKit window, including landscape-only hosts. iPad ignores this flag. System windowing restrictions still apply.
 
-Remove wrapper-owned orientation-unlock integration and screenshot-backdrop workarounds. The iPhone SDK owns portrait preparation, external-payment handoff, and orientation restoration. It keeps one native card implementation and leaves the game's view-controller orientation policy unchanged. Engines that react directly to scene geometry notifications still require device validation.
+On iOS, remove wrapper-owned orientation-unlock integration and screenshot-backdrop workarounds. The iPhone SDK owns portrait preparation, external-payment handoff, and orientation restoration. It keeps one native card implementation and leaves the game's view-controller orientation policy unchanged. Engines that react directly to scene geometry notifications still require device validation.
+
+Android retains `setBackdropBitmap(Bitmap)` and `setBackdropBytes(byte[])` for portrait checkout. Supply the screenshot before `openCard`; see [Android landscape backdrop](../README.md#android-landscape-backdrop).
 
 ## Checkout pages and callbacks
 

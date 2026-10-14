@@ -55,6 +55,7 @@ public class MainViewModel extends AndroidViewModel {
     SETTINGS,
     API,
     CARD_OPTIONS,
+    BROWSER_OPTIONS,
     CODE_LINK_OPTIONS,
     INSTANCE_DETAILS,
     CHECKOUT_PAYLOAD,
@@ -85,6 +86,8 @@ public class MainViewModel extends AndroidViewModel {
   private String payloadDraft = "";
 
   private final StashNativeCard.CardConfig cardConfig = new StashNativeCard.CardConfig();
+  private BackdropSource backdropSource = BackdropSource.NONE;
+  private SampleBackdropImage backdropImage;
   private final StashNativeCard.CodeLinkConfig codeLinkConfig =
       new StashNativeCard.CodeLinkConfig();
 
@@ -599,6 +602,47 @@ public class MainViewModel extends AndroidViewModel {
     return cardConfig;
   }
 
+  enum BackdropSource {
+    NONE(R.string.backdrop_none),
+    SCREENSHOT(R.string.backdrop_screenshot),
+    IMAGE(R.string.backdrop_custom_image);
+
+    final int labelRes;
+
+    BackdropSource(int labelRes) {
+      this.labelRes = labelRes;
+    }
+  }
+
+  BackdropSource getBackdropSource() {
+    return backdropSource;
+  }
+
+  void setBackdropSource(BackdropSource source) {
+    backdropSource = source;
+    refreshList();
+  }
+
+  SampleBackdropImage getBackdropImage() {
+    return backdropImage;
+  }
+
+  void setBackdropImage(SampleBackdropImage image) {
+    if (backdropImage != null) {
+      backdropImage.recycle();
+    }
+    backdropImage = image;
+    setBackdropSource(BackdropSource.IMAGE);
+  }
+
+  @Override
+  protected void onCleared() {
+    if (backdropImage != null) {
+      backdropImage.recycle();
+    }
+    super.onCleared();
+  }
+
   public StashNativeCard.CodeLinkConfig getCodeLinkConfig() {
     return codeLinkConfig;
   }
@@ -667,6 +711,9 @@ public class MainViewModel extends AndroidViewModel {
       case CARD_OPTIONS:
         items.setValue(buildCardOptionsList());
         return;
+      case BROWSER_OPTIONS:
+        items.setValue(buildBrowserOptionsList());
+        return;
       case CODE_LINK_OPTIONS:
         items.setValue(buildCodeLinkOptionsList());
         return;
@@ -698,8 +745,7 @@ public class MainViewModel extends AndroidViewModel {
     list.add(
         SettingsItem.urlPreference(
             R.string.hint_checkout_url, checkoutUrl, R.drawable.ic_ms_link_24, false, false));
-    list.add(SettingsItem.actionPreference(R.string.generate_checkout, false, false));
-    list.add(SettingsItem.actionPreference(R.string.open_webshop, false, true));
+    list.add(SettingsItem.actionPreference(R.string.generate_checkout, false, true));
 
     // Browser section
     list.add(SettingsItem.sectionHeader(R.string.section_browser, true, false));
@@ -715,24 +761,18 @@ public class MainViewModel extends AndroidViewModel {
     return list;
   }
 
-  /** Settings tab: orientation lock + navigation to card options. */
+  /** Settings tab: orientation lock and navigation to presentation options. */
   private List<SettingsItem> buildSettingsList() {
     List<SettingsItem> list = new ArrayList<>();
     list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
     list.add(SettingsItem.actionPreference(R.string.nav_card_options, false, false));
+    list.add(SettingsItem.actionPreference(R.string.nav_browser_options, false, false));
     list.add(SettingsItem.actionPreference(R.string.nav_code_link_options, false, true));
     // Other
     list.add(SettingsItem.sectionHeader(R.string.section_other, true, false));
     list.add(
         SettingsItem.switchPreference(
-            R.string.option_lock_landscape, 0, lockLandscape, false, false));
-    list.add(
-        SettingsItem.switchPreference(
-            R.string.option_keep_alive,
-            R.string.option_keep_alive_supporting,
-            keepAliveEnabled,
-            false,
-            true));
+            R.string.option_lock_landscape, 0, lockLandscape, false, true));
     // About: SDK version read straight from the library.
     list.add(SettingsItem.sectionHeader(R.string.section_about, true, false));
     list.add(
@@ -741,9 +781,17 @@ public class MainViewModel extends AndroidViewModel {
     return list;
   }
 
+  private List<SettingsItem> buildBrowserOptionsList() {
+    List<SettingsItem> list = new ArrayList<>();
+    list.add(SettingsItem.sectionHeader(R.string.section_general, true, false));
+    list.add(SettingsItem.switchPreference(R.string.option_keep_alive,
+        R.string.option_keep_alive_supporting, keepAliveEnabled, false, true));
+    return list;
+  }
+
   private List<SettingsItem> buildCodeLinkOptionsList() {
     List<SettingsItem> list = new ArrayList<>();
-    list.add(SettingsItem.sectionHeader(R.string.code_link_header, true, false));
+    list.add(SettingsItem.sectionHeader(R.string.section_code_link_header, true, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_header, codeLinkConfig.headerText,
         0, false, true));
     list.add(SettingsItem.sectionHeader(R.string.code_link_callout, true, false));
@@ -758,6 +806,7 @@ public class MainViewModel extends AndroidViewModel {
         codeLinkConfig.cameraUnavailableText, 0, false, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_connected,
         codeLinkConfig.connectedText, 0, false, true));
+    list.add(SettingsItem.sectionFooter(R.string.code_link_text_help));
     list.add(SettingsItem.actionPreference(R.string.code_link_reset, true, true));
     return list;
   }
@@ -838,6 +887,15 @@ public class MainViewModel extends AndroidViewModel {
             cardConfig.autoClose,
             false,
             true));
+    list.add(SettingsItem.sectionHeader(R.string.section_backdrop, true, false));
+    list.add(
+        SettingsItem.actionPreference(R.string.option_backdrop_source,
+            getApplication().getString(backdropSource.labelRes), false,
+            backdropSource != BackdropSource.IMAGE));
+    if (backdropSource == BackdropSource.IMAGE) {
+      list.add(SettingsItem.actionPreference(R.string.option_backdrop_image,
+          backdropImage != null ? backdropImage.name : "", false, true));
+    }
     addDimensions(
         list,
         cardConfig.preferredContentWidth,
@@ -860,5 +918,6 @@ public class MainViewModel extends AndroidViewModel {
         SettingsItem.sliderPreference(
             R.string.maximum_content_height, Math.round(maximum), false, false));
     list.add(SettingsItem.sliderPreference(R.string.edge_margin, Math.round(margin), false, true));
+    list.add(SettingsItem.sectionFooter(R.string.responsive_size_help));
   }
 }

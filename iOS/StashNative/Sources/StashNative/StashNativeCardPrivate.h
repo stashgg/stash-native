@@ -24,6 +24,10 @@
 - (void)restoreWithCompletion:(void (^)(void))completion;
 @end
 
+@interface StashSafariViewController : SFSafariViewController
+@property (nonatomic) BOOL prefersPortrait;
+@end
+
 void StashInstallPortraitOrientationHooks(id applicationDelegate, UIWindowScene *scene);
 
 @interface StashNativeCard ()

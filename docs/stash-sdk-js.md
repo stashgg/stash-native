@@ -32,6 +32,21 @@ From the page’s perspective the API is identical: only `window.stash_sdk` and 
 
 On Android existing notification calls suppress native bridge exceptions. On iOS those functions post directly (the `window.close` override is wrapped); a missing message handler would surface as a JS exception to the caller. `getTelemetry()` returns a Promise and rejects on bridge errors on both platforms. Exceptions in page code before the bridge call are never suppressed on either platform.
 
+### `window.stash_sdk.triggerHaptic()`
+
+Requests a short native confirmation haptic. Available inside `OpenCard` on iOS and Android.
+
+```javascript
+window.stash_sdk?.triggerHaptic?.();
+```
+
+Takes no arguments and returns `undefined`. It does not emit host callbacks or change the card or payment state. Call it after an action you want to confirm; payment callbacks do not trigger it automatically.
+
+- iOS uses UIKit's success notification feedback.
+- Android uses `View.performHapticFeedback` with `CONFIRM` on Android 11/API 30+ and a short `VIRTUAL_KEY` haptic on older versions.
+
+No additional permissions, entitlements, or dependencies are required, including Android's `VIBRATE` permission. Feedback follows the device's capabilities and system settings; an unavailable or disabled effect is a no-op. Calls from a background or closing card are ignored. The return value does not indicate whether a physical haptic played.
+
 ### `window.stash_sdk.getTelemetry()`
 
 Returns a `Promise<Telemetry>` containing a snapshot of the device, host app, native card, and current page timing. Available inside `OpenCard` on iOS and Android; system-browser presentations do not inject this bridge.

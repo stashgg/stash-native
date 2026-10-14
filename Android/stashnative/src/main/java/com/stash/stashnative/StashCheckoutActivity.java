@@ -26,6 +26,7 @@ public class StashCheckoutActivity extends Activity {
   private static final String TAG = "StashNativeCard";
   FrameLayout rootLayout;
   View backdropView;
+  private StashHostBackdropSupport hostBackdrop;
   StashSheetLayout cardContainer;
   private View dragHandleArea;
   WebView webView;
@@ -131,6 +132,12 @@ public class StashCheckoutActivity extends Activity {
       return;
     }
     updateOrientationPreference();
+    hostBackdrop = plugin.takeBackdrop(getPresentationSessionId());
+    if (hostBackdrop != null
+        && getRequestedOrientation() != ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
+      hostBackdrop.dispose();
+      hostBackdrop = null;
+    }
     boolean dark = codeLink || StashWebViewUtils.isDarkTheme(this);
     sheetChromeBackgroundArgb =
         dark ? Color.parseColor(CardConstants.COLOR_DARK_BG) : Color.WHITE;
@@ -159,6 +166,9 @@ public class StashCheckoutActivity extends Activity {
 
   private boolean createUI() {
     rootLayout = new FrameLayout(this);
+    if (hostBackdrop != null) {
+      hostBackdrop.attach(this, rootLayout);
+    }
     backdropView = new View(this);
     backdropView.setBackgroundColor(Color.parseColor(CardConstants.COLOR_BACKGROUND_DIM));
     rootLayout.addView(backdropView, new FrameLayout.LayoutParams(-1, -1));
@@ -331,6 +341,19 @@ public class StashCheckoutActivity extends Activity {
   }
 
   private void finishActivityWithNoAnimation() {
+    isDismissing = true;
+    if (hostBackdrop != null && getPresentationSessionId()
+        == StashNativeCardPlugin.getInstance().presentationSessionId) {
+      cardContainer.setVisibility(View.INVISIBLE);
+      backdropView.setVisibility(View.INVISIBLE);
+      if (hostBackdrop.finishAfterRotation(this::finishImmediately)) {
+        return;
+      }
+    }
+    finishImmediately();
+  }
+
+  private void finishImmediately() {
     finish();
     overridePendingTransition(0, 0);
   }
@@ -339,7 +362,10 @@ public class StashCheckoutActivity extends Activity {
     cancelCodeLink();
     callbackSent = true;
     isDismissing = true;
-    finishActivityWithNoAnimation();
+    if (hostBackdrop != null) {
+      hostBackdrop.cancelFinish();
+    }
+    finishImmediately();
   }
 
   boolean isInteractionLocked() {
@@ -416,6 +442,15 @@ public class StashCheckoutActivity extends Activity {
   }
 
   @Override
+  public void onEnterAnimationComplete() {
+    super.onEnterAnimationComplete();
+    // Start after the system's activity/rotation transition stops covering the card.
+    if (presentation != null) {
+      presentation.windowEntered();
+    }
+  }
+
+  @Override
   protected void onPause() {
     super.onPause();
     isActivityPaused = true;
@@ -482,6 +517,9 @@ public class StashCheckoutActivity extends Activity {
   public void onConfigurationChanged(Configuration configuration) {
     super.onConfigurationChanged(configuration);
     updateOrientationPreference();
+    if (hostBackdrop != null) {
+      hostBackdrop.geometryChanged();
+    }
     if (codeLinkSupport != null) {
       codeLinkSupport.geometryChanged();
     }
@@ -497,7 +535,7 @@ public class StashCheckoutActivity extends Activity {
   }
 
   private void updateOrientationPreference() {
-    if (options == null) {
+    if (options == null || isDismissing) {
       return;
     }
     boolean windowed = Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode();
@@ -530,6 +568,10 @@ public class StashCheckoutActivity extends Activity {
 
   @Override
   protected void onDestroy() {
+    if (hostBackdrop != null) {
+      hostBackdrop.dispose();
+      hostBackdrop = null;
+    }
     if (codeLinkSupport != null) {
       codeLinkSupport.dispose();
     }

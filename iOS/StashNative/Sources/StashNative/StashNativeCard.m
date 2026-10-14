@@ -22,7 +22,15 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     [self openURL:url presenter:presenter config:config browser:NO];
 }
 - (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter {
-    [self openURL:url presenter:presenter config:nil browser:YES];
+    [self openBrowserWithURL:url fromViewController:presenter config:nil];
+}
+- (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter config:(StashNativeBrowserConfig *)config {
+    StashNativeCardConfig *presentationConfig = [[StashNativeCardConfig alloc] init];
+    presentationConfig.orientationPreference = config.orientationPreference;
+    [self openURL:url presenter:presenter config:presentationConfig browser:YES];
+#if !__has_feature(objc_arc)
+    [presentationConfig release];
+#endif
 }
 - (void)codeLinkFromViewController:(UIViewController *)presenter {
     [self codeLinkFromViewController:presenter config:nil];

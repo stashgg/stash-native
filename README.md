@@ -7,65 +7,22 @@
 
 The stash-native package adds Stash in-app purchases (IAPs) and webshops to your game or app. It presents checkout in a responsive native card or platform browser and sends payment and lifecycle callbacks to your application. CodeLink scans webshop QR codes in the same card. The library is delivered as an AAR for Android and an XCFramework or Swift package for iOS.
 
-Version 3.0 replaces device-specific sizing with responsive window-based sizing and requires an explicit presentation host. Read the [migration guide](docs/migration-3.0.md) before replacing a 2.x binary.
-
----
-
-## Table of contents
-
-**Overview**
-
-- [Game engine wrappers](#game-engine-wrappers)
-- [Downloads](#downloads)
-- [Sample apps & Testing](#sample-apps--testing)
-
-**Setup**
-
-- [Installation](#installation)
-  - [Android](#android)
-  - [iOS](#ios)
-
-**API**
-
-- [Presentation modes](#presentation-modes)
-  - [openCard](#opencard)
-    - [Config](#config)
-    - [Forcing Portrait Orientation](#forcing-portrait-orientation)
-    - [Callbacks](#callbacks)
-  - [openBrowser](#openbrowser)
-    - [Android Keep-alive service (Optional)](#android-keep-alive-service-optional)
-  - [CodeLink](#codelink-ios-and-android)
-    - [Config](#config-1)
-    - [Callbacks](#callbacks-1)
-- [Webview inspection (debug / testing)](#webview-inspection-debug--testing)
-
-**Reference**
-
-- [Compatibility, platform API & store review](COMPATIBILITY.md)
-- [Migration from 2.x](docs/migration-3.0.md)
-- [Responsive sizing](docs/responsive-presentation.md)
-- [JavaScript bridge and telemetry](docs/stash-sdk-js.md)
-- [Versioning](#versioning)
-- [Support](#support)
-
 ---
 
 ## Game Engine Wrappers
 
-Unity and Unreal bindings live in separate repositories. Their existing releases must migrate to the native 3.0 APIs before consuming this version.
+Unity and Unreal bindings live in separate repositories.
 
-|                                                                                             | Engine        | Repository                                              | Compatibility                                    |
-| ------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------------------- | ------------------------------------------------ |
-| <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   | Native 3.0 migration required                  |
-| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) | Native 3.0 migration required  |
-
-For building your own wrappers, see [docs/building-wrappers.md](./docs/building-wrappers.md) and the [3.0 migration guide](docs/migration-3.0.md).
+|                                                                                         | Engine        | Repository                                          |
+| --------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------- |
+| <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   |
+| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) |
 
 ---
 
 ## Downloads
 
-Pre-built binaries are available on the [Releases Page](https://github.com/stashgg/stash-native/releases). Choose a release matching the native SDK version your integration targets:
+Pre-built binaries are available on the [Releases Page](https://github.com/stashgg/stash-native/releases):
 
 - **Android**: `stashnative-release.aar` (or `StashNative-<tag>.aar` from releases)
 - **iOS**: `StashNative.xcframework.zip`
@@ -74,15 +31,9 @@ Pre-built binaries are available on the [Releases Page](https://github.com/stash
 
 ## Sample apps & Testing
 
-Both platforms include sample apps under [`Android/sample`](Android/sample/) and [`iOS/Sample`](iOS/Sample/). Open `iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj` in Xcode, or run `./gradlew :sample:installDebug` from the `Android/` directory.
+Run `./gradlew :sample:installDebug` from [`Android/`](Android/) or open the [iOS sample project](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode. Both samples include checkout generation, QR scanning, and callback logs.
 
-The samples can generate checkout links using a configured test instance. **Link Webshop → Scan QR Code** opens CodeLink and logs its callbacks; **Settings → QR Code scan options** customizes or translates the scanner text and hides the info callout. Live scanning requires a physical camera; the iOS Simulator shows the unavailable state.
-
-Use [the callback test page](https://test.stashpreview.com/) or serve [`.github/test/`](.github/test/) locally. `responsive.html` exercises content-height hints, form persistence, expansion, and processing locks. Use only the test API and test payment data. Sample request signing is demonstration code; production ingress secrets belong on your backend.
-
-If an Apple Silicon emulator boots but its WebView fails GPU initialization, test another GPU backend, such as `-gpu swangle`. Verify the checkout page itself, not just emulator startup. See [compatibility](COMPATIBILITY.md) for testing limits.
-
-See [maintenance and testing](docs/maintenance-and-testing.md) for build and validation commands.
+Use the [callback test page](https://test.stashpreview.com/) and [testing guide](docs/maintenance-and-testing.md). Use test credentials only; keep production secrets on your backend.
 
 ---
 
@@ -105,17 +56,11 @@ dependencies {
 }
 ```
 
-Add optional libraries for the features your app uses:
-
-| Feature | Additional dependencies | When omitted |
-| --- | --- | --- |
-| `openCard` | None beyond the base dependencies above | Checkout works without camera or QR libraries. |
-| `openBrowser` and external payment links in Custom Tabs | `androidx.browser:browser:1.7.0` | Links open in the system browser. |
-| `codeLink` QR scanning | CameraX and ZXing below | Scanning is unavailable; checkout and browser still work. |
+Optional dependencies:
 
 ```groovy
 dependencies {
-    // Only for Chrome Custom Tabs:
+    // openBrowser and external payments in Chrome Custom Tabs:
     implementation 'androidx.browser:browser:1.7.0'
 
     // Only for CodeLink QR scanning (include all four):
@@ -126,7 +71,7 @@ dependencies {
 }
 ```
 
-Standalone AAR files carry no transitive dependency metadata, so declare the base dependencies and the optional groups you need. Source-module consumers inherit the base dependencies through Gradle and add optional groups explicitly. AppCompat, Material, and Compose are not SDK runtime requirements. The minimal integration needs no explicit Kotlin BOM or Kotlin plugin. WindowManager 1.4.0 preserves the API 21 minimum; 1.5.x requires API 23. See the [dependency notes](docs/android.md#dependencies) for host-app version conflicts.
+AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [dependency notes](docs/android.md#dependencies) for details.
 
 To build the AAR locally, run `./gradlew :stashnative:assembleRelease` from `Android/`. The output is in `stashnative/build/outputs/aar/`.
 
@@ -142,7 +87,7 @@ Minimum iOS: **15.0**. Use **Xcode 27.1** for Duo APIs and full validation. The 
 
 ## Presentation modes
 
-The library exposes **openCard** for embedded checkout and webshop URLs, **openBrowser** for Chrome Custom Tabs / Safari View Controller, and **CodeLink** for QR scanning. Version 3.0 removes `openModal`, popup APIs, and configurable background colors. Use `openCard` for embedded content; its defaults adapt to the current window.
+The library exposes **openCard** for embedded checkout and webshop URLs, **openBrowser** for Chrome Custom Tabs / Safari View Controller, and **CodeLink** for QR scanning.
 
 Pass the activity or view controller belonging to the initiating app window. Set callbacks before opening. The SDK accepts one active presentation; rotating, folding, or resizing it preserves the live WebView and form state.
 
@@ -150,7 +95,7 @@ Pass the activity or view controller belonging to the initiating app window. Set
 
 ## openCard
 
-A responsive card for Stash Pay checkout or pre-authenticated webshop links. It opens as a bottom sheet on phones and a compact centered card where the window has room, including tablets. Resting and expanded states adapt to the available space and keyboard.
+Opens checkout and webshop URLs in a bottom sheet on phones or a compact centered card on larger windows. Sizing adapts to the window and keyboard.
 
 **Android**
 
@@ -225,7 +170,20 @@ config.orientationPreference = .portrait
 
 **iOS:** On iPhone, the SDK presents the same native card and WebView in its own UIKit window and scopes orientation overrides to that window, including in landscape-only games. The game controller keeps its orientation restrictions. The SDK restores the previous orientation before returning focus; an external-payment Safari handoff retains the portrait window until the browser closes. iPad ignores this preference.
 
-The default follows the host orientation. System windowing restrictions can limit rotation, so the card always fits the available space. The SDK owns orientation preparation and restoration; manual orientation hooks and screenshot-backdrop APIs from 2.x are removed. CodeLink always follows the host orientation.
+The default follows the host orientation. System windowing restrictions can limit rotation, so the card always fits the available space. The SDK owns orientation preparation and restoration. CodeLink always follows the host orientation.
+
+### Android landscape backdrop
+
+To mask rotation of a landscape game, supply a screenshot before opening a portrait card:
+
+```java
+StashNativeCard.setBackdropBitmap(screenshot);
+// Or: StashNativeCard.setBackdropBytes(pngOrJpeg);
+config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
+StashNativeCard.getInstance().openCard(this, checkoutUrl, config);
+```
+
+The SDK uses the image once and recycles it; do not reuse the bitmap. Pass `null` to clear it. Tablets and multi-window cards ignore the backdrop.
 
 ### Callbacks
 
@@ -303,17 +261,11 @@ extension YourViewController: StashNativeCardDelegate {
 }
 ```
 
-`allowDismiss` controls user dismissal only. With `allowDismiss = false`, the page can still call `window.close()` (including from its own close button), and payment callbacks still fire and follow `autoClose`. The purchase-processing lock blocks user dismissal and `window.close()` until processing ends. Native `dismiss()` remains available regardless of either setting.
-
-With `autoClose = false`, payment callbacks leave checkout open. `resetPresentationState()` tears down without callbacks. `openExternalBrowser` closes embedded checkout without a dismissal callback, while `openLink` leaves it open and emits no payment callback.
-
-The [JavaScript bridge reference](docs/stash-sdk-js.md) describes page messages, callback ordering, and `stash_sdk.getTelemetry()`, including device/window information and page timing. Callbacks describe UI state; verify purchases through your backend before fulfilling items.
-
 ---
 
 ## openBrowser
 
-Opens the URL in Chrome Custom Tabs on Android when the optional Browser library is present, otherwise the system browser. iOS presents `SFSafariViewController` from the supplied controller. Use it for browser checkout or as a fallback to `openCard`.
+Opens URLs in Chrome Custom Tabs (or the system browser) on Android and Safari View Controller on iOS.
 
 **Android**
 
@@ -337,7 +289,17 @@ StashNativeCard.sharedInstance().closeBrowser()
 [[StashNativeCard sharedInstance] closeBrowser];
 ```
 
-Browser closure uses `onBrowserClosed` on Android and `stashNativeCardDidCloseBrowser` on iOS. Android owns Custom Tabs results through an internal proxy activity and uses lifecycle detection for its system-browser fallback. No host result forwarding is required. `closeBrowser()` dismisses Safari on iOS and has no effect on Android.
+Browser closure calls `onBrowserClosed` (Android) or `stashNativeCardDidCloseBrowser` (iOS). `closeBrowser()` dismisses Safari on iOS and has no effect on Android.
+
+On iOS, optionally prefer portrait on iPhone, including landscape-only games:
+
+```swift
+let config = StashNativeBrowserConfig()
+config.orientationPreference = .portrait
+StashNativeCard.sharedInstance().openBrowser(withURL: checkoutURL, from: self, config: config)
+```
+
+Safari stays full-screen, using the card's orientation handling to restore the host when it closes. The default follows the host; iPad ignores the preference. Android Custom Tabs control their own orientation.
 
 ### Android Keep-alive service (Optional)
 
@@ -445,7 +407,7 @@ Both mobile samples include **Link Webshop → Scan QR Code** and display result
 
 ## Webview inspection (debug / testing)
 
-The SDK can make its checkout webviews inspectable so you can debug the checkout page with Safari Web Inspector / `chrome://inspect`, or drive it from automated UI tests (e.g. Appium). It is **off by default** and the flag name is identical on both platforms. Set it once, before opening any checkout.
+Enable checkout WebView inspection for Safari Web Inspector, `chrome://inspect`, or automated UI tests. It is **off by default**; set the flag before opening checkout.
 
 **Android**
 
@@ -473,7 +435,7 @@ Requirements, OS matrices, testing environments, and platform API / store review
 
 ## Versioning
 
-Version **3.0.0** includes breaking native APIs. See the [migration guide](docs/migration-3.0.md) and [version history](CHANGELOG.md).
+See the [changelog](CHANGELOG.md) for release history.
 
 This package follows [Semantic Versioning](https://semver.org/) (major.minor.patch):
 
@@ -503,4 +465,5 @@ NSString *version = [StashNativeCard sdkVersion];
 ## Support
 
 - Documentation: [docs.stash.gg](https://docs.stash.gg)
+- JavaScript bridge: [stash_sdk API](docs/stash-sdk-js.md)
 - Email: [developers@stash.gg](mailto:developers@stash.gg)

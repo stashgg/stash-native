@@ -417,6 +417,7 @@ public class CodeLinkTest {
         .denyPermissions(Manifest.permission.CAMERA);
     activity.codeLinkSupport.resume();
     activity.presentation.environmentChanged();
+    activity.onEnterAnimationComplete();
     idle(400);
   }
 

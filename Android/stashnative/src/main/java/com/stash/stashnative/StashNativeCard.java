@@ -1,6 +1,7 @@
 package com.stash.stashnative;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 
 /**
  * StashNativeCard - Native Android SDK for Stash Native checkout integration.
@@ -284,6 +285,19 @@ public class StashNativeCard {
   /** Opens a responsive checkout card in the supplied host's task. */
   public void openCard(Activity activity, String url, CardConfig config) {
     plugin.openCard(activity, url, config);
+  }
+
+  /**
+   * Supplies a screenshot for the next accepted card's portrait backdrop. Pass null to clear.
+   * The SDK takes ownership and recycles the bitmap; do not reuse it after this call.
+   */
+  public static void setBackdropBitmap(Bitmap bitmap) {
+    StashNativeCardPlugin.getInstance().setBackdropBitmap(bitmap);
+  }
+
+  /** Supplies PNG/JPEG backdrop bytes, convenient for Unity/JNI. Null or invalid bytes clear it. */
+  public static void setBackdropBytes(byte[] pngOrJpeg) {
+    setBackdropBitmap(StashHostBackdropSupport.decode(pngOrJpeg));
   }
 
   /** Opens the QR scanner in the responsive card, following the host app's orientation. */

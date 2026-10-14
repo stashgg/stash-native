@@ -12,6 +12,14 @@ Cards adapt between attached and floating placement. See [responsive presentatio
 
 WindowManager supplies fold layout information. Handle viewport-related configuration changes in place to retain the same WebView and its form state. Genuine process death ends the live session; do not replay navigation or payments as restoration. Keep mutable state scoped to its activity/plugin owner and invalidate late callbacks on teardown.
 
+### Portrait screenshot backdrop
+
+`StashNativeCard.setBackdropBitmap(Bitmap)` and `setBackdropBytes(byte[])` supply an optional screenshot behind portrait phone checkout. Call immediately before `openCard`. The bitmap transfers to the SDK; do not mutate, recycle, or reuse it. PNG/JPEG bytes are decoded with bounded dimensions. Null or invalid input clears the pending image.
+
+The next accepted card consumes the image; rejected opens, CodeLink, and browser calls do not. Cards following the host orientation, tablets, and multi-window presentations discard it. Replacement, reset, failed launch, and activity teardown release owned images. Images stay in the host process and are never serialized into an Intent or saved state.
+
+`StashHostBackdropSupport` rotates and center-crops the screenshot with the window. On dismissal from a landscape host, the screenshot covers the return rotation before the checkout activity finishes, with a bounded timeout if rotation is refused. Reset remains silent and closes immediately.
+
 ## Bridge and navigation
 
 `StashWebViewUtils.JS_SDK_SCRIPT` defines the public page API. `StashCheckoutJsInterface` routes native calls through one UI-thread dispatch boundary. `StashCheckoutWebViewSupport` creates the WebView and starts navigation after layout. `StashCheckoutWebViewClient` handles navigation callbacks and load failures; `StashCheckoutNavigationSupport` routes external links and deeplinks. `StashCheckoutLoadingSupport` manages deadlines and the initial crossfade, with mutable loading state owned by the activity. `StashContentSizeSupport` installs the optional card-only document reporter after navigation and rejects stale document/viewport measurements.

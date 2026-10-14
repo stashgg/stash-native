@@ -10,6 +10,9 @@ NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLin
 NSDictionary *StashTelemetryLifecycleProbe(void);
 NSDictionary *StashTelemetryFixture(void);
 void StashEndTelemetryFixture(NSDictionary *fixture);
+NSDictionary *StashHapticFixture(UIViewController *presenter);
+NSDictionary *StashHapticLifecycleProbe(NSDictionary *fixture);
+void StashEndHapticFixture(NSDictionary *fixture);
 NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
                                 double preferredWidth, double preferredHeight, double maximumHeight, double margin);
 NSDictionary *StashReservedRegionProbe(void);
@@ -81,3 +84,5 @@ NSDictionary *StashPortraitHooksProbe(void);
 NSDictionary *StashPortraitCancellationProbe(void);
 NSDictionary *StashPortraitFinishProbe(void);
 NSDictionary *StashPortraitBrowserDismissProbe(void);
+void StashBrowserConfigurationProbe(void (^completion)(NSDictionary *));
+NSDictionary *StashBrowserPreparationProbe(void);

@@ -33,6 +33,12 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @property (nonatomic) StashNativeOrientationPreference orientationPreference;
 @end
 
+/** Safari presentation. Defaults to following the host orientation; copied when opened. */
+@interface StashNativeBrowserConfig : NSObject <NSCopying>
+/** Requests portrait Safari on iPhone, including landscape-only hosts. Ignored on iPad. */
+@property (nonatomic) StashNativeOrientationPreference orientationPreference;
+@end
+
 /** Scanner copy. Nil or empty text uses the built-in wording. Copied when CodeLink opens. */
 @interface StashNativeCodeLinkConfig : NSObject <NSCopying>
 /** Default: "Scan QR code". */
@@ -138,6 +144,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
                config:(nullable StashNativeCardConfig *)config NS_SWIFT_NAME(openCard(withURL:from:config:));
 - (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter
     NS_SWIFT_NAME(openBrowser(withURL:from:));
+/** Opens Safari with an optional orientation preference. */
+- (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter
+                  config:(nullable StashNativeBrowserConfig *)config NS_SWIFT_NAME(openBrowser(withURL:from:config:));
 /** Opens a QR camera in the responsive native card, following the host app's orientation.
  * The host must provide NSCameraUsageDescription. Requests camera access when opened;
  * uses no microphone and saves no images. The first framed QR code shows a brief Connected

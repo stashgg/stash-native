@@ -152,8 +152,10 @@ NSDictionary *StashPortraitCancellationProbe(void) {
 @interface StashManualPortraitRestoration : StashPortraitPresentation
 @property (nonatomic, copy) void (^pendingCompletion)(void);
 @property (nonatomic) BOOL finished;
+@property (nonatomic, strong) UIViewController *readyPresenter;
 @end
 @implementation StashManualPortraitRestoration
+- (UIViewController *)presenter { return self.readyPresenter ?: super.presenter; }
 - (void)restoreWithCompletion:(void (^)(void))completion {
     if (self.finished) { if (completion) completion(); }
     else self.pendingCompletion = completion;
@@ -222,4 +224,110 @@ NSDictionary *StashPortraitBrowserDismissProbe(void) {
     browser.probePresentation = nil;
     return @{@"waitsForRestoration":@(waits), @"finishedBeforeCallback":@(finished),
         @"callbacksOnce":@(delegate.dismissals == 1 && delegate.browserCloses == 1)};
+}
+
+@interface StashNativeCard (BrowserRegression)
+- (void)openURL:(NSString *)url presenter:(UIViewController *)presenter config:(StashNativeCardConfig *)config browser:(BOOL)browser;
+@end
+@interface StashBrowserSnapshotCard : StashNativeCard
+@property (nonatomic, strong) NSMutableArray *orientations;
+@property (nonatomic) BOOL allBrowsers;
+@end
+@implementation StashBrowserSnapshotCard
+- (void)openURL:(NSString *)url presenter:(UIViewController *)presenter config:(StashNativeCardConfig *)config browser:(BOOL)browser {
+    if (!NSThread.isMainThread) { [super openURL:url presenter:presenter config:config browser:browser]; return; }
+    [self.orientations addObject:@(config.orientationPreference)];
+    self.allBrowsers &= browser;
+}
+@end
+
+void StashBrowserConfigurationProbe(void (^completion)(NSDictionary *)) {
+    StashBrowserSnapshotCard *owner = [StashBrowserSnapshotCard new];
+    owner.orientations = [NSMutableArray new]; owner.allBrowsers = YES;
+    UIViewController *presenter = [UIViewController new];
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        StashNativeBrowserConfig *config = [StashNativeBrowserConfig new];
+        config.orientationPreference = StashNativeOrientationPreferencePortrait;
+        [owner openBrowserWithURL:@"https://example.invalid" fromViewController:presenter config:config];
+        config.orientationPreference = (StashNativeOrientationPreference)999;
+        [owner openBrowserWithURL:@"https://example.invalid" fromViewController:presenter config:config];
+        [owner openBrowserWithURL:@"https://example.invalid" fromViewController:presenter];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            completion(@{@"orientations":owner.orientations, @"allBrowsers":@(owner.allBrowsers)});
+        });
+    });
+}
+
+@interface StashBrowserDeferredSession : StashCheckoutSession
+@property (nonatomic, copy) void (^preparation)(void);
+@end
+@implementation StashBrowserDeferredSession
+- (void)preparePortraitWithCompletion:(void (^)(void))completion { self.preparation = completion; }
+@end
+@interface StashBrowserPresenterProbe : UIViewController
+@property (nonatomic) NSUInteger presentations;
+@end
+@implementation StashBrowserPresenterProbe
+- (void)presentViewController:(UIViewController *)controller animated:(BOOL)animated completion:(void (^)(void))completion {
+    self.presentations++;
+    if (completion) completion();
+}
+@end
+
+NSDictionary *StashBrowserPreparationProbe(void) {
+    StashNativeCard *owner = [StashNativeCard new];
+    StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
+    owner.delegate = delegate; delegate.owner = owner;
+    StashBrowserPresenterProbe *presenter = [StashBrowserPresenterProbe new];
+    UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 844, 390)];
+    [window addSubview:presenter.view];
+    StashBrowserDeferredSession *(^open)(void) = ^{
+        StashBrowserDeferredSession *session = [StashBrowserDeferredSession new];
+        session.owner = owner; owner.session = session; session.presenter = presenter;
+        session.config = [StashNativeCardConfig new];
+        session.config.orientationPreference = StashNativeOrientationPreferencePortrait;
+        session.url = @"https://example.invalid";
+        [session presentBrowser];
+        return session;
+    };
+    BOOL cancellable = YES, noLateOpen = YES;
+    for (NSString *action in @[@"close", @"dismiss", @"reset"]) {
+        StashBrowserDeferredSession *session = open();
+        cancellable &= session.browser != nil && session.preparation != nil && presenter.presentations == 0;
+        void (^ready)(void) = session.preparation;
+        session.preparation = nil;
+        if ([action isEqualToString:@"close"]) [owner closeBrowser];
+        else if ([action isEqualToString:@"dismiss"]) [owner dismiss];
+        else [owner resetPresentationState];
+        ready();
+        noLateOpen &= !owner.isCurrentlyPresented && presenter.presentations == 0;
+    }
+    BOOL callbacks = delegate.browserCloses == 2 && delegate.dismissals == 2;
+    StashBrowserDeferredSession *session = open();
+    void (^ready)(void) = session.preparation; session.preparation = nil;
+    [presenter.view removeFromSuperview];
+    ready();
+    BOOL detached = !owner.isCurrentlyPresented && presenter.presentations == 0;
+    [window addSubview:presenter.view];
+    session = open();
+    ready = session.preparation; session.preparation = nil;
+    ready();
+    [session presentBrowser];
+    BOOL once = presenter.presentations == 1 && owner.isCurrentlyPresented;
+    [owner closeBrowser];
+    session = open();
+    ready = session.preparation; session.preparation = nil;
+    StashManualPortraitRestoration *portrait = [[StashManualPortraitRestoration alloc] initWithPresenter:nil];
+    portrait.readyPresenter = presenter; portrait.finished = YES;
+    session.portraitPresentation = portrait;
+    SFSafariViewController *nativeBrowser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:session.url]];
+    ready();
+    BOOL nativePortrait = session.browser.supportedInterfaceOrientations == UIInterfaceOrientationMaskPortrait &&
+        session.browser.preferredInterfaceOrientationForPresentation == UIInterfaceOrientationPortrait &&
+        session.browser.modalPresentationStyle == nativeBrowser.modalPresentationStyle &&
+        session.browser.transitioningDelegate != nil && presenter.presentations == 2;
+    [owner closeBrowser];
+    return @{@"cancellableBeforeGeometry":@(cancellable), @"lateCompletionIgnored":@(noLateOpen),
+        @"closeAndDismissCallbacks":@(callbacks), @"detachedPresenterRejected":@(detached),
+        @"presentedOnce":@(once), @"nativeSafariPortrait":@(nativePortrait)};
 }

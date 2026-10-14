@@ -21,6 +21,18 @@
         android:textAppearance="@style/TextAppearance.StashNative.TitleMedium"
         android:textColor="?attr/colorPrimary" />
 
+    <TextView
+        android:id="@+id/actionValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="8dp"
+        android:maxWidth="160dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textAppearance="@style/TextAppearance.StashNative.BodySmall"
+        android:visibility="gone" />
+
     <ImageView
         android:id="@+id/actionChevron"
         android:layout_width="24dp"

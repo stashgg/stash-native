@@ -6,6 +6,7 @@ import androidx.annotation.StringRes;
 public final class SettingsItem {
 
   public static final int TYPE_SECTION_HEADER = 0;
+  public static final int TYPE_SECTION_FOOTER = 1;
   public static final int TYPE_URL_PREFERENCE = 2;
   public static final int TYPE_ACTION_PREFERENCE = 3;
   public static final int TYPE_SWITCH_PREFERENCE = 6;
@@ -98,6 +99,11 @@ public final class SettingsItem {
         TYPE_SECTION_HEADER, titleRes, 0, null, false, 0, 0, firstInCard, lastInCard);
   }
 
+  /** Supporting text below a section. */
+  public static SettingsItem sectionFooter(@StringRes int titleRes) {
+    return new SettingsItem(TYPE_SECTION_FOOTER, titleRes, 0, null, false, 0, 0, false, false);
+  }
+
   /** URL/edit preference row. */
   public static SettingsItem urlPreference(
       @StringRes int titleRes, String value, int iconRes, boolean firstInCard, boolean lastInCard) {
@@ -108,8 +114,14 @@ public final class SettingsItem {
   /** Action row. */
   public static SettingsItem actionPreference(
       @StringRes int titleRes, boolean firstInCard, boolean lastInCard) {
+    return actionPreference(titleRes, null, firstInCard, lastInCard);
+  }
+
+  /** Action row with its current selection. */
+  public static SettingsItem actionPreference(
+      @StringRes int titleRes, String value, boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
-        TYPE_ACTION_PREFERENCE, titleRes, 0, null, false, 0, 0, firstInCard, lastInCard);
+        TYPE_ACTION_PREFERENCE, titleRes, 0, value, false, 0, 0, firstInCard, lastInCard);
   }
 
   /** Switch/toggle preference row. */

@@ -1,9 +1,11 @@
 package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -15,6 +17,8 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
@@ -52,9 +56,19 @@ public class MainActivity extends AppCompatActivity {
   private volatile int requestGeneration;
   private volatile HttpURLConnection activeConnection;
   private java.util.concurrent.Future<?> pendingRequest;
+  private java.util.concurrent.Future<?> pendingBackdropLoad;
+  private int backdropLoadGeneration;
 
   private final java.util.concurrent.ExecutorService networkExecutor =
       Executors.newSingleThreadExecutor();
+  private final java.util.concurrent.ExecutorService backdropExecutor =
+      Executors.newSingleThreadExecutor();
+  private final ActivityResultLauncher<String[]> backdropPicker = registerForActivityResult(
+      new ActivityResultContracts.OpenDocument(), uri -> {
+        if (uri != null) {
+          loadBackdropImage(uri);
+        }
+      });
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -107,11 +121,6 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onOpenWebshop() {
-        openWebshop();
-      }
-
-      @Override
       public void onGenerateCheckoutForBrowser() {
         generateCheckoutForBrowser();
       }
@@ -130,6 +139,16 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onDeleteInstance() {
         confirmDeleteInstance();
+      }
+
+      @Override
+      public void onBackdropSource() {
+        showBackdropSources();
+      }
+
+      @Override
+      public void onChooseBackdropImage() {
+        chooseBackdropImage();
       }
     });
 
@@ -294,8 +313,7 @@ public class MainActivity extends AppCompatActivity {
       if (isFinishing() || isDestroyed()) {
         return;
       }
-      StashNativeCard sdk = StashNativeCard.getInstance();
-      sdk.openCard(this, checkoutUrl, viewModel.getCardConfig());
+      presentCard(checkoutUrl);
     });
   }
 
@@ -320,10 +338,6 @@ public class MainActivity extends AppCompatActivity {
     } else {
       addCallbackChip("Deeplink · " + url);
     }
-  }
-
-  private StashNativeCard.CardConfig buildCardConfig() {
-    return viewModel.getCardConfig();
   }
 
   private void syncKeepAlive() {
@@ -430,8 +444,7 @@ public class MainActivity extends AppCompatActivity {
     return Math.round(value * getResources().getDisplayMetrics().density);
   }
 
-  /** The screen a drill-in returns to: payload editors sit under an instance's details, which
-   * sits under the Instances tab; card options sit under Settings. Null for a top-level tab. */
+  /** Parent screen for back navigation; null for top-level tabs. */
   private MainViewModel.Screen parentOf(MainViewModel.Screen screen) {
     switch (screen) {
       case CHECKOUT_PAYLOAD:
@@ -440,6 +453,7 @@ public class MainActivity extends AppCompatActivity {
       case INSTANCE_DETAILS:
         return MainViewModel.Screen.API;
       case CARD_OPTIONS:
+      case BROWSER_OPTIONS:
       case CODE_LINK_OPTIONS:
         return MainViewModel.Screen.SETTINGS;
       default:
@@ -448,7 +462,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   /** Each tab titles the toolbar with its own name; Test keeps the app title. Drill-in sub-screens
-   * show a back arrow + their title and keep the bottom-nav highlight in sync: card options
+   * show a back arrow + their title and keep the bottom-nav highlight in sync: presentation options
    * stay under Settings; instance details and the payload editors stay under Instances. */
   private void updateToolbarForScreen() {
     if (binding == null) {
@@ -484,9 +498,15 @@ public class MainActivity extends AppCompatActivity {
         binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
         break;
       case CARD_OPTIONS:
+      case BROWSER_OPTIONS:
       case CODE_LINK_OPTIONS:
-        binding.toolbar.setTitle(screen == MainViewModel.Screen.CARD_OPTIONS
-            ? R.string.nav_card_options : R.string.nav_code_link_options);
+        int optionsTitle = R.string.nav_card_options;
+        if (screen == MainViewModel.Screen.BROWSER_OPTIONS) {
+          optionsTitle = R.string.nav_browser_options;
+        } else if (screen == MainViewModel.Screen.CODE_LINK_OPTIONS) {
+          optionsTitle = R.string.nav_code_link_options;
+        }
+        binding.toolbar.setTitle(optionsTitle);
         binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
         binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
         break;
@@ -605,16 +625,106 @@ public class MainActivity extends AppCompatActivity {
         .show();
   }
 
+  private void showBackdropSources() {
+    MainViewModel.BackdropSource[] sources = MainViewModel.BackdropSource.values();
+    CharSequence[] labels = new CharSequence[sources.length];
+    for (int i = 0; i < sources.length; i++) {
+      labels[i] = getString(sources[i].labelRes);
+    }
+    activeDialog = new AlertDialog.Builder(this)
+        .setTitle(R.string.option_backdrop_source)
+        .setSingleChoiceItems(labels, viewModel.getBackdropSource().ordinal(), (dialog, which) -> {
+          dialog.dismiss();
+          cancelBackdropLoad();
+          MainViewModel.BackdropSource source = sources[which];
+          if (source == MainViewModel.BackdropSource.IMAGE
+              && viewModel.getBackdropImage() == null) {
+            chooseBackdropImage();
+          } else {
+            viewModel.setBackdropSource(source);
+          }
+        })
+        .setNegativeButton(android.R.string.cancel, null)
+        .show();
+  }
+
+  private void chooseBackdropImage() {
+    cancelBackdropLoad();
+    try {
+      backdropPicker.launch(new String[] {"image/*"});
+    } catch (ActivityNotFoundException expected) {
+      android.widget.Toast.makeText(this, R.string.error_image_picker,
+          android.widget.Toast.LENGTH_LONG).show();
+    }
+  }
+
+  private void loadBackdropImage(Uri uri) {
+    cancelBackdropLoad();
+    final int generation = backdropLoadGeneration;
+    pendingBackdropLoad = backdropExecutor.submit(() -> {
+      SampleBackdropImage image = SampleBackdropImage.load(getContentResolver(), uri);
+      runOnUiThread(() -> {
+        if (destroyed || isFinishing() || generation != backdropLoadGeneration) {
+          if (image != null) {
+            image.recycle();
+          }
+          return;
+        }
+        pendingBackdropLoad = null;
+        if (image != null) {
+          viewModel.setBackdropImage(image);
+        } else {
+          android.widget.Toast.makeText(this, R.string.error_backdrop_image,
+              android.widget.Toast.LENGTH_LONG).show();
+        }
+      });
+    });
+  }
+
+  private void cancelBackdropLoad() {
+    backdropLoadGeneration++;
+    if (pendingBackdropLoad != null) {
+      pendingBackdropLoad.cancel(true);
+      pendingBackdropLoad = null;
+    }
+  }
+
   private void openCard() {
     String url = viewModel.getCheckoutUrl();
     if (url == null || url.trim().isEmpty()) {
       showOutcomeDialog("Error", getString(R.string.error_checkout_url));
       return;
     }
-    url = url.trim();
+    presentCard(url.trim());
+  }
+
+  private void presentCard(String url) {
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
+    StashNativeCard sdk = StashNativeCard.getInstance();
+    StashNativeCard.CardConfig config = viewModel.getCardConfig();
+    if (!sdk.isCurrentlyPresented()) {
+      Bitmap backdrop = null;
+      MainViewModel.BackdropSource source = viewModel.getBackdropSource();
+      if (config.orientationPreference == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+          && source != MainViewModel.BackdropSource.NONE) {
+        if (source == MainViewModel.BackdropSource.SCREENSHOT) {
+          backdrop = SampleBackdropCapture.capture(getWindow().getDecorView());
+        } else if (viewModel.getBackdropImage() != null) {
+          backdrop = viewModel.getBackdropImage().copy();
+        }
+        if (backdrop == null) {
+          android.widget.Toast.makeText(this, R.string.error_backdrop_prepare,
+              android.widget.Toast.LENGTH_LONG).show();
+          return;
+        }
+      }
+      // The SDK owns this bitmap; the selected custom image stays with the ViewModel.
+      StashNativeCard.setBackdropBitmap(backdrop);
+    }
     Log.i(TAG, "Opening card");
-    StashNativeCard.CardConfig config = buildCardConfig();
-    StashNativeCard.getInstance().openCard(MainActivity.this, url, config);
+    sdk.openCard(this, url, config);
   }
 
   private void openBrowser() {
@@ -635,11 +745,6 @@ public class MainActivity extends AppCompatActivity {
   private void generateCheckoutForBrowser() {
     generateAndOpen(CHECKOUT_PATH, viewModel.getActiveCheckoutPayload(), true,
         R.string.error_generate_checkout_url, "checkout URL");
-  }
-
-  private void openWebshop() {
-    generateAndOpen(WEBSHOP_PATH, viewModel.getActiveWebshopPayload(), false,
-        R.string.error_generate_webshop_url, "authenticated webshop URL");
   }
 
   private void openWebshopForBrowser() {
@@ -712,9 +817,7 @@ public class MainActivity extends AppCompatActivity {
                   Log.i(TAG, "Opening browser");
                   StashNativeCard.getInstance().openBrowser(MainActivity.this, finalUrl);
                 } else {
-                  Log.i(TAG, "Opening card");
-                  StashNativeCard.CardConfig config = buildCardConfig();
-                  StashNativeCard.getInstance().openCard(MainActivity.this, finalUrl, config);
+                  presentCard(finalUrl);
                 }
               });
               return;
@@ -752,6 +855,8 @@ public class MainActivity extends AppCompatActivity {
       sdk.setListener(null);
     }
     destroyed = true;
+    cancelBackdropLoad();
+    backdropExecutor.shutdownNow();
     requestGeneration++;
     if (pendingRequest != null) {
       pendingRequest.cancel(true);

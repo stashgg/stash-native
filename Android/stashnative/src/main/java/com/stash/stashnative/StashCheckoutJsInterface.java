@@ -1,7 +1,10 @@
 package com.stash.stashnative;
 
+import android.os.Build;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
 /** Dispatches WebView bridge calls to the checkout's UI thread. */
 final class StashCheckoutJsInterface {
@@ -65,6 +68,19 @@ final class StashCheckoutJsInterface {
       if (activity.telemetrySupport != null) {
         activity.telemetrySupport.request(documentToken, requestId);
       }
+    });
+  }
+
+  @JavascriptInterface
+  public void triggerHaptic() {
+    dispatch("triggerHaptic", () -> {
+      WebView web = activity.webView;
+      if (activity.isDismissing || activity.isActivityPaused || web == null
+          || !web.isShown() || !web.hasWindowFocus()) {
+        return;
+      }
+      web.performHapticFeedback(Build.VERSION.SDK_INT >= 30
+          ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
     });
   }
 

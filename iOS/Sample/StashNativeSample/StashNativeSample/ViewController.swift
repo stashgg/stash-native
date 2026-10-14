@@ -99,6 +99,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let cardEdgeMarginSlider = UISlider()
     let cardEdgeMarginLabel = UILabel()
     let codeLinkConfig = StashNativeCodeLinkConfig()
+    let browserConfig = StashNativeBrowserConfig()
 
     // API keys: named, each production or test; Keychain-persisted (survives reinstall).
     var apiKeys: [ApiKeyEntry] = []

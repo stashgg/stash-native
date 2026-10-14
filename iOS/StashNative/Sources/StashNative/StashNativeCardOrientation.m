@@ -167,6 +167,15 @@ static UIInterfaceOrientationMask StashHostOrientations(UIWindow *window) {
     return mask & controller.supportedInterfaceOrientations;
 }
 
+@implementation StashSafariViewController
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return self.prefersPortrait ? UIInterfaceOrientationMaskPortrait : super.supportedInterfaceOrientations;
+}
+- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
+    return self.prefersPortrait ? UIInterfaceOrientationPortrait : super.preferredInterfaceOrientationForPresentation;
+}
+@end
+
 @implementation StashPortraitRootViewController
 - (void)viewDidLoad {
     [super viewDidLoad];

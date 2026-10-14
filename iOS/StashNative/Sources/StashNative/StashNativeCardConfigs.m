@@ -26,6 +26,14 @@
 }
 @end
 
+@implementation StashNativeBrowserConfig
+- (id)copyWithZone:(NSZone *)zone {
+    StashNativeBrowserConfig *copy = [[[self class] allocWithZone:zone] init];
+    copy.orientationPreference = self.orientationPreference;
+    return copy;
+}
+@end
+
 @implementation StashNativeCodeLinkConfig
 - (instancetype)init {
     if ((self = [super init])) _showCallout = YES;

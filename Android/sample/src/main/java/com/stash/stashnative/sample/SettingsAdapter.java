@@ -17,6 +17,7 @@ import com.stash.stashnative.sample.databinding.ItemPreferencePayloadBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSliderBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSwitchBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceUrlBinding;
+import com.stash.stashnative.sample.databinding.ItemSectionFooterBinding;
 import com.stash.stashnative.sample.databinding.ItemSectionHeaderBinding;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,8 +43,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void onGenerateCheckout();
 
-    void onOpenWebshop();
-
     void onGenerateCheckoutForBrowser();
 
     void onLockLandscapeChanged(boolean on);
@@ -51,6 +50,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     void onOpenWebshopForBrowser();
 
     void onDeleteInstance();
+
+    void onBackdropSource();
+
+    void onChooseBackdropImage();
   }
 
   public SettingsAdapter(MainViewModel viewModel, Callbacks callbacks) {
@@ -75,6 +78,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     switch (viewType) {
       case SettingsItem.TYPE_SECTION_HEADER:
         return new SectionHeaderVH(ItemSectionHeaderBinding.inflate(inflater, parent, false));
+      case SettingsItem.TYPE_SECTION_FOOTER:
+        return new SectionFooterVH(ItemSectionFooterBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_URL_PREFERENCE:
         return new UrlPreferenceVH(ItemPreferenceUrlBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_ACTION_PREFERENCE:
@@ -100,6 +105,9 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     switch (item.type) {
       case SettingsItem.TYPE_SECTION_HEADER:
         ((SectionHeaderVH) holder).bind(item);
+        break;
+      case SettingsItem.TYPE_SECTION_FOOTER:
+        ((SectionFooterVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_URL_PREFERENCE:
         ((UrlPreferenceVH) holder).bind(item, position);
@@ -161,6 +169,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     int top = Math.round(CARD_MARGIN_TOP_DP * density);
     int bottom = Math.round(CARD_MARGIN_BOTTOM_DP * density);
 
+    if (item.type == SettingsItem.TYPE_SECTION_FOOTER) {
+      itemView.setBackground(null);
+      setMargins(itemView, horizontal, 0, horizontal, 0);
+      return;
+    }
+
     boolean first = item.firstInCard;
     boolean last = item.lastInCard;
 
@@ -215,6 +229,19 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
+  static class SectionFooterVH extends RecyclerView.ViewHolder {
+    private final ItemSectionFooterBinding binding;
+
+    SectionFooterVH(ItemSectionFooterBinding binding) {
+      super(binding.getRoot());
+      this.binding = binding;
+    }
+
+    void bind(SettingsItem item) {
+      binding.sectionFooterText.setText(item.titleRes);
+    }
+  }
+
 
   class UrlPreferenceVH extends RecyclerView.ViewHolder {
     private final ItemPreferenceUrlBinding binding;
@@ -238,10 +265,9 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       boolean isUrl = t == R.string.hint_checkout_url
           || t == R.string.hint_browser_url;
       int codeLinkDefault = codeLinkDefaultText(t);
+      binding.urlInputLayout.setExpandedHintEnabled(codeLinkDefault == 0);
       binding.urlInputLayout.setPlaceholderText(codeLinkDefault == 0 ? null
           : itemView.getContext().getString(codeLinkDefault));
-      binding.urlInputLayout.setHelperText(codeLinkDefault == 0 ? null
-          : itemView.getContext().getString(R.string.code_link_text_help));
       int inputType;
       if (isUrl) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
@@ -323,6 +349,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item, int position) {
       binding.actionTitle.setText(item.titleRes);
+      binding.actionValue.setText(item.value);
+      binding.actionValue.setVisibility(item.value.isEmpty() ? View.GONE : View.VISIBLE);
       // The destructive delete row is red; every other action row uses the primary colour.
       boolean isDelete = item.titleRes == R.string.nav_delete_instance;
       binding.actionTitle.setTextColor(themeColor(binding.actionTitle.getContext(),
@@ -330,13 +358,18 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
               : com.google.android.material.R.attr.colorPrimary));
       // Navigation rows carry a chevron; action buttons are text-only.
       boolean isNav = item.titleRes == R.string.nav_card_options
+          || item.titleRes == R.string.nav_browser_options
           || item.titleRes == R.string.nav_code_link_options
           || item.titleRes == R.string.nav_checkout_payload
-          || item.titleRes == R.string.nav_webshop_payload;
+          || item.titleRes == R.string.nav_webshop_payload
+          || item.titleRes == R.string.option_backdrop_source
+          || item.titleRes == R.string.option_backdrop_image;
       binding.actionChevron.setVisibility(isNav ? View.VISIBLE : View.GONE);
       binding.actionRow.setOnClickListener(v -> {
         if (item.titleRes == R.string.nav_card_options) {
           viewModel.navigateTo(MainViewModel.Screen.CARD_OPTIONS);
+        } else if (item.titleRes == R.string.nav_browser_options) {
+          viewModel.navigateTo(MainViewModel.Screen.BROWSER_OPTIONS);
         } else if (item.titleRes == R.string.nav_code_link_options) {
           viewModel.navigateTo(MainViewModel.Screen.CODE_LINK_OPTIONS);
         } else if (item.titleRes == R.string.code_link_reset) {
@@ -347,8 +380,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.navigateTo(MainViewModel.Screen.WEBSHOP_PAYLOAD);
         } else if (item.titleRes == R.string.generate_checkout) {
           callbacks.onGenerateCheckout();
-        } else if (item.titleRes == R.string.open_webshop) {
-          callbacks.onOpenWebshop();
         } else if (item.titleRes == R.string.generate_checkout_for_browser) {
           callbacks.onGenerateCheckoutForBrowser();
         } else if (item.titleRes == R.string.open_webshop_for_browser) {
@@ -357,6 +388,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           callbacks.onCodeLink();
         } else if (item.titleRes == R.string.nav_delete_instance) {
           callbacks.onDeleteInstance();
+        } else if (item.titleRes == R.string.option_backdrop_source) {
+          callbacks.onBackdropSource();
+        } else if (item.titleRes == R.string.option_backdrop_image) {
+          callbacks.onChooseBackdropImage();
         }
       });
     }
@@ -440,12 +475,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          androidx.core.view.ViewCompat.setStateDescription(seekBar, progress + " dp");
+          String label = progress == 0 && item.titleRes == R.string.maximum_content_height
+              ? "Available" : progress + " dp";
+          androidx.core.view.ViewCompat.setStateDescription(seekBar, label);
           if (!fromUser) {
             return;
           }
-          String label = progress == 0 && item.titleRes == R.string.maximum_content_height
-              ? "Available" : progress + " dp";
           binding.sliderValue.setText(label);
           viewModel.setDimension(item.titleRes, progress);
         }

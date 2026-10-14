@@ -36,20 +36,28 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
     }
+    [self preparePortraitWithCompletion:^{ [self presentCheckoutContent]; }];
+}
+- (void)preparePortraitWithCompletion:(void (^)(void))completion {
+    if (self.portraitPresentation.presenter) { completion(); return; }
     if (self.config.orientationPreference == StashNativeOrientationPreferencePortrait &&
         self.presenter.view.window.traitCollection.userInterfaceIdiom == UIUserInterfaceIdiomPhone) {
         if (self.portraitPresentation) return;
         StashPortraitPresentation *presentation = [[StashPortraitPresentation alloc] initWithPresenter:self.presenter];
         self.portraitPresentation = presentation;
-        [presentation prepareWithCompletion:^(BOOL ready) {
-            if (![self isActive]) return;
-            if (!ready) self.portraitPresentation = nil;
-            [self presentCheckoutContent];
-        }];
+        // Let an immediate close/reset cancel before creating a window or requesting rotation.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self isActive] || self.portraitPresentation != presentation) return;
+            [presentation prepareWithCompletion:^(BOOL ready) {
+                if (![self isActive]) return;
+                if (!ready) self.portraitPresentation = nil;
+                completion();
+            }];
+        });
 #if !__has_feature(objc_arc)
         [presentation release];
 #endif
-    } else [self presentCheckoutContent];
+    } else completion();
 }
 - (void)presentCheckoutContent {
     if (![self isActive] || self.controller) return;
@@ -337,21 +345,28 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }
 }
 - (void)presentBrowser {
+    if (![self isActive] || self.browser) return;
     UIViewController *presenter = self.presentationPresenter;
-    if (![self isActive] || !presenter.viewIfLoaded.window || presenter.isBeingDismissed || presenter.presentedViewController) {
+    if (!presenter.viewIfLoaded.window || presenter.isBeingDismissed || presenter.presentedViewController) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
     }
-    SFSafariViewController *browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:self.url]];
+    StashSafariViewController *browser = [[StashSafariViewController alloc] initWithURL:[NSURL URLWithString:self.url]];
     self.browser = browser;
     browser.delegate = self;
-    // A native sheet inherits the portrait host's orientation through Safari handoff.
-    if (self.portraitPresentation.presenter) {
-        browser.modalPresentationStyle = UIModalPresentationPageSheet;
-    }
-    [presenter presentViewController:browser animated:YES completion:^{
-        if ([self isActive] && self.browser == browser && self.portraitPresentation)
-            browser.presentationController.delegate = self;
+    [self preparePortraitWithCompletion:^{
+        if (![self isActive] || self.browser != browser) return;
+        UIViewController *readyPresenter = self.presentationPresenter;
+        if (!readyPresenter.viewIfLoaded.window || readyPresenter.isBeingDismissed ||
+            readyPresenter.presentedViewController || !self.presenter.viewIfLoaded.window || self.presenter.isBeingDismissed) {
+            [self finishWithUserDismiss:NO completion:nil];
+            return;
+        }
+        browser.prefersPortrait = self.portraitPresentation.presenter != nil;
+        [readyPresenter presentViewController:browser animated:YES completion:^{
+            if ([self isActive] && self.browser == browser && self.portraitPresentation)
+                browser.presentationController.delegate = self;
+        }];
     }];
 #if !__has_feature(objc_arc)
     [browser release];
@@ -568,6 +583,16 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self setExpanded:YES animated:YES];
     } else if ([name isEqualToString:@"stashCollapse"]) {
         [self setExpanded:NO animated:YES];
+    } else if ([name isEqualToString:@"stashTriggerHaptic"]) {
+        UIWindow *window = self.webView.window;
+        BOOL foreground = window.windowScene ? window.windowScene.activationState == UISceneActivationStateForegroundActive :
+            UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
+        if (!window || window.hidden || self.webView.hidden || !foreground) return;
+        UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
+        [feedback notificationOccurred:UINotificationFeedbackTypeSuccess];
+#if !__has_feature(objc_arc)
+        [feedback release];
+#endif
     } else if ([name isEqualToString:@"stashContentHeight"]) {
         if ([body isKindOfClass:NSDictionary.class]) [self acceptContentHeight:body];
     } else if ([name isEqualToString:@"stashOpenLink"] || [name isEqualToString:@"stashExternalPayment"]) {

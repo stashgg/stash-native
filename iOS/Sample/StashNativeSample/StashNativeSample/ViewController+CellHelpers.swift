@@ -58,8 +58,7 @@ extension ViewController {
         switch indexPath.row {
         case 0: return urlCell(textField: checkoutUrlTextField, label: "URL", imageName: "link",
                                openSelector: #selector(openCardTapped))
-        case 1: return actionCell("Generate Checkout")
-        default: return actionCell("Open Webshop")
+        default: return actionCell("Generate Checkout")
         }
     }
 

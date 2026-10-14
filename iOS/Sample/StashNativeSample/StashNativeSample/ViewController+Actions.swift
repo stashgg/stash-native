@@ -38,7 +38,7 @@ extension ViewController {
             showAlert(title: "Error", message: "Please enter a browser URL")
             return
         }
-        StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self)
+        StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self, config: browserConfig)
     }
 
     @objc func codeLinkTapped() {
@@ -85,22 +85,14 @@ extension ViewController {
     @objc func generateCheckoutForBrowserTapped() {
         performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
-            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl, from: self)
-        }
-    }
-
-    @objc func openWebshopTapped() {
-        performGenerateUrl(.webshop) { [weak self] webshopUrl in
-            guard let self = self else { return }
-            let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, from: self, config: config)
+            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl, from: self, config: self.browserConfig)
         }
     }
 
     @objc func openWebshopForBrowserTapped() {
         performGenerateUrl(.webshop) { [weak self] webshopUrl in
             guard let self = self else { return }
-            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl, from: self)
+            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl, from: self, config: self.browserConfig)
         }
     }
 

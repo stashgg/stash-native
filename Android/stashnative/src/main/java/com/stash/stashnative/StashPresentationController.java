@@ -27,6 +27,8 @@ import org.json.JSONObject;
 
 /** Owns the sheet's geometry, selection, gestures, keyboard response, and animations. */
 final class StashPresentationController implements View.OnTouchListener {
+  private enum AnimationKind { ENTRANCE, RESIZE, DISMISS }
+
   private final StashCheckoutActivity activity;
   final StashPresentationState state = new StashPresentationState();
   private final StashPresentationOptions options;
@@ -41,8 +43,11 @@ final class StashPresentationController implements View.OnTouchListener {
   private final Consumer<WindowLayoutInfo> windowListener = this::onWindowLayout;
   private android.view.ViewTreeObserver.OnGlobalLayoutListener legacyKeyboardListener;
   private ValueAnimator animator;
+  private AnimationKind animationKind;
   private int animationEpoch;
+  private boolean windowEntered;
   private boolean entered;
+  private float entranceProgress;
   private boolean disposed;
   private StashCheckoutSizing.Layout layout;
   private StashCheckoutSizing.Box shownFrame;
@@ -62,6 +67,8 @@ final class StashPresentationController implements View.OnTouchListener {
   }
 
   void attach() {
+    activity.cardContainer.setAlpha(0);
+    activity.backdropView.setAlpha(0);
     activity.rootLayout.addOnLayoutChangeListener(
         (v, l, t, r, b, ol, ot, or, ob) -> {
           if (r - l != or - ol || b - t != ob - ot) {
@@ -227,21 +234,34 @@ final class StashPresentationController implements View.OnTouchListener {
     }
     StashCheckoutSizing.Layout next = resolve();
     final boolean widthChanged = layout != null && layout.frame.width() != next.frame.width();
-    cancelAnimation();
+    boolean entering = animationKind == AnimationKind.ENTRANCE;
+    if (!entering) {
+      cancelAnimation();
+    }
     gestureCancelled = true;
     dragging = false;
     layout = next;
     applyFrame(next.frame);
-    activity.cardContainer.setTranslationY(0);
-    activity.cardContainer.setAlpha(1);
-    activity.backdropView.setAlpha(1);
+    if (!entered || entering) {
+      applyEntrance(entranceProgress);
+    } else {
+      activity.cardContainer.setTranslationY(0);
+    }
     if (widthChanged && activity.contentSizeSupport != null) {
       activity.contentSizeSupport.widthChanged();
     }
-    if (!entered) {
+    if (!entered && windowEntered) {
       entered = true;
-      animateVisibility(true, null);
+      animate(AnimationKind.ENTRANCE, 300, this::applyEntrance, null);
     }
+  }
+
+  void windowEntered() {
+    if (windowEntered || disposed || activity.isDismissing) {
+      return;
+    }
+    windowEntered = true;
+    environmentChanged();
   }
 
   void setExpanded(boolean expanded) {
@@ -283,12 +303,18 @@ final class StashPresentationController implements View.OnTouchListener {
     layout = resolve();
     StashCheckoutSizing.Box start = shownFrame;
     StashCheckoutSizing.Box end = layout.frame;
+    if (!entered || animationKind == AnimationKind.ENTRANCE) {
+      applyFrame(end);
+      applyEntrance(entranceProgress);
+      return;
+    }
     float translation = activity.cardContainer.getTranslationY();
     if (start == null) {
       applyFrame(end);
       return;
     }
     animate(
+        AnimationKind.RESIZE,
         280,
         value -> {
           applyFrame(
@@ -329,34 +355,39 @@ final class StashPresentationController implements View.OnTouchListener {
   }
 
   void dismiss(Runnable completion) {
-    animateVisibility(false, completion);
-  }
-
-  private void animateVisibility(boolean showing, Runnable completion) {
     boolean bottom = layout != null && layout.bottomAttached;
     int height = shownFrame != null ? shownFrame.height() : activity.cardContainer.getHeight();
     float initialY = activity.cardContainer.getTranslationY();
+    float initialAlpha = activity.cardContainer.getAlpha();
+    float initialBackdrop = activity.backdropView.getAlpha();
     animate(
-        showing ? 300 : 220,
+        AnimationKind.DISMISS,
+        220,
         value -> {
-          float visibility = showing ? value : 1 - value;
-          activity.backdropView.setAlpha(visibility);
-          activity.cardContainer.setAlpha(bottom ? 1 : visibility);
+          activity.backdropView.setAlpha(initialBackdrop * (1 - value));
+          activity.cardContainer.setAlpha(bottom ? initialAlpha : initialAlpha * (1 - value));
           activity.cardContainer.setTranslationY(
-              bottom
-                  ? (showing ? height * (1 - value) : initialY + (height - initialY) * value)
-                  : 0);
+              bottom ? initialY + (height - initialY) * value : 0);
         },
         completion);
+  }
+
+  private void applyEntrance(float progress) {
+    entranceProgress = progress;
+    boolean bottom = layout.bottomAttached;
+    activity.backdropView.setAlpha(progress);
+    activity.cardContainer.setAlpha(bottom ? 1 : progress);
+    activity.cardContainer.setTranslationY(bottom ? shownFrame.height() * (1 - progress) : 0);
   }
 
   private interface FrameUpdate {
     void update(float value);
   }
 
-  private void animate(int duration, FrameUpdate update, Runnable completion) {
+  private void animate(AnimationKind kind, int duration, FrameUpdate update, Runnable completion) {
     cancelAnimation();
     final int epoch = animationEpoch;
+    animationKind = kind;
     animator = ValueAnimator.ofFloat(0, 1);
     animator.setDuration(duration);
     animator.setInterpolator(new DecelerateInterpolator());
@@ -372,6 +403,7 @@ final class StashPresentationController implements View.OnTouchListener {
           public void onAnimationEnd(Animator animation) {
             if (epoch == animationEpoch && !disposed) {
               animator = null;
+              animationKind = null;
               if (completion != null) {
                 completion.run();
               }
@@ -383,6 +415,7 @@ final class StashPresentationController implements View.OnTouchListener {
 
   private void cancelAnimation() {
     animationEpoch++;
+    animationKind = null;
     if (!activity.isDismissing && activity.cardContainer != null) {
       activity.cardContainer.setAlpha(1);
       activity.backdropView.setAlpha(1);

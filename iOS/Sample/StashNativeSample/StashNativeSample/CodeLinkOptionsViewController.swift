@@ -52,6 +52,8 @@ final class CodeLinkOptionsViewController: UITableViewController {
         title = "QR Code scan options"
         navigationItem.largeTitleDisplayMode = .never
         tableView.keyboardDismissMode = .onDrag
+        tableView.sectionHeaderHeight = UITableView.automaticDimension
+        tableView.estimatedSectionHeaderHeight = 40
     }
 
     override func numberOfSections(in tableView: UITableView) -> Int { 4 }
@@ -64,17 +66,17 @@ final class CodeLinkOptionsViewController: UITableViewController {
         }
     }
 
-    override func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+    override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         switch section {
-        case 0: return "Header"
-        case 1: return "Info callout"
-        case 2: return "Status text"
+        case 0: return SampleSectionHeaderView("Header")
+        case 1: return SampleSectionHeaderView("Info callout")
+        case 2: return SampleSectionHeaderView("Status text")
         default: return nil
         }
     }
 
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        section == 2 ? "Empty text uses the default wording. Changes apply to the next scan." : nil
+        section == 2 ? "Leave blank to use defaults." : nil
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
