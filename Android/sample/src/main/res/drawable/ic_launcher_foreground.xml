@@ -4,11 +4,11 @@
     android:height="108dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
-    <group android:translateX="310.634" android:translateY="160.904"
-        android:scaleX="2.22" android:scaleY="2.22">
+    <group android:translateX="267.09515" android:translateY="84.98906"
+        android:scaleX="2.7" android:scaleY="2.7">
         <path android:fillColor="#00000000"
-            android:strokeColor="#FFFFFFFF"
-            android:strokeWidth="4.054054054"
+            android:strokeColor="#FF1E1E1E"
+            android:strokeWidth="3.333333333"
             android:strokeLineJoin="round"
             android:pathData="M6.11033 248.616L6.46627 198.998H112.122C118.054 198.998 122.207 197.973 124.698 195.983C127.19 193.994 128.435 191.04 128.435 187.181C128.435 179.404 123.69 175.184 114.198 174.46L61.5185 171.265C20.5259 168.914 0 151.792 0 119.838C0 103.5 5.63574 90.7188 16.9665 81.4946C28.2973 72.2704 45.6198 67.6884 68.9933 67.6884H169.131L169.487 117.306H68.9933C63.1796 117.306 59.0863 118.271 56.654 120.14C54.2217 122.009 52.9759 124.782 52.9759 128.46C52.9759 135.755 57.7218 139.854 67.2136 140.819L121.613 144.014C161.479 146.004 181.411 162.825 181.411 194.356C181.411 211.056 175.716 224.319 164.386 234.026C153.055 243.732 135.851 248.616 112.774 248.616H6.11033Z" />
     </group>

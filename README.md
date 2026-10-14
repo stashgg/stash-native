@@ -2,7 +2,7 @@
 
 
 <p align="left">
-  <img src=".github/assets/stash_native.svg" width="128" height="128" alt="Stash Native blueprint logo"/>
+  <img src=".github/assets/stash_native_rounded.png" width="128" height="128" alt="Stash Native blueprint logo"/>
 </p>
 
 The stash-native package adds Stash in-app purchases (IAPs) and webshops to your game or app. It presents checkout in a responsive native card or platform browser and sends payment and lifecycle callbacks to your application. CodeLink scans webshop QR codes in the same card. The library is delivered as an AAR for Android and an XCFramework or Swift package for iOS.
@@ -15,8 +15,8 @@ Unity and Unreal bindings live in separate repositories.
 
 |                                                                                         | Engine        | Repository                                          |
 | --------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------- |
-| <img src=".github/assets/stash_unity.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   |
-| <img src=".github/assets/stash_unreal.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) |
+| <img src=".github/assets/stash_unity_rounded.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   |
+| <img src=".github/assets/stash_unreal_rounded.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) |
 
 ---
 
