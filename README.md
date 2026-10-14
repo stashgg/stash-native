@@ -1,17 +1,19 @@
-# Stash for Android / iOS [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
+# Stash Native [![Lint](https://github.com/stashgg/stash-native/actions/workflows/lint.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/lint.yml) [![Build & Deploy](https://github.com/stashgg/stash-native/actions/workflows/main.yml/badge.svg)](https://github.com/stashgg/stash-native/actions/workflows/main.yml)
 
 
 <p align="left">
   <img src=".github/assets/stash_native_rounded.png" width="128" height="128" alt="Stash Native blueprint logo"/>
 </p>
 
-The stash-native package adds Stash in-app purchases (IAPs) and webshops to your game or app. It presents checkout in a responsive native card or platform browser and sends payment and lifecycle callbacks to your application. CodeLink scans webshop QR codes in the same card. The library is delivered as an AAR for Android and an XCFramework or Swift package for iOS.
+The stash-native package adds Stash Pay in-app purchases (IAPs) and Stash webshop authentication to your native games or apps. It presents checkout in a responsive native card or platform browser and sends payment and lifecycle callbacks to your application. Code Link feature scans webshop QR codes inside your app for seamless account linking.
+
+For integrating Stash into web pages or web applications, please use [stash-web](https://github.com/stashgg/stash-web) instead.
 
 ---
 
 ## Game Engine Wrappers
 
-Unity and Unreal bindings live in separate repositories.
+Unity and Unreal bindings for this library live in separate repositories. Use them for seamless engine integrations.
 
 |                                                                                         | Engine        | Repository                                          |
 | --------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------- |
@@ -31,9 +33,9 @@ Pre-built binaries are available on the [Releases Page](https://github.com/stash
 
 ## Sample apps & Testing
 
-Run `./gradlew :sample:installDebug` from [`Android/`](Android/) or open the [iOS sample project](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode. Both samples include checkout generation, QR scanning, and callback logs.
+Run `./gradlew :sample:installDebug` from [`Android/`](Android/) or open the [iOS sample project](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode. 
 
-Use the [callback test page](https://test.stashpreview.com/) and [testing guide](docs/maintenance-and-testing.md). Use test credentials only; keep production secrets on your backend.
+For quick testing of the Stash's in-app checkout card use [callback test page](https://test.stashpreview.com/) that can trigger different events and simulate various scenarios.
 
 ---
 
