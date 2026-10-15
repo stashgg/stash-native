@@ -77,7 +77,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     session.presenter = presenter;
     session.config = snapshot;
     self.session = session;
-    session.url = appendThemeQueryParameter(normalized);
+    session.url = appendThemeQueryParameter(normalized, presenter.traitCollection);
     if (browser) [session presentBrowser]; else [session presentCheckout];
 #if !__has_feature(objc_arc)
     [session release];
@@ -94,14 +94,11 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
 #if !__has_feature(objc_arc)
     [session retain];
 #endif
-    session.closing = YES;
     self.session = nil;
-    [session dismissPresentedSurfaceAnimated:NO completion:^{
-        [session cleanup];
+    [session retire];
 #if !__has_feature(objc_arc)
-        [session release];
+    [session release];
 #endif
-    }];
 }
 - (void)closeBrowser {
     if (!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(), ^{ [self closeBrowser]; }); return; }
@@ -113,5 +110,16 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     }
     if (!self.session.browser || self.session.closing) return;
     [self.session paymentSucceeded:success order:nil];
+}
+- (void)dealloc {
+    StashCheckoutSession *session = _session;
+    // Detach before MRC frees the assign owner; UIKit retirement stays on main.
+    session.owner = nil;
+    if (NSThread.isMainThread) [session retire];
+    else dispatch_async(dispatch_get_main_queue(), ^{ [session retire]; });
+#if !__has_feature(objc_arc)
+    [_session release];
+    [super dealloc];
+#endif
 }
 @end

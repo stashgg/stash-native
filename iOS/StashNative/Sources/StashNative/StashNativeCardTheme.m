@@ -25,28 +25,28 @@ static NSString * const kThemeQueryParamName = @"theme";
 static NSString * const kThemeLight = @"light";
 static NSString * const kThemeDark = @"dark";
 
-UIColor* getSystemBackgroundColor(void) {
-    UITraitCollection *traits = [StashNativeCard sharedInstance].session.presenter.traitCollection ?: UITraitCollection.currentTraitCollection;
+UIColor* getSystemBackgroundColor(UITraitCollection *traits) {
+    traits = traits ?: UITraitCollection.currentTraitCollection;
     return traits.userInterfaceStyle == UIUserInterfaceStyleDark
         ? [UIColor colorWithRed:0x1e/255.0 green:0x1e/255.0 blue:0x1e/255.0 alpha:1.0]
         : [UIColor.systemBackgroundColor resolvedColorWithTraitCollection:traits];
 }
 
-BOOL stash_effectiveThemeIsDark(void) {
-    UITraitCollection *traits = [StashNativeCard sharedInstance].session.presenter.traitCollection ?: UITraitCollection.currentTraitCollection;
+BOOL stash_effectiveThemeIsDark(UITraitCollection *traits) {
+    traits = traits ?: UITraitCollection.currentTraitCollection;
     return traits.userInterfaceStyle == UIUserInterfaceStyleDark;
 }
 
-UIColor* stash_sheetBackgroundUIColor(void) {
-    return getSystemBackgroundColor();
+UIColor* stash_sheetBackgroundUIColor(UITraitCollection *traits) {
+    return getSystemBackgroundColor(traits);
 }
 
-NSString* appendThemeQueryParameter(NSString* url) {
+NSString* appendThemeQueryParameter(NSString* url, UITraitCollection *traits) {
     if (url == nil || url.length == 0) {
         return url;
     }
 
-    NSString *theme = stash_effectiveThemeIsDark() ? kThemeDark : kThemeLight;
+    NSString *theme = stash_effectiveThemeIsDark(traits) ? kThemeDark : kThemeLight;
 
     NSURLComponents *components = [NSURLComponents componentsWithString:url];
     if (components == nil) {

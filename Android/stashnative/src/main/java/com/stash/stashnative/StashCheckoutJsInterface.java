@@ -119,6 +119,12 @@ final class StashCheckoutJsInterface {
     try {
       activity.runOnUiThread(() -> {
         try {
+          StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+          if (!plugin.isCurrentlyPresented || activity.isDismissing
+              || activity.isFinishing() || activity.isDestroyed()
+              || activity.getPresentationSessionId() != plugin.presentationSessionId) {
+            return;
+          }
           action.run();
         } catch (Exception error) {
           Log.w(TAG, "Bridge operation failed: " + operation, error);

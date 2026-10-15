@@ -23,6 +23,7 @@ extension ViewController {
     }
 
     @objc func openCardTapped() {
+        cancelGenerateRequest()
         let url = (checkoutUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a card URL")
@@ -33,6 +34,7 @@ extension ViewController {
     }
 
     @objc func openBrowserTapped() {
+        cancelGenerateRequest()
         let url = (browserUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a browser URL")
@@ -42,6 +44,7 @@ extension ViewController {
     }
 
     @objc func codeLinkTapped() {
+        cancelGenerateRequest()
         StashNativeCard.sharedInstance().codeLink(from: self, config: codeLinkConfig)
     }
 
@@ -122,9 +125,17 @@ extension ViewController {
     }
     #endif
 
-    /// Calls the Stash server endpoint for `kind` and returns the generated URL.
+    @objc func cancelGenerateRequest(_ notification: Notification? = nil) {
+        generateRequestId = UUID()
+        generateRequest?.cancel()
+        generateRequest = nil
+    }
+
+    /// Calls the Stash server endpoint for `kind`; only the latest request may update the UI.
     private func performGenerateUrl(_ kind: ViewController.PayloadKind,
                                     onSuccess: @escaping (String) -> Void) {
+        cancelGenerateRequest()
+        let requestId = generateRequestId
         let path = kind == .checkout
             ? "/sdk/server/checkout_links/generate_quick_pay_url"
             : "/sdk/server/generate_url"
@@ -150,21 +161,20 @@ extension ViewController {
         request.setValue(signature, forHTTPHeaderField: "x-stash-hmac-signature")
         request.httpBody = bodyData
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let self = self else { return }
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-            let isSuccessResponse = statusCode >= 200 && statusCode < 300
-            guard isSuccessResponse, let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let generatedUrl = json["url"] as? String, !generatedUrl.isEmpty else {
-                DispatchQueue.main.async {
+        generateRequest = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.generateRequestId == requestId else { return }
+                self.generateRequest = nil
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                guard (200..<300).contains(statusCode), let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let generatedUrl = json["url"] as? String, !generatedUrl.isEmpty else {
                     self.showAlert(title: "Error", message: failureMessage)
+                    return
                 }
-                return
-            }
-            DispatchQueue.main.async {
                 onSuccess(generatedUrl)
             }
-        }.resume()
+        }
+        generateRequest?.resume()
     }
 }

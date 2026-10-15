@@ -11,7 +11,7 @@ Pass the initiating host with every UI-open call:
 
 Use the current engine activity or the controller attached to its window. Do not find an arbitrary foreground scene or retain a destroyed activity. Marshal calls to the platform UI thread.
 
-Map the responsive config fields directly: preferred content width/height, maximum content height, edge margin, dismissibility, and auto-close. Dimensions are points/dp. Cards also expose the follow-host/portrait preference. Remove modal bindings, background-color configuration, old device ratios, popup multipliers, `setActivity`, and wrapper-owned orientation/backdrop integrations. See [migration](migration-3.0.md).
+Map the responsive config fields directly: preferred content width/height, maximum content height, edge margin, dismissibility, and auto-close. Dimensions are points/dp. Cards also expose the follow-host/portrait preference. Remove modal bindings, background-color configuration, old device ratios, popup multipliers, `setActivity`, and wrapper-owned orientation handling. Remove iOS backdrop integration; Android retains `setBackdropBitmap` and `setBackdropBytes` for portrait cards. See [migration](migration-3.0.md).
 
 ## Callbacks and lifetime
 

@@ -12,7 +12,7 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 - Require the presenting activity or view controller for card and browser calls.
 - Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
 - Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
-- Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and screenshot-backdrop workarounds.
+- Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and iOS screenshot-backdrop workarounds; Android backdrop APIs remain available.
 - Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
 
 ### Presentation

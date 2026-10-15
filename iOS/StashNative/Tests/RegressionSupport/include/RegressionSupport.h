@@ -86,3 +86,6 @@ NSDictionary *StashPortraitFinishProbe(void);
 NSDictionary *StashPortraitBrowserDismissProbe(void);
 void StashBrowserConfigurationProbe(void (^completion)(NSDictionary *));
 NSDictionary *StashBrowserPreparationProbe(void);
+void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^completion)(NSDictionary *));
+NSDictionary *StashInstanceThemeProbe(void);
+NSDictionary *StashInstanceClosingOwnerReleaseProbe(void);

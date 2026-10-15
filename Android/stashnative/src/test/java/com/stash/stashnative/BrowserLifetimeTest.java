@@ -85,7 +85,7 @@ public class BrowserLifetimeTest {
     assertEquals(View.VISIBLE, checkout.cardContainer.getVisibility());
   }
 
-  @Test public void replacementInsideExternalPaymentCallbackCancelsLaunch() {
+  @Test public void replacementInsideExternalPaymentCallbackRetiresOldCheckoutAndCancelsLaunch() {
     sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
       @Override public void onExternalPayment(String url) { openCheckout(); }
     });
@@ -93,7 +93,7 @@ public class BrowserLifetimeTest {
     ShadowLooper.idleMainLooper();
     assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
     assertTrue(sdk.isCurrentlyPresented());
-    assertEquals(View.VISIBLE, checkout.cardContainer.getVisibility());
+    assertTrue(checkout.isFinishing());
   }
 
   @Test public void repeatedHandoffLaunchesOnceAndClosesOnce() {
@@ -113,15 +113,15 @@ public class BrowserLifetimeTest {
     assertTrue(checkout.isFinishing());
   }
 
-  @Test public void replacementBeforeQueuedHideKeepsOldChromeUntouched() {
+  @Test public void replacementBeforeQueuedHideRetiresOldCheckout() {
     handoff();
     openCheckout();
     ShadowLooper.idleMainLooper();
-    assertEquals(View.VISIBLE, checkout.cardContainer.getVisibility());
+    assertTrue(checkout.isFinishing());
     assertTrue(sdk.isCurrentlyPresented());
   }
 
-  @Test public void replacementInsideBrowserClosedCallbackCannotRunOldDismissal() {
+  @Test public void replacementInsideBrowserClosedCallbackRetiresOldCheckout() {
     handoff();
     sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
       @Override public void onBrowserClosed() { openCheckout(); }
@@ -130,6 +130,71 @@ public class BrowserLifetimeTest {
         .getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
     plugin.notifyBrowserClosedFromProxyInternal(sessionId);
     ShadowLooper.idleMainLooper();
+    assertTrue(checkout.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
+  }
+
+  @Test public void queuedLinkCannotLaunchAfterResetOrRetireReplacement() throws Exception {
+    Thread js = new Thread(() -> new StashCheckoutJsInterface(checkout)
+        .openLink("https://example.invalid/terms"));
+    js.start();
+    js.join();
+    sdk.resetPresentationState();
+    assertTrue(checkout.isFinishing());
+    StashCheckoutActivity replacement = openCheckout();
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    assertFalse(replacement.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
+    assertEquals(0, externalPayments);
+    assertEquals(0, browserClosed);
+  }
+
+  @Test public void activeLinkLaunchesWithoutCallbacksThemeOrDismissal() {
+    new StashCheckoutJsInterface(checkout).openLink("https://example.invalid/terms");
+    ShadowLooper.idleMainLooper();
+    Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals("https://example.invalid/terms", launched.getDataString());
+    assertFalse(checkout.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
+    assertEquals(0, externalPayments);
+    assertEquals(0, browserClosed);
+  }
+
+  @Test public void queuedLinkCannotLaunchAfterBrowserHandoff() throws Exception {
+    Thread js = new Thread(() -> new StashCheckoutJsInterface(checkout)
+        .openLink("https://example.invalid/terms"));
+    js.start();
+    js.join();
+    handoff();
+    assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    assertFalse(sdk.isCurrentlyPresented());
+    assertEquals(1, externalPayments);
+    assertEquals(0, browserClosed);
+  }
+
+  @Test public void browserOpenedFromExternalPaymentCallbackRetiresPreviousCheckout() {
+    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        sdk.openBrowser(host, "https://example.invalid/next");
+      }
+    });
+    handoff();
+    ShadowLooper.idleMainLooper();
+    Intent launched = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(launched);
+    long browser = launched.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
+    assertTrue(checkout.isFinishing());
+    assertTrue(plugin.isCurrentBrowserSession(browser));
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+  }
+
+  @Test public void ordinaryOpenBrowserDoesNotRetireAnActiveCard() {
+    sdk.openBrowser(host, "https://example.invalid/terms");
+    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
     assertFalse(checkout.isFinishing());
     assertTrue(sdk.isCurrentlyPresented());
   }

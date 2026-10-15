@@ -17,7 +17,9 @@ extension ViewController {
 
     func flushPendingAlertsIfPossible() {
         // present() sets presentedViewController synchronously, so this alone guards re-entry.
-        guard presentedViewController == nil, !pendingAlerts.isEmpty else { return }
+        guard isViewLoaded, view.window != nil,
+              navigationController == nil || navigationController?.topViewController === self,
+              presentedViewController == nil, !pendingAlerts.isEmpty else { return }
         let (title, message) = pendingAlerts.removeFirst()
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in

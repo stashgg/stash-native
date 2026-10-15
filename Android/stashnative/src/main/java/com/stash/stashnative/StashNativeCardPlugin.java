@@ -652,6 +652,7 @@ public class StashNativeCardPlugin {
       return;
     }
     // A terminal callback may reopen before the previous dismissal animation finishes.
+    retireCheckoutWithoutCallbacks();
     cleanupAllViews();
     presentationSessionId++;
     isCurrentlyPresented = true;
@@ -695,6 +696,9 @@ public class StashNativeCardPlugin {
       if (activity == null || url == null) {
         Log.e(TAG, "Invalid activity or URL for openBrowser");
         return;
+      }
+      if (!isCurrentlyPresented) {
+        retireCheckoutWithoutCallbacks();
       }
       try {
         url =
@@ -740,6 +744,14 @@ public class StashNativeCardPlugin {
     return reference != null ? reference.get() : null;
   }
 
+  private void retireCheckoutWithoutCallbacks() {
+    StashCheckoutActivity checkout = getCheckoutActivity();
+    checkoutActivityRef = null;
+    if (checkout != null) {
+      checkout.finishForPluginResetWithoutCallbacks();
+    }
+  }
+
   void clearCheckoutActivity(StashCheckoutActivity activity) {
     if (activity.getPresentationSessionId() == backdropSessionId) {
       releaseLaunchingBackdrop();
@@ -757,12 +769,7 @@ public class StashNativeCardPlugin {
     }
     try {
       presentationSessionId++;
-      // Card: finish the activity WITHOUT emitting onDialogDismissed (reset is silent).
-      StashCheckoutActivity a = getCheckoutActivity();
-      if (a != null) {
-        a.runOnUiThread(a::finishForPluginResetWithoutCallbacks);
-      }
-      checkoutActivityRef = null;
+      retireCheckoutWithoutCallbacks();
       isCurrentlyPresented = false;
       cleanup();
     } catch (Exception e) {

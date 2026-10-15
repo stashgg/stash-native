@@ -103,6 +103,9 @@ jobs:
         with:
           xcode-version: ${{ inputs.xcode-version || '26.6' }}
 
+      - name: Test sample request and credential handling
+        run: HS_TEMP="$RUNNER_TEMP" python3 iOS/Sample/Tests/run_regressions.py --output "$RUNNER_TEMP/stash-sample-regressions"
+
       - name: Run unit tests
         run: |
           # Copy SPM package to a temp dir without .xcodeproj so xcodebuild

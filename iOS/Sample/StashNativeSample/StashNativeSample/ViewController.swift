@@ -104,7 +104,11 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     // API keys: named, each production or test; Keychain-persisted (survives reinstall).
     var apiKeys: [ApiKeyEntry] = []
     var selectedApiKeyId: String?
+    var canSaveApiKeys = false
+    var didShowCredentialSaveError = false
     var pendingAlerts: [(String, String)] = []
+    var generateRequest: URLSessionDataTask?
+    var generateRequestId = UUID()
 
     // MARK: - App orientation lock
     var lockLandscape = false
@@ -193,6 +197,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         applyHeader(for: currentTab)
 
         loadApiKeys()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(cancelGenerateRequest(_:)),
+            name: UIApplication.willResignActiveNotification, object: nil)
         setupTextFields()
         setupCheckoutSlidersAndSwitches()
         setupLockLandscape()
@@ -251,6 +258,15 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         #if DEBUG
         openLaunchPresentationIfNeeded()
         #endif
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        cancelGenerateRequest()
+    }
+
+    deinit {
+        generateRequest?.cancel()
     }
 
     override func viewSafeAreaInsetsDidChange() {

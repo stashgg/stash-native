@@ -49,13 +49,13 @@ StashPresentationGeometry StashResolveGeometry(CGRect safeBounds, StashNativeCar
                                                BOOL expanded, CGFloat measuredContentHeight);
 BOOL StashValidateContentHeight(NSDictionary *payload, NSString *documentID, CGFloat viewportWidth,
                                CGFloat scale, CGFloat nativeWidth, CGFloat *height);
-UIColor *getSystemBackgroundColor(void);
+UIColor *getSystemBackgroundColor(UITraitCollection *traits);
 NSString *StashTopChromeScript(void);
 WKContentWorld *StashTopChromeWorld(void);
 extern NSString *const StashTopChromeHandlerName;
-UIColor *stash_sheetBackgroundUIColor(void);
-BOOL stash_effectiveThemeIsDark(void);
-NSString *appendThemeQueryParameter(NSString *url);
+UIColor *stash_sheetBackgroundUIColor(UITraitCollection *traits);
+BOOL stash_effectiveThemeIsDark(UITraitCollection *traits);
+NSString *appendThemeQueryParameter(NSString *url, UITraitCollection *traits);
 NSString *NormalizeExternalPaymentURL(NSString *raw);
 NSArray<NSString *> *StashScriptHandlerNames(void);
 NSString *StashBridgeScript(void);
@@ -138,6 +138,7 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 - (void)dismissPresentedSurfaceAnimated:(BOOL)animated completion:(void (^)(void))completion;
 - (void)finishWithUserDismiss:(BOOL)userDismiss completion:(void (^)(void))completion;
 - (void)cleanup;
+- (void)retire;
 - (void)paymentSucceeded:(BOOL)success order:(NSString *)order;
 - (void)handleMessage:(NSString *)name body:(id)body;
 - (void)networkFailed;

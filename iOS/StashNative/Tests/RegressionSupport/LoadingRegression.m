@@ -288,7 +288,7 @@ NSDictionary *StashPageBackingLifecycleProbe(void) {
     session.controller = controller; controller.session = session;
     UIColor *coverColor = UIColor.magentaColor;
     controller.loadingCover = [UIView new]; controller.loadingCover.backgroundColor = coverColor;
-    web.backgroundColor = stash_sheetBackgroundUIColor();
+    web.backgroundColor = stash_sheetBackgroundUIColor(session.presenter.traitCollection);
     UIColor *fallback = web.underPageBackgroundColor;
     UIColor *panel = [UIColor colorWithRed:247/255.0 green:249/255.0 blue:244/255.0 alpha:1];
     StashChromeProbeFrame *frame = [StashChromeProbeFrame new]; frame.top = YES;
@@ -457,7 +457,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         session.controller = controller; controller.session = session;
         controller.topChromeColor = edge;
         [controller configurePresentation];
-        UIColor *initial = stash_sheetBackgroundUIColor();
+        UIColor *initial = stash_sheetBackgroundUIColor(host.traitCollection);
         BOOL notLoaded = !controller.isViewLoaded;
         [controller loadViewIfNeeded];
         UIView *cover = controller.loadingCover;
@@ -470,7 +470,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         }
 #endif
         BOOL covered = notLoaded && cover && cover.alpha == 1 && !session.initialContentRevealed &&
-            stash_effectiveThemeIsDark() == (dark != 0) &&
+            stash_effectiveThemeIsDark(host.traitCollection) == (dark != 0) &&
             StashLoadingSamePaint(cover.backgroundColor, glass ? UIColor.clearColor : initial) &&
             session.webView.alpha == (glass ? 0 : 1) && !StashLoadingSamePaint(initial, page);
         BOOL contentPaint = StashLoadingSamePaint(controller.view.backgroundColor, glass ? UIColor.clearColor : edge);

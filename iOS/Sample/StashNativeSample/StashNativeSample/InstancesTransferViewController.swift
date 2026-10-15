@@ -70,16 +70,23 @@ final class InstancesTransferViewController: UIViewController {
 
     @objc private func importTapped() {
         view.endEditing(true)
-        guard let added = host?.importInstancesJson(textView.text ?? "") else {
+        guard let result = host?.importInstancesJson(textView.text ?? "") else {
             flash("Could not read that document")
             return
         }
-        if added == 0 {
+        if result.added == 0 {
             flash("No new instances to import")
             return
         }
+        if !result.saved {
+            let alert = UIAlertController(title: "Could not save instances",
+                message: "Imported \(result.added) instance(s) for this session only.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+            return
+        }
         // Match the Android sample: a successful import drops back to the refreshed list.
-        flash("Imported \(added) instance(s)") { [weak self] in
+        flash("Imported \(result.added) instance(s)") { [weak self] in
             self?.dismiss(animated: true)
         }
     }

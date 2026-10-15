@@ -110,7 +110,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         ((SectionFooterVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_URL_PREFERENCE:
-        ((UrlPreferenceVH) holder).bind(item, position);
+        ((UrlPreferenceVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_ACTION_PREFERENCE:
         ((ActionPreferenceVH) holder).bind(item, position);
@@ -245,7 +245,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
   class UrlPreferenceVH extends RecyclerView.ViewHolder {
     private final ItemPreferenceUrlBinding binding;
-    private int boundPosition = -1;
 
     UrlPreferenceVH(ItemPreferenceUrlBinding binding) {
       super(binding.getRoot());
@@ -254,8 +253,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     private int boundTitleRes;
 
-    void bind(SettingsItem item, int position) {
-      boundPosition = position;
+    void bind(SettingsItem item) {
       boundTitleRes = item.titleRes;
       binding.preferenceIcon.setImageResource(item.iconRes);
       binding.preferenceIcon.setVisibility(item.iconRes == 0 ? View.GONE : View.VISIBLE);
@@ -407,6 +405,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item, int position) {
       binding.switchTitle.setText(item.titleRes);
+      binding.switchPreference.setContentDescription(
+          itemView.getContext().getString(item.titleRes));
       if (item.supportingRes != 0) {
         binding.switchSupporting.setText(item.supportingRes);
         binding.switchSupporting.setVisibility(View.VISIBLE);

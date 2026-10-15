@@ -97,6 +97,7 @@ xcodebuild build -project iOS/StashNative/StashNative.xcodeproj -scheme StashNat
 xcodebuild analyze -project iOS/StashNative/StashNative.xcodeproj -scheme StashNative \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath "$AUDIT_WORK/ios-analysis"
 swiftlint lint iOS/Sample/StashNativeSample --strict --no-cache --config .swiftlint.yml
+python3 iOS/Sample/Tests/run_regressions.py --output "$AUDIT_WORK/sample-regressions"
 xcodebuild build -project iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj \
   -scheme StashNativeSample -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
   -derivedDataPath "$AUDIT_WORK/ios-sample" CODE_SIGNING_ALLOWED=NO
@@ -112,6 +113,8 @@ cd "$AUDIT_WORK/ios-tests"
 xcodebuild test -scheme StashNative -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
   -derivedDataPath "$AUDIT_WORK/ios-tests-derived"
 ```
+
+The sample regression runner checks request ordering and credential persistence using exact production methods with synthetic network and Keychain boundaries. It never accesses saved credentials; UIKit behavior still needs the sample build and device checks.
 
 Compile all Objective-C sources and a public-header consumer in both ARC and non-ARC modes. Check VoiceOver/TalkBack names, escape and adjustable actions, processing locks, rotation, and keyboard behavior on devices. See the [verification reference](../.agents/skills/stash-native-audit/references/verification.md) for additional execution contexts.
 

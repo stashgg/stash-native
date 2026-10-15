@@ -10,9 +10,20 @@ import UIKit
 extension ViewController {
 
     func loadApiKeys() {
-        let payload = ApiKeyStore.load()
-        apiKeys = payload.keys
-        selectedApiKeyId = payload.selectedId
+        do {
+            let payload = try ApiKeyStore.load()
+            apiKeys = payload?.keys ?? []
+            selectedApiKeyId = payload?.selectedId
+            canSaveApiKeys = true
+        } catch {
+            canSaveApiKeys = false
+            apiKeys = [ViewController.bundledEntry()]
+            selectedApiKeyId = apiKeys.first?.id
+            showAlert(title: "Could not load saved instances",
+                      message: "Changes will stay in this session. Existing saved instances are unchanged. "
+                        + "Restart the app to try again.")
+            return
+        }
         if apiKeys.isEmpty {
             apiKeys = [ViewController.bundledEntry()]
         }
@@ -40,8 +51,21 @@ extension ViewController {
         saveApiKeys()
     }
 
-    func saveApiKeys() {
-        ApiKeyStore.save(keys: apiKeys, selectedId: selectedApiKeyId)
+    @discardableResult
+    func saveApiKeys(reportError: Bool = true) -> Bool {
+        guard canSaveApiKeys else { return false }
+        do {
+            try ApiKeyStore.save(keys: apiKeys, selectedId: selectedApiKeyId)
+            didShowCredentialSaveError = false
+            return true
+        } catch {
+            if reportError && !didShowCredentialSaveError {
+                didShowCredentialSaveError = true
+                showAlert(title: "Could not save instances",
+                          message: "Your latest changes are available in this session only.")
+            }
+            return false
+        }
     }
 
     var selectedApiKey: ApiKeyEntry? {
@@ -75,8 +99,8 @@ extension ViewController {
     }
 
     /// Adds instances from an exported document, skipping any already present.
-    /// Returns the number added, or nil if the document could not be read.
-    func importInstancesJson(_ text: String) -> Int? {
+    /// Returns the number added and whether it was saved, or nil for an unreadable document.
+    func importInstancesJson(_ text: String) -> (added: Int, saved: Bool)? {
         guard let data = text.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let instances = root["instances"] as? [[String: Any]] else { return nil }
@@ -100,10 +124,11 @@ extension ViewController {
             added += 1
         }
         if added > 0 {
-            saveApiKeys()
+            let saved = saveApiKeys(reportError: false)
             reloadApiSection()
+            return (added, saved)
         }
-        return added
+        return (0, true)
     }
 
     /// Credential the API calls sign with: the selected entry, or the bundled demo one if the
@@ -156,10 +181,7 @@ extension ViewController {
         apiKeys.first(where: { $0.id == id })
     }
 
-    // Detail fields commit into the in-memory model as the user types; persistInstances()
-    // writes them to the Keychain when the details screen is dismissed.
-    // Detail fields commit and persist as the user types (parity with Android), so an edit is
-    // never lost if the app is killed before the details screen closes.
+    // Detail fields update in memory and attempt a save after each edit.
     func setInstanceName(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].name = value
@@ -195,14 +217,14 @@ extension ViewController {
         return kind == .checkout ? entry.checkoutPayload : entry.webshopPayload
     }
 
-    func saveInstancePayload(_ id: String, _ kind: PayloadKind, _ text: String) {
-        guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
+    func saveInstancePayload(_ id: String, _ kind: PayloadKind, _ text: String) -> Bool {
+        guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return false }
         if kind == .checkout {
             apiKeys[index].checkoutPayload = text
         } else {
             apiKeys[index].webshopPayload = text
         }
-        saveApiKeys()
+        return saveApiKeys(reportError: false)
     }
 
     /// Returns false when the entry cannot sign; both app ID and secret are required.

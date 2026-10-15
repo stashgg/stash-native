@@ -110,6 +110,7 @@ extension ViewController {
 
 extension ViewController: UITabBarDelegate {
     func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        cancelGenerateRequest()
         currentTab = Tab(rawValue: item.tag) ?? .test
         applyHeader(for: currentTab)
         tableView.reloadData()

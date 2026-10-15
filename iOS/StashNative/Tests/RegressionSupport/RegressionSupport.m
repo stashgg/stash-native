@@ -42,7 +42,7 @@ NSString *StashNativeInteractionSource(void) { return StashNativeInteractionScri
 NSDictionary *StashURLProbe(void) {
     return @{@"bare":NormalizeExternalPaymentURL(@"example.invalid/path") ?: @"",
         @"javascript":NormalizeExternalPaymentURL(@"javascript:alert(1)") ?: @"",
-        @"themed":appendThemeQueryParameter(@"https://example.invalid/?token=a%2Bb%26c&theme=light#section")};
+        @"themed":appendThemeQueryParameter(@"https://example.invalid/?token=a%2Bb%26c&theme=light#section", nil)};
 }
 NSDictionary *StashNativeSurfaceProbe(void) {
     CGRect safe = CGRectMake(0, 0, 466, 644);

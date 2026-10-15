@@ -301,7 +301,7 @@ config.orientationPreference = .portrait
 StashNativeCard.sharedInstance().openBrowser(withURL: checkoutURL, from: self, config: config)
 ```
 
-Safari stays full-screen, using the card's orientation handling to restore the host when it closes. The default follows the host; iPad ignores the preference. Android Custom Tabs control their own orientation.
+Safari keeps its native sheet presentation and restores the host orientation when it closes. The default follows the host; iPad ignores the preference. Android Custom Tabs control their own orientation.
 
 ### Android Keep-alive service (Optional)
 

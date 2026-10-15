@@ -87,6 +87,7 @@ dependencies {
     implementation 'com.google.zxing:core:3.5.3'
 
     // Match the sample's UI and optional Custom Tabs dependencies.
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
     implementation 'androidx.browser:browser:1.7.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'

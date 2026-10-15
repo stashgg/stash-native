@@ -99,6 +99,7 @@ final class StashCheckoutNavigationSupport {
     }
     try {
       Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+      intent.addCategory(Intent.CATEGORY_BROWSABLE);
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
       activity.startActivity(intent);
     } catch (Throwable t) {
@@ -108,10 +109,9 @@ final class StashCheckoutNavigationSupport {
   }
 
   /**
-   * Launches an {@code intent://} URI (Chrome intent syntax). Clears any component/selector to
-   * stop the URI redirecting to an internal host component (WebView intent-redirection hardening),
-   * then falls back to {@code browser_fallback_url} or the Play Store when the target app is
-   * missing. Card stays open throughout.
+   * Launches an {@code intent://} URI through a browsable target without explicit components or
+   * selectors. Falls back to {@code browser_fallback_url} or the Play Store when the target app
+   * is missing. Card stays open throughout.
    */
   private static void openIntentUri(Activity activity, String url) {
     Intent intent;
@@ -124,6 +124,7 @@ final class StashCheckoutNavigationSupport {
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     intent.setComponent(null);
     intent.setSelector(null);
+    intent.addCategory(Intent.CATEGORY_BROWSABLE);
     try {
       activity.startActivity(intent);
       return;

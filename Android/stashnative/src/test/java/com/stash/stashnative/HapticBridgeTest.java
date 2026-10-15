@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Looper;
 import android.view.HapticFeedbackConstants;
@@ -28,13 +29,19 @@ public class HapticBridgeTest {
   private StashCheckoutJsInterface bridge;
 
   @Before public void prepare() {
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class).get();
+    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    plugin.resetPresentationState();
+    plugin.isCurrentlyPresented = true;
+    Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
+        plugin.presentationSessionId);
+    activity = Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
     web = new RecordingWebView(activity);
     activity.webView = web;
     bridge = new StashCheckoutJsInterface(activity);
   }
 
   @After public void cleanup() {
+    StashNativeCardPlugin.getInstance().resetPresentationState();
     web.destroy();
   }
 

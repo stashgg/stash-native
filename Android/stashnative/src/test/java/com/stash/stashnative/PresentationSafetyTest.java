@@ -36,7 +36,8 @@ public class PresentationSafetyTest {
   private RecordingCheckout activity;
 
   @Before public void prepare() {
-    activity = Robolectric.buildActivity(RecordingCheckout.class).get();
+    StashNativeCardPlugin.getInstance().resetPresentationState();
+    activity = createCheckout();
     activity.options = StashPresentationOptions.card(null);
     activity.rootLayout = new FrameLayout(activity);
     activity.backdropView = new View(activity);
@@ -49,10 +50,19 @@ public class PresentationSafetyTest {
   }
 
   @After public void cleanup() {
+    StashNativeCardPlugin.getInstance().resetPresentationState();
     activity.presentation.dispose();
     StashCheckoutLoadingSupport.cancelLoadTimers(activity);
     StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
     if (activity.webView != null) activity.webView.destroy();
+  }
+
+  private RecordingCheckout createCheckout() {
+    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    plugin.isCurrentlyPresented = true;
+    Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
+        plugin.presentationSessionId);
+    return Robolectric.buildActivity(RecordingCheckout.class, intent).get();
   }
 
   @Test public void cancelledLoadingFadeCannotRevealContentFromAnAbandonedLoad() {
@@ -263,7 +273,7 @@ public class PresentationSafetyTest {
     StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
     config.allowDismiss = false;
     for (boolean success : new boolean[] {true, false}) {
-      RecordingCheckout checkout = Robolectric.buildActivity(RecordingCheckout.class).get();
+      RecordingCheckout checkout = createCheckout();
       checkout.options = StashPresentationOptions.card(config);
       checkout.isPurchaseProcessing = true;
       StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(checkout);
