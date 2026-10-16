@@ -74,6 +74,12 @@ Minimum iOS: **15.0**. Use **27.1** for iPhone Duo APIs and compatibility. The h
 **Swift Package Manager:** In Xcode choose File → Add Packages... and add `https://github.com/stashgg/stash-native.git`, then select the StashNative package for your target.
 
 
+## Features
+
+- **OpenCard:** Open Stash Pay checkout links in an embedded card, with purchase lifecycle callbacks delivered directly to your app.
+- **OpenBrowser:** Open Stash Pay checkout and Stash Webshop links in an in-app browser using Chrome Custom Tabs on Android or Safari View Controller on iOS.
+- **CodeLinking:** Scan QR codes in your app for quick account linking to Stash Webshops.
+
 ## Stash Pay Checkout Card
 
 Pass the activity or view controller belonging to the initiating app window. Set callbacks before opening. Pass a generated Stash Pay link to **openCard** to display a responsive card that adapts to phones, tablets, foldables, and multitasking states.
