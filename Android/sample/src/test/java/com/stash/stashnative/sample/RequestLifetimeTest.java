@@ -10,16 +10,19 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
@@ -43,25 +46,46 @@ public class RequestLifetimeTest {
     CountDownLatch requested = new CountDownLatch(1);
     CountDownLatch respond = new CountDownLatch(1);
     ExecutorService serverWorker = Executors.newSingleThreadExecutor();
+    ActivityController<MainActivity> controller = null;
+    ActivityController<Activity> replacement = null;
+    ExecutorService networkExecutor = null;
+    boolean destroyed = false;
     try (ServerSocket server = new ServerSocket(0)) {
-      serverWorker.submit(() -> {
+      final Future<?> response = serverWorker.submit(() -> {
         try (Socket connection = server.accept()) {
+          connection.setSoTimeout(5000);
           BufferedReader reader = new BufferedReader(new InputStreamReader(
               connection.getInputStream(), StandardCharsets.US_ASCII));
-          while (!reader.readLine().isEmpty()) { /* Consume request headers. */ }
+          int contentLength = -1;
+          String line;
+          while ((line = reader.readLine()) != null && !line.isEmpty()) {
+            if (line.regionMatches(true, 0, "Content-Length:", 0, 15)) {
+              contentLength = Integer.parseInt(line.substring(15).trim());
+            }
+          }
+          assertNotNull("complete request headers", line);
+          assertEquals("complete fixture POST body", 2, contentLength);
+          assertEquals('{', reader.read());
+          assertEquals('}', reader.read());
           requested.countDown();
-          respond.await(5, TimeUnit.SECONDS);
+          assertTrue("response released after host destruction",
+              respond.await(5, TimeUnit.SECONDS));
           String body = "{\"url\":\"https://example.invalid/checkout\"}";
-          String response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
+          String reply = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n"
               + "Content-Length: " + body.length() + "\r\nConnection: close\r\n\r\n" + body;
-          connection.getOutputStream().write(response.getBytes(StandardCharsets.US_ASCII));
-        } catch (Exception ignored) {
-          // Disconnecting the in-flight request is an expected cancellation result.
+          try {
+            connection.getOutputStream().write(reply.getBytes(StandardCharsets.US_ASCII));
+          } catch (SocketException ignored) {
+            // The destroyed host may already have disconnected this complete request.
+          }
         }
+        return null;
       });
-      org.robolectric.android.controller.ActivityController<MainActivity> controller =
-          Robolectric.buildActivity(MainActivity.class).setup();
+      controller = Robolectric.buildActivity(MainActivity.class).setup();
       MainActivity activity = controller.get();
+      Field executorField = MainActivity.class.getDeclaredField("networkExecutor");
+      executorField.setAccessible(true);
+      networkExecutor = (ExecutorService) executorField.get(activity);
       MainViewModel model = new MainViewModel((Application) activity.getApplicationContext()) {
         @Override public String getApiBaseUrl() {
           return "http://127.0.0.1:" + server.getLocalPort();
@@ -74,21 +98,38 @@ public class RequestLifetimeTest {
           String.class, boolean.class, int.class, String.class);
       request.setAccessible(true);
       request.invoke(activity, "/fixture", "{}", false, R.string.error_generate_checkout_url, "fixture");
-      assertTrue("local server received request", requested.await(5, TimeUnit.SECONDS));
+      boolean received = requested.await(5, TimeUnit.SECONDS);
+      if (!received && response.isDone()) {
+        response.get();
+      }
+      assertTrue("local server received complete request", received);
       controller.pause().stop().destroy();
-      Activity replacement = Robolectric.buildActivity(Activity.class).setup().get();
+      destroyed = true;
+      replacement = Robolectric.buildActivity(Activity.class).setup();
       respond.countDown();
-      Field executorField = MainActivity.class.getDeclaredField("networkExecutor");
-      executorField.setAccessible(true);
-      assertTrue(((ExecutorService) executorField.get(activity)).awaitTermination(5, TimeUnit.SECONDS));
+      response.get(5, TimeUnit.SECONDS);
+      assertTrue("destroyed host request terminated",
+          networkExecutor.awaitTermination(5, TimeUnit.SECONDS));
       ShadowLooper.idleMainLooper();
-      assertNull(Shadows.shadowOf(replacement).getNextStartedActivity());
+      assertNull(Shadows.shadowOf(replacement.get()).getNextStartedActivity());
       assertFalse(StashNativeCard.getInstance().isCurrentlyPresented());
-      StashNativeCard.getInstance().resetPresentationState();
-      replacement.finish();
     } finally {
       respond.countDown();
+      if (controller != null && !destroyed) {
+        controller.pause().stop().destroy();
+      }
+      if (replacement != null) {
+        replacement.pause().stop().destroy();
+      }
+      StashNativeCard.getInstance().resetPresentationState();
       serverWorker.shutdownNow();
+      assertTrue("local server terminated",
+          serverWorker.awaitTermination(5, TimeUnit.SECONDS));
+      if (networkExecutor != null && !networkExecutor.isTerminated()) {
+        networkExecutor.shutdownNow();
+        assertTrue("request cleanup terminated",
+            networkExecutor.awaitTermination(5, TimeUnit.SECONDS));
+      }
     }
   }
 }
