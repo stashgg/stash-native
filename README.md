@@ -218,6 +218,8 @@ extension YourViewController: StashNativeCardDelegate {
 
 As an alternative, you can use the **OpenBrowser** feature to open your Stash Pay and pre-authenticated webshop links in an in-game browser, using Chrome Custom Tabs on Android and Safari View Controller on iOS.
 
+![Stash Pay checkout in dark mode in Safari View Controller on iPhone and Chrome Custom Tabs on Android](.github/assets/openbrowser-devices-dark.png)
+
 **Android**
 
 ```java
