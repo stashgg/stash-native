@@ -218,11 +218,9 @@ extension YourViewController: StashNativeCardDelegate {
 }
 ```
 
----
-
 ## Using in-game browser (Stash Pay & Webshop)
 
-As an alternative, you can use the **OpenBrowser** feature to open your Stash Pay and pre-authenticated webshop links in an in-game browser, using Chrome Custom Tabs on Android and Safari View Controller on iOS.
+As an alternative, you can use the **OpenBrowser** feature to open your Stash Pay and pre-authenticated webshop links in an in-game browser, using Chrome Custom Tabs on Android and Safari View Controller on iOS. Browser checkouts can't report direct purchase lifecycle callbacks so deeplinks are used instead.
 
 ![Stash Pay checkout in dark mode in Safari View Controller on iPhone and Chrome Custom Tabs on Android](.github/assets/openbrowser-devices-dark.png)
 
@@ -274,8 +272,6 @@ StashNativeCard.getInstance().setKeepAliveConfig(config);
 ```
 
 The library manifest includes the service and foreground-service permissions. Integrators enabling it must configure their app's service declarations and notification behavior appropriately. See [Android implementation](docs/android.md) and [compatibility](COMPATIBILITY.md).
-
----
 
 ## CodeLink (iOS and Android)
 
