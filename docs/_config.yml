@@ -1,0 +1,40 @@
+# GitHub Pages: Settings > Pages > Build and deployment > Deploy from a branch > main, /docs.
+title: Stash Native
+description: Technical documentation for the Stash Native iOS and Android SDKs.
+repository: stashgg/stash-native
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-include-cache
+  - jekyll-seo-tag
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+search_enabled: true
+heading_anchors: true
+back_to_top: true
+back_to_top_text: Back to top
+
+aux_links:
+  GitHub: https://github.com/stashgg/stash-native
+
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/stashgg/stash-native
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree
+
+footer_content: Stash Native SDK. Source on <a href="https://github.com/stashgg/stash-native">GitHub</a>.
+
+mermaid:
+  version: "12.2.0"

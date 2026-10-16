@@ -63,7 +63,7 @@ dependencies {
 }
 ```
 
-AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [dependency notes](docs/android.md#dependencies) for details.
+AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [installation guide](docs/usage/installation.md#android) for details.
 
 ### iOS
 
@@ -280,7 +280,7 @@ config.notificationIconResId = R.drawable.ic_notification; // Use 0 for the libr
 StashNativeCard.getInstance().setKeepAliveConfig(config);
 ```
 
-The library manifest includes the service and foreground-service permissions. Integrators enabling it must configure their app's service declarations and notification behavior appropriately. See [Android implementation](docs/android.md) and [compatibility](COMPATIBILITY.md).
+The library manifest includes the service and foreground-service permissions. Integrators enabling it must configure their app's service declarations and notification behavior appropriately. See [keep-alive service](docs/usage/browser.md#android-keep-alive-service) and [compatibility](docs/compatibility.md).
 
 ## CodeLink (iOS and Android)
 
@@ -335,7 +335,7 @@ Set the listener or delegate before opening; a successful scan shows **Connected
 
 ---
 
-Requirements, OS matrices, testing environments, and platform API / store review notes are documented in [COMPATIBILITY.md](COMPATIBILITY.md). Implementation details are in the [architecture overview](docs/architecture-overview.md), [iOS documentation](docs/ios.md), and [Android documentation](docs/android.md).
+Requirements, OS-specific behavior, and platform API notes for app review are in [Compatibility](docs/compatibility.md). The [technical documentation](docs/index.md) covers architecture, the API reference, the JavaScript bridge, and engine wrappers.
 
 ---
 

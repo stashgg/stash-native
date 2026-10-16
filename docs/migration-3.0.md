@@ -1,14 +1,45 @@
+---
+title: Migrating to 3.0
+nav_order: 7
+description: Breaking changes from Stash Native 2.x to 3.0 and how to update native callers, checkout pages, and Android dependencies.
+---
+
 # Migrating from 2.x to 3.0
 
-3.0 replaces device-specific presentation sizing and implicit host lookup. There are no compatibility aliases for the removed APIs. Update native callers before replacing the 2.x binary; existing Unity and Unreal wrappers must stay pinned to their tested native version until migrated separately.
+3.0 replaces device-ratio sizing with logical dimensions and requires the caller to pass its view controller or activity. Removed APIs have no compatibility aliases. Update native callers before replacing the 2.x binary. Unity and Unreal wrappers stay on their tested 2.x native version until they are migrated; see [Building wrappers](building-wrappers.md#migrating-a-2x-binding).
 
 ## Minimum versions
 
-- iOS 15 replaces iOS 13. Xcode 27.1 builds cannot target iOS 13 or 14.
-- Android API 21 remains supported. Build with JDK 17; the SDK retains compile SDK 34.
-- Build the iOS host with SDK 27.1 for full Duo display adaptation.
+| | 2.x | 3.0 |
+|---|---|---|
+| iOS runtime | iOS 13 | iOS 15. Xcode 27.1 cannot target iOS 13 or 14. |
+| Android runtime | API 21 | API 21 |
+| Android build | | JDK 17, compile SDK 34 |
+| iOS host build | | iOS 27.1 SDK for full iPhone Duo display adaptation |
 
-## Supply the presenting host
+## API changes
+
+| 2.x | 3.0 |
+|---|---|
+| iOS `openCardWithURL:config:` | `openCardWithURL:fromViewController:config:`, Swift `openCard(withURL:from:config:)` |
+| iOS `openBrowserWithURL:` | `openBrowserWithURL:fromViewController:`, or `openBrowserWithURL:fromViewController:config:` |
+| Android `setActivity(activity)`, then `openCard(url, config)` | `openCard(activity, url, config)` |
+| Android `openBrowser(url)` | `openBrowser(activity, url)` |
+| `openModal`, `ModalConfig`, `StashNativeModalConfig` | `openCard` for embedded checkout, `openBrowser` for browser checkout |
+| `openPopup`, `PopupSizeConfig`, `StashNativePopupSizeConfig` | Removed |
+| `cardHeightRatioPortrait`, `cardWidthRatioLandscape`, `cardHeightRatioLandscape`, `tabletWidthRatioPortrait`, `tabletHeightRatioPortrait`, `tabletWidthRatioLandscape`, `tabletHeightRatioLandscape` | `preferredContentWidth`, `preferredContentHeight`, `maximumContentHeight`, `edgeMargin` |
+| `forcePortrait` | `orientationPreference` |
+| `backgroundColor` | Removed. Native backgrounds match the page automatically. |
+| iOS `disableAutoOrientationUnlock`, `+supportedInterfaceOrientationsForWindow:` | Removed. The SDK scopes its orientation hooks to its own window. |
+| iOS screenshot backdrop workarounds | Removed. Android keeps `setBackdropBitmap` and `setBackdropBytes`. |
+| `onOptInResponse`, `stashNativeCardDidReceiveOptIn:` | Removed |
+| Page `stash_sdk.setPaymentChannel(...)` | Removed |
+| None | `codeLink`, `StashNativeCodeLinkConfig` / `CodeLinkConfig`, `onQrCodeScanned`, `onCodeLinkError` |
+| None | iOS `StashNativeBrowserConfig` for portrait Safari |
+
+## Pass the presenting host
+
+Swift:
 
 ```swift
 let stash = StashNativeCard.sharedInstance()
@@ -16,68 +47,79 @@ stash.openCard(withURL: checkoutURL, from: self, config: nil)
 stash.openBrowser(withURL: checkoutURL, from: self)
 ```
 
+Java:
+
 ```java
 StashNativeCard stash = StashNativeCard.getInstance();
 stash.openCard(activity, checkoutUrl, null);
 stash.openBrowser(activity, checkoutUrl);
 ```
 
-Pass the view controller or activity associated with the initiating app window. Android's ambient `setActivity` setup is removed. Calls belong on the platform UI thread; wrappers must marshal from engine threads.
+Pass the view controller or activity of the window that starts the presentation. Calls from engine threads are accepted; the SDK continues on the main thread.
 
 ## Replace sizing ratios
 
-Remove every phone/tablet and portrait/landscape ratio. Start with automatic card defaults; logical dimension overrides are optional:
+Remove every phone, tablet, portrait, and landscape ratio and start with the defaults. No ratio-to-dimension conversion reproduces every 2.x layout. Test the window sizes your app supports.
+
+| Property | Default (points or dp) | Meaning |
+|---|---|---|
+| `preferredContentWidth` | 400 | Card width in regions at least 600 wide |
+| `preferredContentHeight` | 560 | Resting height ceiling and fallback |
+| `maximumContentHeight` | 720 | Expanded height cap. `0` allows all available height. |
+| `edgeMargin` | 16 | Margin around the card |
+
+Overrides, when needed:
+
+Swift:
 
 ```swift
 let card = StashNativeCardConfig()
-card.preferredContentWidth = 400
-card.preferredContentHeight = 560
-card.maximumContentHeight = 720
-card.edgeMargin = 16
+card.preferredContentHeight = 520
+card.maximumContentHeight = 0
 stash.openCard(withURL: checkoutURL, from: self, config: card)
 ```
 
+Java:
+
 ```java
 StashNativeCard.CardConfig card = new StashNativeCard.CardConfig();
-card.preferredContentWidth = 400;
-card.preferredContentHeight = 560;
-card.maximumContentHeight = 720;
-card.edgeMargin = 16;
+card.preferredContentHeight = 520;
+card.maximumContentHeight = 0;
 stash.openCard(activity, checkoutUrl, card);
 ```
 
-Both platforms default to a 400-point/dp card width, a 560-point/dp resting height and a 720-point/dp expansion cap. Explicit `maximumContentHeight = 0` still permits all available height.
-
-There is no ratio-to-dimension conversion that preserves every former device layout. Start with defaults and test the current window sizes your app supports. See [responsive presentation](responsive-presentation.md) for each property's meaning.
-
-`openModal`, modal configuration, `openPopup`, and popup multiplier configuration are removed. Use `openCard` for embedded checkout or `openBrowser` for browser presentation. There is no modal compatibility alias. `backgroundColor` is also removed from SDK and sample configuration; native backgrounds match the page and theme automatically. iOS exposes `StashNativeCardConfig` directly, without a public presentation-config base class.
+See [Checkout card](usage/checkout-card.md#configuration) for every property.
 
 ## Orientation
 
-Replace `forcePortrait` with the card's `orientationPreference`. The default follows the host window. On iPhone, `.portrait` uses SDK-managed orientation overrides and a separate UIKit window, including landscape-only hosts. iPad ignores this flag. System windowing restrictions still apply.
+Replace `forcePortrait = true` with `orientationPreference = .portrait` (iOS) or `ORIENTATION_PORTRAIT` (Android). The default follows the host.
 
-On iOS, remove wrapper-owned orientation-unlock integration and screenshot-backdrop workarounds. The iPhone SDK owns portrait preparation, external-payment handoff, and orientation restoration. It keeps one native card implementation and leaves the game's view-controller orientation policy unchanged. Engines that react directly to scene geometry notifications still require device validation.
+- iPhone: the SDK presents portrait checkout in its own `UIWindow`, also for landscape-only games, and restores orientation on close. Remove wrapper or app orientation unlock code and screenshot backdrops.
+- iPad ignores the preference.
+- Android requests portrait only in compact fullscreen windows. `setBackdropBitmap` and `setBackdropBytes` still cover the host rotation; see [Android portrait backdrop](usage/checkout-card.md#android-portrait-backdrop).
 
-Android retains `setBackdropBitmap(Bitmap)` and `setBackdropBytes(byte[])` for portrait checkout. Supply the screenshot before `openCard`; see [Android landscape backdrop](../README.md#android-landscape-backdrop).
+Engines that react directly to scene geometry notifications still need device testing.
 
-## Checkout pages and callbacks
+## Dismissal semantics
 
-Existing payment, processing, external-link, and close messages retain their meanings. Keep backend payment verification; UI callbacks alone are not purchase fulfilment evidence.
+`allowDismiss` now controls user dismissal only: swipe or handle drag, backdrop tap, and Android Back. The page's `window.close()`, payment callbacks with `autoClose`, and native `dismiss()` work with either value. Purchase processing still blocks user and page dismissal.
 
-`allowDismiss` now controls only user dismissal by swipe, backdrop tap, or Android Back. Page `window.close()` and callback-driven closure work with either flag value. Purchase processing still blocks user dismissal and page close.
+## Checkout pages
 
-The opt-in API is removed: delete calls to `stash_sdk.setPaymentChannel(...)` and native `onOptInResponse` / `stashNativeCardDidReceiveOptIn:` implementations.
+- Payment, processing, external link, and close messages keep their 2.x meaning.
+- Delete calls to `stash_sdk.setPaymentChannel(...)`.
+- `expand()` and `collapse()` select card states at every window size.
+- Optional `setContentHeight(px)` and `[data-stash-content]` let a short page get a shorter resting card. Pages render without them.
+- The iOS WebView now paints through the bottom safe area, and both SDKs set `viewport-fit=cover`. Pages own `env(safe-area-inset-bottom)` padding for scrolling content and fixed or sticky footers. Put `[data-stash-content]` inside outer safe-area padding and leave that padding out of explicit height reports.
 
-`expand()` and `collapse()` operate on card states across window sizes. Optional `setContentHeight(...)` and `[data-stash-content]` enable card content sizing; they are never required for a page to render.
-
-On iOS, checkout now paints through the bottom safe area. The SDK supplies `viewport-fit=cover` and insets scroll indicators; pages own `env(safe-area-inset-bottom)` padding for scrolling content and fixed or sticky bottom controls. The SDK adds no native content inset or automatic page padding. Put the intrinsic content marker inside any outer safe-area padding, and exclude that padding from explicit height reports. See [responsive presentation](responsive-presentation.md) for the hosting contract.
+See the [page layout contract](stash-sdk-js.md#page-layout-contract).
 
 ## Android dependencies
 
-Standalone AAR consumers must add the dependencies listed in the root README, including WindowManager 1.4.0 and its Java adapter. A plain AAR does not carry transitive dependency metadata. Do not substitute WindowManager 1.5.x while promising API 21: that line raises its minimum to API 23.
+AAR consumers must declare the base dependencies, which now include WindowManager 1.4.0 and its Java adapter. Do not use WindowManager 1.5 while supporting API 21; it requires API 23. CameraX and ZXing are needed only for CodeLink, including in source-module integrations. Browser stays optional. See [Installation](usage/installation.md#android).
 
-CameraX and ZXing are optional and required only for CodeLink. Add them explicitly when using QR scanning, including in source-module integrations. Browser remains optional for Custom Tabs. See [the dependency groups](../README.md#android).
+## Checks after migrating
 
-## Integration checks
-
-Test the same active checkout while rotating, resizing, folding, typing, and returning from an external browser. Verify form and scroll state, processing locks, once-only result callbacks, and dismissal. Run on the minimum OS as well as newer OS versions; newer simulators do not prove minimum-version support.
+- Rotate, resize, fold, type, and return from an external browser with the same checkout open. Form state, scroll position, processing locks, and exactly-once results must hold.
+- Test the minimum OS versions, not only current simulators.
+- Keep backend payment verification. UI callbacks are not proof of purchase.
