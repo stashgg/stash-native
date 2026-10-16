@@ -144,6 +144,15 @@ config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
 StashNativeCard.getInstance().openCard(this, checkoutUrl, config);
 ```
 
+#### WebView debugging
+
+Enable WebView inspection before opening a card during development to debug checkout with `chrome://inspect` on Android or Safari Web Inspector on iOS 16.4+.
+
+```java
+// Android and iOS (Swift)
+StashNativeCard.setInspectableWebViewsEnabled(true);
+```
+
 #### Callbacks
 
 Card provides various callbacks to report the purchase process state or other events. Set a listener on Android or a delegate on iOS before opening a presentation. The same interface serves card, browser, and CodeLink events.
@@ -275,67 +284,35 @@ The library manifest includes the service and foreground-service permissions. In
 
 ## CodeLink (iOS and Android)
 
-CodeLink hosts a QR camera in the same responsive native card as checkout. It follows the app's orientation on phones and tablets, including landscape-only games, and uses the same compact, centered card on tablets. The preview fills the card, with a centered scan frame and a “Scan the webshop code” callout. Camera startup shows only a spinner.
+Scan webshop QR codes in a responsive native card and use the returned content to link the account.
 
-On iOS, add `NSCameraUsageDescription` to the **host app's** `Info.plist`, for example “Scan a webshop QR code to link it with your game.” Camera access is requested when CodeLink opens. No microphone or photo-library permission is needed; the SDK does not record or upload camera images.
+![CodeLink scanners on iPhone and Android with simulated camera previews](.github/assets/codelink-devices-dark.png)
 
-```swift
-let stash = StashNativeCard.sharedInstance()
-stash.delegate = self
-stash.codeLink(from: self)
+Add `NSCameraUsageDescription` to your app's `Info.plist` on iOS and the [QR scanning dependencies](#android) on Android; camera permission is requested when the scanner opens.
 
-func stashNativeCardDidScanQRCode(_ content: String) {
-    // The card has closed. Interpret the raw QR content in your app.
-}
-
-func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
-    // Camera access is denied, unavailable, or incorrectly configured.
-}
-```
-
-Objective-C entry point: `-codeLinkFromViewController:` (or `-codeLinkFromViewController:config:`).
+**Android**
 
 ```java
-StashNativeCard stash = StashNativeCard.getInstance();
-stash.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-    @Override public void onQrCodeScanned(String content) {
-        // The card has closed. Interpret the raw QR content in your app.
-    }
-
-    @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
-        // The card remains open with the configured unavailable text.
-    }
-});
-stash.codeLink(this);
+StashNativeCard.getInstance().codeLink(this, null);
 ```
 
-### Config
-
-Pass `StashNativeCodeLinkConfig` on iOS or `StashNativeCard.CodeLinkConfig` on Android to customize or translate the scanner copy:
+**iOS (Swift)**
 
 ```swift
-let config = StashNativeCodeLinkConfig()
-config.headerText = NSLocalizedString("scanner.header", comment: "QR scanner header")
-config.calloutTitle = NSLocalizedString("scanner.title", comment: "QR scanner callout")
-config.calloutSubtitle = NSLocalizedString("scanner.subtitle", comment: "QR positioning hint")
-config.cameraUnavailableText = NSLocalizedString("scanner.unavailable", comment: "Camera unavailable status")
-config.connectedText = NSLocalizedString("scanner.connected", comment: "QR scan confirmation")
-config.showCallout = true
-stash.codeLink(from: self, config: config)
+StashNativeCard.sharedInstance().codeLink(from: self, config: nil)
 ```
 
-```java
-StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
-config.headerText = getString(R.string.scanner_header);
-config.calloutTitle = getString(R.string.scanner_title);
-config.calloutSubtitle = getString(R.string.scanner_subtitle);
-config.cameraUnavailableText = getString(R.string.scanner_unavailable);
-config.connectedText = getString(R.string.scanner_connected);
-config.showCallout = true;
-stash.codeLink(this, config);
+**iOS (Objective-C)**
+
+```objc
+[[StashNativeCard sharedInstance] codeLinkFromViewController:self config:nil];
 ```
 
-| Field | Default |
+#### Scanner Configuration
+
+Pass `StashNativeCard.CodeLinkConfig` on Android or `StashNativeCodeLinkConfig` on iOS to customize or translate the scanner text; omitted or empty text uses the defaults.
+
+| Property | Default |
 | --- | --- |
 | `headerText` | Scan QR code |
 | `calloutTitle` | Scan the webshop code |
@@ -344,43 +321,17 @@ stash.codeLink(this, config);
 | `connectedText` | Connected |
 | `showCallout` | `true` |
 
-Omitting the config, or passing `nil`/`null` or an empty string for a text field, uses the built-in copy. Text is plain text and wraps to fit. `showCallout = false` removes the entire info callout from both the layout and accessibility, allowing a larger scan frame. Options are copied when opening, so later edits apply only to future scans. The unavailable state shows only `cameraUnavailableText`, without an explanatory subtitle. `connectedText` also supplies the accessibility announcement.
+Set `showCallout` to `false` to hide the info callout.
 
-Android's library manifest declares `CAMERA` and optional camera hardware. The SDK requests camera permission when CodeLink opens; checkout and browser never request it. Android uses CameraX and ZXing, without Play Services or a model download. Apps using CodeLink must add the optional scanning dependencies listed in [Installation](#android), including when consuming the SDK as a source module. It requires no microphone, storage, or photo permission. The preview and QR decoding stay on the device.
+#### Callbacks
 
-### Callbacks
+Set the listener or delegate before opening; a successful scan shows **Connected**, closes the card, and returns the unchanged QR content once.
 
-Only QR codes fully inside the scan frame are accepted. The first nonempty payload stops scanning and shows a brief **Connected** checkmark with success haptic feedback. The card then closes and delivers `stashNativeCardDidScanQRCode:` / `onQrCodeScanned` once on the main thread. The animation respects disabled system animations and allows extra reading time with VoiceOver or TalkBack. The payload is returned unchanged; the confirmation acknowledges the scan and does not perform account linking or open a URL. Success does not emit payment or dismissal callbacks. The close button, native sheet dismissal, and `dismiss()` use the existing dismissal callback; `resetPresentationState()` stays silent, including during the confirmation.
-
-iOS camera errors use `StashNativeCodeLinkErrorDomain` and the public `StashNativeCodeLinkError` codes. Android reports `CodeLinkError.CAMERA_PERMISSION_DENIED`, `CAMERA_UNAVAILABLE`, `CAMERA_CONFIGURATION_FAILED`, or `CAMERA_PERMISSION_NOT_DECLARED`. An error is reported at most once per scanner session. The card remains open with the configured unavailable text and, when permission is denied, an **Open Settings** button. Returning after granting access resumes scanning. Capture stops when the card closes or the app leaves the foreground. Platforms without a usable camera, including the iOS Simulator, show the unavailable state. Physical-device testing is required for live scanning.
-
-If Android's scanning dependencies are missing or cannot load, `codeLink` reports `CAMERA_CONFIGURATION_FAILED` and closes without showing a scanner or requesting camera permission. It does not emit a dismissal callback, and another presentation can be opened from the error callback.
-
-Both mobile samples include **Link Webshop → Scan QR Code** and display results in the existing callback log. **Settings → QR Code scan options** edits the header, callout title/subtitle and visibility, camera-unavailable text, and connected text, with a reset to defaults. CodeLink is a native API; it is not exposed through the JavaScript bridge.
-
----
-
-## Webview inspection (debug / testing)
-
-Enable checkout WebView inspection for Safari Web Inspector, `chrome://inspect`, or automated UI tests. It is **off by default**; set the flag before opening checkout.
-
-**Android**
-
-```java
-StashNativeCard.setInspectableWebViewsEnabled(true);
-```
-
-Enabling calls `WebView.setWebContentsDebuggingEnabled(true)` (process-global) as each checkout webview is configured.
-
-**iOS (Swift)**
-
-```swift
-StashNativeCard.setInspectableWebViewsEnabled(true)
-```
-
-On iOS 16.4+ the SDK's `WKWebView`s are created with `inspectable = true`.
-
-> **Do not enable this in production.** It exposes the checkout webview contents to remote inspection. Gate it behind a debug/QA build flag; the sample apps enable it only for local testing.
+| Event | Android | iOS (Swift) |
+| --- | --- | --- |
+| QR scanned | `onQrCodeScanned(content)` | `stashNativeCardDidScanQRCode(_:)` |
+| Camera or setup error | `onCodeLinkError(error)` | `stashNativeCardCodeLinkDidEncounterError(_:)` |
+| Dismissed without a scan | `onDialogDismissed()` | `stashNativeCardDidDismiss()` |
 
 ---
 
