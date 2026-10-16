@@ -1,13 +1,13 @@
 ---
 title: Engine wrappers
 parent: Usage
-nav_order: 7
+nav_order: 6
 description: Bind Stash Native to Unity, Unreal Engine, or another engine.
 ---
 
 # Engine wrappers
 
-A wrapper adds one native glue file per platform between the engine and the SDK. Official wrappers: [stash-unity](https://github.com/stashgg/stash-unity), [stash-unreal](https://github.com/stashgg/stash-unreal).
+Unity and Unreal Engine games should use the official wrappers: [stash-unity](https://github.com/stashgg/stash-unity) and [stash-unreal](https://github.com/stashgg/stash-unreal). For another engine, write a small native glue file per platform that forwards calls to the SDK and events back to the engine.
 
 ```mermaid
 sequenceDiagram
@@ -26,13 +26,13 @@ sequenceDiagram
 
 ## Rules
 
-1. Pass the engine's current activity or root view controller to every open call.
-2. Keep the iOS delegate in a strong reference. The SDK holds it weakly.
-3. Copy each callback payload and queue it for the game thread. Callbacks arrive on the platform main thread.
-4. Forward every callback, in order. Engine pause and resume are not payment results.
+1. Pass the engine's current activity or root view controller to every open call, so checkout appears over the game.
+2. Keep the iOS delegate in a strong reference. The SDK holds it weakly, and events stop if it is released.
+3. Copy each callback payload and queue it for the game thread. Callbacks arrive on the platform main thread, which is not the engine's game thread.
+4. Forward every callback, in order. Do not treat engine pause and resume as payment results.
 5. Check `isCurrentlyPresented` before opening if the game needs a "busy" result. Ignored opens send no callback.
-6. Read `isPurchaseProcessing` for processing state. Do not use reflection on SDK internals.
-7. Leave orientation to the SDK and `window.stash_sdk` to the page.
+6. Read `isPurchaseProcessing` for processing state. Reflection on SDK internals breaks between releases.
+7. Leave orientation to the SDK. Your own orientation hooks conflict with its portrait handling.
 
 ## Android
 
@@ -42,8 +42,8 @@ Compile a listener class into the wrapper's Android library:
 import android.app.Activity;
 import com.stash.stashnative.StashNativeCard;
 
-public final class StashBridge implements StashNativeCard.StashNativeCardListener {
-    private static final StashBridge INSTANCE = new StashBridge();
+public final class StashWrapper implements StashNativeCard.StashNativeCardListener {
+    private static final StashWrapper INSTANCE = new StashWrapper();
 
     // Implemented in engine code; queues the event for the game thread.
     private static native void nativeOnEvent(String name, String payload);
@@ -95,10 +95,10 @@ static StashEventCallback gCallback;  // Copies the payload and queues it for th
 
 extern UIViewController *StashEnginePresenter(void);  // Supplied per engine.
 
-@interface StashBridgeDelegate : NSObject <StashNativeCardDelegate>
+@interface StashWrapperDelegate : NSObject <StashNativeCardDelegate>
 @end
 
-@implementation StashBridgeDelegate
+@implementation StashWrapperDelegate
 static void Emit(const char *name, NSString *payload) {
     if (gCallback) gCallback(name, payload.UTF8String);
 }
@@ -115,17 +115,17 @@ static void Emit(const char *name, NSString *payload) {
 }
 @end
 
-static StashBridgeDelegate *gDelegate;  // Strong owner.
+static StashWrapperDelegate *gDelegate;  // Strong owner.
 
-extern "C" void StashBridgeInitialize(StashEventCallback callback) {
+extern "C" void StashWrapperInitialize(StashEventCallback callback) {
     gCallback = callback;
     dispatch_async(dispatch_get_main_queue(), ^{
-        if (!gDelegate) gDelegate = [[StashBridgeDelegate alloc] init];
+        if (!gDelegate) gDelegate = [[StashWrapperDelegate alloc] init];
         [StashNativeCard sharedInstance].delegate = gDelegate;
     });
 }
 
-extern "C" void StashBridgeOpenCard(const char *url, bool portrait) {
+extern "C" void StashWrapperOpenCard(const char *url, bool portrait) {
     NSString *checkoutURL = url ? [NSString stringWithUTF8String:url] : nil;
     dispatch_async(dispatch_get_main_queue(), ^{
         StashNativeCardConfig *config = [[StashNativeCardConfig alloc] init];
@@ -156,7 +156,6 @@ extern "C" void StashBridgeOpenCard(const char *url, bool portrait) {
 | `openBrowser` while a card is open | Ignored | Opens |
 | Open call inside a payment callback with `autoClose` | Ignored | Accepted |
 | `closeBrowser()` | Closes Safari | No effect |
-| Page loaded duration | Presentation start to first finished load | Last navigation start to the end of the loading fade |
-| `stash-pay` deep link in a new window | Payment result | Opened by the OS |
+| Page loaded time measured from | Opening the card | The start of the last page load |
 | Portrait backdrop, keep-alive service | Not available | Available |
 | Browser orientation, closing Safari with a result | Available | Not available |

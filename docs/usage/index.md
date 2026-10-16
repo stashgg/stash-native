@@ -2,40 +2,54 @@
 title: Usage
 nav_order: 2
 has_children: true
-description: Public API of the iOS and Android SDKs.
+description: Integrate Stash Pay checkout, browser checkout, and CodeLink into an iOS or Android app.
 ---
 
 # Usage
 
-Both SDKs expose one singleton, `StashNativeCard`, declared in [`StashNativeCard.h`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) and [`StashNativeCard.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java).
+An integration has four steps:
 
-| Operation | iOS (Swift) | Android |
+1. Your backend creates a Stash Pay checkout link, or a pre-authenticated webshop link.
+2. The game opens it in a [checkout card](checkout-card.md) or the [browser](browser.md).
+3. The SDK reports the result through [callbacks](callbacks.md) (card) or a deep link (browser).
+4. Your backend confirms the purchase, and only then does the game grant items. Client callbacks drive the UI; they are not proof of payment.
+
+## Choose a presentation
+
+| Presentation | Use it when | Result reaches the game through |
+|---|---|---|
+| [Checkout card](checkout-card.md) | Players buy inside the game and you want direct success and failure events | Delegate or listener callbacks |
+| [Browser](browser.md) | You open a webshop, or prefer browser checkout that still stays in the app | Your app's deep link |
+| [CodeLink](codelink.md) | Players link their webshop account by scanning its QR code | Callback with the QR payload |
+
+## API at a glance
+
+Both SDKs expose one singleton, `StashNativeCard`.
+
+| Task | iOS (Swift) | Android (Java) |
 |---|---|---|
 | Get the singleton | `StashNativeCard.sharedInstance()` | `StashNativeCard.getInstance()` |
-| Receive callbacks | `delegate` | `setListener(listener)` |
+| Receive events | `delegate = self` | `setListener(listener)` |
 | Open checkout | `openCard(withURL:from:config:)` | `openCard(activity, url, config)` |
-| Open browser | `openBrowser(withURL:from:config:)` | `openBrowser(activity, url)` |
-| Open QR scanner | `codeLink(from:config:)` | `codeLink(activity, config)` |
-| Close | `dismiss()` | `dismiss()` |
+| Open the browser | `openBrowser(withURL:from:config:)` | `openBrowser(activity, url)` |
+| Open the QR scanner | `codeLink(from:config:)` | `codeLink(activity, config)` |
+| Close the card | `dismiss()` | `dismiss()` |
 | Close the browser | `closeBrowser()` | Not available |
-| Close the browser with a result | `dismissSafariViewController(withResult:)` | Not available |
-| Close without callbacks | `resetPresentationState()` | `resetPresentationState()` |
-| Read state | `isCurrentlyPresented`, `isPurchaseProcessing` | `isCurrentlyPresented()`, `isPurchaseProcessing()` |
-| Portrait backdrop | Not available | `setBackdropBitmap(bitmap)`, `setBackdropBytes(bytes)` |
-| Keep-alive service | Not available | `setKeepAliveEnabled(enabled)`, `setKeepAliveConfig(config)` |
-| WebView inspection | `setInspectableWebViewsEnabled(_:)` | `setInspectableWebViewsEnabled(enabled)` |
-| SDK version | `sdkVersion()` | `getVersion()` |
+| Check what is open | `isCurrentlyPresented`, `isPurchaseProcessing` | `isCurrentlyPresented()`, `isPurchaseProcessing()` |
 
-## Rules
+Android also has the [portrait backdrop](checkout-card.md#android-portrait-backdrop) and the [keep-alive service](browser.md#keep-alive-service-android). iOS also has [portrait Safari](browser.md#portrait-safari-ios).
 
-- Pass the activity or view controller of the window that starts the presentation.
-- Set the delegate or listener before opening.
-- Call from any thread. The SDK switches to the main thread and calls back on it.
-- One presentation runs at a time. Open calls made during one are ignored without a callback. Android's `openBrowser` is the exception.
-- URLs must be `http` or `https`. A URL without a scheme gets `https://`.
-- Configs are copied when you call. Later changes to the object have no effect.
+## Integration rules
 
-## WebView inspection
+- Pass the activity or view controller that shows your game when the player starts checkout. The SDK presents on that window, so checkout appears where the player is, also in split screen and multi-window.
+- Set the delegate or listener before opening anything, so no event is missed.
+- Call the SDK from any thread, including engine threads. Callbacks always arrive on the main thread.
+- Only one presentation can be open. Calls made while one is open are ignored, so check `isCurrentlyPresented` if the game needs to know.
+- Use `https://` links. The SDK ignores links that are not web URLs.
+
+## WebView debugging
+
+During development, make checkout inspectable before opening it:
 
 ```swift
 StashNativeCard.setInspectableWebViewsEnabled(true)
@@ -45,4 +59,16 @@ StashNativeCard.setInspectableWebViewsEnabled(true)
 StashNativeCard.setInspectableWebViewsEnabled(true);
 ```
 
-Makes checkout debuggable in Safari Web Inspector (iOS 16.4+) or `chrome://inspect`. Enable it in debug builds only. On Android it affects every WebView in the process.
+Then inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Leave it off in release builds.
+
+## SDK version
+
+```swift
+let version = StashNativeCard.sdkVersion()
+```
+
+```java
+String version = StashNativeCard.getVersion();
+```
+
+Include the version when you contact [developers@stash.gg](mailto:developers@stash.gg).

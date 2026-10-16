@@ -2,14 +2,16 @@
 title: Callbacks
 parent: Usage
 nav_order: 5
-description: Delegate and listener callbacks, their order, presentation state, dismiss, and reset.
+description: Receive payment, dismissal, browser, and CodeLink events, and control what is open.
 ---
 
 # Callbacks
 
-One delegate (iOS) or listener (Android) receives events from every presentation, on the main thread. Payment callbacks only update the UI; your backend confirms the purchase.
+One delegate (iOS) or listener (Android) receives events from the checkout card, the browser, and CodeLink. Events arrive on the main thread. Use them to update the game's UI; grant items only after your backend confirms the purchase.
 
 ## Set the receiver
+
+Set it once, before you open anything, so no event is missed.
 
 ```swift
 StashNativeCard.sharedInstance().delegate = self
@@ -29,51 +31,58 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
 });
 ```
 
-iOS holds the delegate weakly, so keep a reference to it. Every delegate method is optional. Android holds the listener strongly; `StashNativeCardListenerAdapter` implements every method as a no-op.
+On iOS every delegate method is optional, and the SDK holds the delegate weakly, so keep your own reference to it or events stop. On Android, extend `StashNativeCardListenerAdapter` to override only what you need. The SDK keeps the listener alive.
 
 ## Events
 
 | Event | iOS | Android | Fires when |
 |---|---|---|---|
-| Payment success | `stashNativeCardDidCompletePayment(withOrder:)` | `onPaymentSuccess(order)` | The page calls `onPaymentSuccess(order)` or opens a `stash-pay/success` deep link |
-| Payment failure | `stashNativeCardDidFailPayment()` | `onPaymentFailure()` | The page calls `onPaymentFailure()` or opens a `stash-pay/failure` deep link |
-| Dismissed | `stashNativeCardDidDismiss()` | `onDialogDismissed()` | The user, the page, or `dismiss()` closes the card |
-| Page loaded | `stashNativeCardDidLoadPage(_:)` | `onPageLoaded(loadTimeMs)` | The first page finishes loading |
-| Network error | `stashNativeCardDidEncounterNetworkError()` | `onNetworkError()` | The first load fails or the WebView process dies. The card closes. |
-| External payment | `stashNativeCardDidRequestExternalPayment(with:)` | `onExternalPayment(url)` | The page calls `openExternalBrowser(url)` |
-| Browser closed | `stashNativeCardDidCloseBrowser()` | `onBrowserClosed()` | A browser from `openBrowser` or an external payment closes |
+| Payment success | `stashNativeCardDidCompletePayment(withOrder:)` | `onPaymentSuccess(order)` | The player completes a payment in the card |
+| Payment failure | `stashNativeCardDidFailPayment()` | `onPaymentFailure()` | The payment fails |
+| Dismissed | `stashNativeCardDidDismiss()` | `onDialogDismissed()` | The player or checkout closes the card, or you call `dismiss()` |
+| Page loaded | `stashNativeCardDidLoadPage(_:)` | `onPageLoaded(loadTimeMs)` | Checkout finished loading. Reports the load time in milliseconds. |
+| Network error | `stashNativeCardDidEncounterNetworkError()` | `onNetworkError()` | Checkout could not load. The card closes. |
+| External payment | `stashNativeCardDidRequestExternalPayment(with:)` | `onExternalPayment(url)` | Checkout continues the payment in the browser. The card closes and the browser opens. |
+| Browser closed | `stashNativeCardDidCloseBrowser()` | `onBrowserClosed()` | The browser from `openBrowser` or an external payment closes |
 | Code scanned | `stashNativeCardDidScanQRCode(_:)` | `onQrCodeScanned(content)` | CodeLink reads a QR code |
 | CodeLink error | `stashNativeCardCodeLinkDidEncounterError(_:)` | `onCodeLinkError(error)` | The scanner cannot use the camera |
 
-`order` is the string the page sent, JSON for objects, or `nil`/`null` when the page sent nothing.
+`order` holds the order details checkout sends, as a string or JSON, or `nil`/`null` when there are none. Use it for your UI or to look up the order, never as proof of payment.
 
-## Order
+## Order of events
 
-| Outcome | Callbacks |
+| What happens | Events you receive |
 |---|---|
-| Payment result, `autoClose` on | Payment callback. The card closes with no dismissal callback. |
-| Payment result, `autoClose` off | Payment callback for every signal. The card stays open. |
-| Dismissal | Dismissed |
-| Load failure | Network error, with no dismissal callback |
-| External payment | External payment, then browser closed |
-| `closeBrowser()` or `dismiss()` while Safari is open (iOS) | Dismissed, then browser closed |
-| Successful scan | Code scanned, after the card closes |
-| `resetPresentationState()` | None |
+| Payment succeeds or fails | The payment event. The card closes without a dismissal event. |
+| Payment succeeds or fails with `autoClose` off | The payment event. The card stays open until it is dismissed. |
+| The player closes the card | Dismissed |
+| Checkout cannot load | Network error, without a dismissal event |
+| Checkout continues in the browser | External payment, then browser closed |
+| You call `closeBrowser()` or `dismiss()` while Safari is open (iOS) | Dismissed, then browser closed |
+| A QR code is scanned | Code scanned, after the card closes |
 
-To open the next presentation, do it from the dismissed, network error, browser closed, or code scanned callback. On iOS, an open call made inside a payment callback with `autoClose` is ignored because the card is still closing.
+## Open the next presentation
 
-## State
+To chain presentations, open the next one from the dismissed, network error, browser closed, or code scanned event. On iOS, a call made inside a payment event is ignored while the card is still closing.
 
-| Query | iOS | Android |
-|---|---|---|
-| `isCurrentlyPresented` | `true` until the card, scanner, or Safari has closed | `true` from `openCard` or `codeLink` until a terminal callback. Always `false` for `openBrowser`. |
-| `isPurchaseProcessing` | `true` between the page's `onPurchaseProcessing()` and `onProcessingCompleted()` or a payment result | Same as iOS |
+## Check what is open
 
-## Dismiss and reset
+| Query | Returns `true` |
+|---|---|
+| `isCurrentlyPresented` | While a card or scanner is open. On iOS also while Safari is open. |
+| `isPurchaseProcessing` | While checkout is processing a payment. The player cannot close the card during that time. |
+
+## Close from code
 
 ```swift
-StashNativeCard.sharedInstance().dismiss()                 // animated, reports a dismissal
-StashNativeCard.sharedInstance().resetPresentationState()  // immediate, no callbacks
+StashNativeCard.sharedInstance().dismiss()
+StashNativeCard.sharedInstance().resetPresentationState()
 ```
 
-`dismiss()` works during purchase processing. On iOS it also closes Safari. Use `resetPresentationState()` only when the game must abandon the presentation, for example on logout.
+```java
+StashNativeCard.getInstance().dismiss();
+StashNativeCard.getInstance().resetPresentationState();
+```
+
+- `dismiss()` closes the card with its animation and sends the dismissed event. It closes the card even while a payment is processing, so check `isPurchaseProcessing` first. On iOS it closes Safari too.
+- `resetPresentationState()` closes everything at once and sends no events. Use it when the game must abandon checkout, for example on logout or when the player leaves the store scene.

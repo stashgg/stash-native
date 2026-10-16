@@ -1,7 +1,7 @@
 ---
 title: Compatibility
 parent: Platform Architecture
-nav_order: 3
+nav_order: 4
 description: Supported versions, toolchains, version-specific behavior, and runtime techniques.
 ---
 

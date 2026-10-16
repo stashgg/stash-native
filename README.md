@@ -144,9 +144,9 @@ The card reports purchase state and other events through callbacks. Set a listen
 
 | Event | Description |
 | --- | --- |
-| Payment Success | Reports the order string or serialized JSON supplied by the page, or `null` / `nil` when omitted. |
-| Payment Failure | Reports the page's payment failure signal. |
-| Dialog Dismissed | Reports user dismissal, page `window.close()` outside purchase processing, or native `dismiss()`. |
+| Payment Success | Reports the order details from checkout as a string or JSON, or `null` / `nil` when there are none. |
+| Payment Failure | Reports that the payment failed. |
+| Dialog Dismissed | Reports that the player or checkout closed the card, or that you called `dismiss()`. |
 | External Payment | Reports the external payment URL, then closes the embedded checkout without a dismissal callback. |
 | Browser Closed | Reports that the browser opened by `openBrowser` or an external payment handoff has closed. |
 | Page Loaded | Reports the page load duration in milliseconds. |
@@ -281,7 +281,6 @@ Set the listener or delegate before opening. A successful scan shows **Connected
 For more detailed information, see the [Stash Native documentation](https://stashgg.github.io/stash-native/):
 
 - [Usage](https://stashgg.github.io/stash-native/usage/): installation, API, configuration, and callbacks
-- [JavaScript bridge](https://stashgg.github.io/stash-native/stash-sdk-js.html): the `window.stash_sdk` API for checkout pages
 - [Engine wrappers](https://stashgg.github.io/stash-native/usage/engine-wrappers.html): Unity, Unreal, and custom engine bindings
 - [Platform Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
 - [Compatibility](https://stashgg.github.io/stash-native/architecture/compatibility.html): supported versions, version-specific behavior, and runtime techniques for app review

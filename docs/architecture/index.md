@@ -7,7 +7,7 @@ description: Components, session lifecycle, sizing, and loading shared by the iO
 
 # Platform Architecture
 
-Both SDKs follow one design. A singleton facade admits one presentation session at a time. The session hosts a WebView or camera in a native card and turns `window.stash_sdk` messages into host callbacks. Platform details: [iOS](ios.md), [Android](android.md), [Compatibility](compatibility.md).
+Both SDKs follow one design. A singleton facade admits one presentation session at a time. The session hosts a WebView or camera in a native card and turns `window.stash_sdk` messages into host callbacks. Platform details: [iOS](ios.md), [Android](android.md), [JavaScript bridge](../stash-sdk-js.md), [Compatibility](compatibility.md).
 
 ## Components
 

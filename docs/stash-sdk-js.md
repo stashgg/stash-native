@@ -1,13 +1,13 @@
 ---
 title: JavaScript bridge
-parent: Usage
-nav_order: 6
-description: The window.stash_sdk API that checkout pages call inside the native card.
+parent: Platform Architecture
+nav_order: 3
+description: Internal window.stash_sdk contract between the SDK and Stash checkout pages.
 ---
 
 # JavaScript bridge
 
-Checkout cards inject `window.stash_sdk` into the top-level page. Browser and CodeLink presentations do not.
+`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. Checkout cards inject it into the top-level page; browser and CodeLink presentations do not. Integrators never call it.
 
 Sources: `StashBridgeScript()` in [`StashNativeCardViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
 
