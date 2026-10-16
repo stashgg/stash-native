@@ -66,7 +66,7 @@ SPM discovers source files automatically. Add new implementation files to `Stash
 
 ## Verification
 
-Build and analyze the framework, run SPM XCTest on an iOS Simulator, and build/lint the sample. Copy the package without the adjacent Xcode project before testing so XCTest selects the SPM test target.
+Build and analyze the framework, run the `StashNativeTests` Xcode scheme on an iOS Simulator, and build/lint the sample. The test scheme supplies a UIKit app host for WebKit and window lifecycle checks.
 
 Test native card geometry, min/max validation, document identity and width checks, callback reentrancy, and processing locks. Runtime coverage must include keyboard, orientation, multiple host scenes, Duo poses, and resizable iPad windows. Newer simulator results do not prove the iOS 15 runtime path.
 

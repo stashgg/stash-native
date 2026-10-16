@@ -63,7 +63,7 @@ Discover installed toolchains and simulator IDs. Use temporary source copies or 
 | Target | Validation |
 |---|---|
 | Android SDK and sample | JDK 17; Gradle `:stashnative:assembleRelease`, `:stashnative:testDebugUnitTest`, `:sample:assembleDebug`, `:sample:assembleRelease`; Android Lint and repository Checkstyle configuration. |
-| iOS SDK | `xcodebuild` build/analyze; XCTest on an available iOS Simulator. Copy the SPM package without its `.xcodeproj` before testing so the package test target is selected. Do not use macOS `swift test` for the iOS package. |
+| iOS SDK | `xcodebuild` build/analyze; run the `StashNativeTests` Xcode scheme on an available iOS Simulator for its UIKit app host. Do not use macOS `swift test` for the iOS package. |
 | iOS sample | Simulator build and SwiftLint using `.swiftlint.yml`; device testing for platform behavior. |
 | Desktop shared contract | CMake/CTest against `Desktop/shared`, independently of either UI host. |
 | macOS SDK and sample | `swift build`/`swift test` from `Desktop`, bundle export/architecture checks, SwiftLint, Clang analysis, and sample `-stash-auto local`/`secure` proof runs. |

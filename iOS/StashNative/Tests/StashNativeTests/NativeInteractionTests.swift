@@ -56,7 +56,7 @@ final class NativeInteractionTests: XCTestCase {
 
     @MainActor private func waitForChromeRendering(_ web: WKWebView) async throws {
         _ = try await web.callAsyncJavaScript(FocusFixture.checkpointScript + "await waitForRendering();return true;",
-                                             arguments:[:], in:nil, in:.page)
+                                             arguments:[:], in:nil, contentWorld:.page)
     }
 
     @MainActor func testBackingCoverageChangesWithoutChangingHeaderPaint() async throws {

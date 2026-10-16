@@ -108,13 +108,9 @@ jobs:
 
       - name: Run unit tests
         run: |
-          # Copy SPM package to a temp dir without .xcodeproj so xcodebuild
-          # picks up the Package.swift test target instead of the project scheme.
-          TEST_PACKAGE=$(mktemp -d "${RUNNER_TEMP}/stash-ios-tests.XXXXXX")
-          cp iOS/StashNative/Package.swift "$TEST_PACKAGE/"
-          cp -r iOS/StashNative/Sources "$TEST_PACKAGE/"
-          cp -r iOS/StashNative/Tests "$TEST_PACKAGE/"
-          cd "$TEST_PACKAGE"
+          TEST_SOURCE=$(mktemp -d "${RUNNER_TEMP}/stash-ios-tests.XXXXXX")
+          cp -R iOS/StashNative/Sources iOS/StashNative/Tests \
+            iOS/StashNative/StashNative.xcodeproj iOS/StashNative/Info.plist "$TEST_SOURCE/"
           SIM_ID=$(xcrun simctl list devices available -j | python3 -c "
           import json,sys
           devs = json.load(sys.stdin)['devices']
@@ -124,9 +120,12 @@ jobs:
                 if 'iPhone' in d['name'] and d['isAvailable']:
                   print(d['udid']); sys.exit(0)
           sys.exit(1)")
+          xcrun simctl bootstatus "$SIM_ID" -b
           xcodebuild test \
-            -scheme StashNative \
+            -project "$TEST_SOURCE/StashNative.xcodeproj" \
+            -scheme StashNativeTests \
             -destination "platform=iOS Simulator,id=$SIM_ID" \
+            -derivedDataPath "$RUNNER_TEMP/stash-ios-tests-derived" \
             -resultBundlePath "$RUNNER_TEMP/stash-ios-tests.xcresult"
 
       - name: Upload iOS test results

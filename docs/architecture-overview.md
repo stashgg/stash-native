@@ -16,7 +16,7 @@ Stash Native embeds checkout in a platform WebView and presents it as a responsi
 | Android web support | `StashCheckoutWebViewSupport`, `StashCheckoutJsInterface`, `StashContentSizeSupport`, `StashWebInteractionSupport`, `StashWebViewUtils`; loading, bridge, navigation, native form interactions and card measurements |
 | Android integration | `StashWindowCompat`, `StashUrlLauncher`, `StashCheckoutBridge`, browser proxy and engagement helpers; insets, external URLs and same-process callbacks |
 | Samples | `iOS/Sample`, `Android/sample`: configuration, test link generation, callback examples |
-| Tests | iOS SPM tests/regression support, Android JUnit/Robolectric tests, `.github/test` web fixtures, `Android/modern-host` standalone-AAR host |
+| Tests | iOS XCTest with UIKit host/regression support, Android JUnit/Robolectric tests, `.github/test` web fixtures, `Android/modern-host` standalone-AAR host |
 | Distribution | Root/nested SPM manifests, iOS Xcode project, Android Gradle modules, `.github/workflows` |
 
 Desktop development lives separately on `desktop/integration`. Its shared C++ session and macOS/Windows hosts have their own ABI and sizing policy. They are not part of this mobile 3.0 change.

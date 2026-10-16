@@ -63,19 +63,22 @@ xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
   CLANG_ANALYZER_OUTPUT_DIR="$AUDIT_RUN/ios-analyzer-results" analyze
 ```
 
-For XCTest, create a fresh package directory containing only `Package.swift`, `Sources`, and `Tests` copied from `iOS/StashNative`. The adjacent Xcode project otherwise hides the SPM test target:
+For XCTest, copy the sources, tests, and Xcode project. The `StashNativeTests` scheme runs the suite inside a UIKit app with an active window scene; hostless SPM tests do not supply the lifecycle required by WebKit fixtures.
 
 ```sh
-mkdir -p "$AUDIT_RUN/ios-test-package"
-cp "$AUDIT_SOURCE/iOS/StashNative/Package.swift" "$AUDIT_RUN/ios-test-package/"
-cp -R "$AUDIT_SOURCE/iOS/StashNative/Sources" "$AUDIT_RUN/ios-test-package/"
-cp -R "$AUDIT_SOURCE/iOS/StashNative/Tests" "$AUDIT_RUN/ios-test-package/"
+mkdir -p "$AUDIT_RUN/ios-test-source"
+cp -R "$AUDIT_SOURCE/iOS/StashNative/Sources" \
+  "$AUDIT_SOURCE/iOS/StashNative/Tests" \
+  "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
+  "$AUDIT_SOURCE/iOS/StashNative/Info.plist" "$AUDIT_RUN/ios-test-source/"
 ```
 
-From that new package directory:
+Run the hosted scheme:
 
 ```sh
-xcodebuild test -scheme StashNative \
+xcrun simctl bootstatus "$AUDIT_SIMULATOR_ID" -b
+xcodebuild test -project "$AUDIT_RUN/ios-test-source/StashNative.xcodeproj" \
+  -scheme StashNativeTests \
   -destination "platform=iOS Simulator,id=$AUDIT_SIMULATOR_ID" \
   -derivedDataPath "$AUDIT_RUN/ios-tests-derived" \
   -resultBundlePath "$AUDIT_RUN/ios-tests.xcresult"

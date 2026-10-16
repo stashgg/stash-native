@@ -27,6 +27,61 @@
 		STN044 /* StashNativeCardKeyboard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN045 /* StashNativeCardKeyboard.m */; };
 		STN046 /* StashNativeCardGestures.m in Sources */ = {isa = PBXBuildFile; fileRef = STN047 /* StashNativeCardGestures.m */; };
 		STN048 /* StashNativeCardPresentation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN049 /* StashNativeCardPresentation.m */; };
+		683E85BD9AE5E9E0E9B7FE04 /* PresentationHostRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = BAC5C032E8DA6A7AA123287B /* PresentationHostRegression.m */; };
+		B76710A62129274FD6E8E11C /* RegressionSupport.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = 11479F2A724C332ADC91D6D2 /* RegressionSupport.framework */; };
+		8798DC4807BBF4DFE27D6296 /* SafariServices.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN00C /* SafariServices.framework */; };
+		B534B72AF58757651FBCC750 /* StashNative.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN00F /* StashNative.framework */; };
+		4313B80752E7CA5C47DE1CFB /* Foundation.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = E665C717A5EACEFBFCEC8BBF /* Foundation.framework */; };
+		9233F8066656DEB3201DEFC7 /* NativePresentationTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 3EDFBAF300D5522BC911DC2C /* NativePresentationTests.swift */; };
+		E032BC4F159B3C9344B33EE2 /* NativeSheetGeometryTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 7439090EE5F37201A80B355D /* NativeSheetGeometryTests.swift */; };
+		6136F2E46B44FF6EEA31D56C /* WebKit.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN00E /* WebKit.framework */; };
+		E18A2C44627542D6BAD9727B /* InstanceRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = F91C742990841FA4B26D28E9 /* InstanceRegression.m */; };
+		2D0E006656966DA94C21F6F4 /* AVFoundation.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN043 /* AVFoundation.framework */; };
+		C4F4373B914B8B282096EEAC /* NativeInteractionTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 079081EF5042E5A3709D99AE /* NativeInteractionTests.swift */; };
+		160880202DEEB36BC463FCBC /* RegressionSupport.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = 11479F2A724C332ADC91D6D2 /* RegressionSupport.framework */; };
+		1F0517C73A2E35BE8358CF6F /* InstanceLifetimeTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 12A7ACBD4606EDE0E4F9F7BC /* InstanceLifetimeTests.swift */; };
+		79118A1B1E1CF9E37E2A1B27 /* CodeLinkTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 3BE9AD02116F241B0958F259 /* CodeLinkTests.swift */; };
+		8FB67065DDCEC4C0B269E3E3 /* LoadingRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = B4C849BA1195D7D1A9B14D13 /* LoadingRegression.m */; };
+		6EF5F7FCC22E57AF9D800AB9 /* RegressionSupport.h in Headers */ = { isa = PBXBuildFile; fileRef = 1EA15A33EC523CCF45C5009A /* RegressionSupport.h */; settings = {
+			ATTRIBUTES = (
+				Public,
+			);
+		}; };
+		6BA69C99FA2847D72BF4A07A /* RegressionSupport.framework in Embed Test Frameworks */ = { isa = PBXBuildFile; fileRef = 11479F2A724C332ADC91D6D2 /* RegressionSupport.framework */; settings = {
+			ATTRIBUTES = (
+				CodeSignOnCopy,
+				RemoveHeadersOnCopy,
+			);
+		}; };
+		D22E567F5EFB398866DFD86A /* QueuedCloseRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = E373C7E56708955DDC39CC8A /* QueuedCloseRegression.m */; };
+		CEF1B27D97F1A16969F81B4A /* PortraitRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 0DEA7B1797B7C71D57BF29F6 /* PortraitRegression.m */; };
+		225915C08EA17549BC1801D0 /* StashNative.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN00F /* StashNative.framework */; };
+		9FF55A0A750A329CA820B5F6 /* RegressionSupport.m in Sources */ = { isa = PBXBuildFile; fileRef = EDB788F841C1377090F29303 /* RegressionSupport.m */; };
+		FBCA63C46A5C5EF4BDF1404F /* CodeLinkRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 7F09BA7FA70E0B5CF02EDC56 /* CodeLinkRegression.m */; };
+		726974A71B3A96889BD6C527 /* WebViewFixture.swift in Sources */ = { isa = PBXBuildFile; fileRef = E455F2115EA23E57B584814A /* WebViewFixture.swift */; };
+		D26A318EE688ED93B39AD77B /* PortraitPresentationTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = E70102389538131A9A745CBC /* PortraitPresentationTests.swift */; };
+		81A00253633BBBEEBDAC00EA /* FloatingKeyboardTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = BA01B4E7795E240F0A6B774C /* FloatingKeyboardTests.swift */; };
+		FFB604687C70901F0BF2CFCF /* HapticTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = CE5BFE2C039ECB06C3A88F7B /* HapticTests.swift */; };
+		9728D6F25A3E7100AA4410F4 /* main.m in Sources */ = { isa = PBXBuildFile; fileRef = 55E1E80F8B893589EE262CBE /* main.m */; };
+		E29248A5CF6AF37914955B90 /* TelemetryTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = EA90C14639DCDB8898D82E29 /* TelemetryTests.swift */; };
+		C02C228E783070BB041C74F1 /* StashNative.framework in Embed Test Frameworks */ = { isa = PBXBuildFile; fileRef = STN00F /* StashNative.framework */; settings = {
+			ATTRIBUTES = (
+				CodeSignOnCopy,
+				RemoveHeadersOnCopy,
+			);
+		}; };
+		98E0F5B0F12BA5575CCBCC34 /* StashNative.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = STN00F /* StashNative.framework */; };
+		3E3923183A7E05FE1DBC9D17 /* LoadingPresentationTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 4B3FB074922F5C1BC063A7F9 /* LoadingPresentationTests.swift */; };
+		FDB6999C5D882BE06F4E0C52 /* StashNativeTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 052D929ED6E13729DD241A14 /* StashNativeTests.swift */; };
+		6688F41AB022D31549698DFB /* TelemetryRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 623616D98A90E40DA8F025F3 /* TelemetryRegression.m */; };
+		4E9770766BA66699530B99D7 /* HostReadinessTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = B67D4EBEF1412655673AA9E6 /* HostReadinessTests.swift */; };
+		A28621861F5F81C71419BC2F /* HapticRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 3474766FB0C7BE9F412B6F5B /* HapticRegression.m */; };
+		3EC9F85CC2A3F1DFE3BC5D8E /* EntranceRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 192BCF3D1FA3F1809351B363 /* EntranceRegression.m */; };
+		B7163DA6AA5AF6BDD01AD85C /* UIKit.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = 2B4A51916B8F8572CBEEE637 /* UIKit.framework */; };
+		A32AF0F5E9837F4E7DBF8FE7 /* FocusFixture.swift in Sources */ = { isa = PBXBuildFile; fileRef = E9D3E321E6DD8833C99C415C /* FocusFixture.swift */; };
+		65679A3AA9D331B063770605 /* UIKit.framework in Frameworks */ = { isa = PBXBuildFile; fileRef = 2B4A51916B8F8572CBEEE637 /* UIKit.framework */; };
+		F16FDEA59E675AF5332A29D9 /* AuditRegressionTests.swift in Sources */ = { isa = PBXBuildFile; fileRef = 1DCDE233FDDDFD072ED832AA /* AuditRegressionTests.swift */; };
+		CC804CD9321A520FA09C833B /* FocusRegression.m in Sources */ = { isa = PBXBuildFile; fileRef = 7B53900A0BA9E57B8BBB09F2 /* FocusRegression.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +107,40 @@
 		STN045 /* StashNativeCardKeyboard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardKeyboard.m; sourceTree = "<group>"; };
 		STN047 /* StashNativeCardGestures.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardGestures.m; sourceTree = "<group>"; };
 		STN049 /* StashNativeCardPresentation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardPresentation.m; sourceTree = "<group>"; };
+		6C66133DF8749B2C237F8FBB /* StashNativeTests.xctest */ = { path = StashNativeTests.xctest; isa = PBXFileReference; includeInIndex = 0; explicitFileType = wrapper.cfbundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		E665C717A5EACEFBFCEC8BBF /* Foundation.framework */ = { path = System/Library/Frameworks/Foundation.framework; isa = PBXFileReference; lastKnownFileType = wrapper.framework; sourceTree = SDKROOT; };
+		3474766FB0C7BE9F412B6F5B /* HapticRegression.m */ = { path = HapticRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		1DCDE233FDDDFD072ED832AA /* AuditRegressionTests.swift */ = { path = AuditRegressionTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		E70102389538131A9A745CBC /* PortraitPresentationTests.swift */ = { path = PortraitPresentationTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		55E1E80F8B893589EE262CBE /* main.m */ = { path = main.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		CE5BFE2C039ECB06C3A88F7B /* HapticTests.swift */ = { path = HapticTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		7439090EE5F37201A80B355D /* NativeSheetGeometryTests.swift */ = { path = NativeSheetGeometryTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		3BE9AD02116F241B0958F259 /* CodeLinkTests.swift */ = { path = CodeLinkTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		0DEA7B1797B7C71D57BF29F6 /* PortraitRegression.m */ = { path = PortraitRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		623616D98A90E40DA8F025F3 /* TelemetryRegression.m */ = { path = TelemetryRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		12A7ACBD4606EDE0E4F9F7BC /* InstanceLifetimeTests.swift */ = { path = InstanceLifetimeTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		192BCF3D1FA3F1809351B363 /* EntranceRegression.m */ = { path = EntranceRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		14C42C00EF340EBABC5A5229 /* StashNativeTestHost.app */ = { path = StashNativeTestHost.app; isa = PBXFileReference; includeInIndex = 0; explicitFileType = wrapper.application; sourceTree = BUILT_PRODUCTS_DIR; };
+		EDB788F841C1377090F29303 /* RegressionSupport.m */ = { path = RegressionSupport.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		E373C7E56708955DDC39CC8A /* QueuedCloseRegression.m */ = { path = QueuedCloseRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		4B3FB074922F5C1BC063A7F9 /* LoadingPresentationTests.swift */ = { path = LoadingPresentationTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		F91C742990841FA4B26D28E9 /* InstanceRegression.m */ = { path = InstanceRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		052D929ED6E13729DD241A14 /* StashNativeTests.swift */ = { path = StashNativeTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		3EDFBAF300D5522BC911DC2C /* NativePresentationTests.swift */ = { path = NativePresentationTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		E455F2115EA23E57B584814A /* WebViewFixture.swift */ = { path = WebViewFixture.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		2B4A51916B8F8572CBEEE637 /* UIKit.framework */ = { path = System/Library/Frameworks/UIKit.framework; isa = PBXFileReference; lastKnownFileType = wrapper.framework; sourceTree = SDKROOT; };
+		16EC6779BF6AAC66699C6B9C /* Info.plist */ = { path = Info.plist; isa = PBXFileReference; lastKnownFileType = text.plist.xml; sourceTree = "<group>"; };
+		B67D4EBEF1412655673AA9E6 /* HostReadinessTests.swift */ = { path = HostReadinessTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		7F09BA7FA70E0B5CF02EDC56 /* CodeLinkRegression.m */ = { path = CodeLinkRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		EA90C14639DCDB8898D82E29 /* TelemetryTests.swift */ = { path = TelemetryTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		E9D3E321E6DD8833C99C415C /* FocusFixture.swift */ = { path = FocusFixture.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		11479F2A724C332ADC91D6D2 /* RegressionSupport.framework */ = { path = RegressionSupport.framework; isa = PBXFileReference; includeInIndex = 0; explicitFileType = wrapper.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		079081EF5042E5A3709D99AE /* NativeInteractionTests.swift */ = { path = NativeInteractionTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		7B53900A0BA9E57B8BBB09F2 /* FocusRegression.m */ = { path = FocusRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		B4C849BA1195D7D1A9B14D13 /* LoadingRegression.m */ = { path = LoadingRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
+		BA01B4E7795E240F0A6B774C /* FloatingKeyboardTests.swift */ = { path = FloatingKeyboardTests.swift; isa = PBXFileReference; lastKnownFileType = sourcecode.swift; sourceTree = "<group>"; };
+		1EA15A33EC523CCF45C5009A /* RegressionSupport.h */ = { path = include/RegressionSupport.h; isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; sourceTree = "<group>"; };
+		BAC5C032E8DA6A7AA123287B /* PresentationHostRegression.m */ = { path = PresentationHostRegression.m; isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +154,38 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1E4F7DF6138982DEFC2D8779 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B534B72AF58757651FBCC750 /* StashNative.framework in Frameworks */,
+				160880202DEEB36BC463FCBC /* RegressionSupport.framework in Frameworks */,
+				B7163DA6AA5AF6BDD01AD85C /* UIKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		665DF5ABCBE955CD8BB465F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				98E0F5B0F12BA5575CCBCC34 /* StashNative.framework in Frameworks */,
+				B76710A62129274FD6E8E11C /* RegressionSupport.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		82E20E49557CA03F84416548 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				225915C08EA17549BC1801D0 /* StashNative.framework in Frameworks */,
+				65679A3AA9D331B063770605 /* UIKit.framework in Frameworks */,
+				4313B80752E7CA5C47DE1CFB /* Foundation.framework in Frameworks */,
+				2D0E006656966DA94C21F6F4 /* AVFoundation.framework in Frameworks */,
+				6136F2E46B44FF6EEA31D56C /* WebKit.framework in Frameworks */,
+				8798DC4807BBF4DFE27D6296 /* SafariServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -75,6 +196,7 @@
 				STN013 /* Frameworks */,
 				STN021 /* Info.plist */,
 				STN014 /* Products */,
+				D883FEA5802E3C7498933E4E /* Tests */,
 			);
 			sourceTree = "<group>";
 		};
@@ -126,9 +248,82 @@
 			isa = PBXGroup;
 			children = (
 				STN00F /* StashNative.framework */,
+				11479F2A724C332ADC91D6D2 /* RegressionSupport */,
+				14C42C00EF340EBABC5A5229 /* StashNativeTestHost */,
+				6C66133DF8749B2C237F8FBB /* StashNativeTests */,
 			);
 			name = Products;
 			sourceTree = "<group>";
+		};
+		CC4E5B06E16F6796FC7BB844 /* RegressionSupport */ = {
+			path = RegressionSupport;
+			isa = PBXGroup;
+			sourceTree = "<group>";
+			children = (
+				7F09BA7FA70E0B5CF02EDC56 /* CodeLinkRegression.m */,
+				192BCF3D1FA3F1809351B363 /* EntranceRegression.m */,
+				7B53900A0BA9E57B8BBB09F2 /* FocusRegression.m */,
+				3474766FB0C7BE9F412B6F5B /* HapticRegression.m */,
+				F91C742990841FA4B26D28E9 /* InstanceRegression.m */,
+				B4C849BA1195D7D1A9B14D13 /* LoadingRegression.m */,
+				0DEA7B1797B7C71D57BF29F6 /* PortraitRegression.m */,
+				BAC5C032E8DA6A7AA123287B /* PresentationHostRegression.m */,
+				E373C7E56708955DDC39CC8A /* QueuedCloseRegression.m */,
+				EDB788F841C1377090F29303 /* RegressionSupport.m */,
+				623616D98A90E40DA8F025F3 /* TelemetryRegression.m */,
+				1EA15A33EC523CCF45C5009A /* RegressionSupport.h */,
+			);
+		};
+		A82CC3893C99A576F93D8A43 /* StashNativeTests */ = {
+			path = StashNativeTests;
+			isa = PBXGroup;
+			sourceTree = "<group>";
+			children = (
+				1DCDE233FDDDFD072ED832AA /* AuditRegressionTests.swift */,
+				3BE9AD02116F241B0958F259 /* CodeLinkTests.swift */,
+				BA01B4E7795E240F0A6B774C /* FloatingKeyboardTests.swift */,
+				E9D3E321E6DD8833C99C415C /* FocusFixture.swift */,
+				CE5BFE2C039ECB06C3A88F7B /* HapticTests.swift */,
+				12A7ACBD4606EDE0E4F9F7BC /* InstanceLifetimeTests.swift */,
+				4B3FB074922F5C1BC063A7F9 /* LoadingPresentationTests.swift */,
+				079081EF5042E5A3709D99AE /* NativeInteractionTests.swift */,
+				3EDFBAF300D5522BC911DC2C /* NativePresentationTests.swift */,
+				7439090EE5F37201A80B355D /* NativeSheetGeometryTests.swift */,
+				E70102389538131A9A745CBC /* PortraitPresentationTests.swift */,
+				052D929ED6E13729DD241A14 /* StashNativeTests.swift */,
+				EA90C14639DCDB8898D82E29 /* TelemetryTests.swift */,
+				E455F2115EA23E57B584814A /* WebViewFixture.swift */,
+			);
+		};
+		32374C6F176882850B536202 /* Test Frameworks */ = {
+			isa = PBXGroup;
+			name = "Test Frameworks";
+			sourceTree = "<group>";
+			children = (
+				2B4A51916B8F8572CBEEE637 /* UIKit.framework */,
+				E665C717A5EACEFBFCEC8BBF /* Foundation.framework */,
+			);
+		};
+		6B21B33B50E00D2C4B38C165 /* TestHost */ = {
+			path = TestHost;
+			isa = PBXGroup;
+			sourceTree = "<group>";
+			children = (
+				55E1E80F8B893589EE262CBE /* main.m */,
+				16EC6779BF6AAC66699C6B9C /* Info.plist */,
+				B67D4EBEF1412655673AA9E6 /* HostReadinessTests.swift */,
+			);
+		};
+		D883FEA5802E3C7498933E4E /* Tests */ = {
+			path = Tests;
+			isa = PBXGroup;
+			sourceTree = "<group>";
+			children = (
+				CC4E5B06E16F6796FC7BB844 /* RegressionSupport */,
+				A82CC3893C99A576F93D8A43 /* StashNativeTests */,
+				6B21B33B50E00D2C4B38C165 /* TestHost */,
+				32374C6F176882850B536202 /* Test Frameworks */,
+			);
 		};
 /* End PBXGroup section */
 
@@ -139,6 +334,14 @@
 			files = (
 				STN007 /* StashNative.h in Headers */,
 				STN009 /* StashNativeCard.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B1A415D175E8F24C9B98D336 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6EF5F7FCC22E57AF9D800AB9 /* RegressionSupport.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +365,62 @@
 			productReference = STN00F /* StashNative.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		FD021D8FBEFCB3DF5CBF2A4A /* StashNativeTests */ = {
+			buildConfigurationList = F0EA0D01DF993477CC4705E3 /* Build configuration list for PBXNativeTarget "StashNativeTests" */;
+			productReference = 6C66133DF8749B2C237F8FBB /* StashNativeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+			productName = StashNativeTests;
+			isa = PBXNativeTarget;
+			buildPhases = (
+				2211B23ECD0F60E195299C98 /* Sources */,
+				665DF5ABCBE955CD8BB465F5 /* Frameworks */,
+			);
+			dependencies = (
+				ABDE58F91CDC50A8697CE026 /* PBXTargetDependency */,
+				17FBB1B8725888BC8473190A /* PBXTargetDependency */,
+				0BEB4DD397306CEB4F53418F /* PBXTargetDependency */,
+			);
+			name = StashNativeTests;
+			buildRules = (
+			);
+		};
+		35ED420E376CACE5BEAFA7DC /* StashNativeTestHost */ = {
+			buildConfigurationList = 366715C6346CE49A840ACE1F /* Build configuration list for PBXNativeTarget "StashNativeTestHost" */;
+			productReference = 14C42C00EF340EBABC5A5229 /* StashNativeTestHost.app */;
+			productType = "com.apple.product-type.application";
+			productName = StashNativeTestHost;
+			isa = PBXNativeTarget;
+			buildPhases = (
+				4C7AFC917CD0BD6536EF520C /* Sources */,
+				1E4F7DF6138982DEFC2D8779 /* Frameworks */,
+				A8A3076AF0289F9A315AD976 /* Embed Test Frameworks */,
+			);
+			dependencies = (
+				3FA20EE82DB0C5EDC2C4AFB5 /* PBXTargetDependency */,
+				C122BBAEB65B4EB3155DCF2F /* PBXTargetDependency */,
+			);
+			name = StashNativeTestHost;
+			buildRules = (
+			);
+		};
+		2E27242C4F1533A0FD61E757 /* RegressionSupport */ = {
+			buildConfigurationList = 65C384DCD2C5CA4FE2CDECA3 /* Build configuration list for PBXNativeTarget "RegressionSupport" */;
+			productReference = 11479F2A724C332ADC91D6D2 /* RegressionSupport.framework */;
+			productType = "com.apple.product-type.framework";
+			productName = RegressionSupport;
+			isa = PBXNativeTarget;
+			buildPhases = (
+				A98A0E42AE7555D4C657B6A7 /* Sources */,
+				B1A415D175E8F24C9B98D336 /* Headers */,
+				82E20E49557CA03F84416548 /* Frameworks */,
+			);
+			dependencies = (
+				2C6F0D12E66F0B10D46F0F0C /* PBXTargetDependency */,
+			);
+			name = RegressionSupport;
+			buildRules = (
+			);
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -171,6 +430,7 @@
 				BuildIndependentTargetsInParallel = 1;
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
+					FD021D8FBEFCB3DF5CBF2A4A = { TestTargetID = 35ED420E376CACE5BEAFA7DC; };
 					STN018 = {
 						CreatedOnToolsVersion = 15.0;
 					};
@@ -190,6 +450,9 @@
 			projectRoot = "";
 			targets = (
 				STN018 /* StashNative */,
+				2E27242C4F1533A0FD61E757 /* RegressionSupport */,
+				35ED420E376CACE5BEAFA7DC /* StashNativeTestHost */,
+				FD021D8FBEFCB3DF5CBF2A4A /* StashNativeTests */,
 			);
 		};
 /* End PBXProject section */
@@ -214,6 +477,54 @@
 				STN003 /* StashNativeCardViewControllers.m in Sources */,
 				STN036 /* StashNativeCardViewUtils.m in Sources */,
 				STN005 /* StashNativeCardWebViewDelegates.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A98A0E42AE7555D4C657B6A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FBCA63C46A5C5EF4BDF1404F /* CodeLinkRegression.m in Sources */,
+				3EC9F85CC2A3F1DFE3BC5D8E /* EntranceRegression.m in Sources */,
+				CC804CD9321A520FA09C833B /* FocusRegression.m in Sources */,
+				A28621861F5F81C71419BC2F /* HapticRegression.m in Sources */,
+				E18A2C44627542D6BAD9727B /* InstanceRegression.m in Sources */,
+				8FB67065DDCEC4C0B269E3E3 /* LoadingRegression.m in Sources */,
+				CEF1B27D97F1A16969F81B4A /* PortraitRegression.m in Sources */,
+				683E85BD9AE5E9E0E9B7FE04 /* PresentationHostRegression.m in Sources */,
+				D22E567F5EFB398866DFD86A /* QueuedCloseRegression.m in Sources */,
+				9FF55A0A750A329CA820B5F6 /* RegressionSupport.m in Sources */,
+				6688F41AB022D31549698DFB /* TelemetryRegression.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2211B23ECD0F60E195299C98 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F16FDEA59E675AF5332A29D9 /* AuditRegressionTests.swift in Sources */,
+				79118A1B1E1CF9E37E2A1B27 /* CodeLinkTests.swift in Sources */,
+				81A00253633BBBEEBDAC00EA /* FloatingKeyboardTests.swift in Sources */,
+				A32AF0F5E9837F4E7DBF8FE7 /* FocusFixture.swift in Sources */,
+				FFB604687C70901F0BF2CFCF /* HapticTests.swift in Sources */,
+				1F0517C73A2E35BE8358CF6F /* InstanceLifetimeTests.swift in Sources */,
+				3E3923183A7E05FE1DBC9D17 /* LoadingPresentationTests.swift in Sources */,
+				C4F4373B914B8B282096EEAC /* NativeInteractionTests.swift in Sources */,
+				9233F8066656DEB3201DEFC7 /* NativePresentationTests.swift in Sources */,
+				E032BC4F159B3C9344B33EE2 /* NativeSheetGeometryTests.swift in Sources */,
+				D26A318EE688ED93B39AD77B /* PortraitPresentationTests.swift in Sources */,
+				FDB6999C5D882BE06F4E0C52 /* StashNativeTests.swift in Sources */,
+				E29248A5CF6AF37914955B90 /* TelemetryTests.swift in Sources */,
+				726974A71B3A96889BD6C527 /* WebViewFixture.swift in Sources */,
+				4E9770766BA66699530B99D7 /* HostReadinessTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C7AFC917CD0BD6536EF520C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9728D6F25A3E7100AA4410F4 /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -325,6 +636,167 @@
 			};
 			name = Release;
 		};
+		BAFD19F9C0808814A071C1A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				INFOPLIST_FILE = Tests/TestHost/Info.plist;
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.testhost;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
+		2B0FDE4A916D434B5B5C0FF9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Sources/StashNative/include",
+					"$(SRCROOT)/Tests/RegressionSupport/include",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.regressionsupport;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
+		F33A4A43684E7B590AB4385E /* Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				INFOPLIST_FILE = Tests/TestHost/Info.plist;
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.testhost;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
+		6B038DFC4394C0DE2A96D520 /* Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				DEFINES_MODULE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Sources/StashNative/include",
+					"$(SRCROOT)/Tests/RegressionSupport/include",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.regressionsupport;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
+		8CF2AEC371B475AFC1361A2F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			name = Debug;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				ENABLE_TESTING_SEARCH_PATHS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StashNativeTestHost.app/StashNativeTestHost";
+				GENERATE_INFOPLIST_FILE = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.tests;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
+		5D9F5863D0B66DB8A142CBED /* Release */ = {
+			isa = XCBuildConfiguration;
+			name = Release;
+			buildSettings = {
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				CLANG_ENABLE_OBJC_ARC = YES;
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				ENABLE_TESTING_SEARCH_PATHS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				CLANG_ENABLE_MODULES = YES;
+				SKIP_INSTALL = YES;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/StashNativeTestHost.app/StashNativeTestHost";
+				GENERATE_INFOPLIST_FILE = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative.tests;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				SUPPORTS_MACCATALYST = NO;
+			};
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -346,7 +818,127 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		366715C6346CE49A840ACE1F /* Build configuration list for PBXNativeTarget "StashNativeTestHost" */ = {
+			isa = XCConfigurationList;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+			buildConfigurations = (
+				BAFD19F9C0808814A071C1A9 /* Debug */,
+				F33A4A43684E7B590AB4385E /* Release */,
+			);
+		};
+		F0EA0D01DF993477CC4705E3 /* Build configuration list for PBXNativeTarget "StashNativeTests" */ = {
+			isa = XCConfigurationList;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+			buildConfigurations = (
+				8CF2AEC371B475AFC1361A2F /* Debug */,
+				5D9F5863D0B66DB8A142CBED /* Release */,
+			);
+		};
+		65C384DCD2C5CA4FE2CDECA3 /* Build configuration list for PBXNativeTarget "RegressionSupport" */ = {
+			isa = XCConfigurationList;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+			buildConfigurations = (
+				2B0FDE4A916D434B5B5C0FF9 /* Debug */,
+				6B038DFC4394C0DE2A96D520 /* Release */,
+			);
+		};
 /* End XCConfigurationList section */
+
+/* Begin PBXContainerItemProxy section */
+		FB1621973029F44E67F84D2A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = STN018 /* StashNative */;
+			remoteInfo = StashNative;
+			proxyType = 1;
+		};
+		07A446837B35C1A259B825E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = STN018 /* StashNative */;
+			remoteInfo = StashNative;
+			proxyType = 1;
+		};
+		A127937F524992EFFC9D8C74 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = 2E27242C4F1533A0FD61E757 /* RegressionSupport */;
+			remoteInfo = RegressionSupport;
+			proxyType = 1;
+		};
+		8183DE0591C320D20B30B849 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = 2E27242C4F1533A0FD61E757 /* RegressionSupport */;
+			remoteInfo = RegressionSupport;
+			proxyType = 1;
+		};
+		440B561C77AA2C58BEDCCB3A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = STN018 /* StashNative */;
+			remoteInfo = StashNative;
+			proxyType = 1;
+		};
+		A05CF920A30B583F9A4F1E0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = STN01B /* PBXProject */;
+			remoteGlobalIDString = 35ED420E376CACE5BEAFA7DC /* StashNativeTestHost */;
+			remoteInfo = StashNativeTestHost;
+			proxyType = 1;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		A8A3076AF0289F9A315AD976 /* Embed Test Frameworks */ = {
+			buildActionMask = 2147483647;
+			dstSubfolderSpec = 10;
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			dstPath = "";
+			name = "Embed Test Frameworks";
+			files = (
+				C02C228E783070BB041C74F1 /* StashNative.framework in Embed Test Frameworks */,
+				6BA69C99FA2847D72BF4A07A /* RegressionSupport.framework in Embed Test Frameworks */,
+			);
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2C6F0D12E66F0B10D46F0F0C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = STN018 /* StashNative */;
+			targetProxy = 07A446837B35C1A259B825E8 /* PBXContainerItemProxy */;
+		};
+		C122BBAEB65B4EB3155DCF2F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E27242C4F1533A0FD61E757 /* RegressionSupport */;
+			targetProxy = A127937F524992EFFC9D8C74 /* PBXContainerItemProxy */;
+		};
+		ABDE58F91CDC50A8697CE026 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = STN018 /* StashNative */;
+			targetProxy = 440B561C77AA2C58BEDCCB3A /* PBXContainerItemProxy */;
+		};
+		0BEB4DD397306CEB4F53418F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 35ED420E376CACE5BEAFA7DC /* StashNativeTestHost */;
+			targetProxy = A05CF920A30B583F9A4F1E0B /* PBXContainerItemProxy */;
+		};
+		17FBB1B8725888BC8473190A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2E27242C4F1533A0FD61E757 /* RegressionSupport */;
+			targetProxy = 8183DE0591C320D20B30B849 /* PBXContainerItemProxy */;
+		};
+		3FA20EE82DB0C5EDC2C4AFB5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = STN018 /* StashNative */;
+			targetProxy = FB1621973029F44E67F84D2A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 	};
 	rootObject = STN01B /* Project object */;
 }

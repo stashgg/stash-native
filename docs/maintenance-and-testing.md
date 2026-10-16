@@ -103,15 +103,17 @@ xcodebuild build -project iOS/Sample/StashNativeSample/StashNativeSample.xcodepr
   -derivedDataPath "$AUDIT_WORK/ios-sample" CODE_SIGNING_ALLOWED=NO
 ```
 
-The root `Package.swift` supports repository-URL SPM installation. To run the nested package tests without selecting the adjacent Xcode project (whose scheme has no tests), copy only the package inputs:
+Run the regression suite in its UIKit test host so WebKit has an active application and window scene:
 
 ```sh
 mkdir "$AUDIT_WORK/ios-tests"
-cp iOS/StashNative/Package.swift "$AUDIT_WORK/ios-tests/"
-cp -R iOS/StashNative/Sources iOS/StashNative/Tests "$AUDIT_WORK/ios-tests/"
-cd "$AUDIT_WORK/ios-tests"
-xcodebuild test -scheme StashNative -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
-  -derivedDataPath "$AUDIT_WORK/ios-tests-derived"
+cp -R iOS/StashNative/Sources iOS/StashNative/Tests \
+  iOS/StashNative/StashNative.xcodeproj iOS/StashNative/Info.plist "$AUDIT_WORK/ios-tests/"
+xcrun simctl bootstatus "$AUDIT_SIM_ID" -b
+xcodebuild test -project "$AUDIT_WORK/ios-tests/StashNative.xcodeproj" \
+  -scheme StashNativeTests -destination "platform=iOS Simulator,id=$AUDIT_SIM_ID" \
+  -derivedDataPath "$AUDIT_WORK/ios-tests-derived" \
+  -resultBundlePath "$AUDIT_WORK/ios-tests.xcresult"
 ```
 
 The sample regression runner checks request ordering and credential persistence using exact production methods with synthetic network and Keychain boundaries. It never accesses saved credentials; UIKit behavior still needs the sample build and device checks.
