@@ -47,7 +47,7 @@ final class TelemetryTests: XCTestCase {
         let web = try XCTUnwrap(fixture["web"] as? WKWebView)
         web.loadHTMLString("<html><body>Telemetry<iframe srcdoc='<p>iframe</p>'></iframe></body></html>",
                            baseURL: URL(string: "https://checkout.invalid"))
-        try await waitForPage(web)
+        guard await waitForPage(web) else { return }
         let results = try await evaluate(web,
             "return await Promise.all([stash_sdk.getTelemetry(),stash_sdk.getTelemetry()]);") as! [[String: Any]]
         let first = try XCTUnwrap(results[0]["timing"] as? [String: Any])
@@ -63,7 +63,7 @@ final class TelemetryTests: XCTestCase {
             """)
         XCTAssertEqual(blocked as? Bool, true)
         web.loadHTMLString("<html><body>Next document</body></html>", baseURL: URL(string: "https://next.invalid"))
-        try await waitForPage(web)
+        guard await waitForPage(web) else { return }
         let next = try await evaluate(web, "return await stash_sdk.getTelemetry();") as! [String: Any]
         let nextTiming = try XCTUnwrap(next["timing"] as? [String: Any])
         XCTAssertEqual(nextTiming["firstCallAt"] as? Int, first["firstCallAt"] as? Int)
@@ -79,13 +79,12 @@ final class TelemetryTests: XCTestCase {
         }
     }
 
-    @MainActor private func waitForPage(_ web: WKWebView) async throws {
-        for _ in 0..<100 {
-            if !web.isLoading, web.url != nil {
-                return
-            }
-            try await Task.sleep(nanoseconds: 100_000_000)
-        }
-        XCTFail("Telemetry fixture did not finish loading")
+    @MainActor private func waitForPage(_ web: WKWebView, file: StaticString = #filePath,
+                                      line: UInt = #line) async -> Bool {
+        let loaded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !web.isLoading && web.url != nil
+        }, object: web)
+        loaded.expectationDescription = "Telemetry fixture loaded"
+        return await WebViewFixture.waitForLoad(loaded, file:file, line:line)
     }
 }

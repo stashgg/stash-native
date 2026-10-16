@@ -17,7 +17,7 @@ final class LoadingPresentationTests: XCTestCase {
         let source = try XCTUnwrap(StashInitialContentReadinessSource())
         let skeleton = "<div class='animate-skeletonOpacityFluctuation' style='width:200px;height:80px'></div>"
         for address in ["https://checkout.stash.gg/pay", "https://checkout.stashstaging.com/pay"] {
-            try await load(web, address)
+            guard await load(web, address) else { return }
             for finished in [false, true] {
                 for (style, expected) in [("", false), ("display:none", true), ("opacity:0", true),
                                            ("position:absolute;top:10000px", true)] {
@@ -35,7 +35,7 @@ final class LoadingPresentationTests: XCTestCase {
                                            ["finished": true])
             XCTAssertEqual(ready as? Bool, true)
         }
-        try await load(web, "https://custom.invalid/pay")
+        guard await load(web, "https://custom.invalid/pay") else { return }
         let generic = try await evaluate(web, "document.body.innerHTML = skeleton;\n" + source,
                                          ["skeleton": skeleton, "finished": true])
         XCTAssertEqual(generic as? Bool, true)
@@ -49,7 +49,7 @@ final class LoadingPresentationTests: XCTestCase {
         for address in scoped {
             let expected = address.hasSuffix("dark") ? "dark" : "light"
             let opposite = expected == "dark" ? "light" : "dark"
-            try await load(web, address)
+            guard await load(web, address) else { return }
             let actualURL = try await evaluate(web, "return document.URL", [:])
             XCTAssertEqual(actualURL as? String, address)
             for finished in [false, true] {
@@ -75,7 +75,7 @@ final class LoadingPresentationTests: XCTestCase {
             "https://checkout.stash.gg/pay?theme=dark&theme=dark"
         ]
         for address in generic {
-            try await load(web, address)
+            guard await load(web, address) else { return }
             for finished in [false, true] {
                 let value = try await evaluate(web, StashInitialContentReadinessSource(), ["finished": finished])
                 XCTAssertEqual(value as? Bool, true, "\(address) retains generic readiness")
@@ -87,7 +87,7 @@ final class LoadingPresentationTests: XCTestCase {
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 560))
         let (window, previous) = host(web)
         defer { web.stopLoading(); window.isHidden = true; previous?.makeKey() }
-        try await load(web, "https://checkout.stash.gg/pay?theme=dark")
+        guard await load(web, "https://checkout.stash.gg/pay?theme=dark") else { return }
         let source = try XCTUnwrap(StashInitialContentReadinessSource())
         let late = try await evaluate(web,
             "document.documentElement.dataset.colorScheme = 'light';\n" + source, ["finished": true])
@@ -104,7 +104,7 @@ final class LoadingPresentationTests: XCTestCase {
         XCTAssertEqual(changedResult as? Bool, false)
         let frames = try await evaluate(web, "return window.__readinessFrames", [:])
         XCTAssertEqual((frames as? NSNumber)?.intValue, 2)
-        try await load(web, "https://custom.invalid/redirected?theme=dark")
+        guard await load(web, "https://custom.invalid/redirected?theme=dark") else { return }
         let redirected = try await evaluate(web, source, ["finished": true])
         XCTAssertEqual(redirected as? Bool, true)
     }
@@ -120,13 +120,14 @@ final class LoadingPresentationTests: XCTestCase {
         return (window, previous)
     }
 
-    @MainActor private func load(_ web: WKWebView, _ address: String) async throws {
+    @MainActor private func load(_ web: WKWebView, _ address: String,
+                                file: StaticString = #filePath, line: UInt = #line) async -> Bool {
         let loaded = expectation(description: "readiness fixture loaded")
         let navigation = LoadingNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
+        defer { web.navigationDelegate = nil }
         web.loadHTMLString("<meta name='viewport' content='width=device-width'><html style='color-scheme:light dark' data-color-scheme='light'><body><button>Continue checkout</button></body></html>", baseURL: URL(string: address))
-        await fulfillment(of: [loaded], timeout: 15)
-        web.navigationDelegate = nil
+        return await WebViewFixture.waitForLoad(loaded, file:file, line:line)
     }
 
     @MainActor func testLoadingCoverMatchesFullWebBounds() throws {
@@ -175,7 +176,7 @@ final class LoadingPresentationTests: XCTestCase {
         let navigation = LoadingNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
         web.loadHTMLString("<meta name='viewport' content='width=device-width'><body></body>", baseURL: nil)
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let cases: [(String, Bool)] = [
             ("", false),
             ("<p style='display:none'>Hidden checkout</p>", false),

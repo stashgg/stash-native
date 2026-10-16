@@ -20,8 +20,9 @@ final class NativeInteractionTests: XCTestCase {
         for (actual, wanted) in zip([r,g,b,a], expected) { XCTAssertEqual(actual,wanted,accuracy:0.0001,file:file,line:line) }
     }
 
-    @MainActor private func waitForFixtureCondition(_ condition: () async throws -> Bool) async throws -> Bool {
-        let deadline = Date().addingTimeInterval(30)
+    @MainActor private func waitForFixtureCondition(timeout: TimeInterval = 30,
+                                                   _ condition: () async throws -> Bool) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
         repeat {
             if try await condition() { return true }
             try await Task.sleep(nanoseconds:100_000_000)
@@ -36,7 +37,7 @@ final class NativeInteractionTests: XCTestCase {
         document.getElementById('secure')?.contentDocument?.readyState==='complete' &&
         !!document.getElementById('secure')?.contentDocument?.getElementById('field')
         """ : "document.readyState==='complete' && !!document.getElementById('panel')"
-        let ready = try await waitForFixtureCondition {
+        let ready = try await waitForFixtureCondition(timeout: WebViewFixture.startupTimeout) {
             (try? await web.evaluateJavaScript(script)) as? Bool == true
         }
         XCTAssertTrue(ready, "The chrome fixture and its requested child document must finish loading", file:file, line:line)
@@ -68,7 +69,7 @@ final class NativeInteractionTests: XCTestCase {
             reference.navigationDelegate = nil; reference.stopLoading(); reference.removeFromSuperview()
             StashEndChromeContentFixture(fixture); window.isHidden = true; previous?.makeKey()
         }
-        await fulfillment(of:[referenceLoaded],timeout:30)
+        guard await WebViewFixture.waitForLoad(referenceLoaded) else { return }
         XCTAssertEqual(reference.traitCollection.userInterfaceStyle,web.traitCollection.userInterfaceStyle)
         var initialRed: CGFloat = 0, initialGreen: CGFloat = 0, initialBlue: CGFloat = 0, initialAlpha: CGFloat = 0
         XCTAssertTrue(reference.underPageBackgroundColor.getRed(&initialRed,green:&initialGreen,blue:&initialBlue,alpha:&initialAlpha))
@@ -172,7 +173,7 @@ final class NativeInteractionTests: XCTestCase {
         <main id="port"><div style="height:300px"></div><input id="field" value="Retained checkout">
         <div style="height:600px"></div></main>
         """, baseURL: URL(string: "https://checkout.invalid"))
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         _ = try await web.evaluateJavaScript("""
         field.focus({preventScroll:true});field.setSelectionRange(2,7);port.scrollTop=52;
         """)
@@ -232,7 +233,7 @@ final class NativeInteractionTests: XCTestCase {
         """, baseURL: URL(string: "https://checkout.invalid"))
         // The fixture's initial about:blank request can finish after loadHTMLString begins.
         // Observe this document's actual elements instead of an unrelated navigation callback.
-        let fixtureReady = try await waitForFixtureCondition {
+        let fixtureReady = try await waitForFixtureCondition(timeout: WebViewFixture.startupTimeout) {
             (try? await web.evaluateJavaScript("""
             document.readyState==='complete' && !!document.getElementById('port') &&
             !!document.getElementById('field') && typeof window.__stashTestFocusState==='function'
@@ -487,7 +488,7 @@ final class NativeInteractionTests: XCTestCase {
         <style>html,body{margin:0}main{height:120px}button{display:block;box-sizing:border-box;height:32px}</style>
         <main data-stash-content><div style="height:88px">Checkout</div><button id="last">Final action</button></main>
         """, baseURL: URL(string:"https://checkout.invalid"))
-        await fulfillment(of:[loaded], timeout:15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let metrics = try await web.evaluateJavaScript("({height:innerHeight,last:last.getBoundingClientRect().bottom,marker:document.querySelector('main').getBoundingClientRect().height})") as! [String: Double]
         XCTAssertEqual(metrics["height"], 120)
         XCTAssertEqual(metrics["last"], 120)
@@ -560,7 +561,7 @@ final class NativeInteractionTests: XCTestCase {
         <body><header>Checkout</header><main id="scroller"><div style="height:320px"></div>
         <input id="field" inputmode="none" value="SDK Native Test"><div style="height:400px"></div></main></body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let baselineValue: Any? = try await withCheckedThrowingContinuation { continuation in
             web.callAsyncJavaScript(FocusFixture.checkpointScript + """
             await waitForRendering();
@@ -743,7 +744,7 @@ final class NativeInteractionTests: XCTestCase {
         <body><p id="label">Checkout</p><input id="field"><textarea id="notes"></textarea>
         <div id="editable" contenteditable="true">Name</div></body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let script = """
         const errors = [];
         window.addEventListener('error', event => errors.push(event.message));

@@ -124,7 +124,7 @@ final class FloatingKeyboardTests: XCTestCase {
         <input id="field" inputmode="none" value="Native value"><div id="tail" style="height:500px"></div></section></article></main>
         </body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let direct = try await evaluate("""
         await waitForRendering();
         const field=document.querySelector('#field'),scroller=document.querySelector('#scroller');
@@ -329,7 +329,7 @@ final class FloatingKeyboardTests: XCTestCase {
         <style>html,body{margin:0;height:100%;overflow:hidden}main{position:fixed;inset:0;overflow:auto}
         input{display:block;height:34px;box-sizing:border-box;font-size:16px;width:90%}</style></head><body></body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
-        await fulfillment(of: [loaded], timeout: 15)
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         let settling = try await evaluate("""
         await waitForRendering();
         document.body.innerHTML='<main id="settlingPort"><article style="min-height:100%;display:flex;flex-direction:column;background:#ebede8"><div id="innerPaint" style="background:#f7f9f4;position:relative;flex:1;margin-top:-16px"><section data-stash-content><div style="height:313px"></div><input id="settlingField" inputmode="none" value="Preserved"><div style="height:471px"></div></section></div></article></main>';

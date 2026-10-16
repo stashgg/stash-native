@@ -23,9 +23,8 @@ final class HapticTests: XCTestCase {
         let loaded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !web.isLoading && web.url != nil
         }, object: web)
-        let loadResult = await XCTWaiter.fulfillment(of: [loaded], timeout: 30)
-        XCTAssertEqual(loadResult, .completed, "Haptic bridge fixture must finish loading")
-        guard loadResult == .completed else { return }
+        loaded.expectationDescription = "Haptic bridge fixture loaded"
+        guard await WebViewFixture.waitForLoad(loaded) else { return }
         XCTAssertFalse(web.isLoading)
         let returnsUndefined = try await evaluate(web, """
             const result = stash_sdk.triggerHaptic();
