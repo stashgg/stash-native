@@ -47,7 +47,7 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 - Preserve the optional Custom Tabs fallback in minified Android apps and declare service visibility for browser discovery on Android 11+.
 - Add responsive test content and an Android host fixture targeting API 36 and 37.
 
-See [the migration guide](docs/migration-3.0.md). Engine wrapper migrations and desktop changes are separate releases.
+Engine wrapper migrations and desktop changes are separate releases.
 
 ## [2.3.1] - 2026-09-03
 

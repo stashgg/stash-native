@@ -1,82 +1,52 @@
 ---
 title: Installation
-parent: Usage reference
+parent: Usage
 nav_order: 1
-description: Add Stash Native to an iOS app with Swift Package Manager or the XCFramework, and to an Android app with the AAR.
+description: Add Stash Native with Swift Package Manager, the XCFramework, or the Android AAR.
 ---
 
 # Installation
 
-Prebuilt binaries are attached to [GitHub Releases](https://github.com/stashgg/stash-native/releases): `StashNative-<tag>.aar` and `StashNative-<tag>.xcframework.zip`.
+Prebuilt binaries are on [GitHub Releases](https://github.com/stashgg/stash-native/releases): `StashNative-<tag>.xcframework.zip` and `StashNative-<tag>.aar`.
 
 ## iOS
 
-Requirements: iOS 15 or later. Build release apps with Xcode 27.1 and the iOS 27.1 SDK; iPhone Duo layout adoption requires the host app itself to be linked against SDK 27.1. See [Compatibility](../compatibility.md#ios).
+Requires iOS 15. Build with Xcode 27.1. iPhone Duo layouts need the app linked against the iOS 27.1 SDK.
 
 ### Swift Package Manager
 
-In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library to your app target.
-
-In `Package.swift`:
-
 ```swift
-dependencies: [
-    .package(url: "https://github.com/stashgg/stash-native.git", from: "3.0.0"),
-],
-targets: [
-    .target(name: "App", dependencies: [
-        .product(name: "StashNative", package: "stash-native"),
-    ]),
-]
+.package(url: "https://github.com/stashgg/stash-native.git", from: "3.0.0"),
 ```
+
+Add the `StashNative` product to your target, then `import StashNative`.
 
 ### XCFramework
 
-1. Download `StashNative-<tag>.xcframework.zip` from the release and unzip it.
-2. Drag `StashNative.xcframework` into the Xcode project.
-3. Under **Frameworks, Libraries, and Embedded Content**, set it to **Embed & Sign**.
-
-The framework depends only on system frameworks: UIKit, WebKit, SafariServices, AVFoundation, and QuartzCore.
-
-### Import
-
-```swift
-import StashNative
-```
-
-```objc
-#import <StashNative/StashNative.h>
-```
+Unzip the release, add `StashNative.xcframework` to your target, and set it to **Embed & Sign**.
 
 ### Info.plist
 
-| Key | Required when |
-|---|---|
-| `NSCameraUsageDescription` | The app uses CodeLink. Without it, CodeLink reports `StashNativeCodeLinkErrorMissingCameraUsageDescription` and never requests camera access. |
-
-Checkout and browser need no Info.plist entries.
+CodeLink needs `NSCameraUsageDescription`. Checkout and the browser need no keys.
 
 ## Android
 
-Requirements: API 21 or later. The SDK is built with JDK 17 and compile SDK 34.
+Requires API 21.
 
 ### AAR
 
-1. Download `StashNative-<tag>.aar` from the release and copy it to `app/libs/`.
-2. Declare the AAR and its base dependencies. A plain AAR file carries no dependency metadata, so Gradle does not add them for you.
+Copy the AAR to `app/libs/` and declare its dependencies. A file-based AAR brings none with it.
 
 ```groovy
 dependencies {
     implementation files('libs/StashNative-<tag>.aar')
 
-    // Required
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'
     implementation 'androidx.window:window-java:1.4.0'
 
-    // Optional: Chrome Custom Tabs for openBrowser and external payment.
-    // Without it, the SDK opens the system browser with ACTION_VIEW.
+    // Optional: Chrome Custom Tabs. Without it, the system browser opens.
     implementation 'androidx.browser:browser:1.7.0'
 
     // Optional: CodeLink. Add all four or none.
@@ -87,51 +57,22 @@ dependencies {
 }
 ```
 
-| Group | Required | Without it |
-|---|---|---|
-| Core, WebKit, WindowManager and its Java adapter | Yes | Unsupported configuration |
-| Browser | No | `openBrowser` and external payment use the system browser. `onBrowserClosed` uses host lifecycle detection. |
-| CameraX and ZXing | Only for CodeLink | `codeLink` reports `CAMERA_CONFIGURATION_FAILED` and closes. Checkout and browser work. |
-
-Keep WindowManager on 1.4.x while supporting API 21. WindowManager 1.5 raises its minimum SDK to 23.
+Stay on WindowManager 1.4.x. Version 1.5 requires API 23.
 
 ### Source module
 
-When the `stashnative` Gradle module is included as source, Core, WebKit, and WindowManager come with it. Browser, CameraX, and ZXing are `compileOnly` in the SDK, so add them to the app module when you use those features.
+The `stashnative` module includes Core, WebKit, and WindowManager. Add Browser, CameraX, and ZXing yourself if you use them.
 
 ### Manifest
 
-The SDK manifest merges these entries into the app:
-
-| Entry | Purpose |
-|---|---|
-| `android.permission.INTERNET` | Checkout |
-| `android.permission.CAMERA`, optional `android.hardware.camera` and `android.hardware.camera.autofocus` features | CodeLink only. Requested at runtime only when the scanner opens. |
-| `android.permission.FOREGROUND_SERVICE`, `android.permission.FOREGROUND_SERVICE_SHORT_SERVICE` | Optional keep-alive service |
-| `<applicationId>.permission.STASH_NATIVE_INTERNAL` (signature) | Protects internal broadcasts on API 21 to 32 |
-| `<queries>` for `android.support.customtabs.action.CustomTabsService` | Custom Tabs provider discovery on API 30+ |
-| `StashCheckoutActivity`, `StashNativeBrowserProxyActivity` | Non-exported activities in the host process |
-| `StashKeepAliveService` | Non-exported `shortService` foreground service |
-
-Apps that never open CodeLink can remove the camera permission:
+The SDK merges `INTERNET`, `CAMERA`, the keep-alive foreground service, a signature permission for internal broadcasts, and two non-exported activities. Without CodeLink you can remove `CAMERA`:
 
 ```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
-</manifest>
+<uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
 ```
 
-With the permission removed, `codeLink` reports `CAMERA_PERMISSION_NOT_DECLARED`.
+Do not add `android:process` to the SDK activities. Checkout must run in the app process.
 
-Do not add `android:process` to the SDK activities. The SDK manifest removes it with `tools:remove`; checkout must share the host process.
+### R8
 
-### Shrinking
-
-The AAR includes consumer R8 rules for its public API, JavaScript interface methods, and reflection entry points. No extra keep rules are needed. Test a minified release build of the host app, with and without the optional dependency groups you ship.
-
-### Import
-
-```java
-import com.stash.stashnative.StashNativeCard;
-```
+The AAR ships its own keep rules. Add none.

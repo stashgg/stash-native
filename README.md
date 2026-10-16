@@ -27,13 +27,13 @@ Prebuilt binaries are available on the [Releases page](https://github.com/stashg
 
 Run `./gradlew :sample:installDebug` from [`Android/`](Android/), or open the [iOS sample project](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode.
 
-To test the in-app checkout card quickly, use the [callback test page](https://test.stashpreview.com/). It can trigger different events and simulate various scenarios.
+To test the in-app checkout card quickly, use the [callback test page](https://test.stashpreview.com/). It can trigger each checkout callback.
 
 ## Installation
 
 ### Android
 
-Minimum Android: **API 21**. The SDK builds with **JDK 17** and **compile SDK 34**.
+Minimum Android: API 21. The SDK builds with JDK 17 and compile SDK 34.
 
 1. Download `StashNative-<tag>.aar` from [GitHub Releases](https://github.com/stashgg/stash-native/releases) and add it to your project, for example under `libs/`.
 2. Add the AAR and its base runtime dependencies to your app's `build.gradle`:
@@ -67,7 +67,7 @@ AAR integrations must declare the base dependencies and any optional groups they
 
 ### iOS
 
-Minimum iOS: **15.0**. Build with **Xcode 27.1** for iPhone Duo APIs and compatibility. The host app must also link against the iOS 27.1 SDK to adopt the new iPhone Duo display behavior.
+Minimum iOS: 15.0. Build with Xcode 27.1 for iPhone Duo APIs and compatibility. The host app must also link against the iOS 27.1 SDK to adopt the new iPhone Duo display behavior.
 
 **XCFramework:** Download `StashNative-<tag>.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, and add `StashNative.xcframework` to your Xcode project. Under **Frameworks, Libraries, and Embedded Content**, set it to **Embed & Sign**.
 
@@ -82,7 +82,7 @@ Minimum iOS: **15.0**. Build with **Xcode 27.1** for iPhone Duo APIs and compati
 
 ## Stash Pay Checkout Card
 
-Pass a generated Stash Pay link to **openCard** to display a responsive card that adapts to phones, tablets, foldables, and multitasking. Pass the activity or view controller that belongs to the initiating app window, and set callbacks before opening.
+Pass a generated Stash Pay link to `openCard` to display a responsive card that adapts to phones, tablets, foldables, and multitasking. Pass the activity or view controller that belongs to the initiating app window, and set callbacks before opening.
 
 ![Stash Pay checkout card in dark mode on iPhone, unfolded iPhone Duo, and iPad](.github/assets/opencard-devices-dark.png)
 
@@ -101,7 +101,7 @@ StashNativeCard.sharedInstance().openCard(
 
 #### Card Configuration
 
-Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS; `null` or `nil` uses the responsive defaults. Dimensions are **dp on Android** and **points on iOS**, and the available window space always limits the requested size. We recommend the default sizing for Stash Pay; adjust it only when needed.
+Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS; `null` or `nil` uses the responsive defaults. Dimensions are dp on Android and points on iOS, and the available window space always limits the requested size. We recommend the default sizing for Stash Pay; adjust it only when needed.
 
 | Property | Default | Description |
 | --- | --- | --- |
@@ -195,7 +195,7 @@ extension YourViewController: StashNativeCardDelegate {
 
 ## Using the In-Game Browser (Stash Pay & Webshop)
 
-Alternatively, use the **OpenBrowser** feature to open Stash Pay and pre-authenticated webshop links in an in-game browser: Chrome Custom Tabs on Android and Safari View Controller on iOS. Browser checkouts can't report purchase lifecycle callbacks directly, so they use deep links instead.
+Alternatively, use `openBrowser` to open Stash Pay and pre-authenticated webshop links in an in-game browser: Chrome Custom Tabs on Android and Safari View Controller on iOS. Browser checkouts can't report purchase lifecycle callbacks directly, so they use deep links instead.
 
 ![Stash Pay checkout in dark mode in Safari View Controller on iPhone and Chrome Custom Tabs on Android](.github/assets/openbrowser-devices-dark.png)
 
@@ -227,7 +227,7 @@ Safari keeps its native sheet presentation and restores the host orientation whe
 
 #### Keep-Alive Service (Android Only)
 
-An optional short foreground service shows a low-priority notification while the browser is open. It makes it less likely that Android kills your game process on low-memory devices. It is **off by default** but highly recommended.
+An optional short foreground service shows a low-priority notification while the browser is open. It makes it less likely that Android kills your game process on low-memory devices. It is off by default; we recommend enabling it.
 
 ```java
 StashNativeCard.getInstance().setKeepAliveEnabled(true);
@@ -238,7 +238,7 @@ config.notificationIconResId = R.drawable.ic_notification; // Use 0 for the libr
 StashNativeCard.getInstance().setKeepAliveConfig(config);
 ```
 
-The library manifest includes the service and its foreground-service permissions. If you enable it, configure your app's service declarations and notification behavior. See the [keep-alive service](https://stashgg.github.io/stash-native/usage/browser.html#android-keep-alive-service) docs.
+The library manifest includes the service and its foreground-service permissions. If you enable it, configure your app's service declarations and notification behavior. See the [keep-alive service](https://stashgg.github.io/stash-native/usage/browser.html#keep-alive-service-android) docs.
 
 ## CodeLink (iOS and Android)
 
@@ -280,12 +280,11 @@ Set the listener or delegate before opening. A successful scan shows **Connected
 
 For more detailed information, see the [Stash Native documentation](https://stashgg.github.io/stash-native/):
 
-- [Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, session lifecycle, and sizing
-- [Usage reference](https://stashgg.github.io/stash-native/usage/): installation, the full API, configuration, and callbacks
+- [Usage](https://stashgg.github.io/stash-native/usage/): installation, API, configuration, and callbacks
 - [JavaScript bridge](https://stashgg.github.io/stash-native/stash-sdk-js.html): the `window.stash_sdk` API for checkout pages
-- [Compatibility](https://stashgg.github.io/stash-native/compatibility.html): requirements, OS-specific behavior, and platform API notes for app review
-- [Building wrappers](https://stashgg.github.io/stash-native/building-wrappers.html): Unity, Unreal, and custom engine bindings
-- [Migrating to 3.0](https://stashgg.github.io/stash-native/migration-3.0.html): breaking changes from 2.x
+- [Engine wrappers](https://stashgg.github.io/stash-native/usage/engine-wrappers.html): Unity, Unreal, and custom engine bindings
+- [Platform Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
+- [Compatibility](https://stashgg.github.io/stash-native/architecture/compatibility.html): supported versions, version-specific behavior, and runtime techniques for app review
 
 ---
 

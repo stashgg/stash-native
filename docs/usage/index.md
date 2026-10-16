@@ -1,83 +1,48 @@
 ---
-title: Usage reference
-nav_order: 3
+title: Usage
+nav_order: 2
 has_children: true
-description: Public API of the iOS and Android SDKs, with call rules shared by every presentation.
+description: Public API of the iOS and Android SDKs.
 ---
 
-# Usage reference
+# Usage
 
-Both SDKs expose one singleton facade, `StashNativeCard`. iOS declares it in [`StashNativeCard.h`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/include/StashNativeCard.h); Android in [`StashNativeCard.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java).
+Both SDKs expose one singleton, `StashNativeCard`, declared in [`StashNativeCard.h`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) and [`StashNativeCard.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java).
 
-| Page | Covers |
-|---|---|
-| [Installation](installation.md) | Swift Package Manager, XCFramework, AAR, Gradle dependencies, manifest and Info.plist entries |
-| [Checkout card](checkout-card.md) | `openCard`, `CardConfig`, sizing, orientation, Android backdrop |
-| [Browser](browser.md) | `openBrowser`, `closeBrowser`, browser orientation, Android keep-alive |
-| [CodeLink](codelink.md) | `codeLink`, scanner text, permissions, errors |
-| [Callbacks and lifecycle](callbacks.md) | Every callback, delivery order, state queries, dismissal and reset |
-
-## API map
-
-| Operation | iOS (Swift) | iOS (Objective-C) | Android (Java) |
-|---|---|---|---|
-| Get the facade | `StashNativeCard.sharedInstance()` | `[StashNativeCard sharedInstance]` | `StashNativeCard.getInstance()` |
-| Set callbacks | `.delegate = self` | `.delegate = self` | `setListener(listener)` |
-| Open checkout card | `openCard(withURL:from:config:)` | `openCardWithURL:fromViewController:config:` | `openCard(activity, url, config)` |
-| Open browser | `openBrowser(withURL:from:)` | `openBrowserWithURL:fromViewController:` | `openBrowser(activity, url)` |
-| Open browser with orientation | `openBrowser(withURL:from:config:)` | `openBrowserWithURL:fromViewController:config:` | Not available |
-| Open QR scanner | `codeLink(from:config:)`, `codeLink(from:)` | `codeLinkFromViewController:config:` | `codeLink(activity, config)`, `codeLink(activity)` |
-| Close the presentation | `dismiss()` | `dismiss` | `dismiss()` |
-| Close the browser | `closeBrowser()` | `closeBrowser` | `closeBrowser()` (no effect) |
-| Close the browser with a result | `dismissSafariViewController(withResult:)` | `dismissSafariViewControllerWithResult:` | Not available |
-| Tear down without callbacks | `resetPresentationState()` | `resetPresentationState` | `resetPresentationState()` |
-| Query presentation | `isCurrentlyPresented` | `isCurrentlyPresented` | `isCurrentlyPresented()` |
-| Query processing lock | `isPurchaseProcessing` | `isPurchaseProcessing` | `isPurchaseProcessing()` |
-| Portrait backdrop | Not available | Not available | `setBackdropBitmap(bitmap)`, `setBackdropBytes(bytes)` |
-| Keep-alive service | Not available | Not available | `setKeepAliveEnabled(enabled)`, `setKeepAliveConfig(config)` |
-| WebView inspection | `StashNativeCard.setInspectableWebViewsEnabled(_:)` | `+setInspectableWebViewsEnabled:` | `StashNativeCard.setInspectableWebViewsEnabled(enabled)` |
-| SDK version | `StashNativeCard.sdkVersion()` | `+sdkVersion` | `StashNativeCard.getVersion()` |
-
-## Types
-
-| Purpose | iOS | Android |
+| Operation | iOS (Swift) | Android |
 |---|---|---|
-| Card configuration | `StashNativeCardConfig` | `StashNativeCard.CardConfig` |
-| Browser configuration | `StashNativeBrowserConfig` | None |
-| Scanner text | `StashNativeCodeLinkConfig` | `StashNativeCard.CodeLinkConfig` |
-| Keep-alive notification | None | `StashNativeCard.KeepAliveConfig` |
-| Orientation | `StashNativeOrientationPreference` (`.followHost`, `.portrait`) | `CardConfig.ORIENTATION_FOLLOW_HOST`, `CardConfig.ORIENTATION_PORTRAIT` |
-| Callbacks | `StashNativeCardDelegate` (all methods optional) | `StashNativeCardListener`, `StashNativeCardListenerAdapter` |
-| Scanner errors | `NSError` in `StashNativeCodeLinkErrorDomain` with `StashNativeCodeLinkError` codes | `StashNativeCard.CodeLinkError` |
+| Get the singleton | `StashNativeCard.sharedInstance()` | `StashNativeCard.getInstance()` |
+| Receive callbacks | `delegate` | `setListener(listener)` |
+| Open checkout | `openCard(withURL:from:config:)` | `openCard(activity, url, config)` |
+| Open browser | `openBrowser(withURL:from:config:)` | `openBrowser(activity, url)` |
+| Open QR scanner | `codeLink(from:config:)` | `codeLink(activity, config)` |
+| Close | `dismiss()` | `dismiss()` |
+| Close the browser | `closeBrowser()` | Not available |
+| Close the browser with a result | `dismissSafariViewController(withResult:)` | Not available |
+| Close without callbacks | `resetPresentationState()` | `resetPresentationState()` |
+| Read state | `isCurrentlyPresented`, `isPurchaseProcessing` | `isCurrentlyPresented()`, `isPurchaseProcessing()` |
+| Portrait backdrop | Not available | `setBackdropBitmap(bitmap)`, `setBackdropBytes(bytes)` |
+| Keep-alive service | Not available | `setKeepAliveEnabled(enabled)`, `setKeepAliveConfig(config)` |
+| WebView inspection | `setInspectableWebViewsEnabled(_:)` | `setInspectableWebViewsEnabled(enabled)` |
+| SDK version | `sdkVersion()` | `getVersion()` |
 
-## Call rules
+## Rules
 
-- Pass the view controller or activity that belongs to the window starting the presentation. The SDK never searches for a foreground scene or a current activity.
-- iOS presents from the topmost controller in the presenter's `presentedViewController` chain. The presenter must be in a window and not being dismissed.
-- Set the delegate or listener on the main thread before opening.
-- Methods can be called from any thread. Open calls capture the URL and config on the calling thread and continue on the main thread.
-- Callbacks arrive on the main thread.
-- The URL must be `http` or `https` with a host. A missing scheme becomes `https://`. Other schemes and malformed URLs are ignored.
-- An open call is ignored without a callback when another presentation is active. On iOS this includes a Safari presentation. On Android, `openBrowser` is not blocked by an open card.
-- Configs are copied when the call is made. Changing the config object afterward does not affect the open presentation.
+- Pass the activity or view controller of the window that starts the presentation.
+- Set the delegate or listener before opening.
+- Call from any thread. The SDK switches to the main thread and calls back on it.
+- One presentation runs at a time. Open calls made during one are ignored without a callback. Android's `openBrowser` is the exception.
+- URLs must be `http` or `https`. A URL without a scheme gets `https://`.
+- Configs are copied when you call. Later changes to the object have no effect.
 
 ## WebView inspection
 
 ```swift
-StashNativeCard.setInspectableWebViewsEnabled(true)   // iOS, Safari Web Inspector, iOS 16.4+
+StashNativeCard.setInspectableWebViewsEnabled(true)
 ```
 
 ```java
-StashNativeCard.setInspectableWebViewsEnabled(true);  // Android, chrome://inspect
+StashNativeCard.setInspectableWebViewsEnabled(true);
 ```
 
-Call it before opening a card. It is off by default. Enable it in debug and QA builds only. On Android it calls `WebView.setWebContentsDebuggingEnabled`, which applies to every WebView in the process.
-
-## Version
-
-| Platform | Call | Declared in |
-|---|---|---|
-| iOS | `StashNativeCard.sdkVersion()` | `StashNativeCard.m` |
-| Android | `StashNativeCard.getVersion()` | `SDK_VERSION` in `StashNativeCard.java` |
-
-Both return `"3.0.0"` on `main`. The SDK follows [Semantic Versioning](https://semver.org/). Release history is in the [changelog](https://github.com/stashgg/stash-native/blob/main/CHANGELOG.md).
+Makes checkout debuggable in Safari Web Inspector (iOS 16.4+) or `chrome://inspect`. Enable it in debug builds only. On Android it affects every WebView in the process.
