@@ -86,7 +86,7 @@ final class FloatingKeyboardTests: XCTestCase {
 
     @MainActor func testFloatingKeyboardRevealsNestedFieldWithoutResizing() async throws {
         let configuration = WKWebViewConfiguration()
-        let interaction = StashNativeInteractionSource()!
+        let interaction = FocusFixture.interactionSource()
         let labelProbe = interaction.replacingOccurrences(of: "function associatedFocusRange(", with:
             "window.__stashTestLabelRange=function(e,t,b){return associatedFocusRange(e,t,b);};function associatedFocusRange(")
         XCTAssertNotEqual(interaction, labelProbe)
@@ -112,6 +112,7 @@ final class FloatingKeyboardTests: XCTestCase {
         let loaded = expectation(description: "floating keyboard fixture loaded")
         let navigation = FloatingNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
+        // Keyboard geometry is injected below; keep native keyboard animations out of this fixture.
         web.loadHTMLString("""
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;height:100%;overflow:hidden}main{position:fixed;inset:0;overflow:auto}
@@ -120,61 +121,49 @@ final class FloatingKeyboardTests: XCTestCase {
         <body><header>Underlying Checkout</header><main id="scroller">
         <article id="canvas" style="min-height:100%;display:flex;flex-direction:column;background:#f7f9f4">
         <section data-stash-content style="flex:0 0 auto"><div id="lead" style="height:320px"></div>
-        <input id="field" value="Native value"><div id="tail" style="height:500px"></div></section></article></main>
+        <input id="field" inputmode="none" value="Native value"><div id="tail" style="height:500px"></div></section></article></main>
         </body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
         await fulfillment(of: [loaded], timeout: 15)
         let direct = try await evaluate("""
-        // Navigation can finish before WebKit starts rendering on a cold simulator.
-        await new Promise((resolve,reject)=>{
-          const deadline=setTimeout(()=>reject(new Error('Floating keyboard fixture did not start rendering')),15000);
-          requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(deadline);resolve();}));
-        });
+        await waitForRendering();
         const field=document.querySelector('#field'),scroller=document.querySelector('#scroller');
         const initialFocus={documentFocused:document.hasFocus(),active:document.activeElement?.id||document.activeElement?.tagName};
         field.focus({preventScroll:true});field.setSelectionRange(1,5);
         const afterFocus={documentFocused:document.hasFocus(),active:document.activeElement?.id||document.activeElement?.tagName};
         window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);
-        window.__stashRevealFocusedElement();
-        await new Promise((resolve,reject)=>{
-          const deadline=setTimeout(()=>reject(new Error('Focus reveal received no animation frames')),1500);
-          requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(deadline);resolve();}));
-        });
+        await revealAndSettle();
         const rect=field.getBoundingClientRect();
         const result={top:rect.top,bottom:rect.bottom,height:innerHeight,value:field.value,
         start:field.selectionStart,end:field.selectionEnd,style:field.getAttribute('style'),
         initialFocus,afterFocus,firstRevealFocus:{documentFocused:document.hasFocus(),active:document.activeElement?.id||document.activeElement?.tagName},firstScroll:scroller.scrollTop};
         window.__stashSetKeyboardOcclusion([0,240,390,200,1000,600]);
-        scroller.scrollTop=0;window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,80));
+        scroller.scrollTop=0;await revealAndSettle();
         result.staleWidthTop=field.getBoundingClientRect().top;
         window.__stashSetKeyboardOcclusion(null);
-        scroller.scrollTop=0;window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,80));
+        scroller.scrollTop=0;await revealAndSettle();
         result.clearedTop=field.getBoundingClientRect().top;
         document.querySelector('#tail').remove();scroller.scrollTop=0;
         const marker=document.querySelector('[data-stash-content]');
         result.markerBefore=marker.getBoundingClientRect().height;
         result.shortRangeBefore=scroller.scrollHeight-scroller.clientHeight;
-        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);await revealAndSettle();
         result.shortTop=field.getBoundingClientRect().top;result.shortBottom=field.getBoundingClientRect().bottom;
         result.clearanceCount=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         result.shortViewport=innerHeight;result.shortContainer=scroller.clientHeight;
         result.markerAfter=marker.getBoundingClientRect().height;
         scroller.style.paddingBottom='11px';window.__stashSetKeyboardOcclusion(null);
-        await new Promise(resolve=>setTimeout(resolve,80));
+        await waitForRendering();
         result.remainingAfterHide=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         result.authoredPadding=scroller.style.paddingBottom;
         scroller.scrollTop=0;window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);
-        window.__stashRevealFocusedElement();await new Promise(resolve=>setTimeout(resolve,80));
-        field.blur();await new Promise(resolve=>setTimeout(resolve,80));
+        await revealAndSettle();
+        field.blur();await waitForRendering();
         result.remainingAfterBlur=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         scroller.style.paddingBottom='';
         const tail=document.createElement('div');tail.style.height='500px';marker.appendChild(tail);
         field.focus({preventScroll:true});scroller.scrollTop=220;
-        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.belowTop=field.getBoundingClientRect().top;result.belowBottom=field.getBoundingClientRect().bottom;
         result.belowClearanceCount=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         result.belowMarkerHeight=marker.getBoundingClientRect().height;
@@ -182,8 +171,7 @@ final class FloatingKeyboardTests: XCTestCase {
         document.querySelector('#lead').style.height='100px';
         const canvas=document.querySelector('#canvas'),canvasBefore=canvas.getBoundingClientRect();
         const canvasStyle=canvas.getAttribute('style'),markerStyle=marker.getAttribute('style');
-        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.shortBelowTop=field.getBoundingClientRect().top;result.shortBelowBottom=field.getBoundingClientRect().bottom;
         const canvasAfter=canvas.getBoundingClientRect();
         result.canvasAnchored=canvasBefore.top===canvasAfter.top&&canvasBefore.left===canvasAfter.left&&canvasBefore.width===canvasAfter.width;
@@ -196,8 +184,7 @@ final class FloatingKeyboardTests: XCTestCase {
         const wrapper=document.createElement('div');wrapper.style.cssText='height:100%;display:flex;flex-direction:column';
         canvas.before(wrapper);wrapper.appendChild(canvas);field.focus({preventScroll:true});
         const wrapperStyle=wrapper.getAttribute('style');
-        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.wrappedBelowTop=field.getBoundingClientRect().top;
         result.wrappedCanvasTop=canvas.getBoundingClientRect().top;
         result.wrappedCanvasCoversTop=!!document.elementFromPoint(10,10).closest('#canvas');
@@ -212,8 +199,7 @@ final class FloatingKeyboardTests: XCTestCase {
         canvas.appendChild(painted);painted.appendChild(marker);field.focus({preventScroll:true});
         document.querySelector('#lead').style.height='336px';const paintBefore=painted.getBoundingClientRect();
         const paintStyle=painted.getAttribute('style');
-        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);await revealAndSettle();
         result.deepBottom=field.getBoundingClientRect().bottom;
         result.deepClearanceOwner=document.querySelector('[data-stash-keyboard-clearance]')?.parentElement.id;
         result.deepPaintOwnsBottom=!!document.elementFromPoint(10,590).closest('#painted');
@@ -226,15 +212,12 @@ final class FloatingKeyboardTests: XCTestCase {
         label.style.cssText='display:block;height:24px';field.before(label);
         const labelTail=document.createElement('div');labelTail.style.height='500px';marker.appendChild(labelTail);
         document.querySelector('#lead').style.height='290px';scroller.scrollTop=0;
-        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.labelBelowTop=label.getBoundingClientRect().top;result.labelBelowFieldBottom=field.getBoundingClientRect().bottom;
-        window.__stashSetKeyboardOcclusion(null);scroller.scrollTop=300;window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion(null);scroller.scrollTop=300;await revealAndSettle();
         result.labelDockedTop=label.getBoundingClientRect().top;result.labelDockedFieldBottom=field.getBoundingClientRect().bottom;
         label.id='field-caption';label.removeAttribute('for');field.setAttribute('aria-labelledby','field-caption');
-        scroller.scrollTop=0;window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));result.ariaLabelTop=label.getBoundingClientRect().top;
+        scroller.scrollTop=0;window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();result.ariaLabelTop=label.getBoundingClientRect().top;
         window.__stashSetKeyboardOcclusion(null);field.removeAttribute('aria-labelledby');label.remove();labelTail.remove();
         scroller.scrollTop=0;
         const framePort=document.createElement('div');framePort.style.cssText='position:fixed;inset:0;overflow:auto;background:white';
@@ -248,8 +231,7 @@ final class FloatingKeyboardTests: XCTestCase {
         result.multipleControlLabelOffset=window.__stashTestLabelRange(frame,0,34).top;
         window.__stashSetKeyboardOcclusion(null);framePort.remove();field.focus({preventScroll:true});
         document.querySelector('#lead').style.height='320px';
-        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);await revealAndSettle();
         result.clearanceBeforePageHide=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         dispatchEvent(new PageTransitionEvent('pagehide'));
         result.remainingAfterPageHide=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
@@ -320,7 +302,7 @@ final class FloatingKeyboardTests: XCTestCase {
     @MainActor func testFractionalMissingRangeExtendsInnerFlexPaintImmediately() async throws {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.addUserScript(WKUserScript(
-            source: StashNativeInteractionSource(), injectionTime: .atDocumentStart, forMainFrameOnly: false))
+            source: FocusFixture.interactionSource(), injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 900), configuration: configuration)
         web.scrollView.contentInsetAdjustmentBehavior = .never
         let host = UIViewController()
@@ -341,6 +323,7 @@ final class FloatingKeyboardTests: XCTestCase {
         let loaded = expectation(description: "fractional keyboard clearance fixture loaded")
         let navigation = FloatingNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
+        // Keyboard geometry is injected below; keep native keyboard animations out of this fixture.
         web.loadHTMLString("""
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;height:100%;overflow:hidden}main{position:fixed;inset:0;overflow:auto}
@@ -348,12 +331,11 @@ final class FloatingKeyboardTests: XCTestCase {
         """, baseURL: URL(string: "https://checkout.invalid"))
         await fulfillment(of: [loaded], timeout: 15)
         let settling = try await evaluate("""
-        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-        document.body.innerHTML='<main id="settlingPort"><article style="min-height:100%;display:flex;flex-direction:column;background:#ebede8"><div id="innerPaint" style="background:#f7f9f4;position:relative;flex:1;margin-top:-16px"><section data-stash-content><div style="height:313px"></div><input id="settlingField" value="Preserved"><div style="height:471px"></div></section></div></article></main>';
+        await waitForRendering();
+        document.body.innerHTML='<main id="settlingPort"><article style="min-height:100%;display:flex;flex-direction:column;background:#ebede8"><div id="innerPaint" style="background:#f7f9f4;position:relative;flex:1;margin-top:-16px"><section data-stash-content><div style="height:313px"></div><input id="settlingField" inputmode="none" value="Preserved"><div style="height:471px"></div></section></div></article></main>';
         const port=document.querySelector('#settlingPort'),field=document.querySelector('#settlingField');
         field.focus({preventScroll:true});const before=field.getBoundingClientRect();
-        window.__stashSetKeyboardOcclusion([0,267.5,390,336,390,900]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,267.5,390,336,390,900]);await revealAndSettle();
         const result={beforeTop:before.top,bottom:field.getBoundingClientRect().bottom,scroll:port.scrollTop,height:innerHeight,
         marker:document.querySelector('[data-stash-content]').getBoundingClientRect().height,
         owner:document.querySelector('[data-stash-keyboard-clearance]')?.parentElement.id,
@@ -361,22 +343,19 @@ final class FloatingKeyboardTests: XCTestCase {
         window.__stashSetKeyboardOcclusion(null);
         const tail=document.createElement('div');tail.style.height='500px';document.querySelector('#innerPaint').appendChild(tail);
         port.scrollTop=72;result.nearBeforeTop=field.getBoundingClientRect().top;result.nearBeforeBottom=field.getBoundingClientRect().bottom;
-        window.__stashSetKeyboardOcclusion([0,267,390,336,390,900]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));result.nearBottom=field.getBoundingClientRect().bottom;
+        window.__stashSetKeyboardOcclusion([0,267,390,336,390,900]);await revealAndSettle();result.nearBottom=field.getBoundingClientRect().bottom;
         window.__stashSetKeyboardOcclusion(null);tail.remove();port.scrollTop=0;
         result.smallInitialRange=port.scrollHeight-port.clientHeight;
-        window.__stashSetKeyboardOcclusion([0,40,390,855,390,900]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,40,390,855,390,900]);await revealAndSettle();
         const rect=field.getBoundingClientRect();result.smallTop=rect.top;result.smallBottom=rect.bottom;
-        window.__stashRevealFocusedElement();await new Promise(resolve=>setTimeout(resolve,150));
+        await revealAndSettle();
         result.smallStableTop=field.getBoundingClientRect().top;result.smallStableBottom=field.getBoundingClientRect().bottom;
         window.__stashSetKeyboardOcclusion(null);
         result.remaining=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
-        document.body.innerHTML='<main><div style="height:20px"></div><div id="nested" style="height:80px;overflow:auto"><div style="height:100px"></div><input id="nestedField"><div style="height:100px"></div></div></main>';
+        document.body.innerHTML='<main><div style="height:20px"></div><div id="nested" style="height:80px;overflow:auto"><div style="height:100px"></div><input id="nestedField" inputmode="none"><div style="height:100px"></div></div></main>';
         const nested=document.querySelector('#nested'),nestedField=document.querySelector('#nestedField');nestedField.focus({preventScroll:true});
         result.clippedBefore=nestedField.getBoundingClientRect().top>nested.getBoundingClientRect().bottom;
-        window.__stashSetKeyboardOcclusion([0,400,390,400,390,900]);window.__stashRevealFocusedElement();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        window.__stashSetKeyboardOcclusion([0,400,390,400,390,900]);await revealAndSettle();
         result.nestedTop=nestedField.getBoundingClientRect().top;result.nestedBottom=nestedField.getBoundingClientRect().bottom;
         result.nestedPortTop=nested.getBoundingClientRect().top;result.nestedPortBottom=nested.getBoundingClientRect().bottom;
         window.__stashSetKeyboardOcclusion(null);return result;
@@ -406,7 +385,7 @@ final class FloatingKeyboardTests: XCTestCase {
 
     @MainActor private func evaluate(_ script: String, in web: WKWebView) async throws -> [String: Any] {
         let value: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript(script, arguments: [:], in: nil, in: .page) { result in
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + script, arguments: [:], in: nil, in: .page) { result in
                 switch result {
                 case .success(let value): continuation.resume(returning: value)
                 case .failure(let error): continuation.resume(throwing: error)

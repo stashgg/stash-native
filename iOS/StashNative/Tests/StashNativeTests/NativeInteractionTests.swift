@@ -533,7 +533,7 @@ final class NativeInteractionTests: XCTestCase {
     @MainActor func testResizeRevealsFocusedFieldInNestedScrollerWithoutChangingSelection() async throws {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.addUserScript(WKUserScript(
-            source: StashNativeInteractionSource(), injectionTime: .atDocumentStart, forMainFrameOnly: false))
+            source: FocusFixture.interactionSource(), injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 600), configuration: configuration)
         web.scrollView.contentInsetAdjustmentBehavior = .never
         let host = UIViewController()
@@ -557,21 +557,31 @@ final class NativeInteractionTests: XCTestCase {
         let loaded = expectation(description: "nested checkout form loaded")
         let navigation = InteractionNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
+        // This fixture resizes the viewport itself; suppress the unrelated system keyboard.
         web.loadHTMLString("""
         <html><head><meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;height:100%;overflow:hidden}
         header{height:40px}main{position:absolute;inset:40px 0 0;overflow:auto}
         input{box-sizing:border-box;display:block;height:34px;font-size:16px;width:90%}</style></head>
         <body><header>Checkout</header><main id="scroller"><div style="height:320px"></div>
-        <input id="field" value="SDK Native Test"><div style="height:400px"></div></main></body></html>
+        <input id="field" inputmode="none" value="SDK Native Test"><div style="height:400px"></div></main></body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
         await fulfillment(of: [loaded], timeout: 15)
-        let baseline = try await web.evaluateJavaScript("""
-        (() => { const field = document.querySelector('#field');
-        field.focus({preventScroll:true}); field.setSelectionRange(4,10);
-        return {height:innerHeight,bottom:field.getBoundingClientRect().bottom,
-        focused:document.activeElement===field}; })()
-        """) as? [String: Any]
+        let baselineValue: Any? = try await withCheckedThrowingContinuation { continuation in
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
+            await waitForRendering();
+            const field = document.querySelector('#field');
+            field.focus({preventScroll:true}); field.setSelectionRange(4,10);
+            return {height:innerHeight,bottom:field.getBoundingClientRect().bottom,
+                focused:document.activeElement===field};
+            """, arguments: [:], in: nil, in: .page) { result in
+                switch result {
+                case .success(let value): continuation.resume(returning: value)
+                case .failure(let error): continuation.resume(throwing: error)
+                }
+            }
+        }
+        let baseline = baselineValue as? [String: Any]
         XCTAssertEqual(baseline?["focused"] as? Bool, true)
         XCTAssertEqual(baseline?["height"] as? Double, 600)
         XCTAssertLessThan(try XCTUnwrap(baseline?["bottom"] as? Double), 600)
@@ -580,14 +590,13 @@ final class NativeInteractionTests: XCTestCase {
         web.setNeedsLayout()
         web.layoutIfNeeded()
         let value: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript("""
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
             const field = document.querySelector('#field'), scroller = document.querySelector('#scroller');
-            let rect;
-            for (let attempt = 0; attempt < 100; attempt++) {
-                await new Promise(resolve => setTimeout(resolve, 20));
-                rect = field.getBoundingClientRect();
-                if (innerHeight === 180 && rect.top >= 40 && rect.bottom <= innerHeight) break;
-            }
+            await waitForRendering(()=>{
+                const state=window.__stashTestFocusState();
+                return innerHeight===180&&state.repairs>0&&!state.queued;
+            });
+            const rect = field.getBoundingClientRect();
             return {height:innerHeight,top:rect.top,bottom:rect.bottom,scrollTop:scroller.scrollTop,
                 value:field.value,start:field.selectionStart,end:field.selectionEnd,
                 focused:document.activeElement===field};
@@ -609,12 +618,11 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(result["focused"] as? Bool, true)
 
         let repaired: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript("""
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
             const field = document.querySelector('#field'), scroller = document.querySelector('#scroller');
             scroller.scrollTop += field.getBoundingClientRect().bottom - innerHeight;
             const clippedBottom = field.getBoundingClientRect().bottom;
-            window.__stashRevealFocusedElement();
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+            await revealAndSettle();
             const rect = field.getBoundingClientRect();
             return {before:clippedBottom,top:rect.top,bottom:rect.bottom,value:field.value,
                 start:field.selectionStart,end:field.selectionEnd};
@@ -634,23 +642,28 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(repairedResult["end"] as? Int, 10)
 
         let settled: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript("""
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
             const field = document.querySelector('#field'), scroller = document.querySelector('#scroller');
             const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
-            window.__stashRevealFocusedElement();
-            await wait(80);
+            await revealAndSettle();
+            const priorRepairs = window.__stashTestFocusState().repairs;
             scroller.scrollTop = 0;
             const lateBottom = field.getBoundingClientRect().bottom;
-            await wait(150);
+            await waitForRendering(()=>{
+                const state=window.__stashTestFocusState();
+                return state.repairs>priorRepairs&&!state.queued;
+            });
             const repairedBottom = field.getBoundingClientRect().bottom;
             document.dispatchEvent(new Event('pointerdown', {bubbles:true}));
             scroller.scrollTop = 0;
             await wait(150);
+            await waitForRendering();
             const userBottom = field.getBoundingClientRect().bottom;
-            window.__stashRevealFocusedElement();
+            await revealAndSettle();
             await wait(1150);
             scroller.scrollTop = 0;
             await wait(150);
+            await waitForRendering();
             return {lateBottom,repairedBottom,userBottom,expiredBottom:field.getBoundingClientRect().bottom,
                 height:innerHeight,value:field.value,start:field.selectionStart,end:field.selectionEnd};
             """, arguments: [:], in: nil, in: .page) { result in
@@ -671,29 +684,34 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(settledResult["end"] as? Int, 10)
 
         let ancestor: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript("""
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
             const field = document.querySelector('#field'), scroller = document.querySelector('#scroller');
             const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
             scroller.style.position = 'fixed';
             scroller.style.bottom = 'auto';
             scroller.style.height = '335px';
             scroller.scrollTop = 0;
-            window.__stashRevealFocusedElement();
-            await wait(80);
+            await revealAndSettle();
             const before = field.getBoundingClientRect().bottom;
+            const priorRepairs = window.__stashTestFocusState().repairs;
             scroller.style.height = '140px';
-            await wait(150);
+            await waitForRendering(()=>{
+                const state=window.__stashTestFocusState();
+                return state.repairs>priorRepairs&&!state.queued;
+            });
             const result = {before,after:field.getBoundingClientRect().bottom,top:field.getBoundingClientRect().top,
                 height:innerHeight,ancestorHeight:scroller.clientHeight,value:field.value,
                 start:field.selectionStart,end:field.selectionEnd};
             document.dispatchEvent(new Event('pointerdown', {bubbles:true}));
             scroller.style.height = '120px'; scroller.scrollTop = 0;
             await wait(80);
+            await waitForRendering();
             result.cancelledLayoutScroll = scroller.scrollTop;
-            window.__stashRevealFocusedElement();
+            await revealAndSettle();
             await wait(1150);
             scroller.style.height = '130px'; scroller.scrollTop = 0;
             await wait(80);
+            await waitForRendering();
             result.expiredLayoutScroll = scroller.scrollTop;
             return result;
             """, arguments: [:], in: nil, in: .page) { result in
