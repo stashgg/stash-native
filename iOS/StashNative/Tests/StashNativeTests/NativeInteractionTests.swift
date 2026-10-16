@@ -20,6 +20,16 @@ final class NativeInteractionTests: XCTestCase {
         for (actual, wanted) in zip([r,g,b,a], expected) { XCTAssertEqual(actual,wanted,accuracy:0.0001,file:file,line:line) }
     }
 
+    @MainActor private func backingPaintMatches(_ web: WKWebView, _ expected: [CGFloat]) -> Bool {
+        guard expected.count == 4 else { return false }
+        return [web.underPageBackgroundColor, web.backgroundColor, web.scrollView.backgroundColor].allSatisfy { color in
+            guard let color else { return false }
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            return color.getRed(&r, green:&g, blue:&b, alpha:&a) &&
+                zip([r,g,b,a], expected).allSatisfy { abs($0-$1) <= 0.0001 }
+        }
+    }
+
     @MainActor private func waitForFixtureCondition(timeout: TimeInterval = 30,
                                                    _ condition: () async throws -> Bool) async throws -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
@@ -81,20 +91,31 @@ final class NativeInteractionTests: XCTestCase {
         """,baseURL:URL(string:"https://checkout.invalid"))
         guard try await waitForChromeDocument(web) else { return }
         let panelColor = UIColor(red:247/255,green:249/255,blue:244/255,alpha:1)
-        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
+        let initialPaintReady = try await waitForFixtureCondition {
+            StashChromeFixtureInferredColor(fixture) == panelColor && StashChromeFixtureBackingColor(fixture) == nil &&
+                backingPaintMatches(web,[235/255,237/255,232/255,1])
+        }
+        XCTAssertTrue(initialPaintReady, "Initial body paint must reach WebKit and both native backgrounds")
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         XCTAssertNil(StashChromeFixtureBackingColor(fixture),"A shallow header must not replace body backing")
         assertBackingPaint(web.underPageBackgroundColor,[235/255,237/255,232/255,1])
         assertBackingPaint(web.backgroundColor,[235/255,237/255,232/255,1])
         _ = try await web.evaluateJavaScript("panel.style.height='100%'")
-        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) != nil }
+        let ownedPaintReady = try await waitForFixtureCondition {
+            StashChromeFixtureBackingColor(fixture) != nil && backingPaintMatches(web,[247/255,249/255,244/255,1])
+        }
+        XCTAssertTrue(ownedPaintReady, "Owned paint must reach WebKit and both native backgrounds")
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         assertBackingPaint(web.scrollView.backgroundColor,[247/255,249/255,244/255,1])
         assertBackingPaint(web.backgroundColor,[247/255,249/255,244/255,1])
         let before = try await web.evaluateJavaScript("({height:innerHeight,width:innerWidth,root:scrollY})") as! NSDictionary
         // The html/body paint changes while the qualifying surface stays opaque.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='rgb(17,34,51)';document.body.style.backgroundColor='rgb(17,34,51)';panel.style.height=(innerHeight-2)+'px'")
-        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) == nil }
+        // Coverage ownership and WebKit's updated body paint arrive separately.
+        let uncoveredPaintReady = try await waitForFixtureCondition {
+            StashChromeFixtureBackingColor(fixture) == nil && backingPaintMatches(web,[17/255,34/255,51/255,1])
+        }
+        XCTAssertTrue(uncoveredPaintReady, "Uncovered body paint must reach WebKit and both native backgrounds")
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor,"Edge color remains unchanged")
         XCTAssertNil(StashChromeFixtureBackingColor(fixture),"Coverage loss must be reported independently")
         assertBackingPaint(web.underPageBackgroundColor,[17/255,34/255,51/255,1])
@@ -109,11 +130,10 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         // After ownership clears, later body paint follows through the real KVO observer.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='rgb(51,68,85)';document.body.style.backgroundColor='rgb(51,68,85)'")
-        _ = try await waitForFixtureCondition {
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            return web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha) &&
-                abs(red-51/255) < 0.0001 && abs(green-68/255) < 0.0001 && abs(blue-85/255) < 0.0001
+        let changedBodyPaintReady = try await waitForFixtureCondition {
+            StashChromeFixtureBackingColor(fixture) == nil && backingPaintMatches(web,[51/255,68/255,85/255,1])
         }
+        XCTAssertTrue(changedBodyPaintReady, "Changed body paint must reach WebKit and both native backgrounds")
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         assertBackingPaint(web.underPageBackgroundColor,[51/255,68/255,85/255,1])
@@ -126,12 +146,10 @@ final class NativeInteractionTests: XCTestCase {
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         // A transparent page must not inherit the SDK's previous owned paint.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='transparent';document.body.style.backgroundColor='transparent';panel.style.height='48px'")
-        _ = try await waitForFixtureCondition {
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            return StashChromeFixtureBackingColor(fixture) == nil &&
-                web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha) &&
-                zip([red,green,blue,alpha],initialChannels).allSatisfy({ abs($0-$1) < 0.0001 })
+        let transparentPaintReady = try await waitForFixtureCondition {
+            StashChromeFixtureBackingColor(fixture) == nil && backingPaintMatches(web,initialChannels)
         }
+        XCTAssertTrue(transparentPaintReady, "Transparent fallback paint must reach WebKit and both native backgrounds")
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         assertBackingPaint(web.underPageBackgroundColor,initialChannels)
