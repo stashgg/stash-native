@@ -1,5 +1,6 @@
 #import "RegressionSupport.h"
 #import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import <AVFoundation/AVFoundation.h>
 
 @interface StashCodeLinkViewController (Regression)
 @property (nonatomic, readonly) CGRect scanFrame;
@@ -10,8 +11,83 @@
 @property (nonatomic, readonly) UILabel *statusTitle;
 @property (nonatomic, readonly) UILabel *statusMessage;
 @property (nonatomic, readonly) UIActivityIndicatorView *spinner;
+@property (nonatomic, strong) AVCaptureSession *capture;
+- (AVCaptureVideoPreviewLayer *)previewLayer;
 - (void)cameraFailed:(StashNativeCodeLinkError)code message:(NSString *)message;
 @end
+
+@interface StashCodeLinkCaptureProbe : AVCaptureSession
+@property (nonatomic, strong) dispatch_semaphore_t stopEntered;
+@property (nonatomic, strong) dispatch_semaphore_t finishStop;
+@property (atomic) NSInteger stopCount;
+@property (atomic) BOOL stopping;
+@end
+@implementation StashCodeLinkCaptureProbe
+- (instancetype)init {
+    if ((self = [super init])) {
+        _stopEntered = dispatch_semaphore_create(0);
+        _finishStop = dispatch_semaphore_create(0);
+    }
+    return self;
+}
+- (void)stopRunning {
+    self.stopping = YES;
+    self.stopCount++;
+    if (self.stopCount == 1) {
+        dispatch_semaphore_signal(self.stopEntered);
+        dispatch_semaphore_wait(self.finishStop, dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC));
+    }
+    self.stopping = NO;
+}
+@end
+
+@interface StashCodeLinkPreviewProbe : AVCaptureVideoPreviewLayer
+@property (nonatomic, strong) StashCodeLinkCaptureProbe *capture;
+@property (nonatomic, copy) void (^didDetach)(BOOL, BOOL, BOOL);
+@property (nonatomic) BOOL detached;
+@end
+@implementation StashCodeLinkPreviewProbe
+- (void)setSession:(AVCaptureSession *)session {
+    if (session) {
+        self.capture = (StashCodeLinkCaptureProbe *)session;
+        self.detached = NO;
+        return;
+    }
+    self.detached = YES;
+    void (^finished)(BOOL, BOOL, BOOL) = self.didDetach;
+    self.didDetach = nil;
+    if (finished) finished(!self.capture.stopping, self.capture.stopCount == 2, NSThread.isMainThread);
+}
+@end
+
+@interface StashCodeLinkCaptureControllerProbe : StashCodeLinkViewController
+@property (nonatomic, strong) StashCodeLinkPreviewProbe *probePreview;
+@end
+@implementation StashCodeLinkCaptureControllerProbe
+- (AVCaptureVideoPreviewLayer *)previewLayer { return self.probePreview; }
+@end
+
+void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
+    StashCodeLinkCaptureControllerProbe *scanner = [StashCodeLinkCaptureControllerProbe new];
+    StashCodeLinkCaptureProbe *capture = [StashCodeLinkCaptureProbe new];
+    StashCodeLinkPreviewProbe *preview = [StashCodeLinkPreviewProbe new];
+    scanner.capture = capture;
+    scanner.probePreview = preview;
+    [scanner loadViewIfNeeded];
+    [scanner stopScanning];
+    BOOL stopEntered = dispatch_semaphore_wait(capture.stopEntered,
+        dispatch_time(DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC)) == 0;
+    __block BOOL disposalDeferred = NO;
+    preview.didDetach = ^(BOOL stoppedBeforeDetach, BOOL finalStopOnly, BOOL detachedOnMain) {
+        completion(@{@"stopEntered":@(stopEntered), @"disposalDeferred":@(disposalDeferred),
+            @"stoppedBeforeDetach":@(stoppedBeforeDetach), @"finalStopOnly":@(finalStopOnly),
+            @"detachedOnMain":@(detachedOnMain)});
+    };
+    [scanner dispose];
+    disposalDeferred = !preview.detached;
+    [scanner stopScanning];
+    dispatch_semaphore_signal(capture.finishStop);
+}
 
 @interface StashCodeLinkDelegateProbe : NSObject <StashNativeCardDelegate>
 @property (nonatomic, weak) StashNativeCard *owner;

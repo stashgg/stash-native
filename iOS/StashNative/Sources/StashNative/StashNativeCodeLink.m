@@ -76,7 +76,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     preview.userInteractionEnabled = NO;
     preview.alpha = 0;
     [self.view addSubview:preview];
-    self.previewLayer.session = self.capture;
+    if (!self.disposed) self.previewLayer.session = self.capture;
     self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
     self.shadeLayer = [CAShapeLayer layer];
     self.shadeLayer.fillRule = kCAFillRuleEvenOdd;
@@ -295,6 +295,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     }
 }
 - (void)configureCamera {
+    if (self.disposed) return;
     dispatch_async(_cameraQueue, ^{
         AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera
             mediaType:AVMediaTypeVideo position:AVCaptureDevicePositionBack];
@@ -329,10 +330,11 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     });
 }
 - (void)activityChanged:(NSNotification *)note {
+    if (self.disposed) return;
     if ([note.object isKindOfClass:UIScene.class] && note.object != self.viewIfLoaded.window.windowScene) return;
     if ([note.name isEqualToString:UIApplicationWillResignActiveNotification] ||
         [note.name isEqualToString:UISceneWillDeactivateNotification]) {
-        dispatch_async(_cameraQueue, ^{ [self.capture stopRunning]; });
+        [self pauseCapture];
     } else [self requestCamera];
 }
 - (void)captureChanged:(NSNotification *)note {
@@ -401,8 +403,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     if ([self.session canUserDismiss]) [self.session finishWithUserDismiss:YES completion:nil];
 }
 - (void)showConnectedWithCompletion:(void (^)(void))completion {
-    [self stopScanning];
     [self loadViewIfNeeded];
+    [self stopScanning];
     [self.spinner stopAnimating];
     self.closeButton.enabled = NO;
     BOOL reduceMotion = UIAccessibilityIsReduceMotionEnabled();
@@ -462,18 +464,27 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
 - (void)openSettings {
     [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
 }
+- (void)pauseCapture {
+    // Preview attachment must finish before queued session mutations can begin.
+    if (self.disposed || !self.isViewLoaded) return;
+    dispatch_async(_cameraQueue, ^{ [self.capture stopRunning]; });
+}
 - (void)stopScanning {
     self.visible = NO;
     self.scanning = NO;
-    dispatch_async(_cameraQueue, ^{ [self.capture stopRunning]; });
+    [self pauseCapture];
 }
 - (void)dispose {
     if (self.disposed) return;
     self.disposed = YES;
     [NSNotificationCenter.defaultCenter removeObserver:self];
     [self stopScanning];
-    self.previewLayer.session = nil;
-    dispatch_async(_cameraQueue, ^{ [self.metadata setMetadataObjectsDelegate:nil queue:nil]; });
+    dispatch_async(_cameraQueue, ^{
+        [self.capture stopRunning];
+        [self.metadata setMetadataObjectsDelegate:nil queue:nil];
+        // Detaching the preview also configures the session; wait for camera work to finish.
+        dispatch_async(dispatch_get_main_queue(), ^{ self.previewLayer.session = nil; });
+    });
 }
 - (void)dealloc {
     [NSNotificationCenter.defaultCenter removeObserver:self];

@@ -3,6 +3,16 @@ import RegressionSupport
 import StashNative
 
 final class CodeLinkTests: XCTestCase {
+    @MainActor func testPreviewDetachesAfterQueuedCaptureStops() async throws {
+        let value = await withCheckedContinuation { continuation in
+            StashCodeLinkCaptureOrderingProbe { continuation.resume(returning: $0) }
+        }
+        let result = try XCTUnwrap(value as? [String: Bool])
+        for key in ["stopEntered", "disposalDeferred", "stoppedBeforeDetach", "finalStopOnly", "detachedOnMain"] {
+            XCTAssertEqual(result[key], true, key)
+        }
+    }
+
     @MainActor func testDefaultAndEmptyTextKeepExistingCopy() throws {
         let config = StashNativeCodeLinkConfig()
         XCTAssertTrue(config.showCallout)

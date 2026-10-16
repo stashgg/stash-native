@@ -125,6 +125,11 @@ final class FloatingKeyboardTests: XCTestCase {
         """, baseURL: URL(string: "https://checkout.invalid"))
         await fulfillment(of: [loaded], timeout: 15)
         let direct = try await evaluate("""
+        // Navigation can finish before WebKit starts rendering on a cold simulator.
+        await new Promise((resolve,reject)=>{
+          const deadline=setTimeout(()=>reject(new Error('Floating keyboard fixture did not start rendering')),15000);
+          requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(deadline);resolve();}));
+        });
         const field=document.querySelector('#field'),scroller=document.querySelector('#scroller');
         const initialFocus={documentFocused:document.hasFocus(),active:document.activeElement?.id||document.activeElement?.tagName};
         field.focus({preventScroll:true});field.setSelectionRange(1,5);

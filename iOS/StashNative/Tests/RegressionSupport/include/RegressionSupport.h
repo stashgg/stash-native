@@ -3,6 +3,7 @@
 
 void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *));
 void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *));
+void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *));
 NSDictionary *StashCodeLinkLayoutProbe(CGSize size);
 @class StashNativeCodeLinkConfig;
 NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLinkConfig * _Nullable config);
