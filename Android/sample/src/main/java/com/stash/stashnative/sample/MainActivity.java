@@ -1,8 +1,11 @@
 package com.stash.stashnative.sample;
 
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -14,8 +17,15 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -40,14 +50,25 @@ public class MainActivity extends AppCompatActivity {
 
   private ActivityMainBinding binding;
   private MainViewModel viewModel;
+  private StashNativeCard.StashNativeCardListener sdkListener;
   private SettingsAdapter adapter;
   private volatile boolean destroyed;
   private volatile int requestGeneration;
   private volatile HttpURLConnection activeConnection;
   private java.util.concurrent.Future<?> pendingRequest;
+  private java.util.concurrent.Future<?> pendingBackdropLoad;
+  private int backdropLoadGeneration;
 
   private final java.util.concurrent.ExecutorService networkExecutor =
       Executors.newSingleThreadExecutor();
+  private final java.util.concurrent.ExecutorService backdropExecutor =
+      Executors.newSingleThreadExecutor();
+  private final ActivityResultLauncher<String[]> backdropPicker = registerForActivityResult(
+      new ActivityResultContracts.OpenDocument(), uri -> {
+        if (uri != null) {
+          loadBackdropImage(uri);
+        }
+      });
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +79,19 @@ public class MainActivity extends AppCompatActivity {
 
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+    ViewCompat.setOnApplyWindowInsetsListener(binding.getRoot(), (view, insets) -> {
+      Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars()
+          | WindowInsetsCompat.Type.displayCutout());
+      view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+      boolean dark = (getResources().getConfiguration().uiMode
+          & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+      WindowInsetsControllerCompat controller =
+          WindowCompat.getInsetsController(getWindow(), view);
+      controller.setAppearanceLightStatusBars(!dark);
+      controller.setAppearanceLightNavigationBars(!dark);
+      return WindowInsetsCompat.CONSUMED;
+    });
 
     viewModel = new ViewModelProvider(
         this, AndroidViewModelFactory.getInstance(getApplication())).get(MainViewModel.class);
@@ -66,6 +100,11 @@ public class MainActivity extends AppCompatActivity {
           android.widget.Toast.LENGTH_LONG).show();
     }
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
+      @Override
+      public void onCodeLink() {
+        StashNativeCard.getInstance().codeLink(MainActivity.this, viewModel.getCodeLinkConfig());
+      }
+
       @Override
       public void onOpenCard() {
         openCard();
@@ -77,18 +116,8 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onOpenModal() {
-        openModal();
-      }
-
-      @Override
       public void onGenerateCheckout() {
         generateCheckout();
-      }
-
-      @Override
-      public void onOpenWebshop() {
-        openWebshop();
       }
 
       @Override
@@ -110,6 +139,16 @@ public class MainActivity extends AppCompatActivity {
       @Override
       public void onDeleteInstance() {
         confirmDeleteInstance();
+      }
+
+      @Override
+      public void onBackdropSource() {
+        showBackdropSources();
+      }
+
+      @Override
+      public void onChooseBackdropImage() {
+        chooseBackdropImage();
       }
     });
 
@@ -177,13 +216,24 @@ public class MainActivity extends AppCompatActivity {
     applyOrientationLock();
 
     StashNativeCard stashPayCard = StashNativeCard.getInstance();
-    stashPayCard.setActivity(this);
     StashNativeCard.KeepAliveConfig keepAliveConfig = new StashNativeCard.KeepAliveConfig();
     keepAliveConfig.notificationTitle = "Stash sample";
     keepAliveConfig.notificationText = "Tap to return after paying in the browser";
     stashPayCard.setKeepAliveConfig(keepAliveConfig);
     stashPayCard.setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
-    stashPayCard.setListener(new StashNativeCard.StashNativeCardListener() {
+    sdkListener = new StashNativeCard.StashNativeCardListener() {
+      @Override
+      public void onQrCodeScanned(String content) {
+        Log.i(TAG, "CodeLink QR code scanned");
+        runOnUiThread(() -> addCallbackChip("CodeLink · " + content));
+      }
+
+      @Override
+      public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+        Log.w(TAG, "CodeLink camera error: " + error.name());
+        runOnUiThread(() -> addCallbackChip("CodeLink Error · " + error.name()));
+      }
+
       @Override
       public void onPaymentSuccess(String order) {
         Log.i(TAG, "Payment successful");
@@ -203,12 +253,6 @@ public class MainActivity extends AppCompatActivity {
       public void onDialogDismissed() {
         Log.i(TAG, "Dialog dismissed");
         runOnUiThread(() -> addCallbackChip("Dialog Dismissed"));
-      }
-
-      @Override
-      public void onOptInResponse(String optinType) {
-        Log.i(TAG, "Opt-in response received");
-        runOnUiThread(() -> addCallbackChip("Opt-In: " + optinType));
       }
 
       @Override
@@ -234,13 +278,15 @@ public class MainActivity extends AppCompatActivity {
         Log.i(TAG, "Browser closed");
         runOnUiThread(() -> addCallbackChip("Browser Closed"));
       }
-    });
+    };
+    stashPayCard.setListener(sdkListener);
 
 
     // Handle a stashdemo:// deeplink that cold-started the app. Recreations (config change,
     // process-death restore) redeliver the same intent; do not re-fire the outcome dialog.
     if (savedInstanceState == null) {
       handleDeepLink(getIntent());
+      handleDebugLaunch(getIntent());
     }
   }
 
@@ -250,6 +296,25 @@ public class MainActivity extends AppCompatActivity {
     // singleTask delivers deeplinks here while the app (and in-app browser) is already running.
     setIntent(intent);
     handleDeepLink(intent);
+    handleDebugLaunch(intent);
+  }
+
+  /** Debug sample launch hook for repeatable device checks. */
+  private void handleDebugLaunch(Intent intent) {
+    if (!BuildConfig.DEBUG || intent == null) {
+      return;
+    }
+    String checkoutUrl = intent.getStringExtra("stash-url");
+    if (checkoutUrl == null || checkoutUrl.trim().isEmpty()) {
+      return;
+    }
+    intent.removeExtra("stash-url");
+    binding.getRoot().post(() -> {
+      if (isFinishing() || isDestroyed()) {
+        return;
+      }
+      presentCard(checkoutUrl);
+    });
   }
 
   // Listens for stashdemo:// deeplinks fired from the test card to simulate a payment redirect.
@@ -273,25 +338,6 @@ public class MainActivity extends AppCompatActivity {
     } else {
       addCallbackChip("Deeplink · " + url);
     }
-  }
-
-  // Slider range is 0-90; +10 maps to 10-100%, /100 converts to 0.1-1.0 ratio.
-  private StashNativeCard.CardConfig buildCardConfig() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
-    config.forcePortrait = viewModel.isForcePortraitOnCheckout();
-    config.cardHeightRatioPortrait = (viewModel.getPhoneCardHeight() + 10) / 100f;
-    config.cardWidthRatioLandscape = (viewModel.getCheckoutPhoneLandscapeW() + 10) / 100f;
-    config.cardHeightRatioLandscape = (viewModel.getCheckoutPhoneLandscapeH() + 10) / 100f;
-    config.tabletWidthRatioPortrait = (viewModel.getCheckoutTabletPortraitW() + 10) / 100f;
-    config.tabletHeightRatioPortrait = (viewModel.getCheckoutTabletPortraitH() + 10) / 100f;
-    config.tabletWidthRatioLandscape = (viewModel.getCheckoutTabletLandscapeW() + 10) / 100f;
-    config.tabletHeightRatioLandscape = (viewModel.getCheckoutTabletLandscapeH() + 10) / 100f;
-    config.autoClose = viewModel.isCardAutoClose();
-    String bg = viewModel.getCardBackgroundColorHex();
-    if (bg != null && !bg.trim().isEmpty()) {
-      config.backgroundColor = bg.trim();
-    }
-    return config;
   }
 
   private void syncKeepAlive() {
@@ -331,7 +377,7 @@ public class MainActivity extends AppCompatActivity {
     if (binding == null) {
       return;
     }
-    LinearLayout container = binding.callbackChipContainer;
+    final LinearLayout container = binding.callbackChipContainer;
 
     LinearLayout row = new LinearLayout(this);
     row.setOrientation(LinearLayout.HORIZONTAL);
@@ -398,8 +444,7 @@ public class MainActivity extends AppCompatActivity {
     return Math.round(value * getResources().getDisplayMetrics().density);
   }
 
-  /** The screen a drill-in returns to: payload editors sit under an instance's details, which
-   * sits under the Instances tab; card/modal options sit under Settings. Null for a top-level tab. */
+  /** Parent screen for back navigation; null for top-level tabs. */
   private MainViewModel.Screen parentOf(MainViewModel.Screen screen) {
     switch (screen) {
       case CHECKOUT_PAYLOAD:
@@ -408,7 +453,8 @@ public class MainActivity extends AppCompatActivity {
       case INSTANCE_DETAILS:
         return MainViewModel.Screen.API;
       case CARD_OPTIONS:
-      case MODAL_OPTIONS:
+      case BROWSER_OPTIONS:
+      case CODE_LINK_OPTIONS:
         return MainViewModel.Screen.SETTINGS;
       default:
         return null;
@@ -416,7 +462,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   /** Each tab titles the toolbar with its own name; Test keeps the app title. Drill-in sub-screens
-   * show a back arrow + their title and keep the bottom-nav highlight in sync: card/modal options
+   * show a back arrow + their title and keep the bottom-nav highlight in sync: presentation options
    * stay under Settings; instance details and the payload editors stay under Instances. */
   private void updateToolbarForScreen() {
     if (binding == null) {
@@ -452,12 +498,15 @@ public class MainActivity extends AppCompatActivity {
         binding.bottomNav.getMenu().findItem(R.id.tab_api).setChecked(true);
         break;
       case CARD_OPTIONS:
-        binding.toolbar.setTitle(R.string.nav_card_options);
-        binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
-        binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
-        break;
-      case MODAL_OPTIONS:
-        binding.toolbar.setTitle(R.string.nav_modal_options);
+      case BROWSER_OPTIONS:
+      case CODE_LINK_OPTIONS:
+        int optionsTitle = R.string.nav_card_options;
+        if (screen == MainViewModel.Screen.BROWSER_OPTIONS) {
+          optionsTitle = R.string.nav_browser_options;
+        } else if (screen == MainViewModel.Screen.CODE_LINK_OPTIONS) {
+          optionsTitle = R.string.nav_code_link_options;
+        }
+        binding.toolbar.setTitle(optionsTitle);
         binding.toolbar.setNavigationIcon(R.drawable.ic_arrow_back_24);
         binding.bottomNav.getMenu().findItem(R.id.tab_settings).setChecked(true);
         break;
@@ -576,16 +625,106 @@ public class MainActivity extends AppCompatActivity {
         .show();
   }
 
+  private void showBackdropSources() {
+    MainViewModel.BackdropSource[] sources = MainViewModel.BackdropSource.values();
+    CharSequence[] labels = new CharSequence[sources.length];
+    for (int i = 0; i < sources.length; i++) {
+      labels[i] = getString(sources[i].labelRes);
+    }
+    activeDialog = new AlertDialog.Builder(this)
+        .setTitle(R.string.option_backdrop_source)
+        .setSingleChoiceItems(labels, viewModel.getBackdropSource().ordinal(), (dialog, which) -> {
+          dialog.dismiss();
+          cancelBackdropLoad();
+          MainViewModel.BackdropSource source = sources[which];
+          if (source == MainViewModel.BackdropSource.IMAGE
+              && viewModel.getBackdropImage() == null) {
+            chooseBackdropImage();
+          } else {
+            viewModel.setBackdropSource(source);
+          }
+        })
+        .setNegativeButton(android.R.string.cancel, null)
+        .show();
+  }
+
+  private void chooseBackdropImage() {
+    cancelBackdropLoad();
+    try {
+      backdropPicker.launch(new String[] {"image/*"});
+    } catch (ActivityNotFoundException expected) {
+      android.widget.Toast.makeText(this, R.string.error_image_picker,
+          android.widget.Toast.LENGTH_LONG).show();
+    }
+  }
+
+  private void loadBackdropImage(Uri uri) {
+    cancelBackdropLoad();
+    final int generation = backdropLoadGeneration;
+    pendingBackdropLoad = backdropExecutor.submit(() -> {
+      SampleBackdropImage image = SampleBackdropImage.load(getContentResolver(), uri);
+      runOnUiThread(() -> {
+        if (destroyed || isFinishing() || generation != backdropLoadGeneration) {
+          if (image != null) {
+            image.recycle();
+          }
+          return;
+        }
+        pendingBackdropLoad = null;
+        if (image != null) {
+          viewModel.setBackdropImage(image);
+        } else {
+          android.widget.Toast.makeText(this, R.string.error_backdrop_image,
+              android.widget.Toast.LENGTH_LONG).show();
+        }
+      });
+    });
+  }
+
+  private void cancelBackdropLoad() {
+    backdropLoadGeneration++;
+    if (pendingBackdropLoad != null) {
+      pendingBackdropLoad.cancel(true);
+      pendingBackdropLoad = null;
+    }
+  }
+
   private void openCard() {
     String url = viewModel.getCheckoutUrl();
     if (url == null || url.trim().isEmpty()) {
       showOutcomeDialog("Error", getString(R.string.error_checkout_url));
       return;
     }
-    url = url.trim();
+    presentCard(url.trim());
+  }
+
+  private void presentCard(String url) {
+    if (isFinishing() || isDestroyed()) {
+      return;
+    }
+    StashNativeCard sdk = StashNativeCard.getInstance();
+    StashNativeCard.CardConfig config = viewModel.getCardConfig();
+    if (!sdk.isCurrentlyPresented()) {
+      Bitmap backdrop = null;
+      MainViewModel.BackdropSource source = viewModel.getBackdropSource();
+      if (config.orientationPreference == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+          && source != MainViewModel.BackdropSource.NONE) {
+        if (source == MainViewModel.BackdropSource.SCREENSHOT) {
+          backdrop = SampleBackdropCapture.capture(getWindow().getDecorView());
+        } else if (viewModel.getBackdropImage() != null) {
+          backdrop = viewModel.getBackdropImage().copy();
+        }
+        if (backdrop == null) {
+          android.widget.Toast.makeText(this, R.string.error_backdrop_prepare,
+              android.widget.Toast.LENGTH_LONG).show();
+          return;
+        }
+      }
+      // The SDK owns this bitmap; the selected custom image stays with the ViewModel.
+      StashNativeCard.setBackdropBitmap(backdrop);
+    }
     Log.i(TAG, "Opening card");
-    StashNativeCard.CardConfig config = buildCardConfig();
-    StashNativeCard.getInstance().openCard(url, config);
+    sdk.openCard(this, url, config);
   }
 
   private void openBrowser() {
@@ -595,17 +734,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     syncKeepAlive();
-    StashNativeCard.getInstance().openBrowser(url.trim());
-  }
-
-  private void openModal() {
-    String url = viewModel.getModalUrl();
-    if (url == null || url.trim().isEmpty()) {
-      showOutcomeDialog("Error", getString(R.string.error_modal_url));
-      return;
-    }
-    StashNativeCard.ModalConfig config = buildModalConfig();
-    StashNativeCard.getInstance().openModal(url.trim(), config);
+    StashNativeCard.getInstance().openBrowser(MainActivity.this, url.trim());
   }
 
   private void generateCheckout() {
@@ -616,11 +745,6 @@ public class MainActivity extends AppCompatActivity {
   private void generateCheckoutForBrowser() {
     generateAndOpen(CHECKOUT_PATH, viewModel.getActiveCheckoutPayload(), true,
         R.string.error_generate_checkout_url, "checkout URL");
-  }
-
-  private void openWebshop() {
-    generateAndOpen(WEBSHOP_PATH, viewModel.getActiveWebshopPayload(), false,
-        R.string.error_generate_webshop_url, "authenticated webshop URL");
   }
 
   private void openWebshopForBrowser() {
@@ -691,11 +815,9 @@ public class MainActivity extends AppCompatActivity {
                 if (openInBrowser) {
                   syncKeepAlive();
                   Log.i(TAG, "Opening browser");
-                  StashNativeCard.getInstance().openBrowser(finalUrl);
+                  StashNativeCard.getInstance().openBrowser(MainActivity.this, finalUrl);
                 } else {
-                  Log.i(TAG, "Opening card");
-                  StashNativeCard.CardConfig config = buildCardConfig();
-                  StashNativeCard.getInstance().openCard(finalUrl, config);
+                  presentCard(finalUrl);
                 }
               });
               return;
@@ -720,36 +842,21 @@ public class MainActivity extends AppCompatActivity {
     });
   }
 
-  private StashNativeCard.ModalConfig buildModalConfig() {
-    StashNativeCard.ModalConfig config = new StashNativeCard.ModalConfig();
-    config.allowDismiss = viewModel.isModalAllowDismiss();
-    config.phoneWidthRatioPortrait = (viewModel.getModalPhonePortraitW() + 10) / 100f;
-    config.phoneHeightRatioPortrait = (viewModel.getModalPhonePortraitH() + 10) / 100f;
-    config.phoneWidthRatioLandscape = (viewModel.getModalPhoneLandscapeW() + 10) / 100f;
-    config.phoneHeightRatioLandscape = (viewModel.getModalPhoneLandscapeH() + 10) / 100f;
-    config.tabletWidthRatioPortrait = (viewModel.getModalTabletPortraitW() + 10) / 100f;
-    config.tabletHeightRatioPortrait = (viewModel.getModalTabletPortraitH() + 10) / 100f;
-    config.tabletWidthRatioLandscape = (viewModel.getModalTabletLandscapeW() + 10) / 100f;
-    config.tabletHeightRatioLandscape = (viewModel.getModalTabletLandscapeH() + 10) / 100f;
-    config.autoClose = viewModel.isModalAutoClose();
-    String bg = viewModel.getModalBackgroundColorHex();
-    if (bg != null && !bg.trim().isEmpty()) {
-      config.backgroundColor = bg.trim();
-    }
-    return config;
-  }
-
   @Override
   protected void onResume() {
     super.onResume();
-    StashNativeCard.getInstance().setActivity(this);
     StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
   }
 
   @Override
   protected void onDestroy() {
-    StashNativeCard.getInstance().setListener(null);
+    StashNativeCard sdk = StashNativeCard.getInstance();
+    if (sdk.getListener() == sdkListener) {
+      sdk.setListener(null);
+    }
     destroyed = true;
+    cancelBackdropLoad();
+    backdropExecutor.shutdownNow();
     requestGeneration++;
     if (pendingRequest != null) {
       pendingRequest.cancel(true);

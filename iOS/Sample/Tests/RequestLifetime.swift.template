@@ -1,0 +1,160 @@
+import Foundation
+
+typealias URLSessionDataTask = ProbeTask
+
+final class ProbeTask {
+    var cancelled = false
+    var resumed = false
+    let completion: (Data?, URLResponse?, Error?) -> Void
+
+    init(completion: @escaping (Data?, URLResponse?, Error?) -> Void) {
+        self.completion = completion
+    }
+
+    func cancel() { cancelled = true }
+    func resume() { resumed = true }
+
+    // Deliberately deliver even after cancellation, as a completion can already be queued.
+    func respond(_ name: String, status: Int = 200) {
+        let data = Data("{\"url\":\"https://example.invalid/\(name)\"}".utf8)
+        let response = HTTPURLResponse(url: URL(string: "https://example.invalid")!,
+                                       statusCode: status, httpVersion: nil, headerFields: nil)
+        completion(data, response, nil)
+    }
+}
+
+final class ProbeSession {
+    static let shared = ProbeSession()
+    var tasks: [ProbeTask] = []
+
+    func dataTask(with request: URLRequest,
+                  completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void) -> URLSessionDataTask {
+        let task = ProbeTask(completion: completionHandler)
+        tasks.append(task)
+        return task
+    }
+}
+
+enum StashHmac {
+    static var canSign = true
+    static func signature(appId: String, ingressSecretB64: String, body: Data) -> String? {
+        canSign ? "fixture" : nil
+    }
+}
+
+class ProbeViewController: NSObject {
+    func viewWillDisappear(_ animated: Bool) {}
+}
+
+final class ViewController: ProbeViewController {
+    enum PayloadKind { case checkout, webshop }
+    // INSERT_PROPERTIES
+    var opened: [String] = []
+    var alerts: [String] = []
+    func isActiveKeyProduction() -> Bool { false }
+    func activePayload(_ kind: PayloadKind) -> String { "{}" }
+    func activeAppId() -> String { "fixture" }
+    func activeApiKey() -> String { "fixture" }
+    func showAlert(title: String, message: String) { alerts.append(message) }
+    // INSERT_METHODS
+    // INSERT_LIFECYCLE
+
+    func start(_ kind: PayloadKind = .checkout) -> ProbeTask {
+        performGenerateUrl(kind) { [weak self] url in self?.opened.append(url) }
+        return ProbeSession.shared.tasks.last!
+    }
+}
+
+func drainMainQueue() {
+    var drained = false
+    DispatchQueue.main.async { drained = true }
+    let deadline = Date().addingTimeInterval(2)
+    while !drained && Date() < deadline {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.001))
+    }
+    precondition(drained, "Main queue did not drain")
+}
+
+func check(_ name: String, _ body: () -> Void) {
+    ProbeSession.shared.tasks.removeAll()
+    StashHmac.canSign = true
+    body()
+    print("PASS request: \(name)")
+}
+
+check("late A cannot reopen after latest B closes") {
+    let host = ViewController()
+    let first = host.start()
+    let second = host.start(.webshop)
+    precondition(first.cancelled && second.resumed)
+    second.respond("B")
+    drainMainQueue()
+    precondition(host.generateRequest == nil)
+    // No SDK busy guard exists in this harness: B has finished and its checkout may be closed.
+    first.respond("A")
+    drainMainQueue()
+    precondition(host.opened == ["https://example.invalid/B"] && host.alerts.isEmpty)
+}
+check("obsolete A arriving first cannot win against B") {
+    let host = ViewController()
+    let first = host.start()
+    let second = host.start()
+    first.respond("A")
+    drainMainQueue()
+    precondition(host.opened.isEmpty && host.generateRequest === second)
+    second.respond("B")
+    drainMainQueue()
+    precondition(host.opened == ["https://example.invalid/B"])
+}
+check("obsolete failures do not alert or clear the new task") {
+    let host = ViewController()
+    let first = host.start()
+    let second = host.start()
+    first.respond("A", status: 500)
+    drainMainQueue()
+    precondition(host.alerts.isEmpty && host.generateRequest === second)
+}
+check("view disappearance suppresses success and failure") {
+    let host = ViewController()
+    for status in [200, 500] {
+        let task = host.start()
+        host.viewWillDisappear(false)
+        precondition(task.cancelled && host.generateRequest == nil)
+        task.respond("cancelled", status: status)
+        drainMainQueue()
+    }
+    precondition(host.opened.isEmpty && host.alerts.isEmpty)
+}
+check("generation is checked at main-queue delivery") {
+    let host = ViewController()
+    let task = host.start()
+    task.respond("queued")
+    host.cancelGenerateRequest()
+    drainMainQueue()
+    precondition(host.opened.isEmpty && host.alerts.isEmpty)
+}
+check("current failure alerts once and releases task") {
+    let host = ViewController()
+    host.start().respond("failure", status: 500)
+    drainMainQueue()
+    precondition(host.alerts.count == 1 && host.opened.isEmpty && host.generateRequest == nil)
+}
+check("invalid new request cancels the prior request") {
+    let host = ViewController()
+    let first = host.start()
+    StashHmac.canSign = false
+    _ = host.start()
+    first.respond("old")
+    drainMainQueue()
+    precondition(first.cancelled && host.opened.isEmpty && host.alerts.count == 1)
+}
+check("completion does not retain a departed controller") {
+    var host: ViewController? = ViewController()
+    let isReleased = { [weak host] in host == nil }
+    let task = host!.start()
+    host = nil
+    precondition(isReleased() && task.cancelled)
+    task.respond("departed")
+    drainMainQueue()
+}
+print("PASS: 8 request lifetime cases")

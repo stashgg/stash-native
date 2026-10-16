@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [3.0.0] - Unreleased
+
+Initial iOS loading now uses one 10-second stall retry within a 15-second foreground response budget, matching Android's cadence. Successful main-frame responses cancel the deadline.
+
+### Breaking changes
+
+- Replace phone/tablet and orientation ratios with preferred content dimensions, a height cap, and edge margins.
+- Require the presenting activity or view controller for card and browser calls.
+- Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
+- Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
+- Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and iOS screenshot-backdrop workarounds; Android backdrop APIs remain available.
+- Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
+
+### Presentation
+
+- Add CodeLink on iOS and Android: a QR camera inside the existing responsive card, host-following orientation, a neutral Connected confirmation, and a raw-payload callback after dismissal. Both samples expose Link Webshop. Android uses CameraX and on-device ZXing decoding and requests camera permission only for CodeLink.
+
+- Restore portrait checkout for landscape-only iPhone games using an SDK-owned UIKit window and the shared native card. Preserve game controller restrictions, keep portrait through Safari payment handoff, and restore orientation before returning focus. Support the iOS 15 rotation path; ignore the portrait flag on iPad.
+- Use card defaults of 400 × 560 points/dp with a 720-point/dp expansion cap on iOS and Android. Explicit zero still removes the height cap.
+- Fade from a native initial loading cover into rendered iOS checkout content, with bounded foreground readiness and Reduced Motion support.
+- Expose the native sheet's Liquid Glass while checkout loads on iOS 26+, then fade in the WebView and matching page background together. Wait for visible Stash checkout placeholders to clear before revealing content.
+
+- Keep checkout state and the WebView through window, inset, keyboard, and fold changes.
+- Expand cards temporarily for keyboard entry and restore the selected state when the keyboard closes.
+- Restore iOS keyboard accessory-toolbar removal and keep focused fields visible after the final rotation layout.
+- Use one native UIKit card sheet implementation across iPhone, Duo, and iPad. Regular width and height use centered form-sheet sizing with one system large detent and semantic preferred-size changes. Compact layouts use custom detents on iOS 16+ and system detents on iOS 15.
+- Add optional card content sizing through `setContentHeight(...)` and an intrinsic `[data-stash-content]` wrapper.
+- Keep checkout at native scale through pinch, double-tap, input focus, and viewport changes. Suppress browser menus on noneditable content while preserving field selection, clipboard actions, and autofill.
+- Keep resting iOS cards below active status occlusions. Resolve expanded detents independently for dragging, `expand()`, and keyboard entry, keeping checkout controls beside the status region. Place content within a usable fold pane.
+- Let checkout own its page colors and match the iOS sheet background to the page instead of injecting dark-mode overrides.
+- Fill the iOS card's usable surface with the WebView beneath UIKit's grabber, and request centered placement before opening.
+- Keep compact iPhone card entrances centered while preserving UIKit's vertical spring, glass surface, and native gestures.
+- Expand iPhone cards on upward checkout swipes; reserve collapse and drag dismissal for the native header. Keep page scrolling inside WebKit at scroll limits, preventing card jumps, and fill the card with an unscaled WebView throughout resizing.
+- Keep the WebView full-height behind floating and split iPad keyboards while bringing focused fields into view.
+- Prevent blank space below checkout when WebKit adds keyboard padding after the native viewport already ends above the docked keyboard.
+- Cancel Android sheet drags when a second finger touches or payment processing begins.
+- Expand Android bottom cards once on upward content swipes; keep downward scrolling and direction reversals inside the page. Reserve collapse and drag dismissal for the handle, with a 48 dp touch target and native ripple feedback.
+- Use native Android outline clipping and elevation, including a hardware-layer compatibility fix for rounded WebView corners on API 21–22. Keep the WebView flush with the card through animation and window resizing.
+- Extend bottom-attached Android cards and their WebViews behind the navigation bar to the app window's bottom edge. Preserve usable content height, keyboard clearance, centered placement, and separating-fold boundaries; forward only the remaining bottom inset to WebView.
+- Apply Android portrait preference only in compact fullscreen windows, releasing and restoring it across tablet, fold, and multi-window changes.
+- Wait for resolved Android card bounds before initial navigation to prevent magnified checkout on older WebView providers. Cancel loading crossfades during dismissal and teardown.
+- Keep Android's initial loading cover until the requested Stash checkout theme and visible content are ready, then recheck after paint and crossfade. Bound the wait by foreground time and discard callbacks from abandoned loads.
+- Preserve the optional Custom Tabs fallback in minified Android apps and declare service visibility for browser discovery on Android 11+.
+- Add responsive test content and an Android host fixture targeting API 36 and 37.
+
+See [the migration guide](docs/migration-3.0.md). Engine wrapper migrations and desktop changes are separate releases.
+
 ## [2.3.1] - 2026-09-03
 
 ### Added

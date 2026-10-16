@@ -1,477 +1,379 @@
-//
-//  StashNativeCardViewControllers.m
-//  StashNative
-//
-//  View controller and view class implementations for card presentation.
-//  Interfaces and shared-state externs come from StashNativeCardPrivate.h.
-//
-
-#import "StashNativeCard.h"
 #import "StashNativeCardPrivate.h"
-#import <UIKit/UIKit.h>
-#import <WebKit/WebKit.h>
-#import <QuartzCore/QuartzCore.h>
-#import <objc/runtime.h>
+#import <math.h>
 
-// Non-ARC compatibility: These warnings are suppressed when compiling without ARC
-// (e.g., in game engines like Unreal Engine that manage memory manually).
-// ARC builds do not need these suppressions.
+@implementation StashCheckoutViewController
+- (void)viewDidLoad {
+    [super viewDidLoad];
+    UIColor *initialBackground = stash_sheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
+    if (@available(iOS 26.0, *)) self.glassLoading = !self.session.initialContentRevealed;
+    self.view.backgroundColor = initialBackground;
+    self.view.accessibilityIdentifier = @"stash-card";
+    self.view.clipsToBounds = YES;
+    self.view.keyboardLayoutGuide.followsUndockedKeyboard = YES;
+    if (@available(iOS 17.0, *)) self.view.keyboardLayoutGuide.usesBottomSafeArea = NO;
+    UIView *tracker = [[UIView alloc] init];
+    tracker.hidden = YES;
+    tracker.userInteractionEnabled = NO;
+    tracker.accessibilityElementsHidden = YES;
+    tracker.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.view addSubview:tracker];
+    UIKeyboardLayoutGuide *guide = self.view.keyboardLayoutGuide;
+    [NSLayoutConstraint activateConstraints:@[
+        [tracker.leadingAnchor constraintEqualToAnchor:guide.leadingAnchor],
+        [tracker.trailingAnchor constraintEqualToAnchor:guide.trailingAnchor],
+        [tracker.topAnchor constraintEqualToAnchor:guide.topAnchor],
+        [tracker.bottomAnchor constraintEqualToAnchor:guide.bottomAnchor]
+    ]];
 #if !__has_feature(objc_arc)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wshadow"
-#pragma clang diagnostic ignored "-Wobjc-missing-super-calls"
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    [tracker release];
 #endif
-
-
-static const void *kRotationResizeCardViewKey = &kRotationResizeCardViewKey;
-static const void *kRotationResizeDisplayLinkKey = &kRotationResizeDisplayLinkKey;
-
-/// Invalidates a pending rotation-resize display link on the VC (dismiss during rotation).
-void stashInvalidateRotationResizeArtifacts(UIViewController *vc) {
-    if (!vc) return;
-    CADisplayLink *link = objc_getAssociatedObject(vc, kRotationResizeDisplayLinkKey);
-    if (link) {
-        [link invalidate];
-    }
-    objc_setAssociatedObject(vc, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    objc_setAssociatedObject(vc, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-static BOOL stashCGRectSizeDiffers(CGRect a, CGRect b) {
-    return fabs(a.size.width - b.size.width) > 0.5 || fabs(a.size.height - b.size.height) > 0.5
-        || fabs(a.origin.x - b.origin.x) > 0.5 || fabs(a.origin.y - b.origin.y) > 0.5;
-}
-
-static BOOL stashAccessibilityDismissCheckout(void) {
-    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (internal.isPurchaseProcessing || (_useModalPresentation && !_modalAllowDismiss)) return NO;
-    if (!internal.currentPresentedVC) return NO;
-    [[StashNativeCard sharedInstance] dismiss];
-    return YES;
-}
-
-#pragma mark - DragTrayView
-
-@implementation DragTrayView
-
-- (BOOL)isAccessibilityElement { return YES; }
-- (NSString *)accessibilityLabel { return @"Checkout size"; }
-- (UIAccessibilityTraits)accessibilityTraits { return UIAccessibilityTraitAdjustable; }
-- (NSString *)accessibilityValue { return _isCardExpanded ? @"Expanded" : @"Collapsed"; }
-- (void)accessibilityIncrement {
-    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (!internal.isPurchaseProcessing && !_cardIsInLandscape) {
-        [internal animateExpandWithDuration:kAnimationDurationDefault completion:nil];
-    }
-}
-- (void)accessibilityDecrement {
-    StashNativeCardInternal *internal = [StashNativeCardInternal sharedInstance];
-    if (!internal.isPurchaseProcessing && !_cardIsInLandscape) {
-        [internal animateCollapseWithDuration:kAnimationDurationDefault completion:nil];
-    }
-}
-
-- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
-    UIView *handleView = [self viewWithTag:kDragHandleViewTag];
-    if (handleView) {
-        CGPoint pointInHandle = [self convertPoint:point toView:handleView];
-        CGRect handleBounds = handleView.bounds;
-        CGRect expandedBounds = CGRectInset(handleBounds, -kHandleHitAreaInset, -kHandleHitAreaInset);
-        if (CGRectContainsPoint(expandedBounds, pointInHandle)) {
-            return [super hitTest:point withEvent:event];
-        }
-    }
-    return nil;
-}
-
-@end
-
-#pragma mark - IPhoneCardViewController
-
-@implementation IPhoneCardViewController
-
-- (BOOL)accessibilityPerformEscape {
-    return stashAccessibilityDismissCheckout();
-}
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    return UIInterfaceOrientationMaskPortrait;
-}
-
-- (BOOL)shouldAutorotate {
-    return NO;
-}
-
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
-    return UIInterfaceOrientationPortrait;
-}
-
-- (void)updateCornerRadiusMask {
-    UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
-    self.view.layer.mask = maskLayer;
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-    if (self.skipLayoutDuringInitialSetup) {
-        return;
-    }
-    // iOS 15: system may deliver a landscape transition even though this VC
-    // returns portrait-only. Coerce to portrait to prevent broken layout.
-    if (size.width > size.height) {
-        size = CGSizeMake(size.height, size.width);
-    }
-    resetCardExpandedStateAfterRotation();
-    CGRect target = CGRectMake(0, 0, size.width, size.height);
-    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(target, 0.0);
-    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(target, 0.0);
-    }];
-}
-
-- (void)viewDidLayoutSubviews {
-    [super viewDidLayoutSubviews];
-    if (self.skipLayoutDuringInitialSetup) {
-        return;
-    }
-    UIWindow *w = self.view.window;
-    if (!w) {
-        return;
-    }
-    CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
-    // iOS 15: scene may report landscape bounds when this portrait-only card is presented.
-    if (expected.size.width > expected.size.height) {
-        expected = CGRectMake(0, 0, expected.size.height, expected.size.width);
-    }
-    if (stashCGRectSizeDiffers(w.frame, expected)) {
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
-    }
-}
-
-@end
-
-#pragma mark - IPhoneCardCurrentOrientationViewController (no rotation; allows all orientations)
-
-@implementation IPhoneCardCurrentOrientationViewController
-
-- (BOOL)accessibilityPerformEscape {
-    return stashAccessibilityDismissCheckout();
-}
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    if (self.lockedOrientationMask != 0) {
-        return self.lockedOrientationMask;
-    }
-    return UIInterfaceOrientationMaskAll;
-}
-
-- (BOOL)shouldAutorotate {
-    return (self.lockedOrientationMask == 0);
-}
-
-- (void)updateCornerRadiusMask {
-    UIRectCorner cornersToRound = UIRectCornerTopLeft | UIRectCornerTopRight;
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, cornersToRound, kCornerRadiusDefault);
-    self.view.layer.mask = maskLayer;
-}
-
-- (void)rotationResizeTick:(CADisplayLink *)link {
-    UIView *cardView = objc_getAssociatedObject(self, kRotationResizeCardViewKey);
-    if (cardView) {
-        layoutCardContentToBounds(cardView);
-    }
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-    
-    UIWindow *window = self.view.window;
-    if (!window) return;
-    UIView *cardView = [window viewWithTag:kCardViewTag];
-    if (!cardView) return;
-    
-    resetCardExpandedStateAfterRotation();
-    
-    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
-    BOOL isLandscape = size.width > size.height;
-    
-    __block CADisplayLink *createdLink = nil;
-    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        switchWebViewToFrameLayoutInCardView(cardView);
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
-        CADisplayLink *stale = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
-        if (stale) {
-            [stale invalidate];
-        }
-        objc_setAssociatedObject(self, kRotationResizeCardViewKey, cardView, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        CADisplayLink *resizeLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(rotationResizeTick:)];
-        createdLink = resizeLink;
-        objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, resizeLink, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        [resizeLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
-    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        // MRC-safe: a __block object var is non-owning under MRC, so createdLink can dangle if a
-        // newer rotation or teardown already invalidated+cleared the link. Only message the live
-        // object held by the association; use createdLink purely as a pointer-identity tag.
-        CADisplayLink *resizeLink = objc_getAssociatedObject(self, kRotationResizeDisplayLinkKey);
-        if (resizeLink != createdLink) {
-            // A newer rotation replaced our link, or teardown cleared it; that path owns cleanup.
-            return;
-        }
-        [resizeLink invalidate];
-        objc_setAssociatedObject(self, kRotationResizeDisplayLinkKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        objc_setAssociatedObject(self, kRotationResizeCardViewKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(targetBounds, 0.0);
-        self.cardFrame = cardView.frame;
-        self.customFrame = cardView.frame;
-        updateOriginalCardRatiosForOrientation(isLandscape);
-        resetCardExpandedStateAfterRotation();
-        layoutCardContentToBounds(cardView);
-        [cardView setNeedsLayout];
-        [cardView layoutIfNeeded];
-        for (UIView *subview in cardView.subviews) {
-            [subview setNeedsLayout];
-            [subview layoutIfNeeded];
-        }
-        CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerTopLeft | UIRectCornerTopRight, kCornerRadiusDefault);
-        cardView.layer.mask = maskLayer;
-    }];
-}
-
-- (void)viewDidLayoutSubviews {
-    [super viewDidLayoutSubviews];
-    if (self.skipLayoutDuringInitialSetup) {
-        return;
-    }
-    UIWindow *w = self.view.window;
-    if (!w) {
-        return;
-    }
-    CGRect expected = stashSceneCoordinateBoundsForIPhoneCardWindow(w);
-    // iOS 15: scene may report bounds that violate the locked orientation.
-    if (self.lockedOrientationMask != 0) {
-        BOOL boundsLandscape = expected.size.width > expected.size.height;
-        BOOL lockPortrait = (self.lockedOrientationMask == UIInterfaceOrientationMaskPortrait);
-        BOOL lockLandscape = (self.lockedOrientationMask & UIInterfaceOrientationMaskLandscape) &&
-                             !(self.lockedOrientationMask & UIInterfaceOrientationMaskPortrait);
-        if ((lockPortrait && boundsLandscape) || (lockLandscape && !boundsLandscape)) {
-            expected = CGRectMake(0, 0, expected.size.height, expected.size.width);
-        }
-    }
-    if (stashCGRectSizeDiffers(w.frame, expected)) {
-        stashRelayoutIPhoneCardWindowWithTargetBoundsAndProgress(expected, -1.0);
-    }
-}
-
-@end
-
-#pragma mark - IPadModalViewController
-
-@implementation IPadModalViewController
-
-- (BOOL)accessibilityPerformEscape {
-    return stashAccessibilityDismissCheckout();
-}
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    return UIInterfaceOrientationMaskAll;
-}
-
-- (BOOL)shouldAutorotate {
-    return YES;
-}
-
-- (void)updateCornerRadiusMaskForCardView {
-    UIView *cardView = [self.view viewWithTag:kCardViewTag];
-    if (!cardView) return;
-    
-    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
-    cardView.layer.mask = maskLayer;
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-    
-    UIView *cardView = [self.view viewWithTag:kCardViewTag];
-    if (!cardView) return;
-    
-    CGRect targetScreenBounds = CGRectMake(0, 0, size.width, size.height);
-    CGRect newFrame = stashFrameForIPadSdkCard(targetScreenBounds, cardView);
-    
-    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        cardView.frame = newFrame;
-        layoutCardContentToBounds(cardView);
-        [cardView layoutIfNeeded];
-    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        self.previousScreenSize = size;
-        self.customFrame = newFrame;
-        cardView.frame = newFrame;
-        layoutCardContentToBounds(cardView);
-        [cardView layoutIfNeeded];
-        [self updateCornerRadiusMaskForCardView];
-    }];
-}
-
-@end
-
-#pragma mark - ModalViewController (Window-based modal, no portrait lock; same pattern as iPad checkout)
-
-@implementation ModalViewController
-
-- (BOOL)accessibilityPerformEscape {
-    return stashAccessibilityDismissCheckout();
-}
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    return UIInterfaceOrientationMaskAll;
-}
-
-- (BOOL)shouldAutorotate {
-    return YES;
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-    
-    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
-    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    CGRect newCardFrame = computeModalFrameForScreenBounds(targetBounds);
-    UIView *cardView = [self.view viewWithTag:kCardViewTag];
-    
-    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        if (overlayView) {
-            overlayView.frame = targetBounds;
-        }
-        if (cardView) {
-            cardView.frame = newCardFrame;
-            [cardView layoutIfNeeded];
-        }
-    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        self.customFrame = newCardFrame;
-        [self updateCornerRadiusMaskForCardView];
-    }];
-}
-
-- (void)updateCornerRadiusMaskForCardView {
-    UIView *cardView = [self.view viewWithTag:kCardViewTag];
-    if (!cardView) return;
-    
-    CAShapeLayer *maskLayer = createCornerRadiusMask(cardView.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
-    cardView.layer.mask = maskLayer;
-}
-
-@end
-
-#pragma mark - SafariPortraitContainerViewController
-
-/// Minimal portrait-only root VC for the dedicated UIWindow used to host SFSafariViewController
-/// on the external-payment path (when the card window has already been dismissed and the game's
-/// landscape window is key).  Presenting Safari from this VC gives it — and the system keyboard —
-/// the correct portrait orientation and safe-area insets.
-@implementation SafariPortraitContainerViewController
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    return UIInterfaceOrientationMaskPortrait;
-}
-
-- (BOOL)shouldAutorotate {
-    return NO;
-}
-
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
-    return UIInterfaceOrientationPortrait;
-}
-
-@end
-
-#pragma mark - OrientationLockedViewController (Popup rotation only; modal uses ModalViewController)
-
-@implementation OrientationLockedViewController
-
-- (BOOL)accessibilityPerformEscape {
-    return stashAccessibilityDismissCheckout();
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-    
-    if (!_usePopupPresentation) {
-        return;
-    }
-    
-    CGRect targetBounds = CGRectMake(0, 0, size.width, size.height);
-    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    CGRect newCardFrame = computePopupFrameForScreenBounds(targetBounds);
-    
-    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        if (overlayView) {
-            overlayView.frame = targetBounds;
-        }
-        if (_usePopupPresentation) {
-            self.view.frame = newCardFrame;
-            self.customFrame = newCardFrame;
-        }
-    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-        self.customFrame = newCardFrame;
-        [self updateCornerRadiusMask];
-    }];
-}
-
-- (void)viewWillLayoutSubviews {
-    [super viewWillLayoutSubviews];
-    
-    if (!_usePopupPresentation) {
-        return;
-    }
-    
-    UIWindow *cardWindow = self.view.window;
-    if (!cardWindow) return;
-    CGRect containerBounds = cardWindow.bounds;
-
-    UIView *overlayView = objc_getAssociatedObject(self, (__bridge const void *)StashNativeAssociatedKeyOverlayView);
-    if (overlayView && !CGRectEqualToRect(overlayView.frame, containerBounds)) {
-        overlayView.frame = containerBounds;
-    }
-    
-    // Use appropriate frame calculation based on presentation type
-    CGRect newFrame = computePopupFrameForScreenBounds(containerBounds);
-    if (!CGRectEqualToRect(self.view.frame, newFrame)) {
-        [UIView animateWithDuration:kPopupFrameAnimationDuration animations:^{
-            self.view.frame = newFrame;
-            self.customFrame = newFrame;
-        } completion:^(BOOL finished) {
-            [self updateCornerRadiusMask];
+    [self updateTopChromeBackgroundColor];
+    UIViewController *content = self.session.codeLinkController;
+    if (content) {
+        [self addChildViewController:content];
+        [self.view addSubview:content.view];
+        [content didMoveToParentViewController:self];
+    } else [self installWebContentWithBackground:initialBackground];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillChangeFrameNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardChanged:) name:UIKeyboardWillHideNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardSettled:) name:UIKeyboardDidShowNotification object:nil];
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardSettled:) name:UIKeyboardDidChangeFrameNotification object:nil];
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000
+    if (@available(iOS 18.0, *)) {
+        STASH_WEAK_REF StashCheckoutViewController *weakSelf = self;
+        UIUpdateLink *link = [UIUpdateLink updateLinkForView:self.view actionHandler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) {
+            StashCheckoutViewController *controller = weakSelf;
+            if (![controller.session isActive]) return;
+            [controller updateKeyboardGuideOcclusion];
+            UIView *container = [controller layoutContainer];
+            CGRect bounds = [controller availableBoundsInView:container];
+            CGRect contentBounds = [controller availableBoundsInView:controller.view];
+            if (!CGRectEqualToRect(bounds, controller.previousAvailableBounds)) {
+                controller.previousAvailableBounds = bounds;
+                [controller updatePresentationAnimated:NO];
+            }
+            if (!CGRectEqualToRect(contentBounds, controller.previousContentBounds)) {
+                controller.previousContentBounds = contentBounds;
+                [controller.view setNeedsLayout];
+            }
         }];
+        [link addActionToPhase:UIUpdateActionPhase.afterUpdateComplete handler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) {
+            [weakSelf updateKeyboardGuideOcclusion];
+            [weakSelf.session retryRootOffsetRepair];
+        }];
+        link.requiresContinuousUpdates = NO;
+        link.enabled = YES;
+        self.geometryUpdateLink = link;
+        if (@available(iOS 26.0, *)) {
+            UITraitCollection *traits = [self layoutContainer].traitCollection;
+            if (traits.userInterfaceIdiom == UIUserInterfaceIdiomPhone &&
+                traits.horizontalSizeClass == UIUserInterfaceSizeClassCompact) {
+                UIUpdateLink *entrance = [UIUpdateLink updateLinkForView:self.view];
+                [entrance addActionToPhase:UIUpdateActionPhase.beforeCATransactionCommit
+                    handler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) { [weakSelf updateNativeEntrance]; }];
+                entrance.enabled = YES;
+                self.entranceUpdateLink = entrance;
+            }
+        }
+    }
+#endif
+}
+- (void)installWebContentWithBackground:(UIColor *)initialBackground {
+    [self.view addSubview:self.session.webView];
+    StashRemoveFormInputAccessoryView(self.session.webView);
+    self.session.webView.accessibilityIdentifier = @"stash-web-content";
+    UIPanGestureRecognizer *contentPan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(nativePanChanged:)];
+    contentPan.delegate = self;
+    contentPan.cancelsTouchesInView = NO;
+    contentPan.delaysTouchesBegan = NO;
+    contentPan.delaysTouchesEnded = NO;
+    self.contentPan = contentPan;
+    [self.session.webView addGestureRecognizer:contentPan];
+    [self observeContentScrollPans:self.session.webView];
+#if !__has_feature(objc_arc)
+    [contentPan release];
+#endif
+    if (!self.session.initialContentRevealed) {
+        UIView *cover = [[UIView alloc] init];
+        cover.backgroundColor = self.glassLoading ? UIColor.clearColor : initialBackground;
+        cover.accessibilityIdentifier = @"stash-initial-loading";
+        self.loadingCover = cover;
+        [self.view addSubview:cover];
+        self.session.webView.userInteractionEnabled = NO;
+        self.session.webView.accessibilityElementsHidden = YES;
+        if (self.glassLoading) self.session.webView.alpha = 0;
+#if !__has_feature(objc_arc)
+        [cover release];
+#endif
+    }
+    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
+    self.spinner = spinner;
+    spinner.hidesWhenStopped = YES;
+    spinner.accessibilityIdentifier = @"stash-loading-spinner";
+    spinner.accessibilityLabel = @"Loading checkout";
+    [self.view addSubview:spinner];
+    [spinner startAnimating];
+#if !__has_feature(objc_arc)
+    [spinner release];
+#endif
+}
+- (void)updateNativeEntrance {
+    if (self.entranceCorrection) {
+        [self.entranceCorrection update];
+        return;
+    }
+    id<UIViewControllerTransitionCoordinator> transition = self.transitionCoordinator;
+    if (self.entranceCorrectionApplied || !self.isBeingPresented || !transition) return;
+    // Inspect only the first presentation update. Never attach a correction mid-transition.
+    self.entranceCorrectionApplied = YES;
+    if (self.geometryTransitioning || !transition.isAnimated || transition.isInteractive ||
+        transition.initiallyInteractive || transition.isCancelled || UIAccessibilityIsReduceMotionEnabled() ||
+        [transition viewControllerForKey:UITransitionContextToViewControllerKey] != self) {
+        [self stopNativeEntrance];
+        return;
+    }
+    self.entranceCorrection = [StashNativeEntranceCorrection
+        correctionForSurface:self.presentationController.presentedView.layer
+        container:self.presentationController.containerView.layer];
+    if (!self.entranceCorrection) [self stopNativeEntrance];
+}
+- (void)stopNativeEntrance {
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000
+    if (@available(iOS 18.0, *)) ((UIUpdateLink *)self.entranceUpdateLink).enabled = NO;
+#endif
+    self.entranceUpdateLink = nil;
+    [self.entranceCorrection invalidate];
+    self.entranceCorrection = nil;
+    self.entranceCorrectionApplied = YES;
+}
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self stopNativeEntrance];
+    [self.view setNeedsLayout];
+}
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    [self stopNativeEntrance];
+}
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [self updateKeyboardGuideOcclusion];
+    [self reconcileHostSafeAreaInsets];
+    if (self.session.codeLinkController) {
+        self.session.codeLinkController.view.frame = self.view.bounds;
+        [self observeNativePans:self.presentationController.containerView];
+        return;
+    }
+    CGFloat width = self.view.bounds.size.width;
+    CGFloat top = self.view.safeAreaInsets.top;
+    CGFloat bottom = self.view.bounds.size.height - self.view.safeAreaInsets.bottom;
+    CGRect keyboard = [self resolvedKeyboardFrameInView:self.view dockedOnly:YES];
+    if (!CGRectIsNull(keyboard)) {
+        CGRect overlap = CGRectIntersection(self.view.bounds, keyboard);
+        if (!CGRectIsNull(overlap) && overlap.size.width > width * 0.75 &&
+            CGRectGetMaxY(overlap) >= CGRectGetMaxY(self.view.bounds) - 0.5) bottom = MIN(bottom, CGRectGetMinY(overlap));
+    }
+    CGRect content = CGRectMake(0, top, width, MAX(0, bottom - top));
+    CGRect available = [self availableBoundsInView:self.view];
+    content = CGRectIntersection(content, available);
+    CGRect webFrame = CGRectIsNull(content) ? CGRectZero : content;
+    CGFloat bottomInset = 0;
+    if (!CGRectIsEmpty(webFrame)) {
+        CGFloat safeBottom = CGRectGetMaxY(self.view.bounds) - self.view.safeAreaInsets.bottom;
+        UIView *host = [self layoutContainer];
+        if (self.view.window && (host == self.view.window || host.window == self.view.window)) {
+            CGRect hostSafe = [self.view convertRect:UIEdgeInsetsInsetRect(host.bounds, host.safeAreaInsets) fromView:host];
+            safeBottom = MIN(safeBottom, CGRectGetMaxY(hostSafe));
+        }
+        // Paint through the home-indicator area without extending across a keyboard or divider.
+        if (fabs(CGRectGetMaxY(webFrame) - safeBottom) < 0.5) {
+            CGFloat paintBottom = CGRectGetMaxY(self.view.bounds);
+            if (!CGRectIsNull(keyboard)) {
+                CGRect overlap = CGRectIntersection(self.view.bounds, keyboard);
+                if (!CGRectIsNull(overlap) && overlap.size.width > width * 0.75 &&
+                    CGRectGetMaxY(overlap) >= CGRectGetMaxY(self.view.bounds) - 0.5) paintBottom = MIN(paintBottom, CGRectGetMinY(overlap));
+            }
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
+            if (@available(iOS 27.1, *)) {
+                CGRect strip = CGRectMake(webFrame.origin.x, CGRectGetMaxY(webFrame), webFrame.size.width,
+                    MAX(0, paintBottom - CGRectGetMaxY(webFrame)));
+                for (UIViewReservedRegionKind *kind in @[UIViewReservedRegionKind.occlusionRegionKind, UIViewReservedRegionKind.divisionRegionKind]) {
+                    for (UIViewReservedRegion *region in [self.view reservedRegionsOfKind:kind]) {
+                        if (!region.active) continue;
+                        CGRect frame = region.frame;
+                        if (frame.size.width == 0) frame.size.width = 1;
+                        if (frame.size.height == 0) frame.size.height = 1;
+                        if (CGRectIntersectsRect(strip, frame)) paintBottom = MIN(paintBottom, CGRectGetMinY(frame));
+                    }
+                }
+            }
+#endif
+            bottomInset = MAX(0, paintBottom - CGRectGetMaxY(webFrame));
+            webFrame.size.height += bottomInset;
+        }
+    }
+    [self updateTopChromeBackgroundColor];
+    BOOL viewportChanged = !CGSizeEqualToSize(self.session.webView.bounds.size, webFrame.size);
+    self.session.webView.frame = webFrame;
+    self.loadingCover.frame = webFrame;
+    // A native content inset can shrink WebKit's viewport again after keyboard dismissal.
+    self.session.webView.scrollView.contentInset = UIEdgeInsetsZero;
+    self.session.webView.scrollView.verticalScrollIndicatorInsets = UIEdgeInsetsMake(0, 0, bottomInset, 0);
+    [self reconcileNativeContentSafeArea:bottomInset];
+    self.spinner.center = CGPointMake(CGRectGetMidX(webFrame), CGRectGetMidY(webFrame));
+    if (viewportChanged) { [self scheduleFocusReveal]; [self.session sampleTopChrome]; }
+    [self observeContentScrollPans:self.session.webView];
+    [self observeNativePans:self.presentationController.containerView];
+    [self.session retryRootOffsetRepair];
+    CGFloat contentWidth = self.session.webView.bounds.size.width;
+    if (fabs(self.previousWidth - contentWidth) > 0.5) {
+        self.previousWidth = contentWidth;
+        self.session.measuredContentHeight = 0;
+        self.session.measuredNativeWidth = 0;
+        self.session.hasPendingContentHeight = NO;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (![self.session isActive]) return;
+            [self updatePresentationAnimated:NO];
+            [self.session.webView evaluateJavaScript:@"if(window.__stashMeasureContent)window.__stashMeasureContent()" completionHandler:nil];
+        });
     }
 }
-
-- (void)updateCornerRadiusMask {
-    CAShapeLayer *maskLayer = createCornerRadiusMask(self.view.bounds, UIRectCornerAllCorners, kCornerRadiusDefault);
-    self.view.layer.mask = maskLayer;
-}
-
-- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
-    if (self.enforcePortrait && !isRunningOniPad()) {
-        return UIInterfaceOrientationMaskPortrait;
+- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
+    [super traitCollectionDidChange:previousTraitCollection];
+    if ([self.traitCollection hasDifferentColorAppearanceComparedToTraitCollection:previousTraitCollection]) {
+        [self updateTopChromeBackgroundColor];
+        [self.session sampleTopChrome];
     }
-    return UIInterfaceOrientationMaskAll;
 }
-
-- (BOOL)shouldAutorotate {
+- (void)revealInitialContentAnimated:(BOOL)animated {
+    UIView *cover = self.loadingCover;
+    WKWebView *web = self.session.webView;
+    if (!cover) {
+        [self.spinner stopAnimating];
+        web.userInteractionEnabled = YES;
+        web.accessibilityElementsHidden = NO;
+        return;
+    }
+    [cover.layer removeAllAnimations];
+    BOOL glass = self.glassLoading;
+    self.glassLoading = NO;
+    void (^reveal)(void) = ^{
+        [self updateTopChromeBackgroundColor];
+        web.alpha = 1;
+        cover.alpha = 0;
+        self.spinner.alpha = 0;
+    };
+    void (^finish)(void) = ^{
+        if (self.loadingCover != cover) return;
+        [cover removeFromSuperview];
+        self.loadingCover = nil;
+        [self updateNativeLoadingBackground];
+        [self.spinner stopAnimating];
+        self.spinner.alpha = 1;
+        web.userInteractionEnabled = YES;
+        web.accessibilityElementsHidden = NO;
+    };
+    if (animated && cover.window && !UIAccessibilityIsReduceMotionEnabled()) {
+        [UIView animateWithDuration:glass ? 0.25 : 0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState |
+            UIViewAnimationOptionCurveEaseOut animations:reveal
+            completion:^(BOOL finished) { finish(); }];
+    } else {
+        [UIView performWithoutAnimation:reveal];
+        finish();
+    }
+}
+- (void)reconcileHostSafeAreaInsets {
+    if (!self.view.window) return;
+    UIView *host = [self layoutContainer];
+    if (host != self.view.window && host.window != self.view.window) return;
+    CGFloat observed = self.view.safeAreaInsets.bottom;
+    if (self.awaitingHostSafeAreaUpdate) {
+        // Do not subtract an addition that UIKit has not propagated yet.
+        if (fabs(observed - self.hostSafeAreaBeforeUpdate) < 0.5) return;
+        self.awaitingHostSafeAreaUpdate = NO;
+    }
+    CGRect hostSafe = [self.view convertRect:UIEdgeInsetsInsetRect(host.bounds, host.safeAreaInsets) fromView:host];
+    CGFloat required = MIN(self.view.bounds.size.height, MAX(0, CGRectGetMaxY(self.view.bounds) - CGRectGetMaxY(hostSafe)));
+    UIEdgeInsets additional = self.additionalSafeAreaInsets;
+    CGFloat inherited = MAX(0, observed - additional.bottom);
+    CGFloat correction = MAX(0, required - inherited);
+    if (fabs(additional.bottom - correction) < 0.5) return;
+    self.hostSafeAreaBeforeUpdate = observed;
+    self.awaitingHostSafeAreaUpdate = YES;
+    additional.bottom = correction;
+    NSUInteger generation = ++self.hostSafeAreaUpdateGeneration;
+    self.additionalSafeAreaInsets = additional;
+    dispatch_async(dispatch_get_main_queue(), ^{ [self completeHostSafeAreaUpdate:generation]; });
+}
+- (void)completeHostSafeAreaUpdate:(NSUInteger)generation {
+    if (generation != self.hostSafeAreaUpdateGeneration) return;
+    if (self.session.closing || !self.viewIfLoaded.window) {
+        self.awaitingHostSafeAreaUpdate = NO;
+        return;
+    }
+    [self.view setNeedsLayout];
+    [self.view layoutIfNeeded];
+    if (generation != self.hostSafeAreaUpdateGeneration) return;
+    // UIKit can change its inherited inset while applying ours, leaving the total unchanged.
+    self.awaitingHostSafeAreaUpdate = NO;
+    [self.view setNeedsLayout];
+}
+- (void)viewSafeAreaInsetsDidChange {
+    [super viewSafeAreaInsetsDidChange];
+    [self updatePresentationAnimated:NO];
+}
+- (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
+    [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
+    self.geometryTransitioning = YES;
+    [self cancelContentExpansion];
+    [coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        [self updatePresentationAnimated:NO];
+    } completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+        self.geometryTransitioning = NO;
+        [self.session retryRootOffsetRepair];
+        [self updatePresentationAnimated:NO];
+        [self.view layoutIfNeeded];
+        [self scheduleFocusReveal];
+    }];
+}
+- (BOOL)accessibilityPerformEscape {
+    if (![self.session canUserDismiss]) return NO;
+    [self.session finishWithUserDismiss:YES completion:nil];
     return YES;
 }
-
-- (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
-    if (self.enforcePortrait && !isRunningOniPad()) {
-        return UIInterfaceOrientationPortrait;
-    }
-    return getInterfaceOrientation();
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations {
+    return self.session.presentationPresenter ? self.session.presentationPresenter.supportedInterfaceOrientations : UIInterfaceOrientationMaskAll;
 }
-
-@end
-
+- (BOOL)shouldAutorotate { return YES; }
+- (void)updateTopChromeBackgroundColor {
+    if (self.session.codeLink) {
+        self.view.backgroundColor = UIColor.blackColor;
+        return;
+    }
+    if (self.glassLoading) {
+        self.view.backgroundColor = UIColor.clearColor;
+        return;
+    }
+    UIColor *color = self.topChromeColor;
+    color = color ?: self.session.webView.underPageBackgroundColor ?: stash_sheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
+    self.view.backgroundColor = color;
+}
+- (void)dealloc {
+    [self stopNativeEntrance];
+    [NSNotificationCenter.defaultCenter removeObserver:self];
+    for (UIPanGestureRecognizer *gesture in self.observedPans) [gesture removeTarget:self action:@selector(nativePanChanged:)];
+    self.touchOriginObserver.delegate = nil;
+    [self.touchOriginObserver.view removeGestureRecognizer:self.touchOriginObserver];
+    for (UIPanGestureRecognizer *pan in self.contentScrollPans) [pan removeTarget:self action:@selector(nativePanChanged:)];
+    self.contentPan.delegate = nil;
+    [self.contentPan.view removeGestureRecognizer:self.contentPan];
 #if !__has_feature(objc_arc)
-#pragma clang diagnostic pop
+    [_spinner release]; [_loadingCover release]; [_topChromeColor release];
+    [_observedPans release]; [_geometryUpdateLink release];
+    [_touchOriginObserver release];
+    [_contentPan release];
+    [_contentScrollPans release];
+    [_entranceCorrection release]; [super dealloc];
 #endif
+}
+@end

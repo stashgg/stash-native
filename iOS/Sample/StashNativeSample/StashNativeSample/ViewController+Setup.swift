@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import StashNative
 
 // MARK: - Setup
 
@@ -21,33 +22,24 @@ extension ViewController {
     }
 
     func setupCheckoutSlidersAndSwitches() {
-        forcePortraitOnCheckoutSwitch.isOn = false
-        cardAutoCloseSwitch.isOn = true
-        configureSlider(phoneCardHeightSlider, label: phoneCardHeightLabel, value: 68)
-        configureSlider(checkoutPhoneLandscapeWidthSlider, label: checkoutPhoneLandscapeWidthLabel, value: 70)
-        configureSlider(checkoutPhoneLandscapeHeightSlider, label: checkoutPhoneLandscapeHeightLabel, value: 90)
-        configureSlider(checkoutTabletPortraitWidthSlider, label: checkoutTabletPortraitWidthLabel, value: 40)
-        configureSlider(checkoutTabletPortraitHeightSlider, label: checkoutTabletPortraitHeightLabel, value: 50)
-        configureSlider(checkoutTabletLandscapeWidthSlider, label: checkoutTabletLandscapeWidthLabel, value: 30)
-        configureSlider(checkoutTabletLandscapeHeightSlider, label: checkoutTabletLandscapeHeightLabel, value: 60)
+        let defaults = StashNativeCardConfig()
+        cardPreferPortraitSwitch.isOn = defaults.orientationPreference == .portrait
+        cardAllowDismissSwitch.isOn = defaults.allowDismiss
+        cardAutoCloseSwitch.isOn = defaults.autoClose
+        configureSlider(cardPreferredWidthSlider, label: cardPreferredWidthLabel,
+                        value: Float(defaults.preferredContentWidth))
+        configureSlider(cardPreferredHeightSlider, label: cardPreferredHeightLabel,
+                        value: Float(defaults.preferredContentHeight))
+        configureSlider(cardMaximumHeightSlider, label: cardMaximumHeightLabel,
+                        value: Float(defaults.maximumContentHeight), minimum: 0)
+        configureSlider(cardEdgeMarginSlider, label: cardEdgeMarginLabel,
+                        value: Float(defaults.edgeMargin), minimum: 0, maximum: 64)
     }
 
-    func setupModalSlidersAndSwitches() {
-        modalAllowDismissSwitch.isOn = true
-        modalAutoCloseSwitch.isOn = true
-        configureSlider(modalPhonePortraitWidthSlider, label: modalPhonePortraitWidthLabel, value: 80)
-        configureSlider(modalPhonePortraitHeightSlider, label: modalPhonePortraitHeightLabel, value: 50)
-        configureSlider(modalPhoneLandscapeWidthSlider, label: modalPhoneLandscapeWidthLabel, value: 50)
-        configureSlider(modalPhoneLandscapeHeightSlider, label: modalPhoneLandscapeHeightLabel, value: 80)
-        configureSlider(modalTabletPortraitWidthSlider, label: modalTabletPortraitWidthLabel, value: 40)
-        configureSlider(modalTabletPortraitHeightSlider, label: modalTabletPortraitHeightLabel, value: 30)
-        configureSlider(modalTabletLandscapeWidthSlider, label: modalTabletLandscapeWidthLabel, value: 30)
-        configureSlider(modalTabletLandscapeHeightSlider, label: modalTabletLandscapeHeightLabel, value: 40)
-    }
-
-    func configureSlider(_ slider: UISlider, label: UILabel, value: Float) {
-        slider.minimumValue = 10
-        slider.maximumValue = 100
+    func configureSlider(_ slider: UISlider, label: UILabel, value: Float,
+                         minimum: Float = 240, maximum: Float = 1200) {
+        slider.minimumValue = minimum
+        slider.maximumValue = maximum
         slider.value = value
         label.font = .systemFont(ofSize: 17, weight: .regular)
         label.textColor = .secondaryLabel

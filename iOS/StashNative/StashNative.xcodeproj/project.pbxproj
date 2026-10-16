@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        STN040 /* StashNativeCodeLink.m in Sources */ = {isa = PBXBuildFile; fileRef = STN041 /* StashNativeCodeLink.m */; };
+        STN042 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN043 /* AVFoundation.framework */; };
+		STN03E /* StashNativeCardTelemetry.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03F /* StashNativeCardTelemetry.m */; };
+		STN03C /* StashNativeCardTransitions.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03D /* StashNativeCardTransitions.m */; };
+		STN03A /* StashNativeCardOrientation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN03B /* StashNativeCardOrientation.m */; };
 		STN001 /* StashNativeCard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN002 /* StashNativeCard.m */; };
 		STN030 /* StashNativeCardConfigs.m in Sources */ = {isa = PBXBuildFile; fileRef = STN031 /* StashNativeCardConfigs.m */; };
 		STN032 /* StashNativeCardGeometry.m in Sources */ = {isa = PBXBuildFile; fileRef = STN033 /* StashNativeCardGeometry.m */; };
@@ -19,9 +24,17 @@
 		STN009 /* StashNativeCard.h in Headers */ = {isa = PBXBuildFile; fileRef = STN00A /* StashNativeCard.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		STN00B /* SafariServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00C /* SafariServices.framework */; };
 		STN00D /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = STN00E /* WebKit.framework */; };
+		STN044 /* StashNativeCardKeyboard.m in Sources */ = {isa = PBXBuildFile; fileRef = STN045 /* StashNativeCardKeyboard.m */; };
+		STN046 /* StashNativeCardGestures.m in Sources */ = {isa = PBXBuildFile; fileRef = STN047 /* StashNativeCardGestures.m */; };
+		STN048 /* StashNativeCardPresentation.m in Sources */ = {isa = PBXBuildFile; fileRef = STN049 /* StashNativeCardPresentation.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        STN041 /* StashNativeCodeLink.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCodeLink.m; sourceTree = "<group>"; };
+        STN043 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		STN03F /* StashNativeCardTelemetry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardTelemetry.m; sourceTree = "<group>"; };
+		STN03D /* StashNativeCardTransitions.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardTransitions.m; sourceTree = "<group>"; };
+		STN03B /* StashNativeCardOrientation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardOrientation.m; sourceTree = "<group>"; };
 		STN00F /* StashNative.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = StashNative.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		STN002 /* StashNativeCard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCard.m; sourceTree = "<group>"; };
 		STN031 /* StashNativeCardConfigs.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardConfigs.m; sourceTree = "<group>"; };
@@ -36,6 +49,9 @@
 		STN00C /* SafariServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SafariServices.framework; path = System/Library/Frameworks/SafariServices.framework; sourceTree = SDKROOT; };
 		STN00E /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		STN021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		STN045 /* StashNativeCardKeyboard.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardKeyboard.m; sourceTree = "<group>"; };
+		STN047 /* StashNativeCardGestures.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardGestures.m; sourceTree = "<group>"; };
+		STN049 /* StashNativeCardPresentation.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = StashNativeCardPresentation.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,6 +59,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				STN042 /* AVFoundation.framework in Frameworks */,
 				STN00B /* SafariServices.framework in Frameworks */,
 				STN00D /* WebKit.framework in Frameworks */,
 			);
@@ -68,9 +85,16 @@
 				STN002 /* StashNativeCard.m */,
 				STN031 /* StashNativeCardConfigs.m */,
 				STN039 /* StashNativeCardInternal.m */,
+				STN03B /* StashNativeCardOrientation.m */,
+				STN03D /* StashNativeCardTransitions.m */,
+				STN03F /* StashNativeCardTelemetry.m */,
+				STN041 /* StashNativeCodeLink.m */,
 				STN033 /* StashNativeCardGeometry.m */,
 				STN016 /* StashNativeCardPrivate.h */,
 				STN035 /* StashNativeCardTheme.m */,
+				STN045 /* StashNativeCardKeyboard.m */,
+				STN047 /* StashNativeCardGestures.m */,
+				STN049 /* StashNativeCardPresentation.m */,
 				STN004 /* StashNativeCardViewControllers.m */,
 				STN037 /* StashNativeCardViewUtils.m */,
 				STN006 /* StashNativeCardWebViewDelegates.m */,
@@ -91,6 +115,7 @@
 		STN013 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				STN043 /* AVFoundation.framework */,
 				STN00C /* SafariServices.framework */,
 				STN00E /* WebKit.framework */,
 			);
@@ -177,8 +202,15 @@
 				STN001 /* StashNativeCard.m in Sources */,
 				STN030 /* StashNativeCardConfigs.m in Sources */,
 				STN038 /* StashNativeCardInternal.m in Sources */,
+				STN03A /* StashNativeCardOrientation.m in Sources */,
+				STN03C /* StashNativeCardTransitions.m in Sources */,
+				STN03E /* StashNativeCardTelemetry.m in Sources */,
+				STN040 /* StashNativeCodeLink.m in Sources */,
 				STN032 /* StashNativeCardGeometry.m in Sources */,
 				STN034 /* StashNativeCardTheme.m in Sources */,
+				STN044 /* StashNativeCardKeyboard.m in Sources */,
+				STN046 /* StashNativeCardGestures.m in Sources */,
+				STN048 /* StashNativeCardPresentation.m in Sources */,
 				STN003 /* StashNativeCardViewControllers.m in Sources */,
 				STN036 /* StashNativeCardViewUtils.m in Sources */,
 				STN005 /* StashNativeCardWebViewDelegates.m in Sources */,
@@ -203,13 +235,13 @@
 				);
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -231,13 +263,13 @@
 				DYLIB_INSTALL_NAME_BASE = "@rpath";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				MARKETING_VERSION = 2.3.1;
+				MARKETING_VERSION = 3.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stash.stashnative;
 				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
 				SKIP_INSTALL = YES;
@@ -264,7 +296,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -286,7 +318,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_OPTIMIZATION_LEVEL = s;
-				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;

@@ -6,6 +6,7 @@ import androidx.annotation.StringRes;
 public final class SettingsItem {
 
   public static final int TYPE_SECTION_HEADER = 0;
+  public static final int TYPE_SECTION_FOOTER = 1;
   public static final int TYPE_URL_PREFERENCE = 2;
   public static final int TYPE_ACTION_PREFERENCE = 3;
   public static final int TYPE_SWITCH_PREFERENCE = 6;
@@ -19,21 +20,31 @@ public final class SettingsItem {
   @StringRes public final int supportingRes; // 0 if none
   public final String value; // for URL, slider label
   public final boolean checked; // for switch; for API key = selected
-  public final int progress; // for slider (0-90, display as progress+10 %)
+  public final int progress; // Slider dimension in dp.
   public final int iconRes; // 0 if none
+
   /** True if this row is the first in a card container (iOS-style bubble). */
   public final boolean firstInCard;
+
   /** True if this row is the last in a card container. */
   public final boolean lastInCard;
+
   // API key row fields (TYPE_API_KEY only).
   public final String stringId;
   public final String name;
   public final boolean production;
 
   /** Internal constructor; use static factory methods. */
-  private SettingsItem(int type, int titleRes, int supportingRes, String value,
-      boolean checked, int progress, int iconRes,
-      boolean firstInCard, boolean lastInCard) {
+  private SettingsItem(
+      int type,
+      int titleRes,
+      int supportingRes,
+      String value,
+      boolean checked,
+      int progress,
+      int iconRes,
+      boolean firstInCard,
+      boolean lastInCard) {
     this.type = type;
     this.titleRes = titleRes;
     this.supportingRes = supportingRes;
@@ -49,8 +60,13 @@ public final class SettingsItem {
   }
 
   /** Internal constructor for API key rows. */
-  private SettingsItem(String stringId, String name, boolean production,
-      boolean selected, boolean firstInCard, boolean lastInCard) {
+  private SettingsItem(
+      String stringId,
+      String name,
+      boolean production,
+      boolean selected,
+      boolean firstInCard,
+      boolean lastInCard) {
     this.type = TYPE_API_KEY;
     this.titleRes = 0;
     this.supportingRes = 0;
@@ -66,8 +82,13 @@ public final class SettingsItem {
   }
 
   /** API key row: name + production/test toggle + selected indicator. */
-  public static SettingsItem apiKey(String id, String name, boolean production,
-      boolean selected, boolean firstInCard, boolean lastInCard) {
+  public static SettingsItem apiKey(
+      String id,
+      String name,
+      boolean production,
+      boolean selected,
+      boolean firstInCard,
+      boolean lastInCard) {
     return new SettingsItem(id, name, production, selected, firstInCard, lastInCard);
   }
 
@@ -78,10 +99,14 @@ public final class SettingsItem {
         TYPE_SECTION_HEADER, titleRes, 0, null, false, 0, 0, firstInCard, lastInCard);
   }
 
+  /** Supporting text below a section. */
+  public static SettingsItem sectionFooter(@StringRes int titleRes) {
+    return new SettingsItem(TYPE_SECTION_FOOTER, titleRes, 0, null, false, 0, 0, false, false);
+  }
+
   /** URL/edit preference row. */
   public static SettingsItem urlPreference(
-      @StringRes int titleRes, String value, int iconRes,
-      boolean firstInCard, boolean lastInCard) {
+      @StringRes int titleRes, String value, int iconRes, boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
         TYPE_URL_PREFERENCE, titleRes, 0, value, false, 0, iconRes, firstInCard, lastInCard);
   }
@@ -89,24 +114,38 @@ public final class SettingsItem {
   /** Action row. */
   public static SettingsItem actionPreference(
       @StringRes int titleRes, boolean firstInCard, boolean lastInCard) {
+    return actionPreference(titleRes, null, firstInCard, lastInCard);
+  }
+
+  /** Action row with its current selection. */
+  public static SettingsItem actionPreference(
+      @StringRes int titleRes, String value, boolean firstInCard, boolean lastInCard) {
     return new SettingsItem(
-        TYPE_ACTION_PREFERENCE, titleRes, 0, null, false, 0, 0, firstInCard, lastInCard);
+        TYPE_ACTION_PREFERENCE, titleRes, 0, value, false, 0, 0, firstInCard, lastInCard);
   }
 
   /** Switch/toggle preference row. */
   public static SettingsItem switchPreference(
-      @StringRes int titleRes, @StringRes int supportingRes, boolean checked,
-      boolean firstInCard, boolean lastInCard) {
+      @StringRes int titleRes,
+      @StringRes int supportingRes,
+      boolean checked,
+      boolean firstInCard,
+      boolean lastInCard) {
     return new SettingsItem(
-        TYPE_SWITCH_PREFERENCE, titleRes, supportingRes, null, checked, 0, 0,
-        firstInCard, lastInCard);
+        TYPE_SWITCH_PREFERENCE,
+        titleRes,
+        supportingRes,
+        null,
+        checked,
+        0,
+        0,
+        firstInCard,
+        lastInCard);
   }
 
   /** Free-form JSON editor row holding the current draft text. */
-  public static SettingsItem payloadEditor(
-      String value, boolean firstInCard, boolean lastInCard) {
-    return new SettingsItem(
-        TYPE_PAYLOAD_EDITOR, 0, 0, value, false, 0, 0, firstInCard, lastInCard);
+  public static SettingsItem payloadEditor(String value, boolean firstInCard, boolean lastInCard) {
+    return new SettingsItem(TYPE_PAYLOAD_EDITOR, 0, 0, value, false, 0, 0, firstInCard, lastInCard);
   }
 
   /** Read-only info row: title on the left, value on the right. */
@@ -119,9 +158,11 @@ public final class SettingsItem {
   /** Slider row. */
   public static SettingsItem sliderPreference(
       @StringRes int titleRes, int progress, boolean firstInCard, boolean lastInCard) {
-    int pct = progress + 10;
+    String label =
+        progress == 0 && titleRes == R.string.maximum_content_height
+            ? "Available"
+            : progress + " dp";
     return new SettingsItem(
-        TYPE_SLIDER_PREFERENCE, titleRes, 0, pct + "%", false, progress, 0,
-        firstInCard, lastInCard);
+        TYPE_SLIDER_PREFERENCE, titleRes, 0, label, false, progress, 0, firstInCard, lastInCard);
   }
 }

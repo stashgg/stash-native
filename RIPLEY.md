@@ -18,27 +18,27 @@ When changing decoded checkout responses, persisted sample credentials, or impor
 
 ## 2. checkout-result-once (A3)
 
-Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. `Android/stashnative/src/main/java/com/stash/stashnative/StashPopupJsInterface.java` uses `paymentSuccessHandled`, and `iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m` uses `_paymentSuccessHandled` in `handlePaymentSuccessSignalWithOrder:` and `handlePaymentFailureSignal`; preserve their before-callback latch and their deliberate exception for `autoClose = NO`, where a live page may retry from failure to success.
+Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. Trace Android's `StashCheckoutJsInterface` into `StashCheckoutActivity` and iOS's `StashCheckoutSession` in `StashNativeCardInternal.m`. Preserve terminal state before host callbacks and the deliberate exception for `autoClose = false`, where a live page may retry from failure to success.
 
 **Failure:** Duplicate payment signals during an auto-closing presentation deliver more than one terminal host callback or dismissal.
 
 ## 3. bridge-surface-parity (B1)
 
-Treat `window.stash_sdk` as a paired Android/iOS protocol. A change to its shared function set, argument coercion, result semantics, or handler name must update the Android `JS_SDK_SCRIPT` and registered `StashCheckoutJsInterface`/`StashPopupJsInterface` paths in `Android/stashnative/src/main/java/com/stash/stashnative/`, plus `stashSDKScript`, message-handler registration, and dispatch in `iOS/StashNative/Sources/StashNative/StashNativeCard.m` and `iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m`; preserve and document the intentionally platform-specific missing-handler behavior.
+Treat `window.stash_sdk` as a paired Android/iOS protocol. Trace Android's `StashWebViewUtils.JS_SDK_SCRIPT` through `StashCheckoutJsInterface`, and iOS's `StashBridgeScript()` in `StashNativeCardViewUtils.m` through session handler registration and dispatch. Update both implementations when shared functions, argument coercion, results, or handler names change; preserve documented platform-specific missing-handler behavior.
 
 **Failure:** Checkout JavaScript works on one native platform but silently drops or misroutes the same call on the other.
 
-## 4. presentation-ratio-bounds (B1)
+## 4. presentation-dimension-bounds (B1)
 
-Keep every public card and modal ratio on both platforms within the documented `[0.1, 1.0]` range, including non-finite input handling. Preserve the application of Android `StashNativeCardPlugin.clampRatio` before presentation and iOS `stashClampRatio` in `StashNativeCard`'s card and modal entry points; a new ratio field needs the same boundary defense on its owning platform.
+Normalize and copy card content dimensions, maximum height, and edge margin before presentation, including non-finite inputs. Preserve Android's `StashPresentationOptions` validation and iOS's `StashNormalizedConfig`. Zero maximum height means all available space; current window geometry takes precedence over requested dimensions.
 
-**Failure:** An out-of-range or non-finite host configuration creates invalid geometry, a native layout crash, or a presentation that differs from its public bounds.
+**Failure:** Invalid host dimensions reach native layout, or resizing ignores the available window bounds.
 
-## 5. ios-shared-state-home (B3)
+## 5. ios-session-ownership (B3)
 
-Keep iOS state shared across implementation files defined once in `iOS/StashNative/Sources/StashNative/StashNativeCard.m` and declared through `iOS/StashNative/Sources/StashNative/StashNativeCardPrivate.h`; use file-local `static` storage for state a single implementation owns. Do not add a second definition or silently move an existing shared flag, sizing value, or message-handler constant into another `.m` file.
+Keep the active session owned by its `StashNativeCard` instance. `StashCheckoutSession` owns callbacks, timers, WebView, and presentation lifetime; controllers own layout. Declare cross-file interfaces in `StashNativeCardPrivate.h` and keep file-local constants `static`. Do not use the singleton's state to decide behavior for another instance.
 
-**Failure:** Two iOS implementation files observe divergent presentation state or constants during the same checkout.
+**Failure:** A session reads another instance's state or outlives its owner without teardown.
 
 ## 6. ios-source-membership (B3)
 
@@ -54,7 +54,7 @@ Change the SDK version as one synchronized value: `SDK_VERSION` in `Android/stas
 
 ## 8. safe-area-containment (B3)
 
-Retain the physical safe-area ceiling whenever changing checkout sizing, expansion, rotation, or inset handling. Android `StashCheckoutSizing.phoneSheetMaxHeightPx` and `StashWindowCompat` reserve system-bar space, while iOS `StashNativeCard` and `StashNativeCardInternal` capture `_cardSafeAreaTop` and clamp card frames; do not replace either platform's bound with raw display dimensions.
+Use current window bounds and insets when changing sizing, expansion, rotation, or keyboard handling. Android's `StashCheckoutSizing`, `StashPresentationController`, and `StashWindowCompat` resolve available space; iOS's geometry helpers and checkout controller resolve native sheet/content bounds. Keep interactive web content clear of system occlusions while allowing background paint through the bottom safe area.
 
 **Failure:** A checkout sheet grows into a notch, status bar, navigation bar, or keyboard-derived inset on a supported device.
 

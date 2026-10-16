@@ -1,194 +1,137 @@
 package com.stash.stashnative;
 
+import android.os.Build;
 import android.util.Log;
+import android.view.HapticFeedbackConstants;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
-/**
- * window.stash_sdk bridge for the portrait checkout WebView. Registered under
- * {@link StashWebViewUtils#JS_INTERFACE_NAME}; methods run on the WebView's JS thread and
- * hop to the UI thread before touching views.
- */
-class StashCheckoutJsInterface {
+/** Dispatches WebView bridge calls to the checkout's UI thread. */
+final class StashCheckoutJsInterface {
   private static final String TAG = "StashNativeCard";
+  private final StashCheckoutActivity activity;
 
-  private final StashNativeCardPortraitActivity activity;
-
-  StashCheckoutJsInterface(StashNativeCardPortraitActivity activity) {
+  StashCheckoutJsInterface(StashCheckoutActivity activity) {
     this.activity = activity;
   }
 
   @JavascriptInterface
   public void onPaymentSuccess(String order) {
-    try {
-      activity.notifyListenerAndDismiss(
-          CardConstants.MESSAGE_TYPE_SUCCESS, order != null ? order : "", true);
-    } catch (Exception e) {
-      Log.w(TAG, "Error in onPaymentSuccess: " + e.getMessage(), e);
-    }
+    dispatch("onPaymentSuccess", () -> activity.notifyPaymentResult(true, order));
   }
 
   @JavascriptInterface
   public void onPaymentFailure() {
-    try {
-      activity.notifyListenerAndDismiss(CardConstants.MESSAGE_TYPE_FAILURE, "", true);
-    } catch (Exception e) {
-      Log.w(TAG, "Error in onPaymentFailure: " + e.getMessage(), e);
-    }
+    dispatch("onPaymentFailure", () -> activity.notifyPaymentResult(false, null));
   }
 
   @JavascriptInterface
   public void onPurchaseProcessing() {
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          activity.isPurchaseProcessing = true;
-          activity.applyDragHandlePurchaseProcessingFade(true);
-        } catch (Exception e) {
-          Log.w(TAG, "Error setting purchase processing: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in onPurchaseProcessing: " + e.getMessage(), e);
-    }
+    dispatch("onPurchaseProcessing", () -> setProcessing(true));
   }
 
   @JavascriptInterface
   public void onProcessingCompleted() {
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          activity.isPurchaseProcessing = false;
-          activity.applyDragHandlePurchaseProcessingFade(false);
-        } catch (Exception e) {
-          Log.w(TAG, "Error clearing purchase processing: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in onProcessingCompleted: " + e.getMessage(), e);
-    }
+    dispatch("onProcessingCompleted", () -> setProcessing(false));
   }
 
-  @JavascriptInterface
-  public void setPaymentChannel(String optinType) {
-    try {
-      activity.notifyListenerAndDismiss(
-          CardConstants.MESSAGE_TYPE_OPTIN, optinType != null ? optinType : "", false);
-    } catch (Exception e) {
-      Log.w(TAG, "Error in setPaymentChannel: " + e.getMessage(), e);
+  private void setProcessing(boolean processing) {
+    activity.isPurchaseProcessing = processing;
+    if (processing && activity.presentation != null) {
+      activity.presentation.processingStarted();
     }
+    activity.applyDragHandlePurchaseProcessingFade(processing);
   }
 
   @JavascriptInterface
   public void expand() {
-    // Modal does not support expand/collapse
-    if (activity.useModal) {
-      return;
-    }
-
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          // While the keyboard owns the card geometry, ignore page-driven expand.
-          if (!activity.usePopup && !activity.keyboardActive && !activity.isExpanded && !activity.isLandscapeMode()) {
-            activity.animateExpand();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in expand UI thread: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in expand: " + e.getMessage(), e);
-    }
+    dispatch("expand", activity::animateExpand);
   }
 
   @JavascriptInterface
   public void collapse() {
-    // Modal does not support expand/collapse
-    if (activity.useModal) {
-      return;
-    }
+    dispatch("collapse", activity::animateCollapse);
+  }
 
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          // While the keyboard owns the card geometry, ignore page-driven collapse.
-          if (!activity.usePopup && !activity.keyboardActive && activity.isExpanded && !activity.isLandscapeMode()) {
-            activity.animateCollapse();
-          }
-        } catch (Exception e) {
-          Log.w(TAG, "Error in collapse UI thread: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error in collapse: " + e.getMessage(), e);
-    }
+  @JavascriptInterface
+  public void setContentHeight(String payload) {
+    dispatch("setContentHeight", () -> {
+      if (activity.contentSizeSupport != null) {
+        activity.contentSizeSupport.accept(payload);
+      }
+    });
+  }
+
+  @JavascriptInterface
+  public void getTelemetry(String documentToken, int requestId) {
+    dispatch("getTelemetry", () -> {
+      if (activity.telemetrySupport != null) {
+        activity.telemetrySupport.request(documentToken, requestId);
+      }
+    });
+  }
+
+  @JavascriptInterface
+  public void triggerHaptic() {
+    dispatch("triggerHaptic", () -> {
+      WebView web = activity.webView;
+      if (activity.isDismissing || activity.isActivityPaused || web == null
+          || !web.isShown() || !web.hasWindowFocus()) {
+        return;
+      }
+      web.performHapticFeedback(Build.VERSION.SDK_INT >= 30
+          ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
+    });
   }
 
   @JavascriptInterface
   public void requestCloseFromPage() {
-    if (activity.isPurchaseProcessing) {
-      return;
-    }
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          activity.dismissWithAnimation();
-        } catch (Exception e) {
-          Log.w(TAG, "Error in requestCloseFromPage: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error scheduling requestCloseFromPage: " + e.getMessage(), e);
-    }
+    dispatch("requestCloseFromPage", activity::requestCloseFromPage);
   }
 
   @JavascriptInterface
   public void openExternalBrowser(String url) {
-    try {
-      activity.runOnUiThread(() -> {
-        try {
-          String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
-          if (normalized == null) {
-            return;
-          }
-          String themed =
-              StashWebViewUtils.appendThemeQueryParameter(
-                  normalized, activity.effectiveIsDarkForContent);
-          activity.callbackSent = true;
-          activity.isPurchaseProcessing = false;
-          StashNativeCardPlugin.getInstance()
-              .openExternalBrowserFromCheckout(
-                  activity,
-                  themed,
-                  true,
-                  activity::hideCardSheetLeavingDimOverlay,
-                  activity::finishAfterExternalBrowserClose);
-        } catch (Exception e) {
-          Log.w(TAG, "Error in openExternalBrowser: " + e.getMessage(), e);
-        }
-      });
-    } catch (Exception e) {
-      Log.w(TAG, "Error scheduling openExternalBrowser: " + e.getMessage(), e);
-    }
+    dispatch("openExternalBrowser", () -> {
+      String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+      if (normalized == null) {
+        return;
+      }
+      String themed = StashWebViewUtils.appendThemeQueryParameter(
+          normalized, activity.effectiveIsDarkForContent);
+      StashNativeCardPlugin.getInstance().openExternalBrowserFromCheckout(
+          activity, themed, true,
+          activity::hideCardSheetLeavingDimOverlay, activity::finishAfterExternalBrowserClose);
+    });
   }
 
-  /** Opens the URL in the external browser. No callbacks, no dismissal (terms, misc links). */
+  /** Opens a link without payment callbacks or checkout dismissal. */
   @JavascriptInterface
   public void openLink(String url) {
+    dispatch("openLink", () -> {
+      String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+      if (normalized != null) {
+        StashWebViewUtils.openInSystemBrowser(activity, normalized);
+      }
+    });
+  }
+
+  private void dispatch(String operation, Runnable action) {
     try {
       activity.runOnUiThread(() -> {
         try {
-          String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
-          if (normalized == null) {
+          StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+          if (!plugin.isCurrentlyPresented || activity.isDismissing
+              || activity.isFinishing() || activity.isDestroyed()
+              || activity.getPresentationSessionId() != plugin.presentationSessionId) {
             return;
           }
-          StashWebViewUtils.openInSystemBrowser(activity, normalized);
-        } catch (Exception e) {
-          Log.w(TAG, "Error in openLink: " + e.getMessage(), e);
+          action.run();
+        } catch (Exception error) {
+          Log.w(TAG, "Bridge operation failed: " + operation, error);
         }
       });
-    } catch (Exception e) {
-      Log.w(TAG, "Error scheduling openLink: " + e.getMessage(), e);
+    } catch (Exception error) {
+      Log.w(TAG, "Cannot dispatch bridge operation: " + operation, error);
     }
   }
 }

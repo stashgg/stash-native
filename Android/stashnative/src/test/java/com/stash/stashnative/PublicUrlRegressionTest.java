@@ -28,7 +28,7 @@ public class PublicUrlRegressionTest {
     host = Robolectric.buildActivity(Activity.class).setup().get();
     Shadows.shadowOf(host.getApplication()).grantPermissions(
         host.getPackageName() + ".permission.STASH_NATIVE_INTERNAL");
-    StashNativeCard.getInstance().setActivity(host);
+    plugin.setActivity(host);
   }
 
   @After public void finish() {
@@ -39,7 +39,7 @@ public class PublicUrlRegressionTest {
   }
 
   private Uri browserDestination(String input) {
-    StashNativeCard.getInstance().openBrowser(input);
+    StashNativeCard.getInstance().openBrowser(host, input);
     ShadowLooper.idleMainLooper();
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull("Expected browser intent", intent);
@@ -73,21 +73,21 @@ public class PublicUrlRegressionTest {
   @Test public void browserRejectsUnsupportedSchemes() {
     for (String url : new String[] {"mailto:fixture@example.invalid", "javascript:alert(1)",
         "data:text/html,fixture", "file:///fixture", "https://", " "}) {
-      StashNativeCard.getInstance().openBrowser(url);
+      StashNativeCard.getInstance().openBrowser(host, url);
       ShadowLooper.idleMainLooper();
       assertNull(Shadows.shadowOf(host).getNextStartedActivity());
     }
   }
 
   @Test public void cardPreservesMixedCaseHttpsHost() {
-    StashNativeCard.getInstance().openCard("HTTPS://example.invalid/checkout", null);
+    StashNativeCard.getInstance().openCard(host, "HTTPS://example.invalid/checkout", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
     assertEquals("example.invalid", Uri.parse(intent.getStringExtra(CardConstants.INTENT_EXTRA_URL)).getHost());
   }
 
-  @Test public void modalNormalizesBareHostAndPreservesQuery() {
-    StashNativeCard.getInstance().openModal("example.invalid:8443/pay?token=a%2Bb#checkout", null);
+  @Test public void cardNormalizesBareHostAndPreservesQuery() {
+    StashNativeCard.getInstance().openCard(host, "example.invalid:8443/pay?token=a%2Bb#checkout", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
     Uri uri = Uri.parse(intent.getStringExtra(CardConstants.INTENT_EXTRA_URL));
@@ -97,23 +97,14 @@ public class PublicUrlRegressionTest {
     assertEquals("checkout", uri.getFragment());
   }
 
-  @Test public void popupPreservesMixedCaseHttpsHost() {
-    StashNativeCard.getInstance().openPopup("HTTPS://example.invalid/checkout");
-    assertNotNull(plugin.webView);
-    assertEquals("example.invalid", Uri.parse(Shadows.shadowOf(plugin.webView).getLastLoadedUrl()).getHost());
-  }
-
   @Test public void invalidCheckoutUrlsDoNotOccupyPresentationState() {
     StashNativeCard sdk = StashNativeCard.getInstance();
-    sdk.openCard("mailto:fixture@example.invalid", null);
+    sdk.openCard(host, "mailto:fixture@example.invalid", null);
     assertFalse(sdk.isCurrentlyPresented());
-    sdk.openModal("data:text/html,fixture", null);
+    sdk.openCard(host, "data:text/html,fixture", null);
     assertFalse(sdk.isCurrentlyPresented());
-    sdk.openPopup("javascript:alert(1)");
-    assertFalse(sdk.isCurrentlyPresented());
-    assertNull(plugin.currentDialog);
     assertNull(Shadows.shadowOf(host).getNextStartedActivity());
-    sdk.openCard("https://example.invalid", null);
+    sdk.openCard(host, "https://example.invalid", null);
     assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
   }
 }

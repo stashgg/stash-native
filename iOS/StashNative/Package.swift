@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "StashNative",
     platforms: [
-        .iOS(.v13)
+        .iOS(.v15)
     ],
     products: [
         .library(
@@ -19,7 +19,8 @@ let package = Package(
             name: "StashNative",
             dependencies: [],
             path: "Sources/StashNative",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("AVFoundation")]
         ),
         .target(
             name: "RegressionSupport",

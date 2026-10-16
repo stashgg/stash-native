@@ -23,81 +23,52 @@ extension ViewController {
     }
 
     @objc func openCardTapped() {
+        cancelGenerateRequest()
         let url = (checkoutUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a card URL")
             return
         }
         let config = buildCardConfig()
-        StashNativeCard.sharedInstance().openCard(withURL: url, config: config)
+        StashNativeCard.sharedInstance().openCard(withURL: url, from: self, config: config)
     }
 
     @objc func openBrowserTapped() {
+        cancelGenerateRequest()
         let url = (browserUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !url.isEmpty else {
             showAlert(title: "Error", message: "Please enter a browser URL")
             return
         }
-        StashNativeCard.sharedInstance().openBrowser(withURL: url)
+        StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self, config: browserConfig)
+    }
+
+    @objc func codeLinkTapped() {
+        cancelGenerateRequest()
+        StashNativeCard.sharedInstance().codeLink(from: self, config: codeLinkConfig)
     }
 
     func buildCardConfig() -> StashNativeCardConfig {
         let config = StashNativeCardConfig()
-        config.forcePortrait = forcePortraitOnCheckoutSwitch.isOn
-        config.cardHeightRatioPortrait = CGFloat(phoneCardHeightSlider.value) / 100.0
-        config.cardWidthRatioLandscape = CGFloat(checkoutPhoneLandscapeWidthSlider.value) / 100.0
-        config.cardHeightRatioLandscape = CGFloat(checkoutPhoneLandscapeHeightSlider.value) / 100.0
-        config.tabletWidthRatioPortrait = CGFloat(checkoutTabletPortraitWidthSlider.value) / 100.0
-        config.tabletHeightRatioPortrait = CGFloat(checkoutTabletPortraitHeightSlider.value) / 100.0
-        config.tabletWidthRatioLandscape = CGFloat(checkoutTabletLandscapeWidthSlider.value) / 100.0
-        config.tabletHeightRatioLandscape = CGFloat(checkoutTabletLandscapeHeightSlider.value) / 100.0
+        config.orientationPreference = cardPreferPortraitSwitch.isOn ? .portrait : .followHost
+        config.preferredContentWidth = CGFloat(cardPreferredWidthSlider.value)
+        config.preferredContentHeight = CGFloat(cardPreferredHeightSlider.value)
+        config.maximumContentHeight = CGFloat(cardMaximumHeightSlider.value)
+        config.edgeMargin = CGFloat(cardEdgeMarginSlider.value)
+        config.allowDismiss = cardAllowDismissSwitch.isOn
         config.autoClose = cardAutoCloseSwitch.isOn
-        if let hex = trimmedHex(cardBackgroundColorTextField) {
-            config.backgroundColor = hex
-        }
-        return config
-    }
-
-    @objc func openModalTapped() {
-        let url = (modalUrlTextField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !url.isEmpty else {
-            showAlert(title: "Error", message: "Please enter a modal URL")
-            return
-        }
-        let config = buildModalConfig()
-        StashNativeCard.sharedInstance().openModal(withURL: url, config: config)
-    }
-
-    func buildModalConfig() -> StashNativeModalConfig {
-        let config = StashNativeModalConfig()
-        config.allowDismiss = modalAllowDismissSwitch.isOn
-        config.phoneWidthRatioPortrait = CGFloat(modalPhonePortraitWidthSlider.value) / 100.0
-        config.phoneHeightRatioPortrait = CGFloat(modalPhonePortraitHeightSlider.value) / 100.0
-        config.phoneWidthRatioLandscape = CGFloat(modalPhoneLandscapeWidthSlider.value) / 100.0
-        config.phoneHeightRatioLandscape = CGFloat(modalPhoneLandscapeHeightSlider.value) / 100.0
-        config.tabletWidthRatioPortrait = CGFloat(modalTabletPortraitWidthSlider.value) / 100.0
-        config.tabletHeightRatioPortrait = CGFloat(modalTabletPortraitHeightSlider.value) / 100.0
-        config.tabletWidthRatioLandscape = CGFloat(modalTabletLandscapeWidthSlider.value) / 100.0
-        config.tabletHeightRatioLandscape = CGFloat(modalTabletLandscapeHeightSlider.value) / 100.0
-        config.autoClose = modalAutoCloseSwitch.isOn
-        if let hex = trimmedHex(modalBackgroundColorTextField) {
-            config.backgroundColor = hex
-        }
         return config
     }
 
     @objc func openCardOptionsTapped() {
         navigationController?.pushViewController(
-            OptionsListViewController(mode: .card, host: self), animated: true)
-    }
-
-    @objc func openModalOptionsTapped() {
-        navigationController?.pushViewController(
-            OptionsListViewController(mode: .modal, host: self), animated: true)
+            OptionsListViewController(host: self), animated: true)
     }
 
     @objc func sliderValueChanged(_ sender: UISlider) {
-        let value = "\(Int(sender.value))%"
+        sender.value = sender.value.rounded()
+        let isMaximum = sender === cardMaximumHeightSlider
+        let value = isMaximum && sender.value == 0 ? "Available" : "\(Int(sender.value)) pt"
         sliderLabels[sender]?.text = value
         sender.accessibilityValue = value
     }
@@ -110,39 +81,61 @@ extension ViewController {
         performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, config: config)
+            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, from: self, config: config)
         }
     }
 
     @objc func generateCheckoutForBrowserTapped() {
-        performGenerateUrl(.checkout) { checkoutUrl in
-            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl)
-        }
-    }
-
-    @objc func openWebshopTapped() {
-        performGenerateUrl(.webshop) { [weak self] webshopUrl in
+        performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
-            let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: webshopUrl, config: config)
+            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl, from: self, config: self.browserConfig)
         }
     }
 
     @objc func openWebshopForBrowserTapped() {
-        performGenerateUrl(.webshop) { webshopUrl in
-            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl)
+        performGenerateUrl(.webshop) { [weak self] webshopUrl in
+            guard let self = self else { return }
+            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl, from: self, config: self.browserConfig)
         }
     }
 
-    /// Trimmed hex from a color field, or nil when the field is blank.
-    private func trimmedHex(_ field: UITextField) -> String? {
-        let hex = field.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return hex.isEmpty ? nil : hex
+    #if DEBUG
+    func openLaunchPresentationIfNeeded() {
+        guard !handledLaunchPresentation, presentedViewController == nil else { return }
+        handledLaunchPresentation = true
+        let arguments = ProcessInfo.processInfo.arguments
+        if let index = arguments.firstIndex(of: "-stash-mode"),
+           arguments.indices.contains(index + 1), arguments[index + 1] == "codelink" {
+            codeLinkTapped()
+            return
+        }
+        guard let urlIndex = arguments.firstIndex(of: "-stash-url"),
+              arguments.indices.contains(urlIndex + 1),
+              let url = URL(string: arguments[urlIndex + 1]),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
+        let modeIndex = arguments.firstIndex(of: "-stash-mode")
+        let mode = modeIndex.flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil } ?? "card"
+        if mode == "browser" {
+            browserUrlTextField.text = url.absoluteString
+            openBrowserTapped()
+        } else if mode == "card" {
+            checkoutUrlTextField.text = url.absoluteString
+            openCardTapped()
+        }
+    }
+    #endif
+
+    @objc func cancelGenerateRequest(_ notification: Notification? = nil) {
+        generateRequestId = UUID()
+        generateRequest?.cancel()
+        generateRequest = nil
     }
 
-    /// Calls the Stash server endpoint for `kind` and returns the generated URL.
+    /// Calls the Stash server endpoint for `kind`; only the latest request may update the UI.
     private func performGenerateUrl(_ kind: ViewController.PayloadKind,
                                     onSuccess: @escaping (String) -> Void) {
+        cancelGenerateRequest()
+        let requestId = generateRequestId
         let path = kind == .checkout
             ? "/sdk/server/checkout_links/generate_quick_pay_url"
             : "/sdk/server/generate_url"
@@ -168,21 +161,20 @@ extension ViewController {
         request.setValue(signature, forHTTPHeaderField: "x-stash-hmac-signature")
         request.httpBody = bodyData
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
-            guard let self = self else { return }
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-            let isSuccessResponse = statusCode >= 200 && statusCode < 300
-            guard isSuccessResponse, let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let generatedUrl = json["url"] as? String, !generatedUrl.isEmpty else {
-                DispatchQueue.main.async {
+        generateRequest = URLSession.shared.dataTask(with: request) { [weak self] data, response, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self, self.generateRequestId == requestId else { return }
+                self.generateRequest = nil
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                guard (200..<300).contains(statusCode), let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let generatedUrl = json["url"] as? String, !generatedUrl.isEmpty else {
                     self.showAlert(title: "Error", message: failureMessage)
+                    return
                 }
-                return
-            }
-            DispatchQueue.main.async {
                 onSuccess(generatedUrl)
             }
-        }.resume()
+        }
+        generateRequest?.resume()
     }
 }

@@ -22,7 +22,7 @@ public final class StashUrlLauncher {
 
   private static final String TAG = "StashUrlLauncher";
 
-  /** Custom Tabs launched with {@link Activity#startActivityForResult}; forward {@link com.stash.stashnative.StashNativeCard#onActivityResult}. */
+  /** Custom Tabs whose result is consumed by the SDK's browser proxy activity. */
   public static final int OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT = 1;
   /** Custom Tabs via {@code launchUrl} / {@code startActivity} (no activity result). */
   public static final int OPEN_EXTERNAL_CCT = 2;
@@ -34,7 +34,8 @@ public final class StashUrlLauncher {
     void onLaunchMode(int launchMode);
   }
 
-  private static final String CLASS_CUSTOM_TABS_INTENT = "androidx.browser.customtabs.CustomTabsIntent";
+  private static final String CLASS_CUSTOM_TABS_INTENT =
+      "androidx.browser.customtabs.CustomTabsIntent";
   private static final String CLASS_CUSTOM_TABS_INTENT_BUILDER =
       "androidx.browser.customtabs.CustomTabsIntent$Builder";
   private static final String CLASS_COLOR_SCHEME_PARAMS =
@@ -58,10 +59,8 @@ public final class StashUrlLauncher {
   }
 
   /**
-   * Opens URL with Chrome Custom Tabs when possible. When {@code context} is an {@link Activity}
-   * and {@code activityRequestCode} is non-zero, CCT uses {@code startActivityForResult} so the
-   * host can forward {@link com.stash.stashnative.StashNativeCard#onActivityResult}; otherwise CCT
-   * uses {@code startActivity}. Falls back to {@link Intent#ACTION_VIEW}.
+   * Opens Custom Tabs when available, falling back to {@link Intent#ACTION_VIEW}.
+   * A nonzero request code delivers the result to the supplied activity.
    *
    * @param activityRequestCode 0 for no result contract; else pass {@link
    *     CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB}
@@ -97,11 +96,8 @@ public final class StashUrlLauncher {
   }
 
   /**
-   * Like {@link #openExternalUrl(Context, String, int)} for an {@link Activity}, but may bind Custom
-   * Tabs first so engagement signals ({@code EngagementSignalsCallback}) deliver {@code
-   * onSessionEnded} when the tab is closed from floating/minimized UI (where {@code
-   * onActivityResult} can be delayed). Pass a runnable that forwards to {@code
-   * StashNativeCardPlugin.onCustomTabsEngagementSessionEnded}.
+   * Opens Custom Tabs with an engagement callback for floating or minimized tab closure.
+   * The callback must be scoped to the originating browser session.
    */
   public static void openExternalUrl(
       @Nullable Activity activity,
@@ -111,13 +107,6 @@ public final class StashUrlLauncher {
       @Nullable Runnable engagementSessionEnded) {
     Uri uri = parseHttpUri(url);
     if (activity == null || uri == null) {
-      if (activity != null && uri != null) {
-        try {
-          startActionView(activity, uri);
-        } catch (ActivityNotFoundException e) {
-          Log.w(TAG, "No application can open URL");
-        }
-      }
       callback.onLaunchMode(OPEN_EXTERNAL_ACTION_VIEW);
       return;
     }
@@ -148,10 +137,13 @@ public final class StashUrlLauncher {
     callback.onLaunchMode(openExternalUrl(activity, url, activityRequestCode));
   }
 
-  /**
-   * Unbinds the Custom Tabs service used for engagement callbacks after the tab finishes or when
-   * {@link com.stash.stashnative.StashNativeCard#onActivityResult} runs.
-   */
+  /** Opens with the SDK's result request code when the context is an activity. */
+  public static int openExternalUrl(@Nullable Context context, @Nullable String url) {
+    int code = (context instanceof Activity) ? CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB : 0;
+    return openExternalUrl(context, url, code);
+  }
+
+  /** Releases the Custom Tabs engagement service after browser completion or cleanup. */
   public static void unbindCustomTabsEngagement(@Nullable Context context) {
     if (context == null) {
       return;
@@ -191,17 +183,6 @@ public final class StashUrlLauncher {
       return null;
     }
     return uri;
-  }
-
-  /**
-   * Same as {@link #openExternalUrl(Context, String, int)} with {@link
-   * CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB} when {@code context} is an {@link Activity},
-   * otherwise request code 0.
-   */
-  public static int openExternalUrl(@Nullable Context context, @Nullable String url) {
-    int code =
-        (context instanceof Activity) ? CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB : 0;
-    return openExternalUrl(context, url, code);
   }
 
   private static void startActionView(Context context, Uri uri) {

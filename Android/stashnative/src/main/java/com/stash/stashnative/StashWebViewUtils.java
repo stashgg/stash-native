@@ -6,7 +6,6 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -17,9 +16,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.ProgressBar;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
-import androidx.core.view.WindowInsetsControllerCompat;
 
 /**
  * Utility class for WebView configuration and common operations.
@@ -78,9 +77,13 @@ public class StashWebViewUtils {
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
   public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
-  // Canonical spec: docs/stash-sdk-js.md. Changes here MUST be mirrored on iOS (StashNativeCard.m).
+  // Canonical spec: docs/stash-sdk-js.md. Mirror changes in iOS StashNativeCardViewUtils.m.
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
+      + StashTelemetrySupport.API_SCRIPT
+      + "  window.stash_sdk.triggerHaptic = function() {"
+      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(); } catch(e) {}"
+      + "  };"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
       + "    try { var p=null;"
       + "      if(arguments.length>0&&order!==undefined&&order!==null){"
@@ -104,11 +107,7 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".onProcessingCompleted(); } catch(e) {}"
       + "  };"
-      + "  window.stash_sdk.setPaymentChannel = function(optinType) {"
-      + "    try { "
-      + JS_INTERFACE_NAME
-      + ".setPaymentChannel(optinType || ''); } catch(e) {}"
-      + "  };"
+      + "  window.stash_sdk.setContentHeight = window.stash_sdk.setContentHeight || function() {};"
       + "  window.stash_sdk.expand = function() {"
       + "    try { "
       + JS_INTERFACE_NAME
@@ -122,7 +121,8 @@ public class StashWebViewUtils {
       + "  window.stash_sdk.openExternalBrowser = function(url) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : '');"
+      + " } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.openLink = function(url) {"
       + "    try { "
@@ -150,69 +150,34 @@ public class StashWebViewUtils {
   }
 
   /**
-   * Dark vs light for URL {@code theme=} and WebView forcing: custom background luminance if set,
-   * else system night mode.
+   * Sets transparent system bars; the presenter adjusts navigation icons over an attached card.
    */
-  public static boolean effectiveDarkThemeForCheckout(Context context, String backgroundHexOrNull) {
-    Integer c = StashBackgroundColorUtils.parseSolidColorOrNull(backgroundHexOrNull);
-    if (c != null) {
-      return StashBackgroundColorUtils.isDarkBackground(c);
-    }
-    return isDarkTheme(context);
-  }
-
-  /**
-   * Status/nav bars when the sheet uses a custom background color (nav bar matches sheet).
-   */
-  public static void applySystemBarAppearanceForSheet(Window window, View decorView, int sheetArgb) {
+  public static void applySystemBarAppearanceForSheet(Window window, View decorView) {
     if (window == null || decorView == null) {
       return;
     }
     try {
-      boolean darkBg = StashBackgroundColorUtils.isDarkBackground(sheetArgb);
-      WindowInsetsControllerCompat controller =
+      window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+      window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS
+          | android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION);
+      final WindowInsetsControllerCompat controller =
           StashWindowCompat.getInsetsController(window, decorView);
       window.setStatusBarColor(Color.TRANSPARENT);
-      window.setNavigationBarColor(sheetArgb);
+      // Before API 26, navigation buttons need a dark backing because their color is fixed.
+      window.setNavigationBarColor(Build.VERSION.SDK_INT < 26 ? 0x66000000 : Color.TRANSPARENT);
+      if (Build.VERSION.SDK_INT >= 29) {
+        window.setNavigationBarContrastEnforced(false);
+      }
       if (controller != null) {
-        controller.setAppearanceLightStatusBars(!darkBg);
-        controller.setAppearanceLightNavigationBars(!darkBg);
+        // Start over the backdrop; attached cards update the navigation bar after layout.
+        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightNavigationBars(false);
       }
     } catch (Exception e) {
       Log.e(TAG, "applySystemBarAppearanceForSheet");
     }
   }
 
-  /**
-   * Keeps status/navigation bar icon contrast aligned with app night mode. Without this, a
-   * translucent Stash window can reset the nav bar to light (light icons / wrong background).
-   */
-  public static void applySystemBarAppearance(Window window, View decorView, boolean darkTheme) {
-    if (window == null || decorView == null) {
-      return;
-    }
-    try {
-      WindowInsetsControllerCompat controller =
-          StashWindowCompat.getInsetsController(window, decorView);
-      if (darkTheme) {
-        window.setStatusBarColor(Color.TRANSPARENT);
-        window.setNavigationBarColor(Color.parseColor(COLOR_DARK_BG));
-        if (controller != null) {
-          controller.setAppearanceLightStatusBars(false);
-          controller.setAppearanceLightNavigationBars(false);
-        }
-      } else {
-        window.setStatusBarColor(Color.TRANSPARENT);
-        window.setNavigationBarColor(Color.WHITE);
-        if (controller != null) {
-          controller.setAppearanceLightStatusBars(true);
-          controller.setAppearanceLightNavigationBars(true);
-        }
-      }
-    } catch (Exception e) {
-      Log.e(TAG, "applySystemBarAppearance");
-    }
-  }
 
   /**
    * Converts density-independent pixels to pixels.
@@ -226,34 +191,6 @@ public class StashWebViewUtils {
       return 0;
     }
     return Math.round(dp * context.getResources().getDisplayMetrics().density);
-  }
-
-  /**
-   * Returns true if the activity is running on a tablet-sized device.
-   *
-   * @param activity activity to check
-   * @return true if tablet
-   */
-  public static boolean isTablet(Activity activity) {
-    if (activity == null) {
-      return false;
-    }
-    DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-    int smallerDimension = Math.min(metrics.widthPixels, metrics.heightPixels);
-    float smallerDp = smallerDimension / metrics.density;
-    
-    boolean isTabletBySize = smallerDp >= CardConstants.TABLET_SIZE_THRESHOLD_DP;
-    
-    int screenSize = activity.getResources().getConfiguration().screenLayout
-        & Configuration.SCREENLAYOUT_SIZE_MASK;
-    boolean isTabletByConfig = (screenSize == Configuration.SCREENLAYOUT_SIZE_LARGE
-        || screenSize == Configuration.SCREENLAYOUT_SIZE_XLARGE);
-    
-    float aspectRatio = (float) Math.max(metrics.widthPixels, metrics.heightPixels)
-        / Math.min(metrics.widthPixels, metrics.heightPixels);
-    boolean isTabletByAspect = aspectRatio < 2.0f && smallerDp >= 500;
-    
-    return isTabletBySize || isTabletByConfig || isTabletByAspect;
   }
 
   /**
@@ -287,6 +224,7 @@ public class StashWebViewUtils {
     settings.setBuiltInZoomControls(false);
     settings.setDisplayZoomControls(false);
     settings.setSupportZoom(false);
+    StashWebInteractionSupport.install(webView);
     
     CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
     CookieManager.getInstance().setAcceptCookie(true);
@@ -304,7 +242,7 @@ public class StashWebViewUtils {
           algorithmicDarkeningApplied = true;
         }
       } catch (NoClassDefFoundError unused) {
-        // androidx.webkit not packaged (e.g. AAR-only Unity); fall back to WebSettings#setForceDark.
+        // AAR-only hosts may omit AndroidX WebKit; use the platform fallback.
       }
     }
     if (!algorithmicDarkeningApplied && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -359,6 +297,7 @@ public class StashWebViewUtils {
     }
   }
 
+  /** Replaces any existing theme parameter with the resolved checkout theme. */
   public static String appendThemeQueryParameter(String url, boolean isDarkTheme) {
     if (url == null || url.isEmpty()) {
       return url;
@@ -484,49 +423,7 @@ public class StashWebViewUtils {
     }
   }
 
-  /**
-   * Hides and removes the loading indicator with optional animation.
-   *
-   * @param loadingIndicator the progress bar to hide
-   */
-  public static void hideLoading(final ProgressBar loadingIndicator) {
-    if (loadingIndicator == null) {
-      return;
-    }
-    
-    loadingIndicator.animate()
-        .alpha(0.0f)
-        .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
-        .withEndAction(() -> {
-          if (loadingIndicator.getParent() != null) {
-            ((ViewGroup) loadingIndicator.getParent()).removeView(loadingIndicator);
-          }
-        })
-        .start();
-  }
-
-  /** Removes full-screen loading container from {@link #createAndShowLoadingView} (modal/popup path). */
-  public static void hideLoadingOverlay(final View loadingView) {
-    if (loadingView == null) {
-      return;
-    }
-    loadingView.animate()
-        .alpha(0.0f)
-        .setDuration(CardConstants.ANIMATION_DURATION_POPUP)
-        .withEndAction(() -> {
-          if (loadingView.getParent() != null) {
-            ((ViewGroup) loadingView.getParent()).removeView(loadingView);
-          }
-        })
-        .start();
-  }
-
-  /**
-   * Opens the URL using Custom Tabs when possible, else system browser.
-   * Uses request code 0 (no {@code startActivityForResult}); use {@link StashUrlLauncher#openExternalUrl}
-   * with {@link CardConstants#REQUEST_CODE_STASH_CUSTOM_TAB} when integrating {@link
-   * StashNativeCard#onActivityResult}.
-   */
+  /** Opens a URL externally without tracking browser closure. */
   public static void openInSystemBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
       return;

@@ -20,27 +20,29 @@ public class MainViewModel extends AndroidViewModel {
   private static final String PREF_STASH_API_KEY = "StashApiKey";
   private static final String PREF_API_KEYS = "ApiKeysJson";
   private static final String PREF_SELECTED_API_KEY = "SelectedApiKeyId";
-  private static final String PREF_CARD_BACKGROUND_HEX = "CardBackgroundColorHex";
-  private static final String PREF_MODAL_BACKGROUND_HEX = "ModalBackgroundColorHex";
 
   /** Default URL for the Card section (manual open + baseline testing). */
   private static final String DEFAULT_CARD_URL = "https://test.stashpreview.com/";
+
   /** Default URL for the Browser section (same test card as iOS). */
   private static final String DEFAULT_BROWSER_URL = "https://test.stashpreview.com/";
-  private static final String DEFAULT_MODAL_URL =
-      "https://checkout.stash.gg/pay/channel-selection";
+
   private static final String API_BASE_PROD = "https://api.stash.gg";
   private static final String API_BASE_TEST = "https://test-api.stash.gg";
+
   /** Demo ingress secret (base64) used as the HMAC key when no key is configured. */
   public static final String DEFAULT_STASH_API_KEY =
       "VDBsMm5zRU9weHk5RTZ6X0p2Y3hnLVhrMHVvS21QMG5wYTBJcmhHUHdWTV93Y0dDWVluV0hQd1ZYWHRiYWk2UA==";
+
   /** Demo app ID that pairs with the secret above; required by the signature header. */
   public static final String DEFAULT_STASH_APP_ID = "4fe1c1a4-b136-4187-82f2-61c9983eedf2";
+
   /** Display name of the bundled credential. */
   public static final String DEFAULT_STASH_KEY_NAME = "Howling Woods";
+
   /** Secrets previously shipped as the bundled credential. */
   private static final String[] SUPERSEDED_BUNDLED_SECRETS = {
-      "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
+    "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
   };
 
   private final SharedPreferences prefs;
@@ -48,15 +50,23 @@ public class MainViewModel extends AndroidViewModel {
   private final MutableLiveData<List<SettingsItem>> items = new MutableLiveData<>();
 
   /** Which list the RecyclerView currently shows: a bottom-nav tab or an options sub-screen. */
-  public enum Screen { TEST, SETTINGS, API, CARD_OPTIONS, MODAL_OPTIONS,
-      INSTANCE_DETAILS, CHECKOUT_PAYLOAD, WEBSHOP_PAYLOAD }
+  public enum Screen {
+    TEST,
+    SETTINGS,
+    API,
+    CARD_OPTIONS,
+    BROWSER_OPTIONS,
+    CODE_LINK_OPTIONS,
+    INSTANCE_DETAILS,
+    CHECKOUT_PAYLOAD,
+    WEBSHOP_PAYLOAD
+  }
 
   private Screen currentScreen = Screen.TEST;
 
   // URLs (user-edited)
   private String checkoutUrl = DEFAULT_CARD_URL;
   private String browserUrl = DEFAULT_BROWSER_URL;
-  private String modalUrl = DEFAULT_MODAL_URL;
 
   // Lock the whole app (not just the checkout) to landscape.
   private boolean lockLandscape = false;
@@ -64,6 +74,7 @@ public class MainViewModel extends AndroidViewModel {
   // Credentials stay on this device; explicit exports contain plaintext secrets.
   private final List<ApiKeyEntry> apiKeys = new ArrayList<>();
   private String selectedApiKeyId;
+
   /** Instance whose details screen (and its payload editors) is currently open. */
   private String editingInstanceId;
 
@@ -74,47 +85,18 @@ public class MainViewModel extends AndroidViewModel {
   // payload screen is open; committed to the editing instance by savePayload().
   private String payloadDraft = "";
 
-  // Checkout options
-  private boolean forcePortraitOnCheckout = false;
-  private boolean cardAutoClose = true;
-  private int phoneCardHeight = 58;
-  private int checkoutPhoneLandscapeW = 60;
-  private int checkoutPhoneLandscapeH = 80;
-  private int checkoutTabletPortraitW = 30;
-  private int checkoutTabletPortraitH = 40;
-  private int checkoutTabletLandscapeW = 20;
-  private int checkoutTabletLandscapeH = 50;
+  private final StashNativeCard.CardConfig cardConfig = new StashNativeCard.CardConfig();
+  private BackdropSource backdropSource = BackdropSource.NONE;
+  private SampleBackdropImage backdropImage;
+  private final StashNativeCard.CodeLinkConfig codeLinkConfig =
+      new StashNativeCard.CodeLinkConfig();
 
-  /** Optional `#RRGGBB` etc.; empty = SDK default (system theme). */
-  private String cardBackgroundColorHex = "";
-  private String modalBackgroundColorHex = "";
-
-  // Modal options
-  private boolean modalAllowDismiss = true;
-  private boolean modalAutoClose = true;
-  private int modalPhonePortraitW = 70;
-  private int modalPhonePortraitH = 40;
-  private int modalPhoneLandscapeW = 40;
-  private int modalPhoneLandscapeH = 70;
-  private int modalTabletPortraitW = 30;
-  private int modalTabletPortraitH = 20;
-  private int modalTabletLandscapeW = 20;
-  private int modalTabletLandscapeH = 30;
-
-  /** Restores saved keys, colors and payloads from prefs. */
+  /** Restores saved keys and payloads from prefs. */
   public MainViewModel(Application application) {
     super(application);
     prefs = application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE);
     credentialStore = new CredentialStore(application);
     loadApiKeys();
-    String cardBg = prefs.getString(PREF_CARD_BACKGROUND_HEX, "");
-    if (cardBg != null) {
-      cardBackgroundColorHex = cardBg;
-    }
-    String modalBg = prefs.getString(PREF_MODAL_BACKGROUND_HEX, "");
-    if (modalBg != null) {
-      modalBackgroundColorHex = modalBg;
-    }
     refreshList();
   }
 
@@ -134,8 +116,10 @@ public class MainViewModel extends AndroidViewModel {
       user.put("id", "7849fbc5-87fd-446d-8d9c-de25298f1092");
       user.put("validatedEmail", "test@stash.gg");
       user.put("displayName", "Test User");
-      user.put("profileImageUrl", "https://storage.googleapis.com/stash-demo-f9550"
-          + ".firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png");
+      user.put(
+          "profileImageUrl",
+          "https://storage.googleapis.com/stash-demo-f9550"
+              + ".firebasestorage.app/avatars/6564ced3-c163-4b0d-aa4e-c1a19e42aa65.png");
       user.put("platform", "ANDROID");
       JSONObject item = new JSONObject();
       item.put("id", "realMoneyProduct_gems_001");
@@ -218,17 +202,15 @@ public class MainViewModel extends AndroidViewModel {
 
   /** Restores the open payload screen to its default and rebinds the editor. */
   public void resetPayloadToDefault() {
-    payloadDraft = currentScreen == Screen.WEBSHOP_PAYLOAD
-        ? defaultWebshopPayload() : defaultCheckoutPayload();
+    payloadDraft =
+        currentScreen == Screen.WEBSHOP_PAYLOAD
+            ? defaultWebshopPayload()
+            : defaultCheckoutPayload();
     refreshList();
   }
 
   public void setCheckoutUrl(String url) {
     this.checkoutUrl = url != null ? url : "";
-  }
-
-  public void setModalUrl(String url) {
-    this.modalUrl = url != null ? url : "";
   }
 
   public void setBrowserUrl(String url) {
@@ -239,30 +221,8 @@ public class MainViewModel extends AndroidViewModel {
     return checkoutUrl;
   }
 
-  public String getModalUrl() {
-    return modalUrl;
-  }
-
   public String getBrowserUrl() {
     return browserUrl;
-  }
-
-  public void setCardBackgroundColorHex(String hex) {
-    this.cardBackgroundColorHex = hex != null ? hex : "";
-    prefs.edit().putString(PREF_CARD_BACKGROUND_HEX, this.cardBackgroundColorHex).apply();
-  }
-
-  public String getCardBackgroundColorHex() {
-    return cardBackgroundColorHex;
-  }
-
-  public void setModalBackgroundColorHex(String hex) {
-    this.modalBackgroundColorHex = hex != null ? hex : "";
-    prefs.edit().putString(PREF_MODAL_BACKGROUND_HEX, this.modalBackgroundColorHex).apply();
-  }
-
-  public String getModalBackgroundColorHex() {
-    return modalBackgroundColorHex;
   }
 
   public Screen getCurrentScreen() {
@@ -303,6 +263,7 @@ public class MainViewModel extends AndroidViewModel {
           apiKeys.add(ApiKeyEntry.fromJson(arr.getJSONObject(i)));
         }
       } catch (JSONException ignored) {
+        // Recover malformed saved entries using the bundled defaults.
       }
     }
     if (apiKeys.isEmpty()) {
@@ -354,13 +315,21 @@ public class MainViewModel extends AndroidViewModel {
       }
       boolean wasSessionOnly = credentialStore.isSessionOnly();
       if (credentialStore.write(arr.toString())) {
-        prefs.edit().remove(PREF_API_KEYS).remove(PREF_STASH_API_KEY)
-            .putString(PREF_SELECTED_API_KEY, selectedApiKeyId).apply();
+        prefs
+            .edit()
+            .remove(PREF_API_KEYS)
+            .remove(PREF_STASH_API_KEY)
+            .putString(PREF_SELECTED_API_KEY, selectedApiKeyId)
+            .apply();
       } else if (!wasSessionOnly) {
-        android.widget.Toast.makeText(getApplication(), R.string.credentials_session_only,
-            android.widget.Toast.LENGTH_LONG).show();
+        android.widget.Toast.makeText(
+                getApplication(),
+                R.string.credentials_session_only,
+                android.widget.Toast.LENGTH_LONG)
+            .show();
       }
     } catch (JSONException ignored) {
+      // Keep the in-memory entries if they cannot be serialized.
     }
   }
 
@@ -383,14 +352,15 @@ public class MainViewModel extends AndroidViewModel {
 
   /** A new instance carrying the current default payloads, so every instance starts editable. */
   private ApiKeyEntry newInstance(String name, String appId, String key, boolean production) {
-    return new ApiKeyEntry(newId(), name, appId, key, production,
-        defaultCheckoutPayload(), defaultWebshopPayload());
+    return new ApiKeyEntry(
+        newId(), name, appId, key, production, defaultCheckoutPayload(), defaultWebshopPayload());
   }
 
   public ApiKeyEntry getSelectedApiKey() {
     return findApiKey(selectedApiKeyId);
   }
 
+  /** Selects a saved instance and refreshes its settings. */
   public void selectApiKey(String id) {
     if (findApiKey(id) != null) {
       selectedApiKeyId = id;
@@ -418,8 +388,7 @@ public class MainViewModel extends AndroidViewModel {
     return findApiKey(editingInstanceId);
   }
 
-  // Detail fields commit live (like the URL rows) and must not refresh the list, or the rebind
-  // would move the caret while the user is still typing.
+  /** Saves the name without rebinding the active text field. */
   public void setEditingName(String name) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -428,6 +397,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the app ID without rebinding the active text field. */
   public void setEditingAppId(String appId) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -436,6 +406,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the secret without rebinding the active text field. */
   public void setEditingSecret(String secret) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -444,6 +415,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
+  /** Saves the selected instance's API environment. */
   public void setEditingProduction(boolean production) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
@@ -468,6 +440,7 @@ public class MainViewModel extends AndroidViewModel {
     return true;
   }
 
+  /** Removes an instance, restoring a default entry when the list becomes empty. */
   public void deleteApiKey(String id) {
     ApiKeyEntry entry = findApiKey(id);
     if (entry == null) {
@@ -475,8 +448,8 @@ public class MainViewModel extends AndroidViewModel {
     }
     apiKeys.remove(entry);
     if (apiKeys.isEmpty()) {
-      apiKeys.add(newInstance(
-          DEFAULT_STASH_KEY_NAME, DEFAULT_STASH_APP_ID, DEFAULT_STASH_API_KEY, false));
+      apiKeys.add(
+          newInstance(DEFAULT_STASH_KEY_NAME, DEFAULT_STASH_APP_ID, DEFAULT_STASH_API_KEY, false));
     }
     if (id.equals(selectedApiKeyId)) {
       selectedApiKeyId = apiKeys.get(0).id;
@@ -520,8 +493,8 @@ public class MainViewModel extends AndroidViewModel {
   }
 
   /**
-   * Adds instances from an exported document, skipping any already present.
-   * Returns the number added, or -1 if the document could not be read.
+   * Adds instances from an exported document, skipping any already present. Returns the number
+   * added, or -1 if the document could not be read.
    */
   public int importInstancesJson(String text) {
     try {
@@ -529,8 +502,7 @@ public class MainViewModel extends AndroidViewModel {
       List<ApiKeyEntry> imported = new ArrayList<>();
       for (int i = 0; i < arr.length(); i++) {
         JSONObject o = arr.getJSONObject(i);
-        if (!(o.opt("appId") instanceof String)
-            || !(o.opt("ingressSecret") instanceof String)) {
+        if (!(o.opt("appId") instanceof String) || !(o.opt("ingressSecret") instanceof String)) {
           return -1;
         }
         String appId = o.getString("appId").trim();
@@ -550,10 +522,15 @@ public class MainViewModel extends AndroidViewModel {
         if (duplicate) {
           continue;
         }
-        imported.add(new ApiKeyEntry(newId(), name.isEmpty() ? "Untitled" : name, appId, secret,
-            o.optBoolean("production", false),
-            checkout.isEmpty() ? defaultCheckoutPayload() : checkout,
-            webshop.isEmpty() ? defaultWebshopPayload() : webshop));
+        imported.add(
+            new ApiKeyEntry(
+                newId(),
+                name.isEmpty() ? "Untitled" : name,
+                appId,
+                secret,
+                o.optBoolean("production", false),
+                checkout.isEmpty() ? defaultCheckoutPayload() : checkout,
+                webshop.isEmpty() ? defaultWebshopPayload() : webshop));
       }
       int added = imported.size();
       if (added > 0) {
@@ -577,15 +554,19 @@ public class MainViewModel extends AndroidViewModel {
   }
 
   /**
-   * Credential the API calls sign with: the selected entry, or the bundled demo one if the
-   * entry cannot sign (e.g. saved before HMAC signing, so it has no app ID). Secret, app ID
-   * and environment all come from one entry so they can never be mixed across credentials.
+   * Credential the API calls sign with: the selected entry, or the bundled demo one if the entry
+   * cannot sign (e.g. saved before HMAC signing, so it has no app ID). Secret, app ID and
+   * environment all come from one entry so they can never be mixed across credentials.
    */
   private ApiKeyEntry activeEntry() {
     ApiKeyEntry entry = getSelectedApiKey();
-    if (entry == null || entry.appId == null || entry.appId.trim().isEmpty()
-        || entry.key == null || entry.key.trim().isEmpty()) {
-      return newInstance(DEFAULT_STASH_KEY_NAME, DEFAULT_STASH_APP_ID, DEFAULT_STASH_API_KEY, false);
+    if (entry == null
+        || entry.appId == null
+        || entry.appId.trim().isEmpty()
+        || entry.key == null
+        || entry.key.trim().isEmpty()) {
+      return newInstance(
+          DEFAULT_STASH_KEY_NAME, DEFAULT_STASH_APP_ID, DEFAULT_STASH_API_KEY, false);
     }
     return entry;
   }
@@ -617,175 +598,111 @@ public class MainViewModel extends AndroidViewModel {
     return keepAliveEnabled;
   }
 
-  public void setForcePortraitOnCheckout(boolean on) {
-    forcePortraitOnCheckout = on;
+  public StashNativeCard.CardConfig getCardConfig() {
+    return cardConfig;
+  }
+
+  enum BackdropSource {
+    NONE(R.string.backdrop_none),
+    SCREENSHOT(R.string.backdrop_screenshot),
+    IMAGE(R.string.backdrop_custom_image);
+
+    final int labelRes;
+
+    BackdropSource(int labelRes) {
+      this.labelRes = labelRes;
+    }
+  }
+
+  BackdropSource getBackdropSource() {
+    return backdropSource;
+  }
+
+  void setBackdropSource(BackdropSource source) {
+    backdropSource = source;
     refreshList();
   }
 
-  public void setModalAllowDismiss(boolean on) {
-    modalAllowDismiss = on;
+  SampleBackdropImage getBackdropImage() {
+    return backdropImage;
+  }
+
+  void setBackdropImage(SampleBackdropImage image) {
+    if (backdropImage != null) {
+      backdropImage.recycle();
+    }
+    backdropImage = image;
+    setBackdropSource(BackdropSource.IMAGE);
+  }
+
+  @Override
+  protected void onCleared() {
+    if (backdropImage != null) {
+      backdropImage.recycle();
+    }
+    super.onCleared();
+  }
+
+  public StashNativeCard.CodeLinkConfig getCodeLinkConfig() {
+    return codeLinkConfig;
+  }
+
+  /** Updates scanner copy without rebinding the active editor. */
+  public void setCodeLinkText(int title, String text) {
+    if (title == R.string.code_link_header) {
+      codeLinkConfig.headerText = text;
+    } else if (title == R.string.code_link_callout_title) {
+      codeLinkConfig.calloutTitle = text;
+    } else if (title == R.string.code_link_callout_subtitle) {
+      codeLinkConfig.calloutSubtitle = text;
+    } else if (title == R.string.code_link_camera_unavailable) {
+      codeLinkConfig.cameraUnavailableText = text;
+    } else if (title == R.string.code_link_connected) {
+      codeLinkConfig.connectedText = text;
+    }
+  }
+
+  /** Restores the scanner's default text and callout visibility. */
+  public void resetCodeLinkConfig() {
+    codeLinkConfig.headerText = null;
+    codeLinkConfig.calloutTitle = null;
+    codeLinkConfig.calloutSubtitle = null;
+    codeLinkConfig.cameraUnavailableText = null;
+    codeLinkConfig.connectedText = null;
+    codeLinkConfig.showCallout = true;
+    refreshList();
+  }
+
+  /** Updates the checkout orientation preference. */
+  public void setForcePortraitOnCheckout(boolean on) {
+    cardConfig.orientationPreference =
+        on
+            ? StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+            : StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST;
+    refreshList();
+  }
+
+  public void setCardAllowDismiss(boolean on) {
+    cardConfig.allowDismiss = on;
     refreshList();
   }
 
   public void setCardAutoClose(boolean on) {
-    cardAutoClose = on;
+    cardConfig.autoClose = on;
     refreshList();
   }
 
-  public void setModalAutoClose(boolean on) {
-    modalAutoClose = on;
-    refreshList();
-  }
-
-  public void setPhoneCardHeight(int progress) {
-    phoneCardHeight = progress;
-    refreshList();
-  }
-
-  public void setCheckoutTabletPortraitWidth(int progress) {
-    checkoutTabletPortraitW = progress;
-    refreshList();
-  }
-
-  public void setCheckoutTabletPortraitHeight(int progress) {
-    checkoutTabletPortraitH = progress;
-    refreshList();
-  }
-
-  public void setCheckoutTabletLandscapeWidth(int progress) {
-    checkoutTabletLandscapeW = progress;
-    refreshList();
-  }
-
-  public void setCheckoutTabletLandscapeHeight(int progress) {
-    checkoutTabletLandscapeH = progress;
-    refreshList();
-  }
-
-  public void setCheckoutPhoneLandscapeWidth(int progress) {
-    checkoutPhoneLandscapeW = progress;
-    refreshList();
-  }
-
-  public void setCheckoutPhoneLandscapeHeight(int progress) {
-    checkoutPhoneLandscapeH = progress;
-    refreshList();
-  }
-
-  public void setModalPhonePortraitWidth(int progress) {
-    modalPhonePortraitW = progress;
-    refreshList();
-  }
-
-  public void setModalPhonePortraitHeight(int progress) {
-    modalPhonePortraitH = progress;
-    refreshList();
-  }
-
-  public void setModalPhoneLandscapeWidth(int progress) {
-    modalPhoneLandscapeW = progress;
-    refreshList();
-  }
-
-  public void setModalPhoneLandscapeHeight(int progress) {
-    modalPhoneLandscapeH = progress;
-    refreshList();
-  }
-
-  public void setModalTabletPortraitWidth(int progress) {
-    modalTabletPortraitW = progress;
-    refreshList();
-  }
-
-  public void setModalTabletPortraitHeight(int progress) {
-    modalTabletPortraitH = progress;
-    refreshList();
-  }
-
-  public void setModalTabletLandscapeWidth(int progress) {
-    modalTabletLandscapeW = progress;
-    refreshList();
-  }
-
-  public void setModalTabletLandscapeHeight(int progress) {
-    modalTabletLandscapeH = progress;
-    refreshList();
-  }
-
-  public boolean isForcePortraitOnCheckout() {
-    return forcePortraitOnCheckout;
-  }
-
-  public boolean isModalAllowDismiss() {
-    return modalAllowDismiss;
-  }
-
-  public boolean isCardAutoClose() {
-    return cardAutoClose;
-  }
-
-  public boolean isModalAutoClose() {
-    return modalAutoClose;
-  }
-
-  public int getPhoneCardHeight() {
-    return phoneCardHeight;
-  }
-
-  public int getCheckoutTabletPortraitW() {
-    return checkoutTabletPortraitW;
-  }
-
-  public int getCheckoutTabletPortraitH() {
-    return checkoutTabletPortraitH;
-  }
-
-  public int getCheckoutTabletLandscapeW() {
-    return checkoutTabletLandscapeW;
-  }
-
-  public int getCheckoutTabletLandscapeH() {
-    return checkoutTabletLandscapeH;
-  }
-
-  public int getCheckoutPhoneLandscapeW() {
-    return checkoutPhoneLandscapeW;
-  }
-
-  public int getCheckoutPhoneLandscapeH() {
-    return checkoutPhoneLandscapeH;
-  }
-
-  public int getModalPhonePortraitW() {
-    return modalPhonePortraitW;
-  }
-
-  public int getModalPhonePortraitH() {
-    return modalPhonePortraitH;
-  }
-
-  public int getModalPhoneLandscapeW() {
-    return modalPhoneLandscapeW;
-  }
-
-  public int getModalPhoneLandscapeH() {
-    return modalPhoneLandscapeH;
-  }
-
-  public int getModalTabletPortraitW() {
-    return modalTabletPortraitW;
-  }
-
-  public int getModalTabletPortraitH() {
-    return modalTabletPortraitH;
-  }
-
-  public int getModalTabletLandscapeW() {
-    return modalTabletLandscapeW;
-  }
-
-  public int getModalTabletLandscapeH() {
-    return modalTabletLandscapeH;
+  /** Updates the card dimension associated with a settings row. */
+  public void setDimension(int title, int value) {
+    if (title == R.string.preferred_content_width) {
+      cardConfig.preferredContentWidth = Math.max(1, value);
+    } else if (title == R.string.preferred_content_height) {
+      cardConfig.preferredContentHeight = Math.max(1, value);
+    } else if (title == R.string.maximum_content_height) {
+      cardConfig.maximumContentHeight = value;
+    } else if (title == R.string.edge_margin) {
+      cardConfig.edgeMargin = value;
+    }
   }
 
   /** Builds the list for the current screen. */
@@ -794,8 +711,11 @@ public class MainViewModel extends AndroidViewModel {
       case CARD_OPTIONS:
         items.setValue(buildCardOptionsList());
         return;
-      case MODAL_OPTIONS:
-        items.setValue(buildModalOptionsList());
+      case BROWSER_OPTIONS:
+        items.setValue(buildBrowserOptionsList());
+        return;
+      case CODE_LINK_OPTIONS:
+        items.setValue(buildCodeLinkOptionsList());
         return;
       case INSTANCE_DETAILS:
         items.setValue(buildInstanceDetailsList());
@@ -816,52 +736,78 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
-  /** Test tab: the three presentation surfaces (card, modal, browser). */
+  /** Test tab: the card and browser presentation surfaces. */
   private List<SettingsItem> buildTestList() {
     List<SettingsItem> list = new ArrayList<>();
 
     // Card section (URL row carries an inline Open button)
     list.add(SettingsItem.sectionHeader(R.string.section_card, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.hint_checkout_url, checkoutUrl,
-        R.drawable.ic_ms_link_24, false, false));
-    list.add(SettingsItem.actionPreference(R.string.generate_checkout, false, false));
-    list.add(SettingsItem.actionPreference(R.string.open_webshop, false, true));
+    list.add(
+        SettingsItem.urlPreference(
+            R.string.hint_checkout_url, checkoutUrl, R.drawable.ic_ms_link_24, false, false));
+    list.add(SettingsItem.actionPreference(R.string.generate_checkout, false, true));
 
     // Browser section
     list.add(SettingsItem.sectionHeader(R.string.section_browser, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.hint_browser_url, browserUrl,
-        R.drawable.ic_ms_link_24, false, false));
+    list.add(
+        SettingsItem.urlPreference(
+            R.string.hint_browser_url, browserUrl, R.drawable.ic_ms_link_24, false, false));
     list.add(SettingsItem.actionPreference(R.string.generate_checkout_for_browser, false, false));
     list.add(SettingsItem.actionPreference(R.string.open_webshop_for_browser, false, true));
 
-    // Modal section
-    list.add(SettingsItem.sectionHeader(R.string.section_modal, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.hint_modal_url, modalUrl,
-        R.drawable.ic_ms_link_24, false, true));
+    list.add(SettingsItem.sectionHeader(R.string.section_link_webshop, true, false));
+    list.add(SettingsItem.actionPreference(R.string.scan_qr_code, false, true));
 
     return list;
   }
 
-  /** Settings tab: orientation lock + navigation to per-mode option screens. */
+  /** Settings tab: orientation lock and navigation to presentation options. */
   private List<SettingsItem> buildSettingsList() {
     List<SettingsItem> list = new ArrayList<>();
     list.add(SettingsItem.sectionHeader(R.string.section_presentation_options, true, false));
     list.add(SettingsItem.actionPreference(R.string.nav_card_options, false, false));
-    list.add(SettingsItem.actionPreference(R.string.nav_modal_options, false, true));
+    list.add(SettingsItem.actionPreference(R.string.nav_browser_options, false, false));
+    list.add(SettingsItem.actionPreference(R.string.nav_code_link_options, false, true));
     // Other
     list.add(SettingsItem.sectionHeader(R.string.section_other, true, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_lock_landscape, 0, lockLandscape, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_keep_alive, R.string.option_keep_alive_supporting,
-        keepAliveEnabled, false, true));
+    list.add(
+        SettingsItem.switchPreference(
+            R.string.option_lock_landscape, 0, lockLandscape, false, true));
     // About: SDK version read straight from the library.
     list.add(SettingsItem.sectionHeader(R.string.section_about, true, false));
-    list.add(SettingsItem.infoPreference(
-        R.string.option_sdk_version, StashNativeCard.getVersion(), false, true));
+    list.add(
+        SettingsItem.infoPreference(
+            R.string.option_sdk_version, StashNativeCard.getVersion(), false, true));
+    return list;
+  }
+
+  private List<SettingsItem> buildBrowserOptionsList() {
+    List<SettingsItem> list = new ArrayList<>();
+    list.add(SettingsItem.sectionHeader(R.string.section_general, true, false));
+    list.add(SettingsItem.switchPreference(R.string.option_keep_alive,
+        R.string.option_keep_alive_supporting, keepAliveEnabled, false, true));
+    return list;
+  }
+
+  private List<SettingsItem> buildCodeLinkOptionsList() {
+    List<SettingsItem> list = new ArrayList<>();
+    list.add(SettingsItem.sectionHeader(R.string.section_code_link_header, true, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_header, codeLinkConfig.headerText,
+        0, false, true));
+    list.add(SettingsItem.sectionHeader(R.string.code_link_callout, true, false));
+    list.add(SettingsItem.switchPreference(R.string.code_link_show_callout, 0,
+        codeLinkConfig.showCallout, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_callout_title,
+        codeLinkConfig.calloutTitle, 0, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_callout_subtitle,
+        codeLinkConfig.calloutSubtitle, 0, false, true));
+    list.add(SettingsItem.sectionHeader(R.string.code_link_status, true, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_camera_unavailable,
+        codeLinkConfig.cameraUnavailableText, 0, false, false));
+    list.add(SettingsItem.urlPreference(R.string.code_link_connected,
+        codeLinkConfig.connectedText, 0, false, true));
+    list.add(SettingsItem.sectionFooter(R.string.code_link_text_help));
+    list.add(SettingsItem.actionPreference(R.string.code_link_reset, true, true));
     return list;
   }
 
@@ -872,9 +818,14 @@ public class MainViewModel extends AndroidViewModel {
     for (int i = 0; i < apiKeys.size(); i++) {
       ApiKeyEntry entry = apiKeys.get(i);
       boolean last = i == apiKeys.size() - 1;
-      list.add(SettingsItem.apiKey(
-          entry.id, entry.name, entry.production,
-          entry.id.equals(selectedApiKeyId), false, last));
+      list.add(
+          SettingsItem.apiKey(
+              entry.id,
+              entry.name,
+              entry.production,
+              entry.id.equals(selectedApiKeyId),
+              false,
+              last));
     }
     return list;
   }
@@ -887,14 +838,17 @@ public class MainViewModel extends AndroidViewModel {
       return list;
     }
     list.add(SettingsItem.sectionHeader(R.string.section_instance, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.instance_name, e.name, R.drawable.ic_ms_tune_24, false, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.instance_app_id, e.appId, R.drawable.ic_ms_credit_card_24, false, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.instance_secret, e.key, R.drawable.ic_ms_key_24, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.instance_production, 0, e.production, false, true));
+    list.add(
+        SettingsItem.urlPreference(
+            R.string.instance_name, e.name, R.drawable.ic_ms_tune_24, false, false));
+    list.add(
+        SettingsItem.urlPreference(
+            R.string.instance_app_id, e.appId, R.drawable.ic_ms_credit_card_24, false, false));
+    list.add(
+        SettingsItem.urlPreference(
+            R.string.instance_secret, e.key, R.drawable.ic_ms_key_24, false, false));
+    list.add(
+        SettingsItem.switchPreference(R.string.instance_production, 0, e.production, false, true));
     list.add(SettingsItem.sectionHeader(R.string.section_payloads, true, false));
     list.add(SettingsItem.actionPreference(R.string.nav_checkout_payload, false, false));
     list.add(SettingsItem.actionPreference(R.string.nav_webshop_payload, false, true));
@@ -911,74 +865,59 @@ public class MainViewModel extends AndroidViewModel {
 
   private List<SettingsItem> buildCardOptionsList() {
     List<SettingsItem> list = new ArrayList<>();
-    // General
     list.add(SettingsItem.sectionHeader(R.string.section_general, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.hint_card_background_color, cardBackgroundColorHex,
-        R.drawable.ic_ms_tune_24, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_force_portrait_on_checkout,
-        R.string.option_force_portrait_on_checkout_supporting,
-        forcePortraitOnCheckout, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_card_auto_close,
-        R.string.option_card_auto_close_supporting,
-        cardAutoClose, false, true));
-    // Phone
-    list.add(SettingsItem.sectionHeader(R.string.section_phone, true, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.phone_card_height, phoneCardHeight, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.checkout_phone_landscape_width, checkoutPhoneLandscapeW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.checkout_phone_landscape_height, checkoutPhoneLandscapeH, false, true));
-    // Tablet
-    list.add(SettingsItem.sectionHeader(R.string.section_tablet, true, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_portrait_width, checkoutTabletPortraitW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_portrait_height, checkoutTabletPortraitH, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_landscape_width, checkoutTabletLandscapeW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_landscape_height, checkoutTabletLandscapeH, false, true));
+    list.add(
+        SettingsItem.switchPreference(
+            R.string.option_force_portrait_on_checkout,
+            R.string.option_force_portrait_on_checkout_supporting,
+            cardConfig.orientationPreference == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT,
+            false,
+            false));
+    list.add(
+        SettingsItem.switchPreference(
+            R.string.option_card_allow_dismiss,
+            R.string.option_card_allow_dismiss_supporting,
+            cardConfig.allowDismiss,
+            false,
+            false));
+    list.add(
+        SettingsItem.switchPreference(
+            R.string.option_card_auto_close,
+            R.string.option_card_auto_close_supporting,
+            cardConfig.autoClose,
+            false,
+            true));
+    list.add(SettingsItem.sectionHeader(R.string.section_backdrop, true, false));
+    list.add(
+        SettingsItem.actionPreference(R.string.option_backdrop_source,
+            getApplication().getString(backdropSource.labelRes), false,
+            backdropSource != BackdropSource.IMAGE));
+    if (backdropSource == BackdropSource.IMAGE) {
+      list.add(SettingsItem.actionPreference(R.string.option_backdrop_image,
+          backdropImage != null ? backdropImage.name : "", false, true));
+    }
+    addDimensions(
+        list,
+        cardConfig.preferredContentWidth,
+        cardConfig.preferredContentHeight,
+        cardConfig.maximumContentHeight,
+        cardConfig.edgeMargin);
     return list;
   }
 
-  private List<SettingsItem> buildModalOptionsList() {
-    List<SettingsItem> list = new ArrayList<>();
-    // General
-    list.add(SettingsItem.sectionHeader(R.string.section_general, true, false));
-    list.add(SettingsItem.urlPreference(
-        R.string.hint_modal_background_color, modalBackgroundColorHex,
-        R.drawable.ic_ms_tune_24, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_allow_dismiss, R.string.option_allow_dismiss_supporting,
-        modalAllowDismiss, false, false));
-    list.add(SettingsItem.switchPreference(
-        R.string.option_modal_auto_close,
-        R.string.option_modal_auto_close_supporting,
-        modalAutoClose, false, true));
-    // Phone
-    list.add(SettingsItem.sectionHeader(R.string.section_phone, true, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.phone_portrait_width, modalPhonePortraitW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.phone_portrait_height, modalPhonePortraitH, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.phone_landscape_width, modalPhoneLandscapeW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.phone_landscape_height, modalPhoneLandscapeH, false, true));
-    // Tablet
-    list.add(SettingsItem.sectionHeader(R.string.section_tablet, true, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_portrait_width_modal, modalTabletPortraitW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_portrait_height_modal, modalTabletPortraitH, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_landscape_width_modal, modalTabletLandscapeW, false, false));
-    list.add(SettingsItem.sliderPreference(
-        R.string.tablet_landscape_height_modal, modalTabletLandscapeH, false, true));
-    return list;
+  private void addDimensions(
+      List<SettingsItem> list, float width, float height, float maximum, float margin) {
+    list.add(SettingsItem.sectionHeader(R.string.section_responsive_size, true, false));
+    list.add(
+        SettingsItem.sliderPreference(
+            R.string.preferred_content_width, Math.round(width), false, false));
+    list.add(
+        SettingsItem.sliderPreference(
+            R.string.preferred_content_height, Math.round(height), false, false));
+    list.add(
+        SettingsItem.sliderPreference(
+            R.string.maximum_content_height, Math.round(maximum), false, false));
+    list.add(SettingsItem.sliderPreference(R.string.edge_margin, Math.round(margin), false, true));
+    list.add(SettingsItem.sectionFooter(R.string.responsive_size_help));
   }
 }

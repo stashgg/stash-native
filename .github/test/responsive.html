@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Responsive checkout test</title>
+  <style>
+    :root { color-scheme: light dark; font: 16px system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding-bottom: env(safe-area-inset-bottom, 0px); background: Canvas; color: CanvasText; }
+    main { padding: 20px; }
+    h1 { margin: 0 0 12px; font-size: 22px; }
+    p { line-height: 1.45; }
+    label { display: block; margin: 12px 0 6px; }
+    input, select, button { font: inherit; padding: 10px; min-height: 44px; }
+    input, select { width: 100%; }
+    button { cursor: pointer; }
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    #content { height: 120px; padding: 12px; border: 1px solid GrayText; border-radius: 12px;
+      background: linear-gradient(135deg, #84adff44, #76dcaa44); overflow: hidden; }
+    #status { min-height: 24px; }
+    details { margin-top: 12px; }
+    output { display: block; font-size: 13px; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <main id="checkout" data-stash-content>
+    <h1>Responsive checkout</h1>
+    <output id="metrics"></output>
+    <label for="persistent-input">Input must survive resizing</label>
+    <input id="persistent-input" placeholder="Type before rotating or unfolding" autocomplete="off">
+    <div class="controls">
+      <button type="button" onclick="setContent(40)">Short</button>
+      <button type="button" onclick="setContent(120)">Medium</button>
+      <button type="button" onclick="setContent(1000)">Long</button>
+    </div>
+    <div id="content">Intrinsic content block. Native cards may fit this content within their configured resting-height ceiling.</div>
+    <output id="status" role="status">Ready</output>
+    <details>
+      <summary>Presentation and callback controls</summary>
+      <label for="measurement">Content sizing</label>
+      <select id="measurement" onchange="setMeasurement(this.value)">
+        <option value="observed">Intrinsic marker</option>
+        <option value="explicit">Explicit height hint</option>
+        <option value="off">No measurement</option>
+        <option value="viewport">Viewport-dependent root (must be ignored)</option>
+      </select>
+      <div class="controls">
+        <button type="button" onclick="call('expand')">Expand</button>
+        <button type="button" onclick="call('collapse')">Collapse</button>
+        <button type="button" onclick="call('onPurchaseProcessing')">Lock dismissal</button>
+        <button type="button" onclick="call('onProcessingCompleted')">Unlock dismissal</button>
+        <button type="button" onclick="call('onPaymentSuccess', {orderId: 'responsive-test'})">Success</button>
+        <button type="button" onclick="call('onPaymentFailure')">Failure</button>
+        <button type="button" onclick="window.close()">Close</button>
+        <button type="button" onclick="call('setContentHeight', -10)">Invalid height</button>
+      </div>
+    </details>
+  </main>
+  <script>
+    var root = document.getElementById('checkout');
+    var measurement = 'observed';
+    var loads = 1;
+    try {
+      loads = Number(sessionStorage.getItem('responsive-loads') || 0) + 1;
+      sessionStorage.setItem('responsive-loads', String(loads));
+    } catch (_) { /* Storage may be unavailable in file previews. */ }
+    function call(name, value) {
+      var sdk = window.stash_sdk;
+      document.getElementById('status').textContent = name + (sdk ? '' : ' (browser preview)');
+      if (sdk && typeof sdk[name] === 'function') sdk[name](value);
+    }
+    function setContent(height) {
+      document.getElementById('content').style.height = height + 'px';
+      report();
+    }
+    function setMeasurement(mode) {
+      measurement = mode;
+      if (mode === 'observed' || mode === 'viewport') root.setAttribute('data-stash-content', '');
+      else root.removeAttribute('data-stash-content');
+      root.style.minHeight = mode === 'viewport' ? '100vh' : '';
+      document.getElementById('status').textContent = 'Sizing mode: ' + mode;
+      report();
+    }
+    function report() {
+      requestAnimationFrame(function () {
+        if (measurement === 'explicit' && window.stash_sdk && window.stash_sdk.setContentHeight) {
+          window.stash_sdk.setContentHeight(root.getBoundingClientRect().height);
+        }
+      });
+    }
+    function metrics() {
+      document.getElementById('metrics').textContent =
+        'Viewport ' + innerWidth + ' × ' + innerHeight + ' CSS px; page loads ' + loads;
+      report();
+    }
+    window.addEventListener('resize', metrics);
+    document.querySelector('details').addEventListener('toggle', report);
+    metrics();
+  </script>
+</body>
+</html>

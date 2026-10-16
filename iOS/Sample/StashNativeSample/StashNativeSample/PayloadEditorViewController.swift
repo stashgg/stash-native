@@ -79,11 +79,15 @@ final class PayloadEditorViewController: UIViewController {
     }
 
     @objc private func saveTapped() {
-        host?.saveInstancePayload(instanceId, kind, textView.text ?? "")
+        let saved = host?.saveInstancePayload(instanceId, kind, textView.text ?? "") ?? false
         view.endEditing(true)
-        let alert = UIAlertController(title: nil, message: "Payload saved", preferredStyle: .alert)
+        let message = saved ? "Payload saved" : "Could not save payload on this device."
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        if !saved { alert.addAction(UIAlertAction(title: "OK", style: .default)) }
         present(alert, animated: true)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { alert.dismiss(animated: true) }
+        if saved {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { alert.dismiss(animated: true) }
+        }
     }
 
     @objc private func resetTapped() {

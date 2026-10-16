@@ -39,8 +39,10 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a webshop QR code to link it with your game.</string>
 	<key>MinimumOSVersion</key>
-	<string>13.0</string>
+	<string>15.0</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

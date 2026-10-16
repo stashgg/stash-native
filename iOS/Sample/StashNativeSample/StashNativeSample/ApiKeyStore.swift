@@ -5,7 +5,7 @@
 //  Keychain-backed storage for saved credentials.
 //
 
-import UIKit
+import Foundation
 import Security
 
 enum ApiKeyStore {
@@ -17,18 +17,20 @@ enum ApiKeyStore {
         var selectedId: String?
     }
 
-    static func load() -> Payload {
-        guard let data = read(),
-              let payload = try? JSONDecoder().decode(Payload.self, from: data) else {
-            return Payload(keys: [], selectedId: nil)
-        }
-        return payload
+    enum StoreError: Error {
+        case keychain(OSStatus)
+        case invalidData
     }
 
-    static func save(keys: [ApiKeyEntry], selectedId: String?) {
-        guard let data = try? JSONEncoder().encode(
-            Payload(keys: keys, selectedId: selectedId)) else { return }
-        write(data)
+    /// Only a missing item returns nil; unreadable or malformed data must not be replaced.
+    static func load() throws -> Payload? {
+        guard let data = try read() else { return nil }
+        return try JSONDecoder().decode(Payload.self, from: data)
+    }
+
+    static func save(keys: [ApiKeyEntry], selectedId: String?) throws {
+        let data = try JSONEncoder().encode(Payload(keys: keys, selectedId: selectedId))
+        try write(data)
     }
 
     private static func baseQuery() -> [String: Any] {
@@ -37,23 +39,27 @@ enum ApiKeyStore {
          kSecAttrAccount as String: account]
     }
 
-    private static func read() -> Data? {
+    private static func read() throws -> Data? {
         var query = baseQuery()
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
-        return SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
-            ? result as? Data : nil
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        if status == errSecItemNotFound { return nil }
+        guard status == errSecSuccess else { throw StoreError.keychain(status) }
+        guard let data = result as? Data else { throw StoreError.invalidData }
+        return data
     }
 
-    private static func write(_ data: Data) {
-        let status = SecItemUpdate(
+    private static func write(_ data: Data) throws {
+        var status = SecItemUpdate(
             baseQuery() as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {
             var add = baseQuery()
             add[kSecValueData as String] = data
             add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-            SecItemAdd(add as CFDictionary, nil)
+            status = SecItemAdd(add as CFDictionary, nil)
         }
+        guard status == errSecSuccess else { throw StoreError.keychain(status) }
     }
 }

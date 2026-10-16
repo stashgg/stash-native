@@ -17,6 +17,7 @@ import com.stash.stashnative.sample.databinding.ItemPreferencePayloadBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSliderBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceSwitchBinding;
 import com.stash.stashnative.sample.databinding.ItemPreferenceUrlBinding;
+import com.stash.stashnative.sample.databinding.ItemSectionFooterBinding;
 import com.stash.stashnative.sample.databinding.ItemSectionHeaderBinding;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,18 +31,17 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   private final MainViewModel viewModel;
   private final Callbacks callbacks;
 
-  /** Callbacks for user actions (open card, browser, modal, generate checkout). */
+  /** Callbacks for user actions (open card, browser, generate checkout). */
   public interface Callbacks {
+
+    void onCodeLink();
 
     void onOpenCard();
 
     void onOpenBrowser();
 
-    void onOpenModal();
 
     void onGenerateCheckout();
-
-    void onOpenWebshop();
 
     void onGenerateCheckoutForBrowser();
 
@@ -50,6 +50,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     void onOpenWebshopForBrowser();
 
     void onDeleteInstance();
+
+    void onBackdropSource();
+
+    void onChooseBackdropImage();
   }
 
   public SettingsAdapter(MainViewModel viewModel, Callbacks callbacks) {
@@ -74,6 +78,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     switch (viewType) {
       case SettingsItem.TYPE_SECTION_HEADER:
         return new SectionHeaderVH(ItemSectionHeaderBinding.inflate(inflater, parent, false));
+      case SettingsItem.TYPE_SECTION_FOOTER:
+        return new SectionFooterVH(ItemSectionFooterBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_URL_PREFERENCE:
         return new UrlPreferenceVH(ItemPreferenceUrlBinding.inflate(inflater, parent, false));
       case SettingsItem.TYPE_ACTION_PREFERENCE:
@@ -100,8 +106,11 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       case SettingsItem.TYPE_SECTION_HEADER:
         ((SectionHeaderVH) holder).bind(item);
         break;
+      case SettingsItem.TYPE_SECTION_FOOTER:
+        ((SectionFooterVH) holder).bind(item);
+        break;
       case SettingsItem.TYPE_URL_PREFERENCE:
-        ((UrlPreferenceVH) holder).bind(item, position);
+        ((UrlPreferenceVH) holder).bind(item);
         break;
       case SettingsItem.TYPE_ACTION_PREFERENCE:
         ((ActionPreferenceVH) holder).bind(item, position);
@@ -160,6 +169,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     int top = Math.round(CARD_MARGIN_TOP_DP * density);
     int bottom = Math.round(CARD_MARGIN_BOTTOM_DP * density);
 
+    if (item.type == SettingsItem.TYPE_SECTION_FOOTER) {
+      itemView.setBackground(null);
+      setMargins(itemView, horizontal, 0, horizontal, 0);
+      return;
+    }
+
     boolean first = item.firstInCard;
     boolean last = item.lastInCard;
 
@@ -214,10 +229,22 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
+  static class SectionFooterVH extends RecyclerView.ViewHolder {
+    private final ItemSectionFooterBinding binding;
+
+    SectionFooterVH(ItemSectionFooterBinding binding) {
+      super(binding.getRoot());
+      this.binding = binding;
+    }
+
+    void bind(SettingsItem item) {
+      binding.sectionFooterText.setText(item.titleRes);
+    }
+  }
+
 
   class UrlPreferenceVH extends RecyclerView.ViewHolder {
     private final ItemPreferenceUrlBinding binding;
-    private int boundPosition = -1;
 
     UrlPreferenceVH(ItemPreferenceUrlBinding binding) {
       super(binding.getRoot());
@@ -226,19 +253,24 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     private int boundTitleRes;
 
-    void bind(SettingsItem item, int position) {
-      boundPosition = position;
+    void bind(SettingsItem item) {
       boundTitleRes = item.titleRes;
       binding.preferenceIcon.setImageResource(item.iconRes);
+      binding.preferenceIcon.setVisibility(item.iconRes == 0 ? View.GONE : View.VISIBLE);
       binding.urlInputLayout.setHint(item.titleRes);
       // setInputType resets the KeyListener and clobbers selection, so set it before setText.
       int t = item.titleRes;
       boolean isUrl = t == R.string.hint_checkout_url
-          || t == R.string.hint_browser_url
-          || t == R.string.hint_modal_url;
+          || t == R.string.hint_browser_url;
+      int codeLinkDefault = codeLinkDefaultText(t);
+      binding.urlInputLayout.setExpandedHintEnabled(codeLinkDefault == 0);
+      binding.urlInputLayout.setPlaceholderText(codeLinkDefault == 0 ? null
+          : itemView.getContext().getString(codeLinkDefault));
       int inputType;
       if (isUrl) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
+      } else if (codeLinkDefault != 0) {
+        inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
       } else if (t == R.string.instance_name) {
         inputType = InputType.TYPE_CLASS_TEXT;
       } else {
@@ -255,18 +287,15 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         binding.urlEditText.setText(item.value);
       }
       binding.urlEditText.addTextChangedListener(watcher);
-      // Card/Modal/Browser URL rows carry an inline Open button.
+      // Card/Browser URL rows carry an inline Open button.
       int titleRes = item.titleRes;
       boolean hasOpen = titleRes == R.string.hint_checkout_url
-          || titleRes == R.string.hint_modal_url
           || titleRes == R.string.hint_browser_url;
       binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
       // Stable ids for UI tests; rows are recycled, so null out non-open rows.
       String tag = null;
       if (titleRes == R.string.hint_checkout_url) {
         tag = "card";
-      } else if (titleRes == R.string.hint_modal_url) {
-        tag = "modal";
       } else if (titleRes == R.string.hint_browser_url) {
         tag = "browser";
       }
@@ -275,8 +304,6 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.urlOpenButton.setOnClickListener(v -> {
         if (titleRes == R.string.hint_checkout_url) {
           callbacks.onOpenCard();
-        } else if (titleRes == R.string.hint_modal_url) {
-          callbacks.onOpenModal();
         } else if (titleRes == R.string.hint_browser_url) {
           callbacks.onOpenBrowser();
         }
@@ -297,18 +324,14 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setCheckoutUrl(text);
         } else if (boundTitleRes == R.string.hint_browser_url) {
           viewModel.setBrowserUrl(text);
-        } else if (boundTitleRes == R.string.hint_modal_url) {
-          viewModel.setModalUrl(text);
-        } else if (boundTitleRes == R.string.hint_card_background_color) {
-          viewModel.setCardBackgroundColorHex(text);
-        } else if (boundTitleRes == R.string.hint_modal_background_color) {
-          viewModel.setModalBackgroundColorHex(text);
         } else if (boundTitleRes == R.string.instance_name) {
           viewModel.setEditingName(text);
         } else if (boundTitleRes == R.string.instance_app_id) {
           viewModel.setEditingAppId(text);
         } else if (boundTitleRes == R.string.instance_secret) {
           viewModel.setEditingSecret(text);
+        } else if (codeLinkDefaultText(boundTitleRes) != 0) {
+          viewModel.setCodeLinkText(boundTitleRes, text);
         }
       }
     };
@@ -324,6 +347,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item, int position) {
       binding.actionTitle.setText(item.titleRes);
+      binding.actionValue.setText(item.value);
+      binding.actionValue.setVisibility(item.value.isEmpty() ? View.GONE : View.VISIBLE);
       // The destructive delete row is red; every other action row uses the primary colour.
       boolean isDelete = item.titleRes == R.string.nav_delete_instance;
       binding.actionTitle.setTextColor(themeColor(binding.actionTitle.getContext(),
@@ -331,29 +356,40 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
               : com.google.android.material.R.attr.colorPrimary));
       // Navigation rows carry a chevron; action buttons are text-only.
       boolean isNav = item.titleRes == R.string.nav_card_options
-          || item.titleRes == R.string.nav_modal_options
+          || item.titleRes == R.string.nav_browser_options
+          || item.titleRes == R.string.nav_code_link_options
           || item.titleRes == R.string.nav_checkout_payload
-          || item.titleRes == R.string.nav_webshop_payload;
+          || item.titleRes == R.string.nav_webshop_payload
+          || item.titleRes == R.string.option_backdrop_source
+          || item.titleRes == R.string.option_backdrop_image;
       binding.actionChevron.setVisibility(isNav ? View.VISIBLE : View.GONE);
       binding.actionRow.setOnClickListener(v -> {
         if (item.titleRes == R.string.nav_card_options) {
           viewModel.navigateTo(MainViewModel.Screen.CARD_OPTIONS);
-        } else if (item.titleRes == R.string.nav_modal_options) {
-          viewModel.navigateTo(MainViewModel.Screen.MODAL_OPTIONS);
+        } else if (item.titleRes == R.string.nav_browser_options) {
+          viewModel.navigateTo(MainViewModel.Screen.BROWSER_OPTIONS);
+        } else if (item.titleRes == R.string.nav_code_link_options) {
+          viewModel.navigateTo(MainViewModel.Screen.CODE_LINK_OPTIONS);
+        } else if (item.titleRes == R.string.code_link_reset) {
+          viewModel.resetCodeLinkConfig();
         } else if (item.titleRes == R.string.nav_checkout_payload) {
           viewModel.navigateTo(MainViewModel.Screen.CHECKOUT_PAYLOAD);
         } else if (item.titleRes == R.string.nav_webshop_payload) {
           viewModel.navigateTo(MainViewModel.Screen.WEBSHOP_PAYLOAD);
         } else if (item.titleRes == R.string.generate_checkout) {
           callbacks.onGenerateCheckout();
-        } else if (item.titleRes == R.string.open_webshop) {
-          callbacks.onOpenWebshop();
         } else if (item.titleRes == R.string.generate_checkout_for_browser) {
           callbacks.onGenerateCheckoutForBrowser();
         } else if (item.titleRes == R.string.open_webshop_for_browser) {
           callbacks.onOpenWebshopForBrowser();
+        } else if (item.titleRes == R.string.scan_qr_code) {
+          callbacks.onCodeLink();
         } else if (item.titleRes == R.string.nav_delete_instance) {
           callbacks.onDeleteInstance();
+        } else if (item.titleRes == R.string.option_backdrop_source) {
+          callbacks.onBackdropSource();
+        } else if (item.titleRes == R.string.option_backdrop_image) {
+          callbacks.onChooseBackdropImage();
         }
       });
     }
@@ -369,6 +405,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void bind(SettingsItem item, int position) {
       binding.switchTitle.setText(item.titleRes);
+      binding.switchPreference.setContentDescription(
+          itemView.getContext().getString(item.titleRes));
       if (item.supportingRes != 0) {
         binding.switchSupporting.setText(item.supportingRes);
         binding.switchSupporting.setVisibility(View.VISIBLE);
@@ -380,21 +418,40 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.switchPreference.setOnCheckedChangeListener((buttonView, isChecked) -> {
         if (item.titleRes == R.string.option_force_portrait_on_checkout) {
           viewModel.setForcePortraitOnCheckout(isChecked);
-        } else if (item.titleRes == R.string.option_allow_dismiss) {
-          viewModel.setModalAllowDismiss(isChecked);
+        } else if (item.titleRes == R.string.option_card_allow_dismiss) {
+          viewModel.setCardAllowDismiss(isChecked);
         } else if (item.titleRes == R.string.option_card_auto_close) {
           viewModel.setCardAutoClose(isChecked);
-        } else if (item.titleRes == R.string.option_modal_auto_close) {
-          viewModel.setModalAutoClose(isChecked);
         } else if (item.titleRes == R.string.option_keep_alive) {
           viewModel.setKeepAliveEnabled(isChecked);
         } else if (item.titleRes == R.string.option_lock_landscape) {
           callbacks.onLockLandscapeChanged(isChecked);
         } else if (item.titleRes == R.string.instance_production) {
           viewModel.setEditingProduction(isChecked);
+        } else if (item.titleRes == R.string.code_link_show_callout) {
+          viewModel.getCodeLinkConfig().showCallout = isChecked;
         }
       });
     }
+  }
+
+  private static int codeLinkDefaultText(int title) {
+    if (title == R.string.code_link_header) {
+      return com.stash.stashnative.R.string.stash_code_link_heading;
+    }
+    if (title == R.string.code_link_callout_title) {
+      return com.stash.stashnative.R.string.stash_code_link_callout;
+    }
+    if (title == R.string.code_link_callout_subtitle) {
+      return com.stash.stashnative.R.string.stash_code_link_instruction;
+    }
+    if (title == R.string.code_link_camera_unavailable) {
+      return com.stash.stashnative.R.string.stash_code_link_unavailable;
+    }
+    if (title == R.string.code_link_connected) {
+      return com.stash.stashnative.R.string.stash_code_link_connected;
+    }
+    return 0;
   }
 
   class SliderPreferenceVH extends RecyclerView.ViewHolder {
@@ -412,46 +469,20 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           binding.getRoot().getContext().getString(item.titleRes));
       binding.sliderValue.setText(item.value);
       androidx.core.view.ViewCompat.setStateDescription(binding.sliderSeekBar, item.value);
+      binding.sliderSeekBar.setOnSeekBarChangeListener(null);
+      binding.sliderSeekBar.setMax(item.titleRes == R.string.edge_margin ? 64 : 1200);
       binding.sliderSeekBar.setProgress(item.progress);
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          androidx.core.view.ViewCompat.setStateDescription(seekBar, (progress + 10) + "%");
+          String label = progress == 0 && item.titleRes == R.string.maximum_content_height
+              ? "Available" : progress + " dp";
+          androidx.core.view.ViewCompat.setStateDescription(seekBar, label);
           if (!fromUser) {
             return;
           }
-          int titleRes = item.titleRes;
-          if (titleRes == R.string.phone_card_height) {
-            viewModel.setPhoneCardHeight(progress);
-          } else if (titleRes == R.string.checkout_phone_landscape_width) {
-            viewModel.setCheckoutPhoneLandscapeWidth(progress);
-          } else if (titleRes == R.string.checkout_phone_landscape_height) {
-            viewModel.setCheckoutPhoneLandscapeHeight(progress);
-          } else if (titleRes == R.string.tablet_portrait_width) {
-            viewModel.setCheckoutTabletPortraitWidth(progress);
-          } else if (titleRes == R.string.tablet_portrait_height) {
-            viewModel.setCheckoutTabletPortraitHeight(progress);
-          } else if (titleRes == R.string.tablet_landscape_width) {
-            viewModel.setCheckoutTabletLandscapeWidth(progress);
-          } else if (titleRes == R.string.tablet_landscape_height) {
-            viewModel.setCheckoutTabletLandscapeHeight(progress);
-          } else if (titleRes == R.string.phone_portrait_width) {
-            viewModel.setModalPhonePortraitWidth(progress);
-          } else if (titleRes == R.string.phone_portrait_height) {
-            viewModel.setModalPhonePortraitHeight(progress);
-          } else if (titleRes == R.string.phone_landscape_width) {
-            viewModel.setModalPhoneLandscapeWidth(progress);
-          } else if (titleRes == R.string.phone_landscape_height) {
-            viewModel.setModalPhoneLandscapeHeight(progress);
-          } else if (titleRes == R.string.tablet_portrait_width_modal) {
-            viewModel.setModalTabletPortraitWidth(progress);
-          } else if (titleRes == R.string.tablet_portrait_height_modal) {
-            viewModel.setModalTabletPortraitHeight(progress);
-          } else if (titleRes == R.string.tablet_landscape_width_modal) {
-            viewModel.setModalTabletLandscapeWidth(progress);
-          } else if (titleRes == R.string.tablet_landscape_height_modal) {
-            viewModel.setModalTabletLandscapeHeight(progress);
-          }
+          binding.sliderValue.setText(label);
+          viewModel.setDimension(item.titleRes, progress);
         }
 
         @Override

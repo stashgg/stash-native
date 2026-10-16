@@ -12,7 +12,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
 
-/** Covers the five emit paths without an existing test (payloads + action names). */
+/** Checks checkout event payloads and broadcast actions. */
 @RunWith(RobolectricTestRunner.class)
 public class StashCheckoutBridgeEmitTest {
 
@@ -48,14 +48,5 @@ public class StashCheckoutBridgeEmitTest {
     assertEquals(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR, lastBroadcast(context).getAction());
     StashCheckoutBridge.emitDialogDismissed(context);
     assertEquals(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED, lastBroadcast(context).getAction());
-  }
-
-  @Test
-  public void optInCarriesTypeAndNullBecomesEmpty() {
-    Context context = RuntimeEnvironment.getApplication();
-    StashCheckoutBridge.emitOptIn(context, null);
-    Intent i = lastBroadcast(context);
-    assertEquals(CardConstants.BROADCAST_CHECKOUT_OPT_IN, i.getAction());
-    assertEquals("", i.getStringExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE));
   }
 }

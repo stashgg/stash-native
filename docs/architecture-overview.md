@@ -1,113 +1,44 @@
-# Architecture Overview
+# Architecture and repository map
 
-## What The Library Does
+Stash Native embeds checkout in a platform WebView and presents it as a responsive card. Browser presentation uses Safari on iOS and Custom Tabs/system browser on Android. Payment fulfilment belongs to the integrating backend.
 
-Stash Native is a mobile checkout SDK that embeds checkout web content in native UI and exposes a native-JavaScript bridge for payment events and UI actions.
+## Source map
 
-Primary responsibilities:
+| Area | Location and responsibility |
+|---|---|
+| iOS facade | `iOS/StashNative/Sources/StashNative/StashNativeCard.m`: explicit presenter, active session, public operations |
+| iOS configuration and geometry | `StashNativeCardConfigs.m`, `StashNativeCardGeometry.m`: snapshots, normalization, safe-region sizing |
+| iOS session | `StashNativeCardInternal.m`, `StashNativeCardPrivate.h`: WebView, callbacks, document identity, dismissal and processing state |
+| iOS presentation | `StashNativeCardViewControllers.m`: one native card sheet implementation, keyboard and layout changes |
+| iOS web support | `StashNativeCardViewUtils.m`, `StashNativeCardWebViewDelegates.m`, `StashNativeCardTheme.m`: injection, navigation, loading, theme |
+| Android facade/plugin | `Android/stashnative/src/main/java/com/stash/stashnative/`: `StashNativeCard`, `StashNativeCardPlugin`; API dispatch, active presentation and browser lifecycle |
+| Android presentation | Checkout activity, `StashPresentationController`, `StashPresentationState`, `StashCheckoutSizing`, `StashSheetLayout`; window layout, gestures, state and rendering |
+| Android web support | `StashCheckoutWebViewSupport`, `StashCheckoutJsInterface`, `StashContentSizeSupport`, `StashWebInteractionSupport`, `StashWebViewUtils`; loading, bridge, navigation, native form interactions and card measurements |
+| Android integration | `StashWindowCompat`, `StashUrlLauncher`, `StashCheckoutBridge`, browser proxy and engagement helpers; insets, external URLs and same-process callbacks |
+| Samples | `iOS/Sample`, `Android/sample`: configuration, test link generation, callback examples |
+| Tests | iOS SPM tests/regression support, Android JUnit/Robolectric tests, `.github/test` web fixtures, `Android/modern-host` standalone-AAR host |
+| Distribution | Root/nested SPM manifests, iOS Xcode project, Android Gradle modules, `.github/workflows` |
 
-- Render checkout content in native containers (`WebView` on Android, `WKWebView` on iOS).
-- Inject `window.stash_sdk` bridge functions into the checkout page.
-- Forward checkout events to host application callbacks/delegates.
-- Support card, modal, and browser-based flows.
-- Support controlled handoff to external browser with URL normalization and theme propagation.
+Desktop development lives separately on `desktop/integration`. Its shared C++ session and macOS/Windows hosts have their own ABI and sizing policy. They are not part of this mobile 3.0 change.
 
-## Repository Map (Where To Read Code)
-
-| Area | Path |
-|------|------|
-| Android public API | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) |
-| Android host runtime | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) |
-| Android checkout activity (host process) | [`Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) |
-| Android JS injection and WebView helpers | [`Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) |
-| Android process bridge | [`Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) |
-| Android manifest (host-process activities, services) | [`Android/stashnative/src/main/AndroidManifest.xml`](../Android/stashnative/src/main/AndroidManifest.xml) |
-| iOS public API | [`iOS/StashNative/Sources/StashNative/include/StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) |
-| iOS core implementation | [`iOS/StashNative/Sources/StashNative/StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) |
-| iOS navigation and load errors | [`iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardWebViewDelegates.m) |
-| iOS presentation controllers | [`iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m) |
-| iOS SPM package | [`iOS/StashNative/Package.swift`](../iOS/StashNative/Package.swift) |
-| Root integration notes | [`README.md`](../README.md) |
-
-## High-Level Runtime (Both Platforms)
-
-One mental model applies to Android and iOS: the host app drives the SDK; the SDK owns the embedded web surface and forwards page events back to the app.
+## Presentation flow
 
 ```mermaid
-flowchart TB
-    Host[HostApp]
-    Sdk[StashNativeSDK]
-    Web[CheckoutWebPage]
-
-    Host --> Sdk
-    Sdk --> Web
-    Web -->|window.stash_sdk| Sdk
-    Sdk -->|listener or delegate| Host
+flowchart LR
+    Host[Explicit host controller or activity] --> Session[Presentation session]
+    Config[Normalized configuration snapshot] --> Session
+    Window[Window bounds, insets, keyboard, folds] --> Layout[Responsive layout]
+    Session --> Layout
+    Layout --> Surface[Native surface and live WebView]
+    Surface --> Bridge[stash_sdk messages]
+    Bridge --> Session
+    Session --> Callbacks[Host callbacks]
 ```
 
-Android implements `Sdk` as [`StashNativeCard`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) plus [`StashNativeCardPlugin`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPlugin.java) and, for the default card path, [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java). iOS implements it in [`StashNativeCard`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) (Objective-C singleton) with presentation split into [`StashNativeCardViewControllers.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardViewControllers.m).
+One active session owns the presentation. Geometry changes update that session and its WebView; they do not create a new checkout or duplicate payment callbacks. A card tracks resting/expanded state independently of physical height.
 
-## Injection Model Per Platform
+The card's optional content reporter is document-scoped. Width changes invalidate old measurements. The public JS API is the same on both platforms; native transport and callback interfaces differ. The exact contract is in [stash-sdk-js.md](stash-sdk-js.md).
 
-### Android
+## Maintainer entry points
 
-- Bridge script: constant `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java).
-- JS object exposed to the page: `StashAndroid` via `JS_INTERFACE_NAME` in the same file.
-- Injected namespace: `window.stash_sdk`.
-- `@JavascriptInterface` implementations:
-  - [`StashPopupJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashPopupJsInterface.java).
-  - [`StashCheckoutJsInterface.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutJsInterface.java).
-- Injection call sites: search `evaluateJavascript` / `JS_SDK_SCRIPT` / `injectStashSDK` in the plugin and portrait activity.
-
-### iOS
-
-- Bridge script: built as an `NSString` in [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m) and installed with `WKUserScript` at document start.
-- Native dispatch: `userContentController:didReceiveScriptMessage:` in [`StashNativeCardInternal.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardInternal.m); handler registration remains in the WebView factory.
-- Injected namespace: `window.stash_sdk`.
-- Handler name constants (for example `kMessageHandlerExternalPayment`) are defined near the top of [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
-
-## Shared Feature Surface
-
-- Payment result callbacks.
-- Purchase processing signal.
-- Opt-in or payment channel signal (`setPaymentChannel`).
-- Presentation controls (`expand`, `collapse`, `window.close` override).
-- External browser launch (`openExternalBrowser(url)`).
-- Theme-aware URL propagation (`theme=dark|light`); see `appendThemeQueryParameter` on each platform ([`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java), [`StashNativeCardTheme.m`](../iOS/StashNative/Sources/StashNative/StashNativeCardTheme.m)).
-
-Authoritative reference for page-side calls: [JavaScript `stash_sdk` API](./stash-sdk-js.md).
-
-## Payment Event Flow (Simplified)
-
-```mermaid
-sequenceDiagram
-    participant Page as CheckoutPage
-    participant Sdk as StashNative
-    participant App as HostApp
-
-    Page->>Sdk: stash_sdk.onPaymentSuccess
-    Sdk->>App: success callback
-```
-
-On Android, portrait checkout uses [`StashCheckoutBridge`](../Android/stashnative/src/main/java/com/stash/stashnative/StashCheckoutBridge.java) package-local broadcasts from [`StashNativeCardPortraitActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCardPortraitActivity.java) to the plugin (same app process by default). See [Android Implementation](./android.md) and [iOS Implementation](./ios.md).
-
-## External Browser (Simplified)
-
-```mermaid
-sequenceDiagram
-    participant Page as Page
-    participant Sdk as SDK
-    participant Ext as ExternalBrowser
-
-    Page->>Sdk: openExternalBrowser url
-    Sdk->>Ext: open normalized URL
-```
-
-Listener or delegate notification and dismissal ordering are specified in [`StashNativeCard.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java) (listener contract) and [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) (`stashNativeCardDidRequestExternalPaymentWithURL:`).
-
-## Platform Deep Dives
-
-- [JavaScript `stash_sdk` API](./stash-sdk-js.md) — checkout page contract (`onPaymentSuccess`, `openExternalBrowser`, and so on).
-- [Android Implementation](./android.md) — file-by-file map, process model, bridge tables.
-- [iOS Implementation](./ios.md) — handlers, presentation entry points, load delegate.
-- [Maintenance and Testing](./maintenance-and-testing.md) — CI, local commands, QA harnesses.
+Read [responsive presentation](responsive-presentation.md) for geometry and content measurement, then the [iOS](ios.md) or [Android](android.md) implementation guide. Use [maintenance and testing](maintenance-and-testing.md) for build contexts and validation limits. Public API breaks are collected in [migration to 3.0](migration-3.0.md).

@@ -159,6 +159,7 @@ public class StashKeepAliveService extends Service {
     try {
       stopForeground(STOP_FOREGROUND_REMOVE);
     } catch (Throwable ignored) {
+      // Still stop the service if the foreground notification is already gone.
     }
     stopSelf();
   }

@@ -12,6 +12,15 @@ import StashNative
 
 extension ViewController: StashNativeCardDelegate {
 
+    func stashNativeCardDidScanQRCode(_ content: String) {
+        addCallbackChip("CodeLink · \(content)")
+        flushPendingAlertsIfPossible()
+    }
+
+    func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
+        addCallbackChip("CodeLink · \(error.localizedDescription)")
+    }
+
     func stashNativeCardDidCompletePayment(withOrder order: String?) {
         let label: String
         if let order, !order.isEmpty {
@@ -34,12 +43,6 @@ extension ViewController: StashNativeCardDelegate {
         DispatchQueue.main.async {
             self.addCallbackChip("Dialog Dismissed")
             self.flushPendingAlertsIfPossible()
-        }
-    }
-
-    func stashNativeCardDidReceiveOpt(in optinType: String) {
-        DispatchQueue.main.async {
-            self.addCallbackChip("Opt-In: \(optinType)")
         }
     }
 

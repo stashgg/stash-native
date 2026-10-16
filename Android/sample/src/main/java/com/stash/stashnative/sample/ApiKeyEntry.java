@@ -6,8 +6,8 @@ import org.json.JSONObject;
 /**
  * A named Stash app credential: the app ID plus its ingress secret, with a production/test flag.
  * Both are needed to sign requests (see {@link StashHmac}). Each instance also carries its own
- * checkout and webshop request bodies, so payloads can be tailored per instance. Persisted as JSON
- * in SharedPreferences.
+ * checkout and webshop request bodies, so payloads can be tailored per instance. CredentialStore
+ * encrypts saved instances on supported devices; otherwise they remain in memory for the session.
  */
 final class ApiKeyEntry {
 

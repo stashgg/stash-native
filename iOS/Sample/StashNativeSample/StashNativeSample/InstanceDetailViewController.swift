@@ -102,8 +102,6 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
         }
     }
 
-    // Custom header matching the app's other screens (13pt semibold, secondary), rather than the
-    // default grouped header, whose size differs.
     override func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
         let title: String
         switch Section(rawValue: section) {
@@ -111,20 +109,7 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
         case .payloads: title = "TEST PAYLOADS"
         default: return nil
         }
-        let label = UILabel()
-        label.text = title
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
-        label.textColor = .secondaryLabel
-        label.translatesAutoresizingMaskIntoConstraints = false
-        let container = UIView()
-        container.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 18),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -6)
-        ])
-        return container
+        return SampleSectionHeaderView(title)
     }
 
     override func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat {

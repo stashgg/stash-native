@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 
 /**
- * Sends checkout lifecycle events from {@link StashNativeCardPortraitActivity} to
+ * Sends checkout lifecycle events from {@link StashCheckoutActivity} to
  * {@link StashNativeCardPlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
@@ -16,9 +16,9 @@ final class StashCheckoutBridge {
     Context app = context.getApplicationContext();
     Intent intent = new Intent(action);
     intent.setPackage(app.getPackageName());
-    if (context instanceof StashNativeCardPortraitActivity) {
+    if (context instanceof StashCheckoutActivity) {
       intent.putExtra(EXTRA_SESSION_ID,
-          ((StashNativeCardPortraitActivity) context).getPresentationSessionId());
+          ((StashCheckoutActivity) context).getPresentationSessionId());
     }
     return intent;
   }
@@ -38,12 +38,6 @@ final class StashCheckoutBridge {
     context.getApplicationContext().sendBroadcast(intent);
   }
 
-  static void emitOptIn(Context context, String optinType) {
-    Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_OPT_IN);
-    intent.putExtra(CardConstants.BROADCAST_EXTRA_OPTIN_TYPE, optinType != null ? optinType : "");
-    context.getApplicationContext().sendBroadcast(intent);
-  }
-
   static void emitNetworkError(Context context) {
     context.getApplicationContext().sendBroadcast(
         baseIntent(context, CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR));
@@ -57,6 +51,18 @@ final class StashCheckoutBridge {
   static void emitPageLoaded(Context context, long loadTimeMs) {
     Intent intent = baseIntent(context, CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
     intent.putExtra(CardConstants.BROADCAST_EXTRA_PAGE_LOAD_MS, loadTimeMs);
+    context.getApplicationContext().sendBroadcast(intent);
+  }
+
+  static void emitQrCodeScanned(Context context, String content) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_SCANNED);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT, content);
+    context.getApplicationContext().sendBroadcast(intent);
+  }
+
+  static void emitCodeLinkError(Context context, StashNativeCard.CodeLinkError error) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_ERROR);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR, error.name());
     context.getApplicationContext().sendBroadcast(intent);
   }
 }
