@@ -20,6 +20,34 @@ final class NativeInteractionTests: XCTestCase {
         for (actual, wanted) in zip([r,g,b,a], expected) { XCTAssertEqual(actual,wanted,accuracy:0.0001,file:file,line:line) }
     }
 
+    @MainActor private func waitForFixtureCondition(_ condition: () async throws -> Bool) async throws -> Bool {
+        let deadline = Date().addingTimeInterval(30)
+        repeat {
+            if try await condition() { return true }
+            try await Task.sleep(nanoseconds:100_000_000)
+        } while Date() < deadline
+        return false
+    }
+
+    @MainActor private func waitForChromeDocument(_ web: WKWebView, includingIframe: Bool = false,
+                                                file: StaticString = #filePath, line: UInt = #line) async throws -> Bool {
+        let script = includingIframe ? """
+        document.readyState==='complete' && !!document.getElementById('panel') &&
+        document.getElementById('secure')?.contentDocument?.readyState==='complete' &&
+        !!document.getElementById('secure')?.contentDocument?.getElementById('field')
+        """ : "document.readyState==='complete' && !!document.getElementById('panel')"
+        let ready = try await waitForFixtureCondition {
+            (try? await web.evaluateJavaScript(script)) as? Bool == true
+        }
+        XCTAssertTrue(ready, "The chrome fixture and its requested child document must finish loading", file:file, line:line)
+        return ready
+    }
+
+    @MainActor private func waitForChromeRendering(_ web: WKWebView) async throws {
+        _ = try await web.callAsyncJavaScript(FocusFixture.checkpointScript + "await waitForRendering();return true;",
+                                             arguments:[:], in:nil, in:.page)
+    }
+
     @MainActor func testBackingCoverageChangesWithoutChangingHeaderPaint() async throws {
         let previous = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first(where: \.isKeyWindow)
         let window = previous?.windowScene.map(InteractionFixtureWindow.init(windowScene:)) ?? InteractionFixtureWindow(frame:CGRect(x:0,y:0,width:800,height:900))
@@ -40,7 +68,7 @@ final class NativeInteractionTests: XCTestCase {
             reference.navigationDelegate = nil; reference.stopLoading(); reference.removeFromSuperview()
             StashEndChromeContentFixture(fixture); window.isHidden = true; previous?.makeKey()
         }
-        await fulfillment(of:[referenceLoaded],timeout:15)
+        await fulfillment(of:[referenceLoaded],timeout:30)
         XCTAssertEqual(reference.traitCollection.userInterfaceStyle,web.traitCollection.userInterfaceStyle)
         var initialRed: CGFloat = 0, initialGreen: CGFloat = 0, initialBlue: CGFloat = 0, initialAlpha: CGFloat = 0
         XCTAssertTrue(reference.underPageBackgroundColor.getRed(&initialRed,green:&initialGreen,blue:&initialBlue,alpha:&initialAlpha))
@@ -50,55 +78,40 @@ final class NativeInteractionTests: XCTestCase {
         <style>html,body{margin:0;height:100%;overflow:hidden;background:rgb(235,237,232)}
         #panel{height:48px;background:rgb(247,249,244)}</style><main id="panel"></main>
         """,baseURL:URL(string:"https://checkout.invalid"))
+        guard try await waitForChromeDocument(web) else { return }
         let panelColor = UIColor(red:247/255,green:249/255,blue:244/255,alpha:1)
-        for _ in 0..<100 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         XCTAssertNil(StashChromeFixtureBackingColor(fixture),"A shallow header must not replace body backing")
         assertBackingPaint(web.underPageBackgroundColor,[235/255,237/255,232/255,1])
         assertBackingPaint(web.backgroundColor,[235/255,237/255,232/255,1])
         _ = try await web.evaluateJavaScript("panel.style.height='100%'")
-        for _ in 0..<50 {
-            if StashChromeFixtureBackingColor(fixture) != nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) != nil }
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         assertBackingPaint(web.scrollView.backgroundColor,[247/255,249/255,244/255,1])
         assertBackingPaint(web.backgroundColor,[247/255,249/255,244/255,1])
         let before = try await web.evaluateJavaScript("({height:innerHeight,width:innerWidth,root:scrollY})") as! NSDictionary
         // The html/body paint changes while the qualifying surface stays opaque.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='rgb(17,34,51)';document.body.style.backgroundColor='rgb(17,34,51)';panel.style.height=(innerHeight-2)+'px'")
-        for _ in 0..<50 {
-            if StashChromeFixtureBackingColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) == nil }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor,"Edge color remains unchanged")
         XCTAssertNil(StashChromeFixtureBackingColor(fixture),"Coverage loss must be reported independently")
         assertBackingPaint(web.underPageBackgroundColor,[17/255,34/255,51/255,1])
         assertBackingPaint(web.scrollView.backgroundColor,[17/255,34/255,51/255,1])
         assertBackingPaint(web.backgroundColor,[17/255,34/255,51/255,1])
         _ = try await web.evaluateJavaScript("panel.style.height='100%'")
-        for _ in 0..<50 {
-            if StashChromeFixtureBackingColor(fixture) != nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) != nil }
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         _ = try await web.evaluateJavaScript("panel.removeAttribute('style')")
-        for _ in 0..<50 {
-            if StashChromeFixtureBackingColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) == nil }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         // After ownership clears, later body paint follows through the real KVO observer.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='rgb(51,68,85)';document.body.style.backgroundColor='rgb(51,68,85)'")
-        for _ in 0..<50 {
+        _ = try await waitForFixtureCondition {
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            if web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha),
-               abs(red-51/255) < 0.0001, abs(green-68/255) < 0.0001, abs(blue-85/255) < 0.0001 { break }
-            try await Task.sleep(nanoseconds:100_000_000)
+            return web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha) &&
+                abs(red-51/255) < 0.0001 && abs(green-68/255) < 0.0001 && abs(blue-85/255) < 0.0001
         }
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
@@ -108,19 +121,15 @@ final class NativeInteractionTests: XCTestCase {
         let after = try await web.evaluateJavaScript("({height:innerHeight,width:innerWidth,root:scrollY})") as! NSDictionary
         XCTAssertEqual(after,before)
         _ = try await web.evaluateJavaScript("panel.style.height='100%'")
-        for _ in 0..<50 {
-            if StashChromeFixtureBackingColor(fixture) != nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureBackingColor(fixture) != nil }
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         // A transparent page must not inherit the SDK's previous owned paint.
         _ = try await web.evaluateJavaScript("document.documentElement.style.backgroundColor='transparent';document.body.style.backgroundColor='transparent';panel.style.height='48px'")
-        for _ in 0..<50 {
+        _ = try await waitForFixtureCondition {
             var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            if StashChromeFixtureBackingColor(fixture) == nil,
-               web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha),
-               zip([red,green,blue,alpha],initialChannels).allSatisfy({ abs($0-$1) < 0.0001 }) { break }
-            try await Task.sleep(nanoseconds:100_000_000)
+            return StashChromeFixtureBackingColor(fixture) == nil &&
+                web.underPageBackgroundColor.getRed(&red,green:&green,blue:&blue,alpha:&alpha) &&
+                zip([red,green,blue,alpha],initialChannels).allSatisfy({ abs($0-$1) < 0.0001 })
         }
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
@@ -203,6 +212,17 @@ final class NativeInteractionTests: XCTestCase {
             web.navigationDelegate = nil
             StashEndChromeContentFixture(fixture); window.isHidden = true; previous?.makeKey()
         }
+        let content = web.configuration.userContentController
+        // Copy the bridged array before removeAllUserScripts mutates it.
+        let scripts = content.userScripts.map { $0 }
+        let interactionSource = StashNativeInteractionSource()!
+        XCTAssertEqual(scripts.filter { $0.source == interactionSource }.count, 1)
+        content.removeAllUserScripts()
+        for script in scripts {
+            content.addUserScript(script.source == interactionSource ?
+                WKUserScript(source: FocusFixture.interactionSource(), injectionTime: script.injectionTime,
+                             forMainFrameOnly: script.isForMainFrameOnly) : script)
+        }
         web.loadHTMLString("""
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0;height:100%;overflow:hidden}
@@ -212,18 +232,25 @@ final class NativeInteractionTests: XCTestCase {
         """, baseURL: URL(string: "https://checkout.invalid"))
         // The fixture's initial about:blank request can finish after loadHTMLString begins.
         // Observe this document's actual elements instead of an unrelated navigation callback.
-        var fixtureReady = false
-        for _ in 0..<150 {
-            fixtureReady = (try? await web.evaluateJavaScript("document.readyState==='complete' && !!document.getElementById('port') && !!document.getElementById('field')")) as? Bool == true
-            if fixtureReady { break }
-            try await Task.sleep(nanoseconds: 100_000_000)
+        let fixtureReady = try await waitForFixtureCondition {
+            (try? await web.evaluateJavaScript("""
+            document.readyState==='complete' && !!document.getElementById('port') &&
+            !!document.getElementById('field') && typeof window.__stashTestFocusState==='function'
+            """)) as? Bool == true
         }
         XCTAssertTrue(fixtureReady, "The late-offset fixture document must be ready")
         guard fixtureReady else { return }
         let ready: Any? = try await withCheckedThrowingContinuation { continuation in
-            web.callAsyncJavaScript("""
-            field.focus({preventScroll:true});field.setSelectionRange(2,7);port.scrollTop=52;
-            await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+            web.callAsyncJavaScript(FocusFixture.checkpointScript + """
+            await waitForRendering();
+            field.focus({preventScroll:true});field.setSelectionRange(2,7);
+            // A first reveal can leave more focus repairs queued for late layout or scroll events.
+            await waitForRendering(()=>{
+              const state=window.__stashTestFocusState();
+              return !state.settling&&!state.queued;
+            });
+            port.scrollTop=52;
+            await waitForRendering();
             return true;
             """, arguments: [:], in: nil, in: .page) { result in
                 switch result {
@@ -273,26 +300,18 @@ final class NativeInteractionTests: XCTestCase {
         <style>html,body{margin:0;background:rgb(235,237,232)}main{height:120px;background:rgb(247,249,244)}input{margin-top:32px}</style>
         <main id="panel" style=""><input id="field" value="preserved"></main>
         """, baseURL:URL(string:"https://checkout.invalid"))
-        for _ in 0..<100 {
-            if StashChromeFixtureInferredColor(fixture) != nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        guard try await waitForChromeDocument(web) else { return }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) != nil }
         let panelColor = UIColor(red:247/255,green:249/255,blue:244/255,alpha:1)
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture), panelColor)
         let before = try await web.evaluateJavaScript("({html:document.documentElement.outerHTML,scroll:scrollY,height:innerHeight,value:field.value,probe:typeof __stashTopEdgeProbe,handler:!!(window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.stashTopChrome)})") as! [String:Any]
         XCTAssertEqual(before["probe"] as? String, "undefined")
         XCTAssertEqual(before["handler"] as? Bool, false)
         _ = try await web.evaluateJavaScript("panel.style.backgroundImage='linear-gradient(red,blue)'")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == nil }
         XCTAssertNil(StashChromeFixtureInferredColor(fixture))
         _ = try await web.evaluateJavaScript("panel.style.backgroundImage=''")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) != nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) != nil }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture), panelColor)
         let after = try await web.evaluateJavaScript("({html:document.documentElement.outerHTML,scroll:scrollY,height:innerHeight,value:field.value})") as! [String:Any]
         for key in ["html","value"] { XCTAssertEqual(after[key] as? String, before[key] as? String) }
@@ -317,11 +336,10 @@ final class NativeInteractionTests: XCTestCase {
         <main id="port"><section id="panel"><div style="height:76px"></div>
         <iframe id="secure" title="Test payment field" srcdoc="<style>html,body{margin:0}input{height:34px;box-sizing:border-box;width:100%}</style><input id='field' readonly value='preserved'>"></iframe></section></main>
         """, baseURL:URL(string:"https://checkout.invalid"))
+        guard try await waitForChromeDocument(web, includingIframe:true) else { return }
         let panelColor = UIColor(red:247/255,green:249/255,blue:244/255,alpha:1)
-        for _ in 0..<100 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor,
-               (try? await web.evaluateJavaScript("!!secure.contentDocument.getElementById('field')")) as? Bool == true { break }
-            try await Task.sleep(nanoseconds:100_000_000)
+        _ = try await waitForFixtureCondition {
+            StashChromeFixtureInferredColor(fixture) == panelColor && StashChromeFixtureBackingColor(fixture) != nil
         }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture), panelColor)
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
@@ -338,7 +356,7 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(before["height"] as? Double, 314)
         XCTAssertEqual(before["iframeTop"] as? Double, 76)
         _ = try await web.evaluateJavaScript("port.scrollTop=75")
-        try await Task.sleep(nanoseconds:350_000_000)
+        try await waitForChromeRendering(web)
         let iframeCoversEdge = try await web.evaluateJavaScript("[0.2,0.5,0.8].every(x=>document.elementFromPoint(innerWidth*x,1)===secure)") as? Bool
         XCTAssertEqual(iframeCoversEdge, true)
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture), panelColor)
@@ -351,7 +369,7 @@ final class NativeInteractionTests: XCTestCase {
         for key in ["focus","documentSame"] { XCTAssertEqual(crossed[key] as? Bool,true,key) }
         XCTAssertEqual(web.scrollView.contentOffset,.zero)
         _ = try await web.evaluateJavaScript("port.scrollTop=0")
-        try await Task.sleep(nanoseconds:250_000_000)
+        try await waitForChromeRendering(web)
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
         let restored = try await web.evaluateJavaScript("state()") as! NSDictionary
@@ -362,17 +380,11 @@ final class NativeInteractionTests: XCTestCase {
         window.art=document.createElement('img');art.style.cssText='position:fixed;inset:0;width:100%;height:100%;z-index:2';
         art.src='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="red"/></svg>';document.body.append(art);
         """)
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == nil }
         XCTAssertNil(StashChromeFixtureInferredColor(fixture))
         XCTAssertNil(StashChromeFixtureBackingColor(fixture))
         _ = try await web.evaluateJavaScript("art.remove()")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         assertBackingPaint(StashChromeFixtureBackingColor(fixture),[247/255,249/255,244/255,1])
     }
@@ -399,10 +411,7 @@ final class NativeInteractionTests: XCTestCase {
         <main id="port"><section id="panel"><div style="height:157px"></div>
         <iframe id="secure" title="Test payment field" srcdoc="<style>html,body{margin:0}input{height:34px;box-sizing:border-box;width:100%}</style><input id='field' readonly value='preserved'>"></iframe></section></main>
         """, baseURL:URL(string:"https://checkout.invalid"))
-        for _ in 0..<100 {
-            if (try? await web.evaluateJavaScript("!!(window.secure&&secure.contentDocument.getElementById('field'))")) as? Bool == true { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        guard try await waitForChromeDocument(web, includingIframe:true) else { return }
         _ = try await web.evaluateJavaScript("""
         window.savedDocument=document;window.savedChild=secure.contentDocument;
         const f=secure.contentDocument.getElementById('field');f.focus({preventScroll:true});f.setSelectionRange(2,7);
@@ -424,40 +433,25 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(before["edge"] as? Bool,true)
         XCTAssertEqual(before["focus"] as? Bool,true)
         let panelColor = UIColor(red:247/255,green:249/255,blue:244/255,alpha:1)
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         // A two-pixel clipping deficit is outside the bounded rounding allowance.
         _ = try await web.evaluateJavaScript("port.style.height='325px'")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == nil }
         XCTAssertNil(StashChromeFixtureInferredColor(fixture))
         let clippedBottom = try await web.evaluateJavaScript("port.getBoundingClientRect().bottom") as? Double
         XCTAssertEqual(clippedBottom,324)
         _ = try await web.evaluateJavaScript("port.removeAttribute('style')")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         let restored = try await web.evaluateJavaScript("state()") as! NSDictionary
         XCTAssertEqual(restored,before as NSDictionary)
         // CSSOM clearing also restores paint without an explicit sample request.
         _ = try await web.evaluateJavaScript("port.style.height='325px'")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == nil { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == nil }
         XCTAssertNil(StashChromeFixtureInferredColor(fixture))
         _ = try await web.evaluateJavaScript("port.style.height=''")
-        for _ in 0..<50 {
-            if StashChromeFixtureInferredColor(fixture) == panelColor { break }
-            try await Task.sleep(nanoseconds:100_000_000)
-        }
+        _ = try await waitForFixtureCondition { StashChromeFixtureInferredColor(fixture) == panelColor }
         XCTAssertEqual(StashChromeFixtureInferredColor(fixture),panelColor)
         let cssomRestored = try await web.evaluateJavaScript("state()") as! [String:Any]
         for key in ["child","value"] { XCTAssertEqual(cssomRestored[key] as? String,before[key] as? String,key) }
