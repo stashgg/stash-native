@@ -78,6 +78,8 @@ Minimum iOS: **15.0**. Use **27.1** for iPhone Duo APIs and compatibility. The h
 
 Pass the activity or view controller belonging to the initiating app window. Set callbacks before opening. Pass a generated Stash Pay link to **openCard** to display a responsive card that adapts to phones, tablets, foldables, and multitasking states.
 
+![Stash Pay checkout card in dark mode on iPhone, unfolded iPhone Duo, and iPad](.github/assets/opencard-devices-dark.png)
+
 **Android**
 
 ```java
