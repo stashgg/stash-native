@@ -91,6 +91,17 @@ jobs:
       - name: Build minimal Java AAR consumers with R8
         run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease
 
+      - name: Upload Android test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results
+          path: |
+            Android/stashnative/build/test-results/
+            Android/sample/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   test-ios:
     name: Test iOS Library
     runs-on: ${{ inputs.ios-runner || 'macos-26' }}

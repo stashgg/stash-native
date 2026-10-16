@@ -49,10 +49,13 @@ public class RequestLifetimeTest {
     ActivityController<MainActivity> controller = null;
     ActivityController<Activity> replacement = null;
     ExecutorService networkExecutor = null;
+    Thread requestWorker = null;
     boolean destroyed = false;
     try (ServerSocket server = new ServerSocket(0)) {
       final Future<?> response = serverWorker.submit(() -> {
         try (Socket connection = server.accept()) {
+          // Serve one request; reject any reconnect after the client cancels it.
+          server.close();
           connection.setSoTimeout(5000);
           BufferedReader reader = new BufferedReader(new InputStreamReader(
               connection.getInputStream(), StandardCharsets.US_ASCII));
@@ -86,6 +89,7 @@ public class RequestLifetimeTest {
       Field executorField = MainActivity.class.getDeclaredField("networkExecutor");
       executorField.setAccessible(true);
       networkExecutor = (ExecutorService) executorField.get(activity);
+      requestWorker = networkExecutor.submit(() -> Thread.currentThread()).get(5, TimeUnit.SECONDS);
       MainViewModel model = new MainViewModel((Application) activity.getApplicationContext()) {
         @Override public String getApiBaseUrl() {
           return "http://127.0.0.1:" + server.getLocalPort();
@@ -108,8 +112,7 @@ public class RequestLifetimeTest {
       replacement = Robolectric.buildActivity(Activity.class).setup();
       respond.countDown();
       response.get(5, TimeUnit.SECONDS);
-      assertTrue("destroyed host request terminated",
-          networkExecutor.awaitTermination(5, TimeUnit.SECONDS));
+      assertTerminated(networkExecutor, requestWorker, "destroyed host request terminated");
       ShadowLooper.idleMainLooper();
       assertNull(Shadows.shadowOf(replacement.get()).getNextStartedActivity());
       assertFalse(StashNativeCard.getInstance().isCurrentlyPresented());
@@ -127,9 +130,29 @@ public class RequestLifetimeTest {
           serverWorker.awaitTermination(5, TimeUnit.SECONDS));
       if (networkExecutor != null && !networkExecutor.isTerminated()) {
         networkExecutor.shutdownNow();
-        assertTrue("request cleanup terminated",
-            networkExecutor.awaitTermination(5, TimeUnit.SECONDS));
+        assertTerminated(networkExecutor, requestWorker, "request cleanup terminated");
       }
     }
+  }
+
+  private static void assertTerminated(ExecutorService executor, Thread worker, String message)
+      throws InterruptedException {
+    if (executor.awaitTermination(5, TimeUnit.SECONDS)) {
+      return;
+    }
+    StringBuilder diagnostic = new StringBuilder(message)
+        .append("\nExecutor: ").append(executor)
+        .append("\nRequest worker: ").append(worker == null ? "not captured" : worker.getName())
+        .append("\nRuntime: ").append(System.getProperty("java.runtime.version"))
+        .append(" on ").append(System.getProperty("os.name"));
+    if (worker != null) {
+      diagnostic.append("\nThread id=").append(worker.getId())
+          .append(" state=").append(worker.getState())
+          .append(" interrupted=").append(worker.isInterrupted());
+      for (StackTraceElement frame : worker.getStackTrace()) {
+        diagnostic.append("\n  at ").append(frame);
+      }
+    }
+    fail(diagnostic.toString());
   }
 }
