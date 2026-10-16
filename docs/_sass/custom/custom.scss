@@ -1,0 +1,172 @@
+// Component styles from docs.stash.gg dark mode. Loaded after the theme.
+
+$stash-primary: #f7f9f4;
+$stash-muted: #999;
+$stash-surface: #141414;
+$stash-card: #0a0a0a;
+
+::selection {
+  background-color: rgba($stash-primary, 0.2);
+}
+
+// Header and search
+.main-header {
+  background-color: $sidebar-color;
+}
+
+@include mq(md) {
+  .search-input-wrap {
+    top: $sp-3;
+    bottom: $sp-3;
+    height: auto !important;
+    border: $border $border-color;
+    border-radius: 12px;
+  }
+
+  .search-input {
+    background-color: $search-background-color;
+    border-radius: 12px;
+  }
+}
+
+.search-input {
+  color: $body-heading-color;
+
+  &::placeholder {
+    color: $stash-muted;
+  }
+
+  &:focus {
+    outline: $border #595959;
+    outline-offset: -1px;
+  }
+}
+
+.search-results {
+  border: $border $border-color;
+  border-radius: 12px;
+}
+
+.search-result:hover,
+.search-result.active {
+  background-color: $stash-surface;
+}
+
+// Sidebar navigation: muted links, light pill for the current page
+.site-nav .nav-list .nav-list-item {
+  .nav-list-link {
+    color: $stash-muted;
+    border-radius: 8px;
+
+    &:hover {
+      color: $body-heading-color;
+      background-color: rgba($stash-primary, 0.06);
+      background-image: none;
+    }
+
+    &.active {
+      font-weight: 500;
+      color: $stash-primary;
+      background-color: rgba($stash-primary, 0.1);
+      background-image: none;
+    }
+  }
+
+  .nav-list-expander {
+    color: $stash-muted;
+    border-radius: 8px;
+
+    &:hover {
+      color: $body-heading-color;
+      background-color: rgba($stash-primary, 0.06);
+      background-image: none;
+    }
+  }
+}
+
+.site-title:hover,
+.site-button:hover {
+  background-image: none;
+}
+
+// Content links: white text, primary underline
+.main-content a:not([class]) {
+  font-weight: 500;
+  text-decoration-color: rgba($stash-primary, 0.5);
+  text-underline-offset: 3px;
+
+  &:hover {
+    text-decoration-color: $stash-primary;
+  }
+}
+
+// Inline code
+:not(pre, figure) > code {
+  padding: 0.15em 0.35em;
+  font-size: 0.8125em;
+  color: $body-heading-color;
+  background-color: $stash-surface;
+  border-color: $border-color;
+  border-radius: 5px;
+}
+
+// Code blocks and Mermaid diagrams as bordered cards
+div.highlighter-rouge,
+figure.highlight {
+  border-radius: 12px;
+}
+
+div.highlighter-rouge div.highlight,
+figure.highlight pre {
+  border-color: $border-color;
+  border-radius: 12px;
+}
+
+.highlight,
+pre.highlight,
+.highlight pre {
+  background: $stash-card;
+}
+
+// Block code at 13px; the page line height otherwise spaces lines like paragraphs.
+div.highlighter-rouge pre.highlight,
+figure.highlight pre {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+
+  > code {
+    font-size: 1em;
+  }
+}
+
+pre:has(> code.language-mermaid) {
+  padding: $sp-4;
+  margin-bottom: $sp-3;
+  overflow-x: auto;
+  text-align: center;
+  background-color: $stash-card;
+  border: $border $border-color;
+  border-radius: 12px;
+}
+
+code.language-mermaid {
+  display: block;
+}
+
+// Tables
+.table-wrapper {
+  border: $border $border-color;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+th,
+td {
+  border-bottom-color: $border-color;
+  border-left-color: $border-color;
+}
+
+thead th {
+  color: $body-heading-color;
+  background-color: $stash-surface;
+}

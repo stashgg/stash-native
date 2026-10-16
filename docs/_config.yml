@@ -19,6 +19,7 @@ kramdown:
   input: GFM
   hard_wrap: false
 
+color_scheme: stash
 search_enabled: true
 heading_anchors: true
 back_to_top: true
