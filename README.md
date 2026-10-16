@@ -87,17 +87,13 @@ Minimum iOS: **15.0**. Use **Xcode 27.1** for Duo APIs and full validation. The 
 
 ---
 
-## Presentation modes
-
-The library exposes **openCard** for embedded checkout and webshop URLs, **openBrowser** for Chrome Custom Tabs / Safari View Controller, and **CodeLink** for QR scanning.
+## Stash Pay Checkout Card
 
 Pass the activity or view controller belonging to the initiating app window. Set callbacks before opening. The SDK accepts one active presentation; rotating, folding, or resizing it preserves the live WebView and form state.
 
----
+### openCard
 
-## openCard
-
-Opens checkout and webshop URLs in a bottom sheet on phones or a compact centered card on larger windows. Sizing adapts to the window and keyboard.
+Pass a generated Stash Pay link to **openCard** to display a responsive card that adapts to phones, tablets, foldables, and multitasking states.
 
 **Android**
 
@@ -120,7 +116,9 @@ StashNativeCard.sharedInstance().openCard(
                                         config:nil];
 ```
 
-### Config
+#### Card Configuration
+
+We recommend the default sizing for Stash Pay. Only adjust it when explicitly needed.
 
 Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS. `null` / `nil` uses responsive defaults. Dimensions are **dp on Android** and **points on iOS**, and available window space always limits the requested size.
 
@@ -134,31 +132,9 @@ Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS. 
 | `allowDismiss` | `true` | Allows user dismissal by swipe, backdrop tap, or Android Back. Set to `false` to block these actions; page close and callbacks remain available. |
 | `autoClose` | `true` | Closes after payment success or failure. When `false`, callbacks still fire and the card stays open. |
 
-Override dimensions only when your checkout needs a different size:
+#### Forcing Portrait Orientation for Card
 
-**Android**
-
-```java
-StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
-config.preferredContentWidth = 360f;
-config.preferredContentHeight = 520f;
-StashNativeCard.getInstance().openCard(this, checkoutUrl, config);
-```
-
-**iOS (Swift)**
-
-```swift
-let config = StashNativeCardConfig()
-config.preferredContentWidth = 360
-config.preferredContentHeight = 520
-StashNativeCard.sharedInstance().openCard(withURL: checkoutURL, from: self, config: config)
-```
-
-Pages can provide an intrinsic height through `[data-stash-content]` or `window.stash_sdk.setContentHeight(heightInCssPixels)`. The card renders without either. `stash_sdk.expand()` and `stash_sdk.collapse()` select the card state. See [responsive presentation](docs/responsive-presentation.md) for content measurement and safe-area requirements. Native backgrounds follow the page and theme automatically.
-
-### Forcing Portrait Orientation
-
-Set `orientationPreference` when the host game is landscape but checkout should prefer portrait:
+For landscape games, set `orientationPreference` to request a portrait checkout card. The SDK makes a best-effort attempt, but portrait presentation may not work in every app or device state.
 
 ```java
 config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
@@ -168,13 +144,9 @@ config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
 config.orientationPreference = .portrait
 ```
 
-**Android:** Compact fullscreen checkout requests portrait through its own activity in the host app's process. Tablets and multi-window presentations follow the available window geometry.
+The SDK handles portrait presentation and restores the host orientation afterward, while tablets and restricted windows follow the available geometry.
 
-**iOS:** On iPhone, the SDK presents the same native card and WebView in its own UIKit window and scopes orientation overrides to that window, including in landscape-only games. The game controller keeps its orientation restrictions. The SDK restores the previous orientation before returning focus; an external-payment Safari handoff retains the portrait window until the browser closes. iPad ignores this preference.
-
-The default follows the host orientation. System windowing restrictions can limit rotation, so the card always fits the available space. The SDK owns orientation preparation and restoration. CodeLink always follows the host orientation.
-
-### Android landscape backdrop
+#### Landscape Backdrop (Android only)
 
 To mask rotation of a landscape game, supply a screenshot before opening a portrait card:
 
@@ -187,7 +159,7 @@ StashNativeCard.getInstance().openCard(this, checkoutUrl, config);
 
 The SDK uses the image once and recycles it; do not reuse the bitmap. Pass `null` to clear it. Tablets and multi-window cards ignore the backdrop.
 
-### Callbacks
+#### Callbacks
 
 Set a listener on Android or a delegate on iOS before opening a presentation. The same interface serves card, browser, and CodeLink events.
 
