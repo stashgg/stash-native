@@ -127,7 +127,16 @@ jobs:
           xcodebuild test \
             -scheme StashNative \
             -destination "platform=iOS Simulator,id=$SIM_ID" \
-            -quiet
+            -resultBundlePath "$RUNNER_TEMP/stash-ios-tests.xcresult"
+
+      - name: Upload iOS test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results-${{ inputs.xcode-version || '26.6' }}
+          path: ${{ runner.temp }}/stash-ios-tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
 
   lint-ios-library:
     name: Lint iOS Library (Clang Static Analyzer)
