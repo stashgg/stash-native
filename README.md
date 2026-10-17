@@ -127,7 +127,7 @@ config.orientationPreference = .portrait
 
 #### Landscape Backdrop (Android Only)
 
-On Android, a forced portrait card can cause visual inconsistencies in the app behind it while the screen rotates. To mask these rotation artifacts, pass a screenshot or another backdrop to `StashNative.setBackdropBitmap(bitmap)` or `setBackdropBytes(pngOrJpeg)` right before opening a portrait card. See [Android portrait backdrop](https://stashgg.github.io/stash-native/usage/checkout-card.html#android-portrait-backdrop).
+On Android, a forced portrait card can cause visual inconsistencies in the app behind it while the screen rotates. To mask these rotation artifacts, pass a screenshot or another backdrop to `StashNative.setBackdropBitmap(bitmap)` or `setBackdropBytes(pngOrJpeg)` right before opening a portrait card. See [Android portrait backdrop](https://stashgg.github.io/stash-native/usage/checkout-card.html#portrait-backdrop-android).
 
 #### WebView Debugging
 
@@ -243,7 +243,7 @@ A successful scan shows **Connected** before closing and does not emit a dismiss
 | Camera or Setup Error | `onCodeLinkError(error)` | `stashNativeCodeLinkDidEncounterError(_:)` | Camera or startup failure; most errors leave the scanner open. |
 | Scan Dismissed | `onScanDismissed()` | `stashNativeDidDismissScan()` | The user or app dismissed the scanner without a result. |
 
-Android `SCANNER_UNAVAILABLE` closes the scanner without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/codelink.html#errors).
+Android `SCANNER_UNAVAILABLE` closes the scanner without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/callbacks.html#errors).
 
 ### Register callbacks
 
@@ -284,7 +284,7 @@ extension YourViewController: StashNativeDelegate {
 For more detailed information, see the [Stash Native documentation](https://stashgg.github.io/stash-native/):
 
 - [Usage](https://stashgg.github.io/stash-native/usage/): installation, API, configuration, and callbacks
-- [Engine wrappers](https://stashgg.github.io/stash-native/usage/engine-wrappers.html): Unity, Unreal, and custom engine bindings
+- [Engine wrappers](https://stashgg.github.io/stash-native/architecture/engine-wrappers.html): Unity, Unreal, and custom engine bindings
 - [Platform Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
 - [Compatibility](https://stashgg.github.io/stash-native/architecture/compatibility.html): supported versions, version-specific behavior, and runtime techniques for app review
 

@@ -1,5 +1,5 @@
 # GitHub Pages: Settings > Pages > Build and deployment > Deploy from a branch > main, /docs.
-title: Stash Native
+title: Stash Native SDK Reference
 description: Technical documentation for the Stash Native iOS and Android SDKs.
 repository: stashgg/stash-native
 remote_theme: just-the-docs/just-the-docs@v0.12.0

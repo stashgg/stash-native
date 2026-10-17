@@ -1,11 +1,11 @@
 ---
-title: Engine wrappers
-parent: Usage
-nav_order: 6
+title: Engine Wrappers
+parent: Platform Architecture
+nav_order: 5
 description: Bind Stash Native to Unity, Unreal Engine, or another engine.
 ---
 
-# Engine wrappers
+# Engine Wrappers
 
 Unity and Unreal Engine games should use the official wrappers: [stash-unity](https://github.com/stashgg/stash-unity) and [stash-unreal](https://github.com/stashgg/stash-unreal). For another engine, write a small native glue file per platform that forwards calls to the SDK and events back to the engine.
 
@@ -93,7 +93,7 @@ Call `initialize()` before `openCard()` from the same engine thread so their mai
 | Unreal Engine | `FJavaWrapper::GameActivityThis` | JNI native method that calls `AsyncTask(ENamedThreads::GameThread, ...)` |
 
 - Implement every listener method in a concrete class. Dynamic proxies may skip default methods.
-- Declare the AAR's [dependencies](installation.md#aar) in an External Dependency Manager `*Dependencies.xml` file (Unity) or in UPL `<buildGradleAdditions>` (Unreal).
+- Declare the AAR's [dependencies](../usage/installation.md#android) in an External Dependency Manager `*Dependencies.xml` file (Unity) or in UPL `<buildGradleAdditions>` (Unreal).
 - Read JNI strings with `GetStringChars`. `GetStringUTFChars` returns Modified UTF-8, which differs for emoji in order payloads.
 
 ## iOS
@@ -185,4 +185,4 @@ Call `StashWrapperInitialize` before `StashWrapperOpenCard` from the same engine
 | Portrait backdrop, keep-alive service | Not available | Available |
 | Browser orientation, closing Safari with a result | Available | Not available |
 
-Both platforms select the current receiver for each event, including events from already-open flows. Replacement affects future events; clearing does not undo an executing callback or a wrapper's queued event. Reset tears down the card or scanner and SDK tracking silently, preserving registration. It closes Safari on iOS; Android cannot close an already-open Custom Tab or system browser. Payment events can repeat with `autoClose` off, and a payment callback is not a portable signal to open the next presentation. See [callback order](callbacks.md#order-of-events).
+Both platforms select the current receiver for each event, including events from already-open flows. Replacement affects future events; clearing does not undo an executing callback or a wrapper's queued event. Reset tears down the card or scanner and SDK tracking silently, preserving registration. It closes Safari on iOS; Android cannot close an already-open Custom Tab or system browser. Payment events can repeat with `autoClose` off, and a payment callback is not a portable signal to open the next presentation. See [callback order](../usage/callbacks.md#order-of-events).

@@ -1,21 +1,17 @@
 ---
-title: Browser
+title: In-Game Browser
 parent: Usage
 nav_order: 3
-description: Open Stash Pay checkout or webshop links in Safari View Controller or Chrome Custom Tabs, and return players through a deep link.
+description: Open Stash Pay checkout or webshop links in Safari View Controller or Chrome Custom Tabs without leaving the game.
 ---
 
-# Browser
+# In-Game Browser
 
-The browser opens Stash Pay checkout or pre-authenticated webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android). Players stay in your app, and the page has full browser features. Use it for your webshop, or when you prefer browser checkout over the [checkout card](checkout-card.md).
+The in-game browser opens Stash Pay checkout or webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android). Players stay in the game, and checkout brings them back with a deep link.
 
 ![Checkout in Safari View Controller on iPhone and Chrome Custom Tabs on Android](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/openbrowser-devices-dark.png)
 
-The browser cannot send payment events to the game. Checkout returns the result through your app's [deep link](#return-to-the-game) instead.
-
 ## Open the browser
-
-Register the [receiver](callbacks.md#set-the-receiver) on main before opening to receive the browser-dismissed event.
 
 ```swift
 StashNative.sharedInstance().openBrowser(withURL: url, from: self)
@@ -25,19 +21,19 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self)
 StashNative.getInstance().openBrowser(activity, url);
 ```
 
-On Android, add `androidx.browser` ([Installation](installation.md#aar)). Without it, the link opens in the system browser and the player leaves your app.
+On Android, Custom Tabs need `androidx.browser` from [Package Installation](installation.md#android). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari from code.
 
 ## Return to the game
 
-The checkout result page has a button that opens your app with a deep link. Set your app's URL scheme in Stash Studio under **Project Settings > General > App Deeplink Protocol**, without `://` (for example `mygame`). Checkout then sends:
+The browser does not report payments through callbacks. Checkout opens your app with a deep link instead. Set your app's URL scheme in Stash Studio under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
 
 | Deep link | Sent when |
 |---|---|
 | `mygame://stash-pay/success` | The purchase completed |
 | `mygame://stash-pay/failure` | The purchase failed |
-| `mygame://stash-pay/cancel` | The player left checkout without paying. Not every checkout layout sends it. |
+| `mygame://stash-pay/cancel` | The player left checkout without paying. Not every checkout sends it. |
 
-Register the scheme in your app. On iOS, add it to `CFBundleURLTypes`. On Android, match the `stash-pay` host as well as the scheme:
+Register the scheme in your app. On iOS, add it to `CFBundleURLTypes`. On Android, add an intent filter with the `stash-pay` host, and give its activity `android:launchMode="singleTask"` so the deep link returns to the running game:
 
 ```xml
 <intent-filter>
@@ -48,7 +44,7 @@ Register the scheme in your app. On iOS, add it to `CFBundleURLTypes`. On Androi
 </intent-filter>
 ```
 
-On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` closes it and reports the result through your [payment callbacks](callbacks.md):
+On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` also sends the payment result to your [callbacks](callbacks.md#in-game-browser):
 
 ```swift
 func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
@@ -61,19 +57,11 @@ func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
 }
 ```
 
-Android cannot close Custom Tabs from code. Give the activity that receives the deep link `android:launchMode="singleTask"`, as the sample app does, so the running game comes to the front instead of a second copy opening over the browser.
-
-As with the card, confirm every purchase on your backend before granting items.
-
-## Browser dismissed
-
-`stashNativeDidDismissBrowser()` (iOS) and `onBrowserDismissed()` (Android) fire when the browser closes, whether opened with `openBrowser` or through checkout's payment handoff. Use this event to resume the game. Android needs no `onActivityResult` forwarding.
-
-Safari Done, `closeBrowser()`, and `dismiss()` send only browser dismissed. `dismissSafariViewController(withResult:)` also sends the requested payment result.
+Confirm every purchase on your backend before granting items.
 
 ## Portrait Safari (iOS)
 
-Landscape games can show Safari in portrait on iPhone. The game returns to its orientation when Safari closes. iPad ignores the setting, and Custom Tabs on Android control their own orientation.
+On iPhone, a landscape game can show Safari in portrait. The game returns to its orientation when Safari closes. iPad ignores this setting.
 
 ```swift
 let config = StashNativeBrowserConfig()
@@ -83,7 +71,7 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: confi
 
 ## Keep-alive service (Android)
 
-On devices with little memory, Android can stop a backgrounded game while the player pays in the browser, and the player returns to a restarted game. The keep-alive service runs a short foreground service with a notification while the browser is open, which makes that less likely. It is off by default; we recommend enabling it.
+On low-memory devices, Android can stop the game while the player pays in the browser. The keep-alive service shows a notification while the browser is open, which makes this less likely. It is off by default; we recommend enabling it.
 
 ```java
 StashNative.KeepAliveConfig config = new StashNative.KeepAliveConfig();
@@ -94,4 +82,8 @@ StashNative.getInstance().setKeepAliveConfig(config);
 StashNative.getInstance().setKeepAliveEnabled(true);
 ```
 
-Set the notification text in the player's language. The service stops when the game returns to the foreground. The manifest entries it needs are already in the SDK.
+Write the notification text in the player's language.
+
+## Callbacks
+
+See [In-Game Browser callbacks](callbacks.md#in-game-browser) for the browser-dismissed event.

@@ -13,7 +13,7 @@ description: Supported versions, toolchains, version-specific behavior, and runt
 | Android SDK | API 21 | JDK 17, Gradle 8.5, AGP 8.1.1, compile SDK 34 |
 | Android host test fixture | API 21 | AGP 9.1.1, compile SDK 37, target SDK 36 and 37 |
 
-iPhone Duo layouts require the app itself to link against the iOS 27.1 SDK. Mac Catalyst is not supported. Dependencies: [Installation](../usage/installation.md).
+iPhone Duo layouts require the app itself to link against the iOS 27.1 SDK. Mac Catalyst is not supported. Dependencies: [Package Installation](../usage/installation.md).
 
 ## iOS versions
 

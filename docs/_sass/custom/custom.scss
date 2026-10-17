@@ -15,6 +15,13 @@ $stash-card: #0a0a0a;
 }
 
 @include mq(md) {
+  // Keeps the site title on one line in the narrow desktop sidebar.
+  .site-title {
+    padding-right: $sp-2;
+    font-size: 0.9375rem !important;
+    font-weight: 600;
+  }
+
   .search-input-wrap {
     top: $sp-3;
     bottom: $sp-3;
