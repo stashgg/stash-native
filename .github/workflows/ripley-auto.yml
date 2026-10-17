@@ -1,6 +1,6 @@
 name: Ripley (auto)
 
-# Automatic trigger for the ripley-delegate PR reviewer — the companion to the
+# Automatic trigger for the Ripley PR reviewer — the companion to the
 # on-demand /ripley:review comment workflow (ripley.yml). It fires on the
 # same PR lifecycle points Bugbot uses: a PR opened ready for review, a draft
 # promoted to ready, follow-up commits while ready, and a ready PR reopened.
@@ -41,7 +41,7 @@ jobs:
     # Shared group with the on-demand /ripley:review workflow (same ripley-<pr>
     # key) so a manual re-trigger and an auto run never review the same PR at
     # once. cancel-in-progress is false: the delegate detaches the review from
-    # the request (context.WithoutCancel) and keeps reviewing after the Actions
+    # the request and keeps reviewing after the Actions
     # HTTP client is cancelled, so cancelling a superseded run does NOT stop its
     # review — it just lets a stale-head verdict post after the newer one and
     # lets two same-head runs collide on the delegate's per-PR run directory.
@@ -50,8 +50,8 @@ jobs:
     concurrency:
       group: ripley-${{ github.event.pull_request.number }}
       # cancel-in-progress stays FALSE. Cancelling the job kills this workflow
-      # and its curl, but not the review: handleReview runs under
-      # context.WithoutCancel, so the delegate finishes and bills the superseded
+      # and its curl, but not the review: the review runs detached
+      # from the request, so the delegate finishes and bills the superseded
       # run anyway -- while a replacement starts beside it, breaking the one
       # review per PR this group exists to enforce. Flipping it costs tokens and
       # buys nothing until the delegate has a PR-keyed cancellation that

@@ -1,6 +1,6 @@
 name: Ripley (on-demand)
 
-# Thin on-demand dispatcher for the ripley-delegate — the companion to the
+# Thin on-demand dispatcher for the Ripley PR reviewer — the companion to the
 # automatic ripley-auto.yml. Comment a ripley verb on a pull request (repo
 # members only) and this workflow signs a request to the delegate service, which
 # does all the compute; Actions runs no agent and checks out no code.
@@ -12,20 +12,18 @@ name: Ripley (on-demand)
 # and nothing else; adding a verb is a line in the gate and a line in the case.
 #
 #   /ripley:review    ->  POST /ripley/review    read-only; posts findings + callout
-#   /ripley:fix       ->  POST /ripley/fix       commits the fixes onto THIS PR
 #
-# Both verbs optionally take a harness tier as `model:effort` after the
-# command — `/ripley:review gpt-5.6-sol:high`, `/ripley:fix sol:high` — buying
+# The verb optionally takes a harness tier as `model:effort` after the
+# command — `/ripley:review sol:high` — buying
 # one request a deeper model than the fleet runs by default. The tier applies to
 # that request alone — it is never persisted and never reaches the next run —
 # and because the tier is part of the review verdict cache's identity, asking
 # for one on an already-reviewed pull request re-reviews it rather than
 # replaying the cheaper model's verdict.
 #
-# Both act on the one pull request the comment was made on, and neither can
-# touch a rulebook: review reads, and fix refuses a RIPLEY.md change before it
-# commits. That is exactly the set RIPLEY_REVIEW_SECRET unlocks, which is why
-# one organization-held key signs both. Every verb that can author a rulebook —
+# Review acts on the one pull request the comment was made on, and cannot
+# touch a rulebook: it reads. That is exactly the set RIPLEY_REVIEW_SECRET
+# unlocks, which is why one organization-held key signs it. Every verb that can author a rulebook —
 # loosen and tighten, which open RIPLEY.md pull requests, and the repo-wide
 # init/update/validate — is NOT dispatchable from here: the delegate verifies
 # those against the key set this secret is excluded from, so a key every
@@ -72,7 +70,7 @@ jobs:
     # handled separately by ripley-auto.yml.
     #
     # startsWith makes this an over-inclusive PREFILTER: an Actions expression
-    # cannot require a word boundary, so "/ripley:fixture" passes here and is
+    # cannot require a word boundary, so "/ripley:reviewer" passes here and is
     # skipped (green, dispatching nothing) by the verb case in "Build request
     # body" — the authority on what actually dispatches. The gate and that case
     # are the two places a verb appears; the parity test pins their verb lists
@@ -80,9 +78,7 @@ jobs:
     if: >-
       github.event.issue.pull_request &&
       (startsWith(github.event.comment.body, '/ripley:review') ||
-      startsWith(github.event.comment.body, '/ripley review') ||
-      startsWith(github.event.comment.body, '/ripley:fix') ||
-      startsWith(github.event.comment.body, '/ripley fix')) &&
+      startsWith(github.event.comment.body, '/ripley review')) &&
       contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'),
       github.event.comment.author_association)
     timeout-minutes: 35
@@ -143,11 +139,9 @@ jobs:
           #
           # The gate above is an over-inclusive PREFILTER (an Actions expression
           # cannot express a boundary), so this case is the authority on what
-          # dispatches: "/ripley:fixture" or "/ripley fixed this locally" fall to
-          # the skip arm and sign nothing — with a GREEN run and no comment,
-          # because a near-miss is ordinary conversation, not a failure. That
-          # matters most for fix, which writes code: a command that merely
-          # prefixes another word must never invoke it.
+          # dispatches: "/ripley:reviewer" or "/ripley reviewed this locally" fall
+          # to the skip arm and sign nothing — with a GREEN run and no comment,
+          # because a near-miss is ordinary conversation, not a failure.
           first_line=${COMMENT_BODY%%$'\n'*}
           first_line=${first_line%$'\r'}
           verb=''
@@ -157,10 +151,6 @@ jobs:
             '/ripley:review'[[:space:]]*) verb=review; rest=${first_line#'/ripley:review'} ;;
             '/ripley review')             verb=review ;;
             '/ripley review'[[:space:]]*) verb=review; rest=${first_line#'/ripley review'} ;;
-            '/ripley:fix')                verb=fix ;;
-            '/ripley:fix'[[:space:]]*)    verb=fix; rest=${first_line#'/ripley:fix'} ;;
-            '/ripley fix')                verb=fix ;;
-            '/ripley fix'[[:space:]]*)    verb=fix; rest=${first_line#'/ripley fix'} ;;
             *)
               echo skip > outcome.txt
               echo "Comment starts with a ripley prefix but is not a ripley command; nothing dispatched."
@@ -172,7 +162,7 @@ jobs:
 
           # The rest of the first line is an optional per-request harness tier,
           # written as `model:effort` after the command — `/ripley:review
-          # gpt-5.6-sol:high`, or the aliased `/ripley:fix sol:high`. It buys one
+          # sol:high`. It buys one
           # request a deeper model than the fleet default without re-tiering
           # every repository, and is spent per request: nothing persists it.
           #
@@ -193,65 +183,36 @@ jobs:
             echo "Requesting harness tier: $tier"
           fi
 
-          # Two body shapes, because the verbs take different inputs and the
-          # delegate's request structs are the authority on which:
+          # The body carries what the delegate's review request takes:
           #
           #   review    {repo, pr_number, shadow, head_sha, ack_comment_id,
           #              requested_by, pr_author, event} (+ tier when asked)
-          #   fix       {repo, pr_number, head_sha, comment_id, ack_comment_id}
-          #             (+ tier when asked)
-          #
-          # No requested_by on the fix shape, deliberately: authorization is
-          # never a field this body asserts. The delegate resolves comment_id
-          # with its own credential, verifies it is a fix command on this pull
-          # request, and checks write authority against the author GitHub
-          # records — the member gate above proves membership, not write access,
-          # and a signed body could claim any login.
           #
           # Review takes its input from the pull request itself and ignores the
-          # comment beyond the fact that it was made. Fix acts on one comment, so
-          # it carries comment_id, but its input is the pull request's own
-          # unresolved threads and it reads no free text at all — sending a body
-          # it does not read would be a second instruction channel into a run
-          # that edits code.
+          # comment beyond the fact that it was made.
           #
           # Live run, so shadow is always false. ack_comment_id (>0) tells the
           # delegate which comment to react on. Numbers stay JSON numbers via
           # --argjson; the comment body goes through --arg so jq quotes it and no
-          # amount of punctuation in a comment can restructure the JSON. On the
-          # review shape, the tier key is OMITTED when none was asked for, so an
+          # amount of punctuation in a comment can restructure the JSON. The tier
+          # key is OMITTED when none was asked for, so an
           # ordinary /ripley:review signs byte-identical bytes to before it
           # existed, and the event is the constant `issue_comment`: this workflow
           # has exactly one trigger, and it is the only path on which a human
           # deliberately asks for a review, which is what the delegate reads it
           # to mean.
-          case "$verb" in
-            fix)
-              jq -cn \
-                --arg repo "$GITHUB_REPOSITORY" \
-                --arg head_sha "$HEAD_SHA" \
-                --arg tier "$tier" \
-                --argjson pr "$PR_NUMBER" \
-                --argjson ack "$COMMENT_ID" \
-                '{repo: $repo, pr_number: $pr, head_sha: $head_sha, comment_id: $ack, ack_comment_id: $ack}
-                 + (if $tier == "" then {} else {tier: $tier} end)' \
-                > body.json
-              ;;
-            *)
-              jq -cn \
-                --arg repo "$GITHUB_REPOSITORY" \
-                --arg head_sha "$HEAD_SHA" \
-                --arg tier "$tier" \
-                --arg requested_by "$REQUESTED_BY" \
-                --arg pr_author "$PR_AUTHOR" \
-                --argjson pr "$PR_NUMBER" \
-                --argjson ack "$COMMENT_ID" \
-                '{repo: $repo, pr_number: $pr, shadow: false, head_sha: $head_sha, ack_comment_id: $ack,
-                  requested_by: $requested_by, pr_author: $pr_author, event: "issue_comment"}
-                 + (if $tier == "" then {} else {tier: $tier} end)' \
-                > body.json
-              ;;
-          esac
+          jq -cn \
+            --arg repo "$GITHUB_REPOSITORY" \
+            --arg head_sha "$HEAD_SHA" \
+            --arg tier "$tier" \
+            --arg requested_by "$REQUESTED_BY" \
+            --arg pr_author "$PR_AUTHOR" \
+            --argjson pr "$PR_NUMBER" \
+            --argjson ack "$COMMENT_ID" \
+            '{repo: $repo, pr_number: $pr, shadow: false, head_sha: $head_sha, ack_comment_id: $ack,
+              requested_by: $requested_by, pr_author: $pr_author, event: "issue_comment"}
+             + (if $tier == "" then {} else {tier: $tier} end)' \
+            > body.json
 
       # Sign the exact bytes and POST them, re-signing on each attempt. This is the
       # only step that receives RIPLEY_REVIEW_SECRET — signing and sending are one
@@ -471,7 +432,7 @@ jobs:
           # which makes the property hold without auditing each field.
           outcome=$(cat outcome.txt 2>/dev/null || echo error)
 
-          # A near-miss comment ("/ripley:fixture") dispatched nothing and owes
+          # A near-miss comment ("/ripley:reviewer") dispatched nothing and owes
           # nothing: green run, no status, no comment.
           if [ "$outcome" = "skip" ]; then
             echo "Not a ripley command; nothing was dispatched."
