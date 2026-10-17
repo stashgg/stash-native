@@ -1,154 +1,66 @@
 ---
-title: JavaScript bridge
-parent: Platform Architecture
+title: JavaScript Bridge
+parent: Package Architecture
 nav_order: 3
 description: Internal window.stash_sdk contract between the SDK and Stash checkout pages.
 ---
 
-# JavaScript bridge
+# JavaScript Bridge
 
-`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. Checkout cards inject it into the top-level page; browser and CodeLink presentations do not. Integrators never call it. Calls from frames other than the top document are ignored: iOS drops sub-frame messages, and the Android bridge script binds its calls to a per-document token that only the top document holds.
+`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. The checkout card injects it into the top-level page; the in-game browser and QR scanner do not. Integrators never call it. Calls from other frames are ignored.
 
 Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
-
-On Android the object can appear after early inline scripts run. Look it up when you call it:
-
-```javascript
-window.stash_sdk?.onPurchaseProcessing();
-```
 
 ## Methods
 
 | Method | Effect |
 |---|---|
-| `onPaymentSuccess(order?)` | Sends the payment success callback. Closes the card when `autoClose` is on. |
-| `onPaymentFailure()` | Sends the payment failure callback. Closes the card when `autoClose` is on. |
-| `onPurchaseProcessing()` | Blocks closing by the user or the page and hides the drag handle |
+| `onPaymentSuccess(order?)` | Payment success callback. Closes the card when `autoClose` is on. |
+| `onPaymentFailure()` | Payment failure callback. Closes the card when `autoClose` is on. |
+| `onPurchaseProcessing()` | Blocks closing the card and hides the drag handle |
 | `onProcessingCompleted()` | Removes the block |
-| `expand()`, `collapse()` | Selects the expanded or resting card state |
-| `setContentHeight(px)` | Reports the content height so the resting card can shrink |
-| `openExternalBrowser(url)` | Closes the card and opens the URL in Safari View Controller or Custom Tabs |
-| `openLink(url)` | Opens the URL outside the app. The card stays open. |
+| `expand()`, `collapse()` | Selects the expanded or resting card height |
+| `setContentHeight(px)` | Reports the content height in CSS pixels, so the resting card can shrink |
+| `openExternalBrowser(url)` | External payment callback, then closes the card and opens the in-game browser |
+| `openLink(url)` | Opens a URL outside the app without callbacks; the card stays open |
 | `triggerHaptic()` | Plays a success haptic |
 | `getTelemetry()` | Resolves to device, app, card, and timing data |
-| `window.close()` | Closes the card, except during purchase processing |
+| `window.close()` | Closes the card, except during processing |
 
-Android ignores failed bridge calls. On iOS they throw.
+On Android, the object can appear after early inline scripts run, so look it up at call time: `window.stash_sdk?.onPurchaseProcessing()`. Failed calls are ignored on Android and throw on iOS.
 
 ## Payment
 
 ```javascript
 stash_sdk.onPurchaseProcessing();
 try {
-  const order = await submitPayment();
-  stash_sdk.onPaymentSuccess(order);
+  stash_sdk.onPaymentSuccess(await submitPayment());
 } catch (error) {
-  stash_sdk.onProcessingCompleted(); // the user can edit and retry
+  stash_sdk.onProcessingCompleted(); // the player can retry
 }
 ```
 
-Strings reach the host unchanged; other values arrive as `JSON.stringify` output. No argument arrives as `nil` or `null`. `onPaymentFailure` ignores its arguments.
-
-With `autoClose` off, payment events can repeat and leave the card open. On iOS the payment callback runs before teardown, so it cannot be used to open the next presentation. See [callback order](usage/callbacks.md#order-of-events).
-
-## Links
-
-```javascript
-stash_sdk.openExternalBrowser('https://pay.example.com/session/123'); // payment handoff
-stash_sdk.openLink('https://stash.gg/terms');                         // terms or help
-```
-
-Both accept `http` and `https` URLs only. `openExternalBrowser` adds the `theme` parameter, sends the external payment callback, closes the card, and opens the browser. `openLink` opens Safari or the app that claims the link (iOS), or Custom Tabs (Android), and sends no callbacks.
-
-After `openExternalBrowser`, browser closure sends `stashNativeDidDismissBrowser()` (iOS) or `onBrowserDismissed()` (Android), as with `openBrowser`. It sends no card-dismissed callback. The JavaScript method names stay the same.
-
-## Telemetry
-
-```javascript
-const t = await stash_sdk.getTelemetry();
-console.log(t.hardware.model, t.presentation.state, t.timing.pageLoadTimeMs);
-```
-
-```json
-{
-  "schemaVersion": 1,
-  "platform": "ios",
-  "hardware": { "manufacturer": "Apple", "model": "iPhone18,2", "memoryBytes": 8589934592 },
-  "os": { "version": "26.0", "apiLevel": null },
-  "app": { "id": "com.example.game", "version": "2.4.0", "build": "42", "targetSdkVersion": null },
-  "runtime": { "sdkVersion": "3.0.0", "webViewEngine": "webkit", "webViewPackage": null, "webViewVersion": null },
-  "presentation": {
-    "state": "resting", "keyboardVisible": false,
-    "orientationPreference": "followHost", "portraitApplied": false,
-    "window": { "width": 402, "height": 874 }, "card": { "width": 386, "height": 560 },
-    "safeAreaInsets": { "top": 62, "right": 0, "bottom": 34, "left": 0 },
-    "multiWindow": null, "fold": { "state": null, "orientation": null, "separating": null }
-  },
-  "power": { "lowPowerMode": false, "thermalState": "nominal" },
-  "timing": { "firstCallAt": 1791540001200, "pageLoadStartedAt": 1791540000000, "pageLoadedAt": 1791540001000, "pageLoadTimeMs": 1000 }
-}
-```
-
-- Every key is always present. Values a platform cannot provide are `null`.
-- Sizes are points (iOS) or dp (Android). Timestamps are Unix milliseconds.
-- A full navigation resets the `pageLoad*` fields.
-- Android rejects calls made before the page commits and times out after 10 s.
-- Telemetry needs no permissions, contains no device identifiers, and is not uploaded.
-
-## Haptics
-
-```javascript
-stash_sdk.triggerHaptic();
-```
-
-iOS plays a success notification haptic. Android plays `CONFIRM` (API 30+) or `VIRTUAL_KEY`. Nothing plays while the card is hidden or haptics are off.
+Strings reach the game unchanged; other values arrive as JSON. With `autoClose` off, payment events can repeat and the card stays open. `openExternalBrowser` and `openLink` accept `http` and `https` URLs only.
 
 ## Navigation
 
 | URL | Result |
 |---|---|
-| Non-web scheme containing `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel`, for example `mygame://stash-pay/success` | Same as `onPaymentSuccess()`, `onPaymentFailure()`, or `window.close()` |
-| Any other non-web scheme | Opened by the OS. The card stays open. |
-| Android `intent://` | Launched as a browsable intent. Falls back to `browser_fallback_url`, then the Play Store. |
-| iOS link tapped by the user | Opens in an app that claims it as a universal link. Otherwise it loads in the card. |
-| `target="_blank"` or `window.open(url)` | Opened outside the app, like `openLink`. On Android, `stash-pay` paths in new windows are not treated as results. |
+| Non-web scheme with `stash-pay/success`, `stash-pay/failure`, or `stash-pay/cancel`, such as `mygame://stash-pay/success` | Same as `onPaymentSuccess()`, `onPaymentFailure()`, or `window.close()` |
+| Other non-web schemes | Opened by the OS; the card stays open |
+| `target="_blank"` or `window.open(url)` | Opened outside the app, like `openLink`. Android does not treat `stash-pay` URLs in new windows as results. |
 
 ## Page environment
 
-- The viewport is fixed to `width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover`.
-- Text selection and context menus work only in form fields.
 - The URL carries `theme=light` or `theme=dark`.
-- On `checkout.stash.gg` and `checkout.stashstaging.com`, the loading cover stays until `data-color-scheme` matches `theme` and no `.animate-skeletonOpacityFluctuation` element is visible, for at most 15 s.
+- The viewport is fixed at device width, without zoom.
+- The WebView draws behind the home indicator and navigation bar; pad the bottom with `env(safe-area-inset-bottom)`.
+- On Stash checkout hosts, the loading cover stays until the page's `data-color-scheme` matches `theme` and no loading skeleton is visible, for at most 15 seconds.
 
-## Safe area
+## Telemetry
 
-The WebView draws behind the home indicator (iOS) and the navigation bar (Android). Pad the bottom of the page:
-
-```css
-.checkout { padding-bottom: env(safe-area-inset-bottom, 0px); }
-```
-
-Android WebView supports `env()` safe areas from [Chromium M144](https://developer.android.com/develop/ui/views/layout/webapps/understand-window-insets). Keep a fixed padding for older versions.
+`getTelemetry()` resolves to an object with `schemaVersion`, `platform`, `hardware`, `os`, `app`, `runtime`, `presentation`, `power`, and `timing`. Every key is present, and values a platform cannot provide are `null`. Sizes are in points or dp; timestamps are Unix milliseconds. Telemetry needs no permissions, holds no device identifiers, and is never uploaded.
 
 ## Content sizing
 
-Optional. The resting card shrinks to short content when the page marks its wrapper or reports a height.
-
-```html
-<main data-stash-content><!-- checkout --></main>
-```
-
-```javascript
-new ResizeObserver(() => {
-  stash_sdk.setContentHeight(content.getBoundingClientRect().height);
-}).observe(content);
-```
-
-The SDK measures `[data-stash-content]` only when all of these hold:
-
-- Neither the element nor an ancestor is `position: fixed`, `sticky`, or `absolute`.
-- The element does not grow as a flex item.
-- No rule sets its or an ancestor's height in `%`, viewport units, or `var()`. `html, body { height: 100% }` counts.
-- Every stylesheet on the page is readable. Cross-origin CSS without CORS disqualifies the wrapper.
-
-`setContentHeight` takes CSS pixels at the current viewport width and ignores calls made before the page commits.
+The resting card can shrink to short content. Mark the content wrapper with `data-stash-content`, or report its height with `setContentHeight(px)`. The SDK measures the wrapper only when its height does not depend on the viewport: no fixed, sticky, or absolute positioning, no flex growth, no `%`, viewport-unit, or `var()` heights on it or its ancestors, and only readable stylesheets.

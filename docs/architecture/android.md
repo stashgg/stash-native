@@ -1,124 +1,56 @@
 ---
 title: Android
-parent: Platform Architecture
+parent: Package Architecture
 nav_order: 2
-description: Android SDK internals. Plugin and activity split, events, layout, WebView, browser tracking, and CodeLink.
+description: How the Android package works. Plugin and activity, layout, WebView, browser, and QR scanner.
 ---
 
 # Android
 
-A Java library for API 21+, package `com.stash.stashnative`, compiled against SDK 34 with Java 8 source compatibility. Source: [`Android/stashnative`](https://github.com/stashgg/stash-native/tree/main/Android/stashnative).
+A Java library for API 21 and later, package `com.stash.stashnative`. Source: [`Android/stashnative`](https://github.com/stashgg/stash-native/tree/main/Android/stashnative).
 
-## Source map
+## Structure
+
+```mermaid
+flowchart TB
+    Game[Game activity] -->|open| Plugin[StashNativePlugin]
+    Plugin -->|starts| Activity[StashCheckoutActivity]
+    Activity -->|in-app broadcast| Plugin
+    Plugin -->|listener| Game
+```
+
+`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCheckoutActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID, so events from an old session are dropped.
 
 | Class | Responsibility |
 |---|---|
 | `StashNative` | Public API |
-| `StashNativePlugin` | Session IDs, listener dispatch, browser launch and close tracking, keep-alive, backdrop |
-| `StashCheckoutActivity` | Non-exported activity hosting one card or scanner |
-| `StashPresentationController` | Insets, keyboard, folds, layout, animation, gestures |
-| `StashCheckoutSizing` | Sizing math and pane selection around hinges |
-| `StashCheckoutWebViewSupport`, `StashCheckoutWebViewClient` | WebView setup, navigation callbacks, load errors, renderer loss |
-| `StashCheckoutNavigationSupport` | Deep links, `intent://`, new windows |
-| `StashCheckoutLoadingSupport`, `StashContentRevealSupport` | Retry and deadline timers, loading cover |
-| `StashCheckoutJsInterface`, `StashWebViewUtils` | `StashAndroid` bridge, bridge script, URL validation |
-| `StashContentSizeSupport`, `StashTelemetrySupport` | Content measurement, `getTelemetry()` |
-| `StashCheckoutBridge` | Broadcasts from the activity to the plugin |
-| `StashUrlLauncher`, `StashNativeBrowserProxyActivity`, `StashCustomTabsEngagement` | Custom Tabs and close detection |
-| `StashKeepAliveService` | Foreground service during browser sessions |
-| `StashCodeLinkSession`, `StashCodeLinkSupport` | Scanner isolation and CameraX binding |
-
-`StashNativePlugin` is public in Java but internal to the SDK.
-
-## Events
-
-```mermaid
-flowchart TB
-    Host[Host activity] -->|openCard| Plugin[StashNativePlugin]
-    Plugin -->|startActivity with session ID| Checkout[StashCheckoutActivity]
-    Checkout --> WebView
-    WebView -->|StashAndroid| JsInterface[StashCheckoutJsInterface]
-    JsInterface -->|UI thread| Checkout
-    Checkout -->|package-local broadcast| Receiver[Bridge receiver]
-    Receiver -->|main thread, session check| Plugin
-    Plugin -->|listener| Host
-```
-
-- Every accepted open gets a new session ID. Events with an old ID are dropped.
-- Card and scanner dismissals have separate callbacks. Browser closure sends browser dismissed for both `openBrowser` and checkout's payment handoff.
-- The plugin holds one strong listener registration, exposed through the facade. Each event snapshots the current listener, so replacement affects future events from open flows. Register, read, replace, and clear it on main; open calls may come from any thread and dispatch to main.
-- Broadcasts stay in the app package. The receiver is not exported on API 33+ and needs a signature permission on API 21 to 32.
-- Checkout runs in the host process. A separate process breaks the WebView data directory and host `Application` classes.
-
-## Activity
-
-| Attribute | Value | Effect |
-|---|---|---|
-| `exported` | `false` | Only the host app can start it |
-| `configChanges` | Orientation, size, layout, keyboard, UI mode, density, font scale | Rotation, folding, and multi-window resize in place |
-| `screenOrientation` | `behind` | Follows the host unless portrait is requested |
-| `windowSoftInputMode` | `adjustResize` | The keyboard resizes the layout |
-
-- Portrait is requested only for compact fullscreen windows (`smallestScreenWidthDp < 600`, not multi-window).
-- Back counts as user dismissal and respects `allowDismiss` and the processing lock.
-- The activity never restores from saved state, so a checkout request is never replayed.
+| `StashNativePlugin` | Session, listener, browser, keep-alive, backdrop |
+| `StashCheckoutActivity` | Hosts one card or scanner |
+| `StashPresentationController` | Layout, insets, keyboard, folds, gestures |
+| `StashCheckoutWebViewSupport` | WebView setup, loading, errors |
+| `StashCheckoutJsInterface` | `StashAndroid` bridge |
+| `StashNativeBrowserProxyActivity` | Custom Tabs launch and close detection |
+| `StashCodeLinkSession` | QR scanner |
 
 ## Layout
 
-- Folds come from WindowManager's `WindowInfoTracker`. A separating fold splits the window; the card uses the larger pane.
-- Panes narrower than 600 dp get a full-width card at the bottom. Wider panes get a centered card.
-- Bottom cards draw behind the navigation bar. The WebView gets only that bottom inset.
-- The card is a rounded, clipped view. API 21 and 22 use a hardware layer to clip the WebView.
-- Height animations relayout the WebView every frame. This keeps the viewport correct; replacing it needs measurements.
-
-## Gestures
-
-| Input | Behavior |
-|---|---|
-| Handle tap | Toggles resting and expanded |
-| Handle drag | Resizes. With `allowDismiss`, a drag over 100 dp, or 20 dp with a fast fling, dismisses. |
-| Upward drag on a resting bottom card | Expands it |
-| Downward drag on content | Scrolls the page |
-| Second finger, resize, processing | Cancels the drag |
+- Rotation, folding, and multi-window changes resize the activity in place.
+- A separating fold splits the window; the card uses the larger pane.
+- Panes narrower than 600 dp get a full-width card at the bottom, drawn behind the navigation bar. Wider panes get a centered card.
+- Portrait is requested only in compact fullscreen windows. Back counts as a player dismissal.
 
 ## WebView
 
-| Item | Value |
-|---|---|
-| Bridge | `JS_SDK_SCRIPT` on page started, commit visible (API 29+), and page finished |
-| Enabled | JavaScript, DOM storage, third-party cookies, multiple windows (to route new windows outside) |
-| Disabled | File and content access, zoom, algorithmic darkening |
-| First load | Waits for final card size so old WebViews keep the right scale |
-| Teardown | Removes `StashAndroid`, destroys the WebView, flushes cookies |
-
-URLs containing `klarna`, `paypal`, or `stripe` show a native Home button that reloads the checkout.
+- The bridge script is injected as each page starts and accepts calls from the top document only.
+- File access, zoom, and algorithmic darkening are off.
+- The first load waits for the final card size, so older WebViews render at the right scale.
 
 ## Browser
 
-```mermaid
-sequenceDiagram
-    participant Plugin as StashNativePlugin
-    participant Proxy as StashNativeBrowserProxyActivity
-    participant Tab as Custom Tab
+- Custom Tabs open through an internal proxy activity that detects when the tab closes. The game does not forward `onActivityResult`.
+- Without `androidx.browser`, links open with `ACTION_VIEW`, and browser dismissed fires when the launching activity resumes.
+- The optional keep-alive service is a short foreground service that stops when the game resumes.
 
-    Plugin->>Proxy: startActivity(url)
-    Proxy->>Tab: startActivityForResult
-    Tab-->>Proxy: Result or engagement signal
-    Proxy-->>Plugin: Browser closed
-    Plugin-->>Plugin: onBrowserDismissed()
-```
+## QR scanner
 
-- Custom Tabs load through reflection. A missing or old `androidx.browser` falls back to `ACTION_VIEW`.
-- With `ACTION_VIEW`, browser dismissed fires after the launching activity stays resumed for 500 ms: the host after `openBrowser`, the checkout activity after a checkout handoff (the host stays paused beneath the translucent checkout).
-- The keep-alive service uses the `shortService` foreground type and stops on timeout or when the host resumes.
-
-## CodeLink
-
-- Runs in the same activity and card as checkout, following the host orientation.
-- The scanner class loads through reflection. A missing CameraX or ZXing closes CodeLink and reports `SCANNER_UNAVAILABLE` after teardown, without a dismissal event. `CAMERA_CONFIGURATION_FAILED` leaves the scanner open.
-- It binds only its own CameraX use cases and never calls `unbindAll`.
-- ZXing decodes the scan frame region locally. No Play Services.
-
-## Dependency scopes
-
-Core and WebKit are `api`. WindowManager is `implementation`. Browser, CameraX, and ZXing are `compileOnly`. The AAR ships R8 rules for the public API, bridge methods, and reflection entry points.
+The scanner runs in the same activity and card as checkout. CameraX and ZXing load through reflection; without them, the scanner closes with `SCANNER_UNAVAILABLE`. Decoding runs on the device.

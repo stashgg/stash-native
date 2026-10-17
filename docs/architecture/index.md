@@ -1,146 +1,70 @@
 ---
-title: Platform Architecture
+title: Package Architecture
 nav_order: 3
 has_children: true
-description: Components, session lifecycle, sizing, and loading shared by the iOS and Android SDKs.
+description: How the Stash Native iOS and Android packages work, at a glance.
 ---
 
-# Platform Architecture
+# Package Architecture
 
-Both SDKs follow one design. A singleton facade admits one presentation session at a time. The session hosts a WebView or camera in a native card and turns `window.stash_sdk` messages into host callbacks. Platform details: [iOS](ios.md), [Android](android.md), [JavaScript bridge](../stash-sdk-js.md), [Compatibility](compatibility.md).
+Both packages share one design. The `StashNative` singleton runs one presentation at a time: checkout or the QR scanner in a native card, or a page in the in-game browser. Checkout pages talk to the SDK through the internal [JavaScript Bridge](../stash-sdk-js.md), and the SDK reports events to the game as [callbacks](../usage/callbacks.md).
 
 ## Components
 
 ```mermaid
 flowchart TB
-    App[Host app or game]
-    Page[Checkout page]
-
-    subgraph SDK [Stash Native SDK]
-        Facade[StashNative facade]
-        Session[Presentation session]
-        Surface[Native card]
-        Web[WebView with injected scripts]
-        Camera[CodeLink camera]
-        Browser[Platform browser]
-    end
-
-    App -->|open, dismiss, reset| Facade
-    Facade -->|admits one| Session
-    Session --> Surface
-    Surface --> Web
-    Surface --> Camera
-    Session --> Browser
-    Web <-->|window.stash_sdk| Page
-    Session -->|callbacks| App
+    Game[Game] -->|open| SDK[StashNative]
+    SDK -->|callbacks| Game
+    SDK --> Browser[In-game browser]
+    SDK --> Card[Native card]
+    Card --> Scanner[QR scanner]
+    Card --> Web[Checkout WebView]
+    Web -->|bridge events| SDK
 ```
 
-| Layer | iOS | Android |
+| Part | iOS | Android |
 |---|---|---|
-| Facade | `StashNative` | `StashNative`, `StashNativePlugin` |
-| Session | `StashCheckoutSession` | Session ID in `StashNativePlugin`, `StashCheckoutActivity` |
-| Card | `StashCheckoutViewController` in a `UISheetPresentationController` | `StashCheckoutActivity`, `StashPresentationController` |
-| Web content | `WKWebView` with script message handlers | `WebView` with the `StashAndroid` JavaScript interface |
-| Browser | `SFSafariViewController` | Custom Tabs through `StashNativeBrowserProxyActivity`, or `ACTION_VIEW` |
-| CodeLink | AVFoundation | CameraX and ZXing |
+| Facade | `StashNative` | `StashNative` and `StashNativePlugin` |
+| Native card | Sheet from `UISheetPresentationController` | `StashCheckoutActivity` |
+| Checkout | `WKWebView` | `WebView` |
+| In-game browser | `SFSafariViewController` | Chrome Custom Tabs |
+| QR scanner | AVFoundation | CameraX and ZXing |
 
 ## Session lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Loading: open accepted
-    Loading --> Ready: page ready, or 15 s cap
-    Loading --> Closing: network error or dismissal
-    Ready --> Processing: onPurchaseProcessing
-    Processing --> Ready: onProcessingCompleted
-    Ready --> Closing: payment result with autoClose
-    Processing --> Closing: payment result with autoClose
-    Ready --> Closing: user, page, or native dismissal
-    Processing --> Closing: native dismiss()
-    Ready --> Handoff: openExternalBrowser
-    Handoff --> Closing: browser closed
-    Closing --> [*]: callbacks delivered
+    [*] --> Checkout: open
+    Checkout --> Processing: payment starts
+    Processing --> Closed: payment result
+    Checkout --> Browser: external payment
+    Browser --> Closed: browser closed
+    Checkout --> Closed: dismissed or network error
+    Closed --> [*]
 ```
 
-`resetPresentationState()` ends a session in any state without callbacks and preserves receiver registration. During processing only native `dismiss()` can close the card. Payment events may repeat while `autoClose` is off. Callback timing differs by platform; iOS sends payment results before teardown.
-
-## Opening a checkout card
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant App as Host app
-    participant Facade as StashNative
-    participant Session
-    participant Web as WebView
-    participant Page as Checkout page
-
-    App->>Facade: openCard(url, presenter, config)
-    Facade->>Facade: Validate URL, copy config
-    Facade->>Session: Create on main thread
-    Session->>Web: Present card, inject bridge, load url with theme
-    Web->>Page: Load document
-    Page-->>Session: Document committed
-    Session-->>App: Page loaded (ms)
-    Page->>Session: onPurchaseProcessing()
-    Page->>Session: onPaymentSuccess(order)
-    Session-->>App: Payment success(order)
-    Session->>Session: Close card (autoClose)
-```
-
-## External payment
-
-```mermaid
-sequenceDiagram
-    participant App as Host app
-    participant Session
-    participant Page as Checkout page
-    participant Browser as Safari or Custom Tabs
-
-    Page->>Session: openExternalBrowser(url)
-    Session-->>App: External payment(url)
-    Session->>Session: Close card, no dismissal callback
-    Session->>Browser: Open url with theme
-    Browser-->>Session: User closes browser
-    Session-->>App: Browser dismissed
-```
+- Opening a card or scanner while one is active does nothing.
+- Players cannot close the card while a payment is processing.
+- `resetPresentationState()` ends a session in any state without callbacks.
 
 ## Sizing
 
-Card size comes from the window, never from the device type. A region narrower than 600 points or dp is narrow.
+- The card sizes itself from the current window, not the device type.
+- In regions narrower than 600 points or dp, the card uses the full width. Wider regions use up to `preferredContentWidth`.
+- The card opens at `preferredContentHeight`, or shorter for short pages, and expands up to `maximumContentHeight`.
+- Rotation, folding, window resizing, and the keyboard keep the same WebView and page state.
 
-| Value | Rule |
-|---|---|
-| Available region | Window minus safe area, docked keyboard, and separating folds |
-| Margin | `min(edgeMargin, shorter region side / 4)` |
-| Width | Narrow: region width. Otherwise `min(preferredContentWidth, region width - 2 * margin)`. |
-| Expanded height | Region height minus margins, capped by `maximumContentHeight` when it is above 0 |
-| Resting height | `min(preferredContentHeight, expanded height, reported content height)` |
-| Placement | Android: bottom-attached when narrow, centered otherwise. iOS: UIKit attaches the sheet in compact size classes and floats it when both size classes are regular. |
+## Loading
 
-The card remembers resting or expanded across resizes. The keyboard forces expanded until it closes. Geometry changes keep the same WebView, document, input, and scroll position, and never reload the page.
+- Checkout reloads once if it has not responded after 10 seconds.
+- After 15 seconds of foreground time without a response, the card closes with a network error.
+- A lost connection after the page loaded is also a network error.
+- If the system stops the WebView's renderer, checkout reloads once. A second loss is a network error.
 
-## Loading and recovery
-
-| Stage | iOS | Android |
-|---|---|---|
-| Retry | One reload after 10 s without a 2xx or 304 response | One reload after 10 s without a commit |
-| Network error | 15 s of foreground time without a response, or an HTTP error before the first load | 15 s without a commit, or an HTTP error during the first load |
-| Reveal | After the page commits and shows content, at most 15 s | After the page commits and finishes, at most 15 s |
-| Renderer loss | One reload; a second loss or a loss during processing is a network error | One rebuild after an OS kill (API 26+); a crash, a second loss, or a loss during processing is a network error |
-| Failure after load | Closes with the dismissal callback | Closes with the dismissal callback on connection errors |
-
-Background time does not count toward these limits.
-
-## Threading and ownership
+## Threading
 
 | | iOS | Android |
 |---|---|---|
-| Open calls | Any thread; work moves to the main queue | Any thread; work moves to the main looper |
-| Register, read, replace, or clear receiver | Main thread | Main thread |
-| Callbacks | Main thread | Main thread |
-| Callback receiver | Weak (`assign` without ARC) | Strong |
-| Host reference | Weak view controller | Weak activity |
-| Event path | Direct calls | Session-tagged broadcasts from the checkout activity to the plugin |
-
-Each event selects the current receiver, so replacement affects future events from an open flow. Clearing stops future delivery without replay; it cannot undo an executing callback or an event already queued by an engine wrapper. Keep an owner for the iOS delegate; under manual reference counting, clear it on main before releasing it and synchronize teardown with callbacks.
+| Open calls | Any thread | Any thread |
+| Receiver setup and callbacks | Main thread | Main thread |
+| Receiver reference | Weak (`assign` without ARC) | Strong |

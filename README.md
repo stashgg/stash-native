@@ -285,7 +285,7 @@ For more detailed information, see the [Stash Native documentation](https://stas
 
 - [Usage](https://stashgg.github.io/stash-native/usage/): installation, API, configuration, and callbacks
 - [Engine wrappers](https://stashgg.github.io/stash-native/architecture/engine-wrappers.html): Unity, Unreal, and custom engine bindings
-- [Platform Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
+- [Package Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
 - [Compatibility](https://stashgg.github.io/stash-native/architecture/compatibility.html): supported versions, version-specific behavior, and runtime techniques for app review
 
 ---
