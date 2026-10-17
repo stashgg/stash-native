@@ -2,26 +2,26 @@
 //  ViewController+StashNativeDelegate.swift
 //  StashNativeSample
 //
-//  StashNativeCardDelegate implementation for ViewController.
+//  StashNativeDelegate implementation for ViewController.
 //
 
 import UIKit
 import StashNative
 
-// MARK: - StashNativeCardDelegate
+// MARK: - StashNativeDelegate
 
-extension ViewController: StashNativeCardDelegate {
+extension ViewController: StashNativeDelegate {
 
-    func stashNativeCardDidScanQRCode(_ content: String) {
+    func stashNativeDidScanQRCode(_ content: String) {
         addCallbackChip("CodeLink · \(content)")
         flushPendingAlertsIfPossible()
     }
 
-    func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
+    func stashNativeCodeLinkDidEncounterError(_ error: Error) {
         addCallbackChip("CodeLink · \(error.localizedDescription)")
     }
 
-    func stashNativeCardDidCompletePayment(withOrder order: String?) {
+    func stashNativeDidCompletePayment(withOrder order: String?) {
         let label: String
         if let order, !order.isEmpty {
             label = "Payment Success · \(order)"
@@ -33,40 +33,47 @@ extension ViewController: StashNativeCardDelegate {
         }
     }
 
-    func stashNativeCardDidFailPayment() {
+    func stashNativeDidFailPayment() {
         DispatchQueue.main.async {
             self.addCallbackChip("Payment Failure")
         }
     }
 
-    func stashNativeCardDidDismiss() {
+    func stashNativeDidDismissCard() {
+        recordDismissal("Card Dismissed")
+    }
+
+    func stashNativeDidDismissScan() {
+        recordDismissal("Scan Dismissed")
+    }
+
+    private func recordDismissal(_ label: String) {
         DispatchQueue.main.async {
-            self.addCallbackChip("Dialog Dismissed")
+            self.addCallbackChip(label)
             self.flushPendingAlertsIfPossible()
         }
     }
 
-    func stashNativeCardDidLoadPage(_ loadTimeMs: Double) {
+    func stashNativeDidLoadPage(_ loadTimeMs: Double) {
         DispatchQueue.main.async {
             self.addCallbackChip("Page Loaded · \(Int(loadTimeMs)) ms")
         }
     }
 
-    func stashNativeCardDidEncounterNetworkError() {
+    func stashNativeDidEncounterNetworkError() {
         DispatchQueue.main.async {
             self.addCallbackChip("Network Error")
         }
     }
 
-    func stashNativeCardDidRequestExternalPayment(with url: String) {
+    func stashNativeDidRequestExternalPayment(with url: String) {
         DispatchQueue.main.async {
             self.addCallbackChip("External Payment")
         }
     }
 
-    func stashNativeCardDidCloseBrowser() {
-        DispatchQueue.main.async {
-            self.addCallbackChip("Browser Closed")
-        }
+    func stashNativeDidDismissBrowser() {
+        recordDismissal("Browser Dismissed")
     }
+
 }

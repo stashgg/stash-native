@@ -19,11 +19,11 @@ import org.robolectric.shadows.ShadowLooper;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class PresentationRegressionTest {
-  private StashNativeCardPlugin plugin;
+  private StashNativePlugin plugin;
   private Activity host;
 
   @Before public void prepare() {
-    plugin = StashNativeCardPlugin.getInstance();
+    plugin = StashNativePlugin.getInstance();
     plugin.resetPresentationState();
     host = Robolectric.buildActivity(Activity.class).setup().get();
     // Local unit tests have no merged host manifest; grant its signature permission explicitly.
@@ -54,12 +54,12 @@ public class PresentationRegressionTest {
   }
 
   @Test public void repeatedOpenDoesNotLaunchOrChangeConfiguration() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.preferredContentHeight = 420f;
     plugin.openCard(host, "https://example.invalid", config);
     Intent first = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(first);
-    plugin.openCard(host, "https://example.invalid/second", new StashNativeCard.CardConfig());
+    plugin.openCard(host, "https://example.invalid/second", new StashNative.CardConfig());
     assertNull(Shadows.shadowOf(host).getNextStartedActivity());
     assertEquals(420f, plugin.presentationOptions.height, 0.001f);
     assertEquals(420f, StashPresentationOptions.read(first).height, 0.001f);
@@ -71,17 +71,17 @@ public class PresentationRegressionTest {
         StashCheckoutActivity.class, Shadows.shadowOf(host).getNextStartedActivity()).get();
     plugin.setCheckoutActivity(checkout);
     checkout.isPurchaseProcessing = true;
-    assertTrue(StashNativeCard.getInstance().isPurchaseProcessing());
+    assertTrue(StashNative.getInstance().isPurchaseProcessing());
     checkout.isPurchaseProcessing = false;
-    assertFalse(StashNativeCard.getInstance().isPurchaseProcessing());
+    assertFalse(StashNative.getInstance().isPurchaseProcessing());
     plugin.resetPresentationState();
     assertFalse(plugin.isPurchaseProcessing());
   }
 
   @Test public void restoredCheckoutCancelsOnceWithoutReloading() {
     final int[] dismissed = {0};
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onDialogDismissed() { dismissed[0]++; }
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onCardDismissed() { dismissed[0]++; }
     });
     plugin.openCard(host, "https://example.invalid", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
@@ -111,7 +111,7 @@ public class PresentationRegressionTest {
 
   @Test public void lateBridgeEventCannotCompleteReplacementCheckout() {
     final int[] results = {0};
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onPaymentSuccess(String order) { results[0]++; }
     });
     plugin.openCard(host, "https://example.invalid", null);

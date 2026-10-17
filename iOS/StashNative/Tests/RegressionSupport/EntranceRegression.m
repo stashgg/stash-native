@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 
 static NSString *const StashProbeCounterKey = @"StashCenteredEntrance";
 

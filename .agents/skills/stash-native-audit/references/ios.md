@@ -12,7 +12,7 @@ Read the public header, shared-state declarations, facade, and extracted impleme
 ## Threading and session state
 
 - Trace public calls from background threads, WebKit delegates, JS handlers, notification callbacks, and delayed work. UI ownership and state mutation need a consistent main-queue contract.
-- Review shared globals in `StashNativeCard.m` and their extern users for initialization/reset omissions, synchronization, and stale references. Check that flags and visible presentation agree after every failure.
+- Review shared globals in `StashNative.m` and their extern users for initialization/reset omissions, synchronization, and stale references. Check that flags and visible presentation agree after every failure.
 - Exercise callback reentrancy, delegate replacement/deallocation, rapid open/dismiss/open, double payment signals, failure then success with autoClose disabled, and dismissal while processing.
 - Inspect once-guards, cancellation tokens/session identities, retry versus teardown, and reset behavior. Verify the state an integrator sees from inside a delegate callback.
 

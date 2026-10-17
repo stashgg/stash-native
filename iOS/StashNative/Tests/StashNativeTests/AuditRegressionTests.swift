@@ -72,7 +72,7 @@ final class AuditRegressionTests: XCTestCase {
     func testDetachedPresenterAndInvalidURLDoNotAdmitSession() {
         let done = expectation(description: "invalid presentation")
         DispatchQueue.main.async {
-            let sdk = StashNativeCard.sharedInstance()
+            let sdk = StashNative.sharedInstance()
             let presenter = UIViewController()
             sdk.openCard(withURL: "https://example.invalid", from: presenter, config: nil)
             sdk.openBrowser(withURL: "javascript:alert(1)", from: presenter)

@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 
 NSDictionary *StashTelemetryLifecycleProbe(void) {
     StashCheckoutSession *session = [StashCheckoutSession new];
@@ -29,7 +29,7 @@ NSDictionary *StashTelemetryLifecycleProbe(void) {
 }
 
 NSDictionary *StashTelemetryFixture(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     owner.session = session;
     session.owner = owner;
@@ -47,5 +47,5 @@ NSDictionary *StashTelemetryFixture(void) {
 
 void StashEndTelemetryFixture(NSDictionary *fixture) {
     [fixture[@"session"] cleanup];
-    ((StashNativeCard *)fixture[@"owner"]).session = nil;
+    ((StashNative *)fixture[@"owner"]).session = nil;
 }

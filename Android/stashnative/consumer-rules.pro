@@ -1,9 +1,9 @@
 # Consumer ProGuard rules for StashNative
 # Applied automatically when host apps enable R8/ProGuard.
 
-# Public API facade and all inner classes (config, listener, adapter)
--keep public class com.stash.stashnative.StashNativeCard { public *; protected *; }
--keep public class com.stash.stashnative.StashNativeCard$* { public *; protected *; }
+# Public API facade and nested types (configs, enums, listener, adapter)
+-keep public class com.stash.stashnative.StashNative { public *; protected *; }
+-keep public class com.stash.stashnative.StashNative$* { public *; protected *; }
 
 # JS bridge methods invoked by name from JavaScript
 -keepclassmembers class * {

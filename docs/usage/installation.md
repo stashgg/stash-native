@@ -31,6 +31,10 @@ Download and unzip `StashNative-<tag>.xcframework.zip`, add `StashNative.xcframe
 import StashNative
 ```
 
+```objc
+#import <StashNative/StashNative.h>
+```
+
 ### Info.plist
 
 Add `NSCameraUsageDescription` if you use [CodeLink](codelink.md). iOS shows this text when the scanner asks for camera access. Checkout and the browser need no Info.plist keys.
@@ -67,13 +71,19 @@ dependencies {
 | Group | Without it |
 |---|---|
 | Browser | `openBrowser` opens the system browser instead of Custom Tabs, which takes the player out of your app |
-| CameraX and ZXing | CodeLink reports `CAMERA_CONFIGURATION_FAILED`. Checkout and the browser keep working. |
+| CameraX and ZXing | CodeLink closes and reports `SCANNER_UNAVAILABLE`. Checkout and the browser keep working. |
 
 Stay on WindowManager 1.4.x while you support API 21; version 1.5 requires API 23.
 
 ### Source module
 
 If you include the `stashnative` Gradle module as source, it brings Core, WebKit, and WindowManager. Add Browser, CameraX, and ZXing yourself when you use those features.
+
+### Import
+
+```java
+import com.stash.stashnative.StashNative;
+```
 
 ### Manifest
 
@@ -100,3 +110,30 @@ Do not move the SDK's activities into another process with `android:process`. Ch
 ### Shrinking
 
 The AAR ships its own R8 and ProGuard rules. You do not need to add keep rules for the SDK.
+
+## Migrating from 2.x
+
+Update the SDK entry point and callback names in your app or engine wrapper:
+
+| Previous name | Current name |
+|---|---|
+| `StashNativeCard` on both platforms | `StashNative` |
+| `StashNativeCardDelegate` on iOS | `StashNativeDelegate` |
+| `stashNativeCard...` callbacks on iOS | `stashNative...`, for example `stashNativeDidDismissCard()` |
+| `<StashNative/StashNativeCard.h>` on iOS | `<StashNative/StashNative.h>` |
+| `StashNativeCard.StashNativeCardListener` on Android | `StashNative.StashNativeListener` |
+| `StashNativeCard.StashNativeCardListenerAdapter` on Android | `StashNative.StashNativeListenerAdapter` |
+
+The old names are removed. Card configuration remains `StashNativeCardConfig` on iOS and `StashNative.CardConfig` on Android. The `StashNative` module, Android package, and `window.stash_sdk` bridge names stay the same.
+
+Replace generic dismissal and browser-close callbacks with the three no-argument callbacks below. Keep one shared listener or delegate.
+
+| Event | iOS | Android |
+|---|---|---|
+| Card dismissed | `stashNativeDidDismissCard()` | `onCardDismissed()` |
+| Scan dismissed | `stashNativeDidDismissScan()` | `onScanDismissed()` |
+| Browser dismissed | `stashNativeDidDismissBrowser()` | `onBrowserDismissed()` |
+
+Browser dismissal covers both `openBrowser` and checkout's payment handoff. iOS payment success uses only `stashNativeDidCompletePayment(withOrder:)`; remove the old no-argument implementation. Safari closing sends only browser dismissed. Register, read, replace, and clear the receiver on main; opens remain callable from any thread. See [Callbacks](callbacks.md) for ownership and event order.
+
+Replace `openModal` with `openCard`, pass the presenting activity or view controller to open calls, and replace phone/tablet sizing ratios with [card dimensions](checkout-card.md#configuration). Use `orientationPreference` instead of `forcePortrait`. See the [3.0 breaking changes](https://github.com/stashgg/stash-native/blob/main/CHANGELOG.md#300---unreleased) for the remaining removals.

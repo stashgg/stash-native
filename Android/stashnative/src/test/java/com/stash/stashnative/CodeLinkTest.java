@@ -32,7 +32,10 @@ import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.Shadows;
+import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.annotation.Implementation;
+import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.util.ReflectionHelpers;
 
@@ -40,11 +43,11 @@ import org.robolectric.util.ReflectionHelpers;
 @Config(sdk = {21, 28})
 @LooperMode(LooperMode.Mode.PAUSED)
 public class CodeLinkTest {
-  private StashNativeCardPlugin plugin;
+  private StashNativePlugin plugin;
   private RecordingCheckout activity;
 
   @Before public void prepare() {
-    plugin = StashNativeCardPlugin.getInstance();
+    plugin = StashNativePlugin.getInstance();
     plugin.resetPresentationState();
   }
 
@@ -64,7 +67,7 @@ public class CodeLinkTest {
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertTrue(intent.getBooleanExtra(CardConstants.INTENT_EXTRA_CODE_LINK, false));
     assertNull(intent.getStringExtra(CardConstants.INTENT_EXTRA_URL));
-    assertEquals(StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST,
+    assertEquals(StashNative.CardConfig.ORIENTATION_FOLLOW_HOST,
         StashPresentationOptions.read(intent).orientation);
     assertTrue(plugin.isCurrentlyPresented());
     plugin.codeLink(host);
@@ -81,9 +84,9 @@ public class CodeLinkTest {
     unavailable.isDismissing = true;
     unavailable.finish();
     int[] errors = {0};
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
-        assertEquals(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED, error);
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
+        assertEquals(StashNative.CodeLinkError.SCANNER_UNAVAILABLE, error);
         assertFalse(plugin.isCurrentlyPresented());
         errors[0]++;
         plugin.openCard(host, "https://example.com", null);
@@ -98,10 +101,67 @@ public class CodeLinkTest {
     assertTrue(plugin.isCurrentlyPresented());
   }
 
+  @Test
+  @Config(shadows = UnavailableScannerShadow.class)
+  public void unavailableScannerStartupFinishesBeforeErrorAndPreservesReentrantCard() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    Shadows.shadowOf(host.getApplication()).grantPermissions(
+        host.getPackageName() + ".permission.STASH_NATIVE_INTERNAL");
+    plugin.codeLink(host);
+    Intent scannerIntent = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(scannerIntent);
+    ActivityController<StashCheckoutActivity> scanner =
+        Robolectric.buildActivity(StashCheckoutActivity.class, scannerIntent);
+    List<ActivityController<StashCheckoutActivity>> replacements = new ArrayList<>();
+    List<String> events = new ArrayList<>();
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
+        assertEquals(StashNative.CodeLinkError.SCANNER_UNAVAILABLE, error);
+        assertTrue(scanner.get().isFinishing());
+        assertTrue(scanner.get().isDismissing);
+        assertFalse(plugin.isCurrentlyPresented());
+        events.add(error.name());
+        plugin.openCard(host, "https://example.invalid/checkout", null);
+        Intent cardIntent = Shadows.shadowOf(host).getNextStartedActivity();
+        assertNotNull(cardIntent);
+        replacements.add(Robolectric.buildActivity(StashCheckoutActivity.class, cardIntent)
+            .create().start().resume());
+      }
+
+      @Override public void onScanDismissed() {
+        events.add("scan-dismissed");
+      }
+    });
+    try {
+      scanner.create();
+      assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+      assertEquals(1, replacements.size());
+      StashCheckoutActivity replacement = replacements.get(0).get();
+      scanner.destroy();
+      idle(0);
+      plugin.codeLinkUnavailable(scanner.get());
+      assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+      assertTrue(scanner.get().isDestroyed());
+      assertTrue(plugin.isCurrentlyPresented());
+      assertFalse(replacement.isFinishing());
+      assertEquals(replacement.getPresentationSessionId(), plugin.presentationSessionId);
+    } finally {
+      plugin.resetPresentationState();
+      for (ActivityController<StashCheckoutActivity> replacement : replacements) {
+        replacement.pause().stop().destroy();
+      }
+      if (!scanner.get().isDestroyed()) {
+        scanner.destroy();
+      }
+      host.finish();
+      idle(0);
+    }
+  }
+
   @Test public void configurationIsSnapshottedBeforeMainDispatchAndSurvivesIntentTransport()
       throws Exception {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
-    StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
+    StashNative.CodeLinkConfig config = new StashNative.CodeLinkConfig();
     config.headerText = "Propojte svůj účet";
     config.calloutTitle = "Naskenujte kód obchodu";
     config.calloutSubtitle = "Umístěte QR kód doprostřed.\nاستخدم رمز المتجر";
@@ -131,7 +191,7 @@ public class CodeLinkTest {
       assertEquals("Kamera není dostupná", restored.cameraUnavailableText);
       assertEquals("Připojeno", restored.connectedText);
       assertFalse(restored.showCallout);
-      assertEquals(StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST,
+      assertEquals(StashNative.CardConfig.ORIENTATION_FOLLOW_HOST,
           StashPresentationOptions.read(intent).orientation);
     } finally {
       parcel.recycle();
@@ -140,7 +200,7 @@ public class CodeLinkTest {
 
   @Test public void defaultsEmptyTextAndCustomCopyReachScannerViews() {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
-    StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
+    StashNative.CodeLinkConfig config = new StashNative.CodeLinkConfig();
     assertTrue(config.showCallout);
     config.headerText = "";
     config.calloutTitle = "";
@@ -322,8 +382,8 @@ public class CodeLinkTest {
   @Test public void cameraErrorKeepsCardAdmittedAndScanClearsStateBeforeCallback() throws Exception {
     List<String> events = new ArrayList<>();
     plugin.isCurrentlyPresented = true;
-    plugin.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
         assertTrue(plugin.isCurrentlyPresented());
         events.add(error.name());
       }
@@ -331,7 +391,7 @@ public class CodeLinkTest {
         assertFalse(plugin.isCurrentlyPresented());
         events.add(content);
       }
-      @Override public void onDialogDismissed() {
+      @Override public void onScanDismissed() {
         fail("successful scanning must not also dismiss");
       }
     });
@@ -436,7 +496,7 @@ public class CodeLinkTest {
   }
 
   private void dispatch(Intent intent) throws Exception {
-    Method method = StashNativeCardPlugin.class.getDeclaredMethod(
+    Method method = StashNativePlugin.class.getDeclaredMethod(
         "dispatchCheckoutBridgeIntent", String.class, Intent.class);
     method.setAccessible(true);
     intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, plugin.presentationSessionId);
@@ -451,6 +511,14 @@ public class CodeLinkTest {
     boolean finished;
     @Override public void finish() {
       finished = true;
+    }
+  }
+
+  @Implements(StashCodeLinkSession.class)
+  public static class UnavailableScannerShadow {
+    @Implementation
+    protected static StashCodeLinkSession create(StashCheckoutActivity activity) {
+      return null;
     }
   }
 }

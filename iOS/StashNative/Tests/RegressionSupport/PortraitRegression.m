@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 #import <objc/runtime.h>
 
 @interface StashOrientationDelegateBase : NSObject
@@ -167,18 +167,21 @@ NSDictionary *StashPortraitCancellationProbe(void) {
     if (completion) completion();
 }
 @end
-@interface StashPortraitCallbackProbe : NSObject <StashNativeCardDelegate>
-@property (nonatomic, strong) StashNativeCard *owner;
+@interface StashPortraitCallbackProbe : NSObject <StashNativeDelegate>
+@property (nonatomic, strong) StashNative *owner;
 @property (nonatomic) NSUInteger dismissals;
 @property (nonatomic) NSUInteger browserCloses;
 @property (nonatomic) BOOL closedBeforeCallback;
 @end
 @implementation StashPortraitCallbackProbe
-- (void)stashNativeCardDidDismiss {
+- (void)stashNativeDidDismissCard {
     self.dismissals++;
     self.closedBeforeCallback = !self.owner.isCurrentlyPresented;
 }
-- (void)stashNativeCardDidCloseBrowser { self.browserCloses++; }
+- (void)stashNativeDidDismissBrowser {
+    self.browserCloses++;
+    self.closedBeforeCallback = !self.owner.isCurrentlyPresented;
+}
 @end
 
 @interface StashPortraitBrowserProbe : UIViewController
@@ -190,7 +193,7 @@ NSDictionary *StashPortraitCancellationProbe(void) {
 @end
 
 NSDictionary *StashPortraitFinishProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     StashManualPortraitRestoration *portrait = [[StashManualPortraitRestoration alloc] initWithPresenter:nil];
     StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
@@ -207,7 +210,7 @@ NSDictionary *StashPortraitFinishProbe(void) {
 }
 
 NSDictionary *StashPortraitBrowserDismissProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     StashManualPortraitRestoration *portrait = [[StashManualPortraitRestoration alloc] initWithPresenter:nil];
     StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
@@ -223,13 +226,13 @@ NSDictionary *StashPortraitBrowserDismissProbe(void) {
     BOOL finished = !owner.isCurrentlyPresented && delegate.closedBeforeCallback;
     browser.probePresentation = nil;
     return @{@"waitsForRestoration":@(waits), @"finishedBeforeCallback":@(finished),
-        @"callbacksOnce":@(delegate.dismissals == 1 && delegate.browserCloses == 1)};
+        @"callbacksOnce":@(delegate.dismissals == 0 && delegate.browserCloses == 1)};
 }
 
-@interface StashNativeCard (BrowserRegression)
+@interface StashNative (BrowserRegression)
 - (void)openURL:(NSString *)url presenter:(UIViewController *)presenter config:(StashNativeCardConfig *)config browser:(BOOL)browser;
 @end
-@interface StashBrowserSnapshotCard : StashNativeCard
+@interface StashBrowserSnapshotCard : StashNative
 @property (nonatomic, strong) NSMutableArray *orientations;
 @property (nonatomic) BOOL allBrowsers;
 @end
@@ -275,7 +278,7 @@ void StashBrowserConfigurationProbe(void (^completion)(NSDictionary *)) {
 @end
 
 NSDictionary *StashBrowserPreparationProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
     owner.delegate = delegate; delegate.owner = owner;
     StashBrowserPresenterProbe *presenter = [StashBrowserPresenterProbe new];
@@ -302,7 +305,7 @@ NSDictionary *StashBrowserPreparationProbe(void) {
         ready();
         noLateOpen &= !owner.isCurrentlyPresented && presenter.presentations == 0;
     }
-    BOOL callbacks = delegate.browserCloses == 2 && delegate.dismissals == 2;
+    BOOL callbacks = delegate.browserCloses == 2 && delegate.dismissals == 0;
     StashBrowserDeferredSession *session = open();
     void (^ready)(void) = session.preparation; session.preparation = nil;
     [presenter.view removeFromSuperview];
@@ -328,6 +331,6 @@ NSDictionary *StashBrowserPreparationProbe(void) {
         session.browser.transitioningDelegate != nil && presenter.presentations == 2;
     [owner closeBrowser];
     return @{@"cancellableBeforeGeometry":@(cancellable), @"lateCompletionIgnored":@(noLateOpen),
-        @"closeAndDismissCallbacks":@(callbacks), @"detachedPresenterRejected":@(detached),
+        @"onlyBrowserCloseCallbacks":@(callbacks), @"detachedPresenterRejected":@(detached),
         @"presentedOnce":@(once), @"nativeSafariPortrait":@(nativePortrait)};
 }

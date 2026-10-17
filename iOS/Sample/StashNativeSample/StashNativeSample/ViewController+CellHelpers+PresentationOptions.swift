@@ -19,7 +19,7 @@ extension ViewController {
         cell.textLabel?.text = "SDK version"
         cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
         cell.textLabel?.textColor = .label
-        cell.detailTextLabel?.text = StashNativeCard.sdkVersion()
+        cell.detailTextLabel?.text = StashNative.sdkVersion()
         cell.detailTextLabel?.textColor = .secondaryLabel
         return cell
     }

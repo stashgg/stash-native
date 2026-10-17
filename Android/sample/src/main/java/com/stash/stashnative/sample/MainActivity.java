@@ -29,7 +29,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.lifecycle.ViewModelProvider;
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory;
 import androidx.recyclerview.widget.LinearLayoutManager;
-import com.stash.stashnative.StashNativeCard;
+import com.stash.stashnative.StashNative;
 import com.stash.stashnative.sample.databinding.ActivityMainBinding;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -39,7 +39,7 @@ import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
 /**
- * Sample activity demonstrating StashNativeCard integration.
+ * Sample activity demonstrating StashNative integration.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -50,7 +50,7 @@ public class MainActivity extends AppCompatActivity {
 
   private ActivityMainBinding binding;
   private MainViewModel viewModel;
-  private StashNativeCard.StashNativeCardListener sdkListener;
+  private StashNative.StashNativeListener sdkListener;
   private SettingsAdapter adapter;
   private volatile boolean destroyed;
   private volatile int requestGeneration;
@@ -75,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
     super.onCreate(savedInstanceState);
 
     // Sample/QA build: allow chrome://inspect and Appium to inspect checkout webviews.
-    StashNativeCard.setInspectableWebViewsEnabled(true);
+    StashNative.setInspectableWebViewsEnabled(true);
 
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
@@ -102,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
       public void onCodeLink() {
-        StashNativeCard.getInstance().codeLink(MainActivity.this, viewModel.getCodeLinkConfig());
+        StashNative.getInstance().codeLink(MainActivity.this, viewModel.getCodeLinkConfig());
       }
 
       @Override
@@ -215,13 +215,13 @@ public class MainActivity extends AppCompatActivity {
     });
     applyOrientationLock();
 
-    StashNativeCard stashPayCard = StashNativeCard.getInstance();
-    StashNativeCard.KeepAliveConfig keepAliveConfig = new StashNativeCard.KeepAliveConfig();
+    StashNative stashPayCard = StashNative.getInstance();
+    StashNative.KeepAliveConfig keepAliveConfig = new StashNative.KeepAliveConfig();
     keepAliveConfig.notificationTitle = "Stash sample";
     keepAliveConfig.notificationText = "Tap to return after paying in the browser";
     stashPayCard.setKeepAliveConfig(keepAliveConfig);
     stashPayCard.setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
-    sdkListener = new StashNativeCard.StashNativeCardListener() {
+    sdkListener = new StashNative.StashNativeListener() {
       @Override
       public void onQrCodeScanned(String content) {
         Log.i(TAG, "CodeLink QR code scanned");
@@ -229,8 +229,8 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
-        Log.w(TAG, "CodeLink camera error: " + error.name());
+      public void onCodeLinkError(StashNative.CodeLinkError error) {
+        Log.w(TAG, "CodeLink error: " + error.name());
         runOnUiThread(() -> addCallbackChip("CodeLink Error · " + error.name()));
       }
 
@@ -250,9 +250,15 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onDialogDismissed() {
-        Log.i(TAG, "Dialog dismissed");
-        runOnUiThread(() -> addCallbackChip("Dialog Dismissed"));
+      public void onCardDismissed() {
+        Log.i(TAG, "Card dismissed");
+        runOnUiThread(() -> addCallbackChip("Card Dismissed"));
+      }
+
+      @Override
+      public void onScanDismissed() {
+        Log.i(TAG, "Scan dismissed");
+        runOnUiThread(() -> addCallbackChip("Scan Dismissed"));
       }
 
       @Override
@@ -274,10 +280,11 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onBrowserClosed() {
-        Log.i(TAG, "Browser closed");
-        runOnUiThread(() -> addCallbackChip("Browser Closed"));
+      public void onBrowserDismissed() {
+        Log.i(TAG, "Browser dismissed");
+        runOnUiThread(() -> addCallbackChip("Browser Dismissed"));
       }
+
     };
     stashPayCard.setListener(sdkListener);
 
@@ -341,7 +348,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void syncKeepAlive() {
-    StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+    StashNative.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
   }
 
   private void showOutcomeDialog(String title, String message) {
@@ -702,12 +709,12 @@ public class MainActivity extends AppCompatActivity {
     if (isFinishing() || isDestroyed()) {
       return;
     }
-    StashNativeCard sdk = StashNativeCard.getInstance();
-    StashNativeCard.CardConfig config = viewModel.getCardConfig();
+    StashNative sdk = StashNative.getInstance();
+    StashNative.CardConfig config = viewModel.getCardConfig();
     if (!sdk.isCurrentlyPresented()) {
       Bitmap backdrop = null;
       MainViewModel.BackdropSource source = viewModel.getBackdropSource();
-      if (config.orientationPreference == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+      if (config.orientationPreference == StashNative.CardConfig.ORIENTATION_PORTRAIT
           && source != MainViewModel.BackdropSource.NONE) {
         if (source == MainViewModel.BackdropSource.SCREENSHOT) {
           backdrop = SampleBackdropCapture.capture(getWindow().getDecorView());
@@ -721,7 +728,7 @@ public class MainActivity extends AppCompatActivity {
         }
       }
       // The SDK owns this bitmap; the selected custom image stays with the ViewModel.
-      StashNativeCard.setBackdropBitmap(backdrop);
+      StashNative.setBackdropBitmap(backdrop);
     }
     Log.i(TAG, "Opening card");
     sdk.openCard(this, url, config);
@@ -734,7 +741,7 @@ public class MainActivity extends AppCompatActivity {
       return;
     }
     syncKeepAlive();
-    StashNativeCard.getInstance().openBrowser(MainActivity.this, url.trim());
+    StashNative.getInstance().openBrowser(MainActivity.this, url.trim());
   }
 
   private void generateCheckout() {
@@ -815,7 +822,7 @@ public class MainActivity extends AppCompatActivity {
                 if (openInBrowser) {
                   syncKeepAlive();
                   Log.i(TAG, "Opening browser");
-                  StashNativeCard.getInstance().openBrowser(MainActivity.this, finalUrl);
+                  StashNative.getInstance().openBrowser(MainActivity.this, finalUrl);
                 } else {
                   presentCard(finalUrl);
                 }
@@ -845,12 +852,12 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onResume() {
     super.onResume();
-    StashNativeCard.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+    StashNative.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
   }
 
   @Override
   protected void onDestroy() {
-    StashNativeCard sdk = StashNativeCard.getInstance();
+    StashNative sdk = StashNative.getInstance();
     if (sdk.getListener() == sdkListener) {
       sdk.setListener(null);
     }

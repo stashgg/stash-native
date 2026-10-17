@@ -89,19 +89,19 @@ Pass a generated Stash Pay link to `openCard` to display a responsive card that 
 **Android**
 
 ```java
-StashNativeCard.getInstance().openCard(this, "https://test.stashpreview.com", null);
+StashNative.getInstance().openCard(this, "https://test.stashpreview.com", null);
 ```
 
 **iOS**
 
 ```swift
-StashNativeCard.sharedInstance().openCard(
+StashNative.sharedInstance().openCard(
     withURL: "https://test.stashpreview.com", from: self, config: nil)
 ```
 
 #### Card Configuration
 
-Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS; `null` or `nil` uses the responsive defaults. Dimensions are dp on Android and points on iOS, and the available window space always limits the requested size. We recommend the default sizing for Stash Pay; adjust it only when needed.
+Pass `StashNative.CardConfig` on Android or `StashNativeCardConfig` on iOS; `null` or `nil` uses the responsive defaults. Dimensions are dp on Android and points on iOS, and the available window space always limits the requested size. We recommend the default sizing for Stash Pay; adjust it only when needed.
 
 | Property | Default | Description |
 | --- | --- | --- |
@@ -118,7 +118,7 @@ Pass `StashNativeCard.CardConfig` on Android or `StashNativeCardConfig` on iOS; 
 For landscape games, set `orientationPreference` to request a portrait checkout card. The SDK presents the card in portrait and restores the host orientation afterward. Portrait is best effort: it may not work in every app or device state, and tablets and restricted windows follow the available geometry.
 
 ```java
-config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
+config.orientationPreference = StashNative.CardConfig.ORIENTATION_PORTRAIT;
 ```
 
 ```swift
@@ -127,7 +127,7 @@ config.orientationPreference = .portrait
 
 #### Landscape Backdrop (Android Only)
 
-On Android, a forced portrait card can cause visual inconsistencies in the app behind it while the screen rotates. To mask these rotation artifacts, pass a screenshot or another backdrop to `StashNativeCard.setBackdropBitmap(bitmap)` or `setBackdropBytes(pngOrJpeg)` right before opening a portrait card. See [Android portrait backdrop](https://stashgg.github.io/stash-native/usage/checkout-card.html#android-portrait-backdrop).
+On Android, a forced portrait card can cause visual inconsistencies in the app behind it while the screen rotates. To mask these rotation artifacts, pass a screenshot or another backdrop to `StashNative.setBackdropBitmap(bitmap)` or `setBackdropBytes(pngOrJpeg)` right before opening a portrait card. See [Android portrait backdrop](https://stashgg.github.io/stash-native/usage/checkout-card.html#android-portrait-backdrop).
 
 #### WebView Debugging
 
@@ -135,62 +135,7 @@ During development, enable WebView inspection before opening a card to debug che
 
 ```java
 // Android and iOS
-StashNativeCard.setInspectableWebViewsEnabled(true);
-```
-
-#### Callbacks
-
-The card reports purchase state and other events through callbacks. Set a listener on Android or a delegate on iOS before opening a presentation. The same interface receives card, browser, and CodeLink events.
-
-| Event | Description |
-| --- | --- |
-| Payment Success | Reports the order details from checkout as a string or JSON, or `null` / `nil` when there are none. |
-| Payment Failure | Reports that the payment failed. |
-| Dialog Dismissed | Reports that the player or checkout closed the card, or that you called `dismiss()`. |
-| External Payment | Reports the external payment URL, then closes the embedded checkout without a dismissal callback. |
-| Browser Closed | Reports that the browser opened by `openBrowser` or an external payment handoff has closed. |
-| Page Loaded | Reports the page load duration in milliseconds. |
-| Network Error | Reports a checkout load failure. See the [callbacks reference](https://stashgg.github.io/stash-native/usage/callbacks.html) for failure and teardown details. |
-
-**Android:** extend `StashNativeCardListenerAdapter` to override only the callbacks you need, or implement `StashNativeCardListener`:
-
-```java
-StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-    @Override
-    public void onPaymentSuccess(String order) {
-        // Verify the purchase through your backend before fulfilling items.
-    }
-
-    @Override
-    public void onPaymentFailure() {
-        // Update the game's payment UI.
-    }
-
-    @Override
-    public void onDialogDismissed() {
-        // Resume the game UI.
-    }
-});
-```
-
-**iOS:** set the delegate and implement the optional protocol methods:
-
-```swift
-StashNativeCard.sharedInstance().delegate = self
-
-extension YourViewController: StashNativeCardDelegate {
-    func stashNativeCardDidCompletePayment(withOrder order: String?) {
-        // Verify the purchase through your backend before fulfilling items.
-    }
-
-    func stashNativeCardDidFailPayment() {
-        // Update the game's payment UI.
-    }
-
-    func stashNativeCardDidDismiss() {
-        // Resume the game UI.
-    }
-}
+StashNative.setInspectableWebViewsEnabled(true);
 ```
 
 ## Using the In-Game Browser (Stash Pay & Webshop)
@@ -202,25 +147,23 @@ Alternatively, use `openBrowser` to open Stash Pay and pre-authenticated webshop
 **Android**
 
 ```java
-StashNativeCard.getInstance().openBrowser(this, "https://test.stashpreview.com");
+StashNative.getInstance().openBrowser(this, "https://test.stashpreview.com");
 ```
 
 **iOS**
 
 ```swift
-StashNativeCard.sharedInstance().openBrowser(withURL: "https://test.stashpreview.com", from: self)
+StashNative.sharedInstance().openBrowser(withURL: "https://test.stashpreview.com", from: self)
 // Optional when returning through a deep link:
-StashNativeCard.sharedInstance().closeBrowser()
+StashNative.sharedInstance().closeBrowser()
 ```
-
-When the browser closes, the SDK calls `onBrowserClosed` (Android) or `stashNativeCardDidCloseBrowser` (iOS). `closeBrowser()` dismisses Safari on iOS and has no effect on Android.
 
 #### Portrait Browser (iOS Only)
 
 ```swift
 let config = StashNativeBrowserConfig()
 config.orientationPreference = .portrait
-StashNativeCard.sharedInstance().openBrowser(withURL: checkoutURL, from: self, config: config)
+StashNative.sharedInstance().openBrowser(withURL: checkoutURL, from: self, config: config)
 ```
 
 Safari keeps its native sheet presentation and restores the host orientation when it closes. The default follows the host, and iPad ignores the preference. Android Custom Tabs control their own orientation.
@@ -230,12 +173,12 @@ Safari keeps its native sheet presentation and restores the host orientation whe
 An optional short foreground service shows a low-priority notification while the browser is open. It makes it less likely that Android kills your game process on low-memory devices. It is off by default; we recommend enabling it.
 
 ```java
-StashNativeCard.getInstance().setKeepAliveEnabled(true);
-StashNativeCard.KeepAliveConfig config = new StashNativeCard.KeepAliveConfig();
+StashNative.getInstance().setKeepAliveEnabled(true);
+StashNative.KeepAliveConfig config = new StashNative.KeepAliveConfig();
 config.notificationTitle = "Payment in progress";
 config.notificationText = "Tap to return to the app";
 config.notificationIconResId = R.drawable.ic_notification; // Use 0 for the library default.
-StashNativeCard.getInstance().setKeepAliveConfig(config);
+StashNative.getInstance().setKeepAliveConfig(config);
 ```
 
 The library manifest includes the service and its foreground-service permissions. If you enable it, configure your app's service declarations and notification behavior. See the [keep-alive service](https://stashgg.github.io/stash-native/usage/browser.html#keep-alive-service-android) docs.
@@ -251,28 +194,88 @@ On iOS, add `NSCameraUsageDescription` to your app's `Info.plist`. On Android, a
 **Android**
 
 ```java
-StashNativeCard.getInstance().codeLink(this, null);
+StashNative.getInstance().codeLink(this, null);
 ```
 
 **iOS**
 
 ```swift
-StashNativeCard.sharedInstance().codeLink(from: self, config: nil)
+StashNative.sharedInstance().codeLink(from: self, config: nil)
 ```
 
 #### Scanner Configuration
 
-To customize or translate the scanner text, pass `StashNativeCard.CodeLinkConfig` on Android or `StashNativeCodeLinkConfig` on iOS. Omitted or empty text uses the defaults. Set `showCallout` to `false` to hide the info callout. See [scanner configuration](https://stashgg.github.io/stash-native/usage/codelink.html#configuration) for all properties and their default text.
+To customize or translate the scanner text, pass `StashNative.CodeLinkConfig` on Android or `StashNativeCodeLinkConfig` on iOS. Omitted or empty text uses the defaults. Set `showCallout` to `false` to hide the info callout. See [scanner configuration](https://stashgg.github.io/stash-native/usage/codelink.html#configuration) for all properties and their default text.
 
-#### Callbacks
+## Callbacks
 
-Set the listener or delegate before opening. A successful scan shows **Connected**, closes the card, and returns the unchanged QR content once.
+Register one listener (Android) or delegate (iOS) on the main thread before opening. The same receiver handles all three features; see [receiver ownership](https://stashgg.github.io/stash-native/usage/callbacks.html#set-the-receiver) for replacement and cleanup.
 
-| Event | Android | iOS |
-| --- | --- | --- |
-| QR scanned | `onQrCodeScanned(content)` | `stashNativeCardDidScanQRCode(_:)` |
-| Camera or setup error | `onCodeLinkError(error)` | `stashNativeCardCodeLinkDidEncounterError(_:)` |
-| Dismissed without a scan | `onDialogDismissed()` | `stashNativeCardDidDismiss()` |
+### OpenCard
+
+| Event | Android | iOS | Description |
+| --- | --- | --- | --- |
+| Payment Success | `onPaymentSuccess(order)` | `stashNativeDidCompletePayment(withOrder:)` | Returns checkout's order payload, or `null` / `nil` when omitted. |
+| Payment Failure | `onPaymentFailure()` | `stashNativeDidFailPayment()` | Reports a failed payment. |
+| Card Dismissed | `onCardDismissed()` | `stashNativeDidDismissCard()` | User, page, or app dismissed the card. |
+| External Payment | `onExternalPayment(url)` | `stashNativeDidRequestExternalPayment(with:)` | Checkout hands off to the supplied browser URL. |
+| Browser Dismissed | `onBrowserDismissed()` | `stashNativeDidDismissBrowser()` | The browser closed after an OpenCard external-payment handoff. |
+| Page Loaded | `onPageLoaded(loadTimeMs)` | `stashNativeDidLoadPage(_:)` | Reports page load time in milliseconds. |
+| Network Error | `onNetworkError()` | `stashNativeDidEncounterNetworkError()` | Checkout could not load; the card closes without a dismissal callback. |
+
+External Payment hands checkout to the in-app browser; Browser Dismissed fires when it closes.
+
+### OpenBrowser
+
+On iOS, Safari Done, `closeBrowser()`, and `dismiss()` send only Browser Dismissed. `closeBrowser()` has no effect on Android.
+
+| Event | Android | iOS | Description |
+| --- | --- | --- | --- |
+| Browser Dismissed | `onBrowserDismissed()` | `stashNativeDidDismissBrowser()` | The browser closed, whether opened directly or through checkout's payment handoff. |
+
+### CodeLink
+
+A successful scan shows **Connected** before closing and does not emit a dismissal callback.
+
+| Event | Android | iOS | Description |
+| --- | --- | --- | --- |
+| QR Scanned | `onQrCodeScanned(content)` | `stashNativeDidScanQRCode(_:)` | Returns the unchanged QR content once, after the scanner closes. |
+| Camera or Setup Error | `onCodeLinkError(error)` | `stashNativeCodeLinkDidEncounterError(_:)` | Camera or startup failure; most errors leave the scanner open. |
+| Scan Dismissed | `onScanDismissed()` | `stashNativeDidDismissScan()` | The user or app dismissed the scanner without a result. |
+
+Android `SCANNER_UNAVAILABLE` closes the scanner without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/codelink.html#errors).
+
+### Register callbacks
+
+Implement only the callbacks you need.
+
+**Android**
+
+```java
+StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter() {
+    @Override public void onPaymentSuccess(String order) {}
+    @Override public void onPaymentFailure() {}
+    @Override public void onCardDismissed() {}
+    @Override public void onBrowserDismissed() {}
+    @Override public void onScanDismissed() {}
+    @Override public void onQrCodeScanned(String content) {}
+});
+```
+
+**iOS**
+
+```swift
+StashNative.sharedInstance().delegate = self
+
+extension YourViewController: StashNativeDelegate {
+    func stashNativeDidCompletePayment(withOrder order: String?) {}
+    func stashNativeDidFailPayment() {}
+    func stashNativeDidDismissCard() {}
+    func stashNativeDidDismissBrowser() {}
+    func stashNativeDidDismissScan() {}
+    func stashNativeDidScanQRCode(_ content: String) {}
+}
+```
 
 ---
 
@@ -301,12 +304,12 @@ Query the SDK version at runtime:
 
 ```java
 // Android
-String version = StashNativeCard.getVersion();
+String version = StashNative.getVersion();
 ```
 
 ```swift
 // iOS
-let version = StashNativeCard.sdkVersion()
+let version = StashNative.sdkVersion()
 ```
 
 ---

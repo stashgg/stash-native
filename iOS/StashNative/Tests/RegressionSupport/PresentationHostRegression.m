@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 
 @interface StashPresentationProbeView : UIView
 @property (nonatomic) UIUserInterfaceSizeClass verticalClass;
@@ -63,7 +63,7 @@ NSDictionary *StashNativePresentationProbe(void) {
 NSDictionary *StashPresentationLifetimeProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     for (NSString *name in @[@"closed", @"replacement", @"detached", @"occupied", @"dismissing"]) {
-        StashNativeCard *owner = [StashNativeCard new];
+        StashNative *owner = [StashNative new];
         StashCheckoutSession *session = [StashCheckoutSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.url = @"about:blank";

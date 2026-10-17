@@ -36,7 +36,7 @@ public class PresentationSafetyTest {
   private RecordingCheckout activity;
 
   @Before public void prepare() {
-    StashNativeCardPlugin.getInstance().resetPresentationState();
+    StashNativePlugin.getInstance().resetPresentationState();
     activity = createCheckout();
     activity.options = StashPresentationOptions.card(null);
     activity.rootLayout = new FrameLayout(activity);
@@ -50,7 +50,7 @@ public class PresentationSafetyTest {
   }
 
   @After public void cleanup() {
-    StashNativeCardPlugin.getInstance().resetPresentationState();
+    StashNativePlugin.getInstance().resetPresentationState();
     activity.presentation.dispose();
     StashCheckoutLoadingSupport.cancelLoadTimers(activity);
     StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(activity);
@@ -58,7 +58,7 @@ public class PresentationSafetyTest {
   }
 
   private RecordingCheckout createCheckout() {
-    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    StashNativePlugin plugin = StashNativePlugin.getInstance();
     plugin.isCurrentlyPresented = true;
     Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
         plugin.presentationSessionId);
@@ -221,7 +221,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void processingAndCloseQueuedTogetherCannotDismissPendingPurchase() throws Exception {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.allowDismiss = false;
     activity.options = StashPresentationOptions.card(config);
     StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
@@ -240,7 +240,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void allowDismissBlocksUserDismissalButNotPageClose() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.allowDismiss = false;
     activity.options = StashPresentationOptions.card(config);
     activity.requestUserDismiss();
@@ -256,7 +256,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void cancelDeeplinkIgnoresAllowDismissButRespectsProcessing() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.allowDismiss = false;
     activity.options = StashPresentationOptions.card(config);
     activity.isPurchaseProcessing = true;
@@ -270,7 +270,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void paymentResultsIgnoreAllowDismissAndAutoCloseOnce() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.allowDismiss = false;
     for (boolean success : new boolean[] {true, false}) {
       RecordingCheckout checkout = createCheckout();
@@ -298,7 +298,7 @@ public class PresentationSafetyTest {
   }
 
   @Test public void paymentRetryWithAutoCloseDisabledCanStillCloseFromPage() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.allowDismiss = false;
     config.autoClose = false;
     activity.options = StashPresentationOptions.card(config);

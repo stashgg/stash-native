@@ -25,8 +25,8 @@ import org.robolectric.shadows.ShadowLooper;
 @Config(sdk = 28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class BrowserLifetimeTest {
-  private final StashNativeCard sdk = StashNativeCard.getInstance();
-  private final StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+  private final StashNative sdk = StashNative.getInstance();
+  private final StashNativePlugin plugin = StashNativePlugin.getInstance();
   private Activity host;
   private StashCheckoutActivity checkout;
   private int externalPayments;
@@ -36,9 +36,9 @@ public class BrowserLifetimeTest {
     sdk.resetPresentationState();
     host = Robolectric.buildActivity(Activity.class).setup().get();
     checkout = openCheckout();
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { externalPayments++; }
-      @Override public void onBrowserClosed() { browserClosed++; }
+      @Override public void onBrowserDismissed() { browserClosed++; }
     });
   }
 
@@ -76,7 +76,7 @@ public class BrowserLifetimeTest {
   }
 
   @Test public void resetInsideExternalPaymentCallbackCancelsLaunch() {
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { sdk.resetPresentationState(); }
     });
     handoff();
@@ -86,7 +86,7 @@ public class BrowserLifetimeTest {
   }
 
   @Test public void replacementInsideExternalPaymentCallbackRetiresOldCheckoutAndCancelsLaunch() {
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { openCheckout(); }
     });
     handoff();
@@ -123,8 +123,8 @@ public class BrowserLifetimeTest {
 
   @Test public void replacementInsideBrowserClosedCallbackRetiresOldCheckout() {
     handoff();
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onBrowserClosed() { openCheckout(); }
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onBrowserDismissed() { openCheckout(); }
     });
     long sessionId = Shadows.shadowOf(checkout).getNextStartedActivity()
         .getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
@@ -177,7 +177,7 @@ public class BrowserLifetimeTest {
   }
 
   @Test public void browserOpenedFromExternalPaymentCallbackRetiresPreviousCheckout() {
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) {
         sdk.openBrowser(host, "https://example.invalid/next");
       }
@@ -230,8 +230,8 @@ public class BrowserLifetimeTest {
     handoff();
     long oldSession = Shadows.shadowOf(checkout).getNextStartedActivity()
         .getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onBrowserClosed() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onBrowserDismissed() {
         sdk.openBrowser(host, "https://example.invalid/next");
       }
     });

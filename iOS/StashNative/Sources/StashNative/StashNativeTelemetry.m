@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <QuartzCore/QuartzCore.h>
 #import <sys/utsname.h>
 
@@ -64,7 +64,7 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
         @"app":@{@"id":StashTelemetryString(NSBundle.mainBundle.bundleIdentifier),
             @"version":StashTelemetryString(bundle[@"CFBundleShortVersionString"]),
             @"build":StashTelemetryString(bundle[@"CFBundleVersion"]), @"targetSdkVersion":NSNull.null},
-        @"runtime":@{@"sdkVersion":StashNativeCard.sdkVersion, @"webViewEngine":@"webkit",
+        @"runtime":@{@"sdkVersion":StashNative.sdkVersion, @"webViewEngine":@"webkit",
             @"webViewPackage":NSNull.null, @"webViewVersion":NSNull.null},
         @"presentation":@{
             @"state":self.expanded ? @"expanded" : @"resting",

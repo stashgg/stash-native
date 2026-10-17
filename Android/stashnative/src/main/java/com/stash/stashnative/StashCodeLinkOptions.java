@@ -22,9 +22,9 @@ final class StashCodeLinkOptions {
     this.showCallout = showCallout;
   }
 
-  static StashCodeLinkOptions from(StashNativeCard.CodeLinkConfig config) {
-    StashNativeCard.CodeLinkConfig value = config == null
-        ? new StashNativeCard.CodeLinkConfig() : config;
+  static StashCodeLinkOptions from(StashNative.CodeLinkConfig config) {
+    StashNative.CodeLinkConfig value = config == null
+        ? new StashNative.CodeLinkConfig() : config;
     return new StashCodeLinkOptions(value.headerText, value.calloutTitle,
         value.calloutSubtitle, value.cameraUnavailableText, value.connectedText, value.showCallout);
   }

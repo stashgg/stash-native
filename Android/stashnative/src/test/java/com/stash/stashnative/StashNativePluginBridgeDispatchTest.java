@@ -12,15 +12,15 @@ import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
 
 @RunWith(RobolectricTestRunner.class)
-public class StashNativeCardPluginBridgeDispatchTest {
+public class StashNativePluginBridgeDispatchTest {
 
-  private StashNativeCardPlugin plugin;
-  private StashNativeCard.StashNativeCardListener previousListener;
+  private StashNativePlugin plugin;
+  private StashNative.StashNativeListener previousListener;
   private boolean previousIsCurrentlyPresented;
 
   @Before
   public void setUp() throws Exception {
-    plugin = StashNativeCardPlugin.getInstance();
+    plugin = StashNativePlugin.getInstance();
     previousListener = getListenerField(plugin);
     previousIsCurrentlyPresented = plugin.isCurrentlyPresented();
     setIsCurrentlyPresented(plugin, true);
@@ -37,7 +37,7 @@ public class StashNativeCardPluginBridgeDispatchTest {
     final long[] capturedMs = new long[1];
     final boolean[] called = new boolean[1];
     plugin.setListener(
-        new StashNativeCard.StashNativeCardListenerAdapter() {
+        new StashNative.StashNativeListenerAdapter() {
           @Override
           public void onPageLoaded(long loadTimeMs) {
             called[0] = true;
@@ -66,25 +66,25 @@ public class StashNativeCardPluginBridgeDispatchTest {
   }
 
   private static void dispatchCheckoutBridgeIntent(
-      StashNativeCardPlugin plugin, String action, Intent intent) throws Exception {
+      StashNativePlugin plugin, String action, Intent intent) throws Exception {
     Method method =
-        StashNativeCardPlugin.class.getDeclaredMethod(
+        StashNativePlugin.class.getDeclaredMethod(
             "dispatchCheckoutBridgeIntent", String.class, Intent.class);
     method.setAccessible(true);
     intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, plugin.presentationSessionId);
     method.invoke(plugin, action, intent);
   }
 
-  private static StashNativeCard.StashNativeCardListener getListenerField(
-      StashNativeCardPlugin plugin) throws Exception {
-    Field field = StashNativeCardPlugin.class.getDeclaredField("listener");
+  private static StashNative.StashNativeListener getListenerField(
+      StashNativePlugin plugin) throws Exception {
+    Field field = StashNativePlugin.class.getDeclaredField("listener");
     field.setAccessible(true);
-    return (StashNativeCard.StashNativeCardListener) field.get(plugin);
+    return (StashNative.StashNativeListener) field.get(plugin);
   }
 
-  private static void setIsCurrentlyPresented(StashNativeCardPlugin plugin, boolean value)
+  private static void setIsCurrentlyPresented(StashNativePlugin plugin, boolean value)
       throws Exception {
-    Field field = StashNativeCardPlugin.class.getDeclaredField("isCurrentlyPresented");
+    Field field = StashNativePlugin.class.getDeclaredField("isCurrentlyPresented");
     field.setAccessible(true);
     field.setBoolean(plugin, value);
   }

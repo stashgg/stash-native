@@ -18,13 +18,13 @@ When changing decoded checkout responses, persisted sample credentials, or impor
 
 ## 2. checkout-result-once (A3)
 
-Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. Trace Android's `StashCheckoutJsInterface` into `StashCheckoutActivity` and iOS's `StashCheckoutSession` in `StashNativeCardInternal.m`. Preserve terminal state before host callbacks and the deliberate exception for `autoClose = false`, where a live page may retry from failure to success.
+Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. Trace Android's `StashCheckoutJsInterface` into `StashCheckoutActivity` and iOS's `StashCheckoutSession` in `StashNativeInternal.m`. Preserve terminal state before host callbacks and the deliberate exception for `autoClose = false`, where a live page may retry from failure to success.
 
 **Failure:** Duplicate payment signals during an auto-closing presentation deliver more than one terminal host callback or dismissal.
 
 ## 3. bridge-surface-parity (B1)
 
-Treat `window.stash_sdk` as a paired Android/iOS protocol. Trace Android's `StashWebViewUtils.JS_SDK_SCRIPT` through `StashCheckoutJsInterface`, and iOS's `StashBridgeScript()` in `StashNativeCardViewUtils.m` through session handler registration and dispatch. Update both implementations when shared functions, argument coercion, results, or handler names change; preserve documented platform-specific missing-handler behavior.
+Treat `window.stash_sdk` as a paired Android/iOS protocol. Trace Android's `StashWebViewUtils.JS_SDK_SCRIPT` through `StashCheckoutJsInterface`, and iOS's `StashBridgeScript()` in `StashNativeViewUtils.m` through session handler registration and dispatch. Update both implementations when shared functions, argument coercion, results, or handler names change; preserve documented platform-specific missing-handler behavior.
 
 **Failure:** Checkout JavaScript works on one native platform but silently drops or misroutes the same call on the other.
 
@@ -36,7 +36,7 @@ Normalize and copy card content dimensions, maximum height, and edge margin befo
 
 ## 5. ios-session-ownership (B3)
 
-Keep the active session owned by its `StashNativeCard` instance. `StashCheckoutSession` owns callbacks, timers, WebView, and presentation lifetime; controllers own layout. Declare cross-file interfaces in `StashNativeCardPrivate.h` and keep file-local constants `static`. Do not use the singleton's state to decide behavior for another instance.
+Keep the active session owned by its `StashNative` instance. `StashCheckoutSession` owns callbacks, timers, WebView, and presentation lifetime; controllers own layout. Declare cross-file interfaces in `StashNativePrivate.h` and keep file-local constants `static`. Do not use the singleton's state to decide behavior for another instance.
 
 **Failure:** A session reads another instance's state or outlives its owner without teardown.
 
@@ -48,7 +48,7 @@ When adding or renaming an Objective-C library source, keep the distribution man
 
 ## 7. release-version-parity (B3)
 
-Change the SDK version as one synchronized value: `SDK_VERSION` in `Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java` and `+[StashNativeCard sdkVersion]` in `iOS/StashNative/Sources/StashNative/StashNativeCard.m` must report the same release string.
+Change the SDK version as one synchronized value: `SDK_VERSION` in `Android/stashnative/src/main/java/com/stash/stashnative/StashNative.java` and `+[StashNative sdkVersion]` in `iOS/StashNative/Sources/StashNative/StashNative.m` must report the same release string.
 
 **Failure:** Integrators and wrappers identify equivalent Android and iOS release artifacts as different SDK versions.
 
@@ -60,7 +60,7 @@ Use current window bounds and insets when changing sizing, expansion, rotation, 
 
 ## 9. bridge-contract-consumers (B4)
 
-For a changed checkout callback, external-browser handoff, or JavaScript bridge behavior, trace the full contract from injected script through the native handler to the host-facing API and its documented consumer. Keep `docs/stash-sdk-js.md`, `Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java`, `iOS/StashNative/Sources/StashNative/include/StashNativeCard.h`, and `.github/test/index.html` truthful about the behavior implemented by the two bridge paths.
+For a changed checkout callback, external-browser handoff, or JavaScript bridge behavior, trace the full contract from injected script through the native handler to the host-facing API and its documented consumer. Keep `docs/stash-sdk-js.md`, `Android/stashnative/src/main/java/com/stash/stashnative/StashNative.java`, `iOS/StashNative/Sources/StashNative/include/StashNative.h`, and `.github/test/index.html` truthful about the behavior implemented by the two bridge paths.
 
 **Failure:** A host or checkout page follows a stale callback or browser-handoff contract and receives the wrong lifecycle outcome.
 
@@ -72,7 +72,7 @@ Preserve the field-level portable-instance contract between the sample apps. `An
 
 ## 11. behavioral-fix-regression (B5)
 
-Add a focused regression test when a material change alters deterministic SDK behavior such as URL acceptance, deeplink routing, theme propagation, sizing, bridge dispatch, or configuration defaults. Extend the relevant tests under `Android/stashnative/src/test/java/com/stash/stashnative/`, such as `UrlNormalizationTest`, `DeeplinkClassificationTest`, `ThemeParameterTest`, `CardGeometryTest`, or `StashNativeCardPluginBridgeDispatchTest`, and the corresponding iOS tests in `iOS/StashNative/Tests/StashNativeTests/`; do not require a unit test where the behavior is necessarily device/WebView-only.
+Add a focused regression test when a material change alters deterministic SDK behavior such as URL acceptance, deeplink routing, theme propagation, sizing, bridge dispatch, or configuration defaults. Extend the relevant tests under `Android/stashnative/src/test/java/com/stash/stashnative/`, such as `UrlNormalizationTest`, `DeeplinkClassificationTest`, `ThemeParameterTest`, `CardGeometryTest`, or `StashNativePluginBridgeDispatchTest`, and the corresponding iOS tests in `iOS/StashNative/Tests/StashNativeTests/`; do not require a unit test where the behavior is necessarily device/WebView-only.
 
 **Failure:** A later change restores a material checkout or callback bug because its testable behavior was never pinned by a regression test.
 

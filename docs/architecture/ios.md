@@ -13,22 +13,22 @@ An Objective-C library for iOS 15+, built with and without ARC. Source: [`iOS/St
 
 | File | Responsibility |
 |---|---|
-| `include/StashNativeCard.h` | Public API |
-| `StashNativeCardPrivate.h` | Internal interfaces |
-| `StashNativeCard.m` | Facade, open validation, main-thread dispatch |
-| `StashNativeCardConfigs.m` | Config defaults and normalization |
-| `StashNativeCardInternal.m` | Session: WebView, bridge messages, callbacks, load deadlines, teardown |
-| `StashNativeCardWebViewDelegates.m` | Navigation policy, deep links, process termination |
-| `StashNativeCardViewUtils.m` | Injected scripts, URL validation |
+| `include/StashNative.h` | Public API |
+| `StashNativePrivate.h` | Internal interfaces |
+| `StashNative.m` | Facade, open validation, main-thread dispatch |
+| `StashNativeConfigs.m` | Config defaults and normalization |
+| `StashNativeInternal.m` | Session: WebView, bridge messages, callbacks, load deadlines, teardown |
+| `StashNativeWebViewDelegates.m` | Navigation policy, deep links, process termination |
+| `StashNativeViewUtils.m` | Injected scripts, URL validation |
 | `StashNativeCardViewControllers.m` | Card controller lifecycle and layout |
 | `StashNativeCardPresentation.m` | Sheet detents and available bounds |
 | `StashNativeCardKeyboard.m` | Keyboard tracking and focused field reveal |
 | `StashNativeCardGestures.m` | Content drag and dismissal policy |
 | `StashNativeCardGeometry.m` | Sizing math |
-| `StashNativeCardOrientation.m` | Portrait window and orientation hooks |
+| `StashNativeOrientation.m` | Portrait window and orientation hooks |
 | `StashNativeCardTransitions.m` | Entrance animation correction (iOS 26+) |
-| `StashNativeCardTheme.m` | Theme colors and `theme` parameter |
-| `StashNativeCardTelemetry.m` | `getTelemetry()` |
+| `StashNativeTheme.m` | Theme colors and `theme` parameter |
+| `StashNativeTelemetry.m` | `getTelemetry()` |
 | `StashNativeCodeLink.m` | QR scanner |
 
 Add new files to `StashNative.xcodeproj` as well. Swift Package Manager finds them automatically; the Xcode project does not.
@@ -38,7 +38,7 @@ Add new files to `StashNative.xcodeproj` as well. Swift Package Manager finds th
 ```mermaid
 classDiagram
     direction LR
-    class StashNativeCard
+    class StashNative
     class StashCheckoutSession
     class StashCheckoutViewController
     class StashCodeLinkViewController
@@ -46,17 +46,17 @@ classDiagram
     class WKWebView
     class SFSafariViewController
 
-    StashNativeCard "1" --> "0..1" StashCheckoutSession : strong
+    StashNative "1" --> "0..1" StashCheckoutSession : strong
     StashCheckoutSession --> StashCheckoutViewController : strong
     StashCheckoutSession --> WKWebView : strong
     StashCheckoutSession --> SFSafariViewController : strong
     StashCheckoutSession --> StashCodeLinkViewController : strong
     StashCheckoutSession --> StashPortraitPresentation : strong
     StashCheckoutViewController ..> StashCheckoutSession : weak
-    StashCheckoutSession ..> StashNativeCard : weak
+    StashCheckoutSession ..> StashNative : weak
 ```
 
-The session owns checkout state, callbacks, the WebView, and the browser. A session is active while the facade points to it and it is not closing. Teardown stops timers and removes message handlers, observers, and delegates. Late callbacks from an old session do nothing.
+The session owns checkout state, the WebView, and the browser. The facade owns the live delegate registration; each event snapshots its current receiver. A session is active while the facade points to it and it is not closing. Teardown stops timers and removes message handlers, observers, and delegates. Late callbacks from an old session do nothing.
 
 ## Presentation
 
@@ -117,6 +117,7 @@ Keep the `stashNativement*` handler names; wrappers and pages depend on them.
 
 ## Threading and memory
 
-- Public methods dispatch to the main queue. Open calls copy the URL and config first.
-- The delegate is `weak` under ARC and `assign` under manual reference counting. CI builds the library both ways.
+- Open calls accept any thread, copy the URL and config, then dispatch to main. Register, read, replace, and clear the delegate on main.
+- The delegate is `weak` under ARC and `assign` under manual reference counting. Its owner keeps it alive. Under manual reference counting, clear it on main before releasing it and synchronize teardown with callbacks. CI builds the library both ways.
 - Dismissal and network error callbacks run after the session is cleared, so they can open the next presentation.
+- Payment callbacks run before teardown. Safari closing sends only browser dismissed for both `openBrowser` and checkout's payment handoff. Reset is silent and preserves delegate registration.

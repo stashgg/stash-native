@@ -10,7 +10,7 @@ import android.util.Log;
  * Invisible activity that owns the Chrome Custom Tabs launch and its
  * {@code startActivityForResult} lifecycle. Removes the host-side requirement
  * to forward {@code onActivityResult} for {@link
- * com.stash.stashnative.StashNativeCard.StashNativeCardListener#onBrowserClosed()}.
+ * com.stash.stashnative.StashNative.StashNativeListener#onBrowserDismissed()}.
  *
  * <p>The plugin's existing close-tracking flag ({@code browserCloseAwaitingCctResult})
  * is set before this activity is started, so dispatches from this activity and from
@@ -31,7 +31,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     super.onCreate(savedInstanceState);
 
     if (savedInstanceState != null
-        || !StashNativeCardPlugin.getInstance().isCurrentBrowserSession(getBrowserSessionId())) {
+        || !StashNativePlugin.getInstance().isCurrentBrowserSession(getBrowserSessionId())) {
       // A recreated or retired proxy must not relaunch a browser after reset.
       finish();
       return;
@@ -50,7 +50,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
       // dispatch (a no-op for the listener if it wasn't expecting one) to clear that
       // flag and run any pending checkout dismiss. Browser never actually opened.
       Log.w(TAG, "Invalid URL; finishing");
-      StashNativeCard.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
+      StashNative.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
       finish();
       return;
     }
@@ -62,7 +62,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
           uri,
           CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB,
           this::onLaunchMode,
-          () -> StashNativeCard.notifyBrowserEngagementSessionEndedFromProxyInternal(
+          () -> StashNative.notifyBrowserEngagementSessionEndedFromProxyInternal(
               getBrowserSessionId()));
     } catch (Throwable t) {
       Log.w(TAG, "Engagement launch threw: " + t.getMessage());
@@ -89,7 +89,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
   protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     if (requestCode == CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB) {
       awaitingResult = false;
-      StashNativeCard.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
+      StashNative.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
       finish();
       return;
     }
@@ -107,7 +107,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     // (OEM Chrome quirk, ACTION_VIEW fallback, etc.). Treat as closed.
     if (awaitingResult) {
       awaitingResult = false;
-      StashNativeCard.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
+      StashNative.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
       finish();
     }
   }

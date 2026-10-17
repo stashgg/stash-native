@@ -18,16 +18,16 @@ The card adapts to phones, tablets, foldables, and split screen. It follows the 
 Pass the checkout link from your backend, the view controller or activity showing the game, and an optional configuration. Set your [callbacks](#handle-the-result) first.
 
 ```swift
-StashNativeCard.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
+StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
 ```
 
 ```java
-StashNativeCard.getInstance().openCard(activity, checkoutUrl, null);
+StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
 ## Configuration
 
-Pass `StashNativeCardConfig` (iOS) or `StashNativeCard.CardConfig` (Android), or `nil`/`null` for the defaults. Sizes are points on iOS and dp on Android. The card never grows past the screen.
+Pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `nil`/`null` for the defaults. Sizes are points on iOS and dp on Android. The card never grows past the screen.
 
 | Property | Default | Effect |
 |---|---|---|
@@ -47,13 +47,13 @@ The defaults fit Stash Pay checkout. Common changes:
 ```swift
 let config = StashNativeCardConfig()
 config.allowDismiss = false
-StashNativeCard.sharedInstance().openCard(withURL: checkoutURL, from: self, config: config)
+StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: config)
 ```
 
 ```java
-StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+StashNative.CardConfig config = new StashNative.CardConfig();
 config.allowDismiss = false;
-StashNativeCard.getInstance().openCard(activity, checkoutUrl, config);
+StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
 
 ## Portrait checkout
@@ -65,7 +65,7 @@ config.orientationPreference = .portrait
 ```
 
 ```java
-config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
+config.orientationPreference = StashNative.CardConfig.ORIENTATION_PORTRAIT;
 ```
 
 This works even when the game only supports landscape, and your orientation settings stay unchanged. iPads, tablets, unfolded foldables, and split screen keep the game's orientation. The system can still refuse to rotate, so the card also works in landscape.
@@ -75,41 +75,43 @@ This works even when the game only supports landscape, and your orientation sett
 On Android, the game rotates behind a portrait card, and some games show glitches while that happens. To hide them, pass a screenshot of the game right before opening the card:
 
 ```java
-StashNativeCard.setBackdropBitmap(screenshot); // or setBackdropBytes(pngOrJpegBytes)
-StashNativeCard.getInstance().openCard(activity, checkoutUrl, config);
+StashNative.setBackdropBitmap(screenshot); // or setBackdropBytes(pngOrJpegBytes)
+StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
 
 The SDK takes ownership of the bitmap, so do not reuse or recycle it. The next card you open uses the image if it shows in portrait, and discards it otherwise. iOS does not need a backdrop.
 
 ## Handle the result
 
-Set a delegate or listener before opening. These events matter for the card:
+Set a delegate or listener on main before opening. These events matter for the card:
 
 | Event | iOS | Android | What to do |
 |---|---|---|---|
-| Payment success | `stashNativeCardDidCompletePayment(withOrder:)` | `onPaymentSuccess(order)` | Ask your backend to confirm the purchase, then grant the items |
-| Payment failure | `stashNativeCardDidFailPayment()` | `onPaymentFailure()` | Update your store UI |
-| Dismissed | `stashNativeCardDidDismiss()` | `onDialogDismissed()` | Resume the game |
-| Network error | `stashNativeCardDidEncounterNetworkError()` | `onNetworkError()` | Tell the player checkout could not load. The card is already closed. |
+| Payment success | `stashNativeDidCompletePayment(withOrder:)` | `onPaymentSuccess(order)` | Ask your backend to confirm the purchase, then grant the items |
+| Payment failure | `stashNativeDidFailPayment()` | `onPaymentFailure()` | Update your store UI |
+| Card dismissed | `stashNativeDidDismissCard()` | `onCardDismissed()` | Resume the game |
+| External payment | `stashNativeDidRequestExternalPayment(with:)` | `onExternalPayment(url)` | Wait for browser dismissal before resuming the game |
+| Browser dismissed | `stashNativeDidDismissBrowser()` | `onBrowserDismissed()` | Resume after checkout's browser handoff |
+| Network error | `stashNativeDidEncounterNetworkError()` | `onNetworkError()` | Tell the player checkout could not load. The card is already closed. |
 
 ```swift
-extension StoreViewController: StashNativeCardDelegate {
-    func stashNativeCardDidCompletePayment(withOrder order: String?) {
+extension StoreViewController: StashNativeDelegate {
+    func stashNativeDidCompletePayment(withOrder order: String?) {
         // Confirm the purchase on your backend before granting items.
     }
 
-    func stashNativeCardDidFailPayment() {
+    func stashNativeDidFailPayment() {
         // Update the store UI.
     }
 
-    func stashNativeCardDidDismiss() {
+    func stashNativeDidDismissCard() {
         // Resume the game.
     }
 }
 ```
 
 ```java
-StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter() {
     @Override
     public void onPaymentSuccess(String order) {
         // Confirm the purchase on your backend before granting items.
@@ -121,7 +123,7 @@ StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardLis
     }
 
     @Override
-    public void onDialogDismissed() {
+    public void onCardDismissed() {
         // Resume the game.
     }
 });

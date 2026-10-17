@@ -24,11 +24,11 @@ An integration has four steps:
 
 ## API at a glance
 
-Both SDKs expose one singleton, `StashNativeCard`.
+Both SDKs expose one singleton, `StashNative`.
 
 | Task | iOS (Swift) | Android (Java) |
 |---|---|---|
-| Get the singleton | `StashNativeCard.sharedInstance()` | `StashNativeCard.getInstance()` |
+| Get the singleton | `StashNative.sharedInstance()` | `StashNative.getInstance()` |
 | Receive events | `delegate = self` | `setListener(listener)` |
 | Open checkout | `openCard(withURL:from:config:)` | `openCard(activity, url, config)` |
 | Open the browser | `openBrowser(withURL:from:config:)` | `openBrowser(activity, url)` |
@@ -42,9 +42,9 @@ Android also has the [portrait backdrop](checkout-card.md#android-portrait-backd
 ## Integration rules
 
 - Pass the activity or view controller that shows your game when the player starts checkout. The SDK presents on that window, so checkout appears where the player is, also in split screen and multi-window.
-- Set the delegate or listener before opening anything, so no event is missed.
-- Call the SDK from any thread, including engine threads. Callbacks always arrive on the main thread.
-- Only one presentation can be open. Calls made while one is open are ignored, so check `isCurrentlyPresented` if the game needs to know.
+- Register, read, replace, and clear the delegate or listener on the platform main thread. Register before opening anything; see [receiver ownership](callbacks.md#set-the-receiver).
+- Open from any thread, including engine threads. Opens dispatch to main, and callbacks always arrive there.
+- `isCurrentlyPresented` is informational. Opens can be silently ignored for busy state, an invalid host, or an invalid URL; the query does not confirm that an open was accepted.
 - Use `https://` links. The SDK ignores links that are not web URLs.
 
 ## WebView debugging
@@ -52,11 +52,11 @@ Android also has the [portrait backdrop](checkout-card.md#android-portrait-backd
 During development, make checkout inspectable before opening it:
 
 ```swift
-StashNativeCard.setInspectableWebViewsEnabled(true)
+StashNative.setInspectableWebViewsEnabled(true)
 ```
 
 ```java
-StashNativeCard.setInspectableWebViewsEnabled(true);
+StashNative.setInspectableWebViewsEnabled(true);
 ```
 
 Then inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Leave it off in release builds.
@@ -64,11 +64,11 @@ Then inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (And
 ## SDK version
 
 ```swift
-let version = StashNativeCard.sdkVersion()
+let version = StashNative.sdkVersion()
 ```
 
 ```java
-String version = StashNativeCard.getVersion();
+String version = StashNative.getVersion();
 ```
 
 Include the version when you contact [developers@stash.gg](mailto:developers@stash.gg).

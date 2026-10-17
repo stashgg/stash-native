@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <objc/runtime.h>
 
 typedef NS_ENUM(NSUInteger, StashPortraitPhase) {

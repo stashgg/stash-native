@@ -27,7 +27,7 @@ import org.robolectric.shadows.ShadowLooper;
 @Config(sdk = 28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class CheckoutRetirementTest {
-  private final StashNativeCard sdk = StashNativeCard.getInstance();
+  private final StashNative sdk = StashNative.getInstance();
   private final List<ActivityController<StashCheckoutActivity>> checkouts = new ArrayList<>();
   private Activity host;
   private StashCheckoutActivity replacement;
@@ -64,9 +64,9 @@ public class CheckoutRetirementTest {
 
   @Test public void externalPaymentReplacementRetiresOldActivityWithoutDismissalCallback() {
     StashCheckoutActivity original = open();
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { replacement = open(); }
-      @Override public void onDialogDismissed() { dismissed++; }
+      @Override public void onCardDismissed() { dismissed++; }
     });
     new StashCheckoutJsInterface(original).openExternalBrowser("https://example.invalid/payment");
     assertNull(Shadows.shadowOf(original).getNextStartedActivity());
@@ -75,14 +75,14 @@ public class CheckoutRetirementTest {
 
   @Test public void browserCloseReplacementRetiresOldActivityWithoutDismissalCallback() {
     StashCheckoutActivity original = open();
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
-      @Override public void onBrowserClosed() { replacement = open(); }
-      @Override public void onDialogDismissed() { dismissed++; }
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onBrowserDismissed() { replacement = open(); }
+      @Override public void onCardDismissed() { dismissed++; }
     });
     new StashCheckoutJsInterface(original).openExternalBrowser("https://example.invalid/payment");
     Intent proxy = Shadows.shadowOf(original).getNextStartedActivity();
     assertNotNull(proxy);
-    StashNativeCardPlugin.getInstance().notifyBrowserClosedFromProxyInternal(
+    StashNativePlugin.getInstance().notifyBrowserClosedFromProxyInternal(
         proxy.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L));
     assertReplacementSurvivesOriginalDestruction(original);
   }

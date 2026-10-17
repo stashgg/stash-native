@@ -23,7 +23,7 @@ import android.window.OnBackInvokedCallback;
 
 /** Same-process host for a responsive card. */
 public class StashCheckoutActivity extends Activity {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
   FrameLayout rootLayout;
   View backdropView;
   private StashHostBackdropSupport hostBackdrop;
@@ -114,7 +114,7 @@ public class StashCheckoutActivity extends Activity {
       finish();
       return;
     }
-    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    StashNativePlugin plugin = StashNativePlugin.getInstance();
     if (!plugin.isCurrentlyPresented()
         || plugin.presentationSessionId != getPresentationSessionId()) {
       callbackSent = true;
@@ -322,7 +322,7 @@ public class StashCheckoutActivity extends Activity {
     if (isDismissing) {
       return;
     }
-    StashNativeCardPlugin.getInstance().abandonPendingExternalBrowserCheckoutDismiss(this);
+    StashNativePlugin.getInstance().abandonPendingExternalBrowserCheckoutDismiss(this);
     awaitingExternalBrowserDimOverlay = false;
     dismissWithAnimation();
   }
@@ -343,7 +343,7 @@ public class StashCheckoutActivity extends Activity {
   private void finishActivityWithNoAnimation() {
     isDismissing = true;
     if (hostBackdrop != null && getPresentationSessionId()
-        == StashNativeCardPlugin.getInstance().presentationSessionId) {
+        == StashNativePlugin.getInstance().presentationSessionId) {
       cardContainer.setVisibility(View.INVISIBLE);
       backdropView.setVisibility(View.INVISIBLE);
       if (hostBackdrop.finishAfterRotation(this::finishImmediately)) {
@@ -482,7 +482,7 @@ public class StashCheckoutActivity extends Activity {
     if (codeLinkSupport != null && !isDismissing) {
       codeLinkSupport.resume();
     }
-    StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
+    StashNativePlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
       webView.onResume();
     }
@@ -541,7 +541,7 @@ public class StashCheckoutActivity extends Activity {
     boolean windowed = Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode();
     boolean compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
     int orientation = !codeLink
-        && options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
+        && options.orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT
         && compact && !windowed
         ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_BEHIND;
     if (getRequestedOrientation() != orientation) {
@@ -584,7 +584,7 @@ public class StashCheckoutActivity extends Activity {
     if (telemetrySupport != null) {
       telemetrySupport.dispose();
     }
-    StashNativeCardPlugin.getInstance().clearCheckoutActivity(this);
+    StashNativePlugin.getInstance().clearCheckoutActivity(this);
     StashCheckoutLoadingSupport.cancelLoadTimers(this);
     StashCheckoutLoadingSupport.cancelLoadingRevealAnimation(this);
     if (contentRevealSupport != null) {

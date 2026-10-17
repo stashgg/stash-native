@@ -11,7 +11,7 @@ import android.webkit.WebSettings;
 
 /** Owns loading timers and the initial content crossfade; state stays with the activity. */
 final class StashCheckoutLoadingSupport {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
 
   private StashCheckoutLoadingSupport() {}
 

@@ -34,18 +34,18 @@ import org.robolectric.annotation.LooperMode;
 @LooperMode(LooperMode.Mode.PAUSED)
 public class HostBackdropTest {
   private Activity host;
-  private StashNativeCardPlugin plugin;
-  private StashNativeCard.CardConfig config;
+  private StashNativePlugin plugin;
+  private StashNative.CardConfig config;
   private StashHostBackdropSupport ownedBackdrop;
 
   @Before public void prepare() {
-    plugin = StashNativeCardPlugin.getInstance();
+    plugin = StashNativePlugin.getInstance();
     plugin.resetPresentationState();
     host = Robolectric.buildActivity(Activity.class).setup().get();
     Shadows.shadowOf(host.getApplication()).grantPermissions(
         host.getPackageName() + ".permission.STASH_NATIVE_INTERNAL");
-    config = new StashNativeCard.CardConfig();
-    config.orientationPreference = StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
+    config = new StashNative.CardConfig();
+    config.orientationPreference = StashNative.CardConfig.ORIENTATION_PORTRAIT;
   }
 
   @After public void cleanup() {
@@ -60,20 +60,20 @@ public class HostBackdropTest {
   public void replacementAndExplicitClearReleasePendingImages() {
     Bitmap first = bitmap();
     Bitmap second = bitmap();
-    StashNativeCard.setBackdropBitmap(first);
-    StashNativeCard.setBackdropBitmap(first);
+    StashNative.setBackdropBitmap(first);
+    StashNative.setBackdropBitmap(first);
     assertFalse(first.isRecycled());
-    StashNativeCard.setBackdropBitmap(second);
+    StashNative.setBackdropBitmap(second);
     assertTrue(first.isRecycled());
     assertFalse(second.isRecycled());
-    StashNativeCard.setBackdropBitmap(null);
+    StashNative.setBackdropBitmap(null);
     assertTrue(second.isRecycled());
   }
 
   @Test public void invalidBytesClearPendingImage() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
-    StashNativeCard.setBackdropBytes(new byte[] {1, 2, 3});
+    StashNative.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBytes(new byte[] {1, 2, 3});
     assertTrue(bitmap.isRecycled());
     assertNull(StashHostBackdropSupport.decode(null));
     assertNull(StashHostBackdropSupport.decode(new byte[0]));
@@ -100,7 +100,7 @@ public class HostBackdropTest {
 
   @Test public void rejectedOpenDoesNotConsumeAndAcceptedOpenConsumesOnce() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(host, "", config);
     assertFalse(bitmap.isRecycled());
     plugin.openCard(host, "https://example.invalid", config);
@@ -115,12 +115,12 @@ public class HostBackdropTest {
 
   @Test public void resetBeforeActivityCreationCannotLeakBackdropIntoNextSession() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(host, "https://example.invalid", config);
     long oldSession = plugin.presentationSessionId;
     plugin.resetPresentationState();
     assertTrue(bitmap.isRecycled());
-    StashNativeCard.setBackdropBitmap(bitmap());
+    StashNative.setBackdropBitmap(bitmap());
     plugin.openCard(host, "https://example.invalid", config);
     assertNull(plugin.takeBackdrop(oldSession));
     ownedBackdrop = plugin.takeBackdrop(plugin.presentationSessionId);
@@ -129,7 +129,7 @@ public class HostBackdropTest {
 
   @Test public void scannerDoesNotUseOrConsumePendingCardBackdrop() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.codeLink(host);
     assertNull(plugin.takeBackdrop(plugin.presentationSessionId));
     assertFalse(bitmap.isRecycled());
@@ -141,7 +141,7 @@ public class HostBackdropTest {
 
   @Test public void followHostCardDiscardsItsUnusedBackdrop() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(host, "https://example.invalid", null);
     assertTrue(bitmap.isRecycled());
     assertNull(plugin.takeBackdrop(plugin.presentationSessionId));
@@ -150,7 +150,7 @@ public class HostBackdropTest {
   @Test public void launchFailureReleasesAdmittedBackdrop() {
     Activity failingHost = Robolectric.buildActivity(FailingHost.class).setup().get();
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(failingHost, "https://example.invalid", config);
     assertTrue(bitmap.isRecycled());
     assertFalse(plugin.isCurrentlyPresented());
@@ -161,7 +161,7 @@ public class HostBackdropTest {
   @Test @Config(qualifiers = "sw600dp-land")
   public void tabletIgnoresPortraitBackdrop() {
     Bitmap bitmap = bitmap();
-    StashNativeCard.setBackdropBitmap(bitmap);
+    StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(host, "https://example.invalid", config);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =

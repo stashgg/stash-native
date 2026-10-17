@@ -77,7 +77,7 @@ public class StashWebViewUtils {
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
   public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
-  // Canonical spec: docs/stash-sdk-js.md. Mirror changes in iOS StashNativeCardViewUtils.m.
+  // Canonical spec: docs/stash-sdk-js.md. Mirror changes in iOS StashNativeViewUtils.m.
   public static final String JS_SDK_SCRIPT = "(function() {"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + StashTelemetrySupport.API_SCRIPT
@@ -202,7 +202,7 @@ public class StashWebViewUtils {
     if (webView == null) {
       return;
     }
-    if (StashNativeCard.isInspectableWebViewsEnabled()) {
+    if (StashNative.isInspectableWebViewsEnabled()) {
       try {
         WebView.setWebContentsDebuggingEnabled(true);
       } catch (Throwable ignored) {

@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 #import <objc/runtime.h>
 
 @interface StashHapticRecorder : NSObject
@@ -34,7 +34,7 @@
 @end
 
 NSDictionary *StashHapticFixture(UIViewController *presenter) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     owner.session = session;
     session.owner = owner;
@@ -54,7 +54,7 @@ NSDictionary *StashHapticFixture(UIViewController *presenter) {
 }
 
 NSDictionary *StashHapticLifecycleProbe(NSDictionary *fixture) {
-    StashNativeCard *owner = fixture[@"owner"];
+    StashNative *owner = fixture[@"owner"];
     StashCheckoutSession *session = fixture[@"session"];
     WKWebView *web = fixture[@"web"];
     NSMutableArray *events = fixture[@"events"];
@@ -85,5 +85,5 @@ NSDictionary *StashHapticLifecycleProbe(NSDictionary *fixture) {
 void StashEndHapticFixture(NSDictionary *fixture) {
     [fixture[@"recorder"] stop];
     [fixture[@"session"] cleanup];
-    ((StashNativeCard *)fixture[@"owner"]).session = nil;
+    ((StashNative *)fixture[@"owner"]).session = nil;
 }

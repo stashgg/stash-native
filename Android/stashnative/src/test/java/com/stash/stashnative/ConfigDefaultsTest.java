@@ -5,7 +5,7 @@ import org.junit.Test;
 
 public class ConfigDefaultsTest {
   @Test public void cardDefaultsAndSnapshotAreIndependentFromCaller() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     StashPresentationOptions snapshot = StashPresentationOptions.card(config);
     config.preferredContentHeight = 123;
     assertEquals(400f, snapshot.width, 0);
@@ -18,7 +18,7 @@ public class ConfigDefaultsTest {
   }
 
   @Test public void invalidConstraintsNormalizeBeforeDispatch() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.preferredContentWidth = Float.NaN;
     config.preferredContentHeight = Float.POSITIVE_INFINITY;
     config.maximumContentHeight = -4;
@@ -34,12 +34,12 @@ public class ConfigDefaultsTest {
   }
 
   @Test public void zeroMarginAndHeightCeilingRemainUnbounded() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.edgeMargin = 0;
     config.maximumContentHeight = 0;
     assertEquals(0f, StashPresentationOptions.card(config).maximumHeight, 0);
     assertEquals(0f, StashPresentationOptions.card(config).margin, 0);
   }
 
-  @Test public void reportsVersionThree() { assertEquals("3.0.0", StashNativeCard.getVersion()); }
+  @Test public void reportsVersionThree() { assertEquals("3.0.0", StashNative.getVersion()); }
 }

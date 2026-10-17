@@ -13,8 +13,8 @@ A Java library for API 21+, package `com.stash.stashnative`, compiled against SD
 
 | Class | Responsibility |
 |---|---|
-| `StashNativeCard` | Public API |
-| `StashNativeCardPlugin` | Session IDs, listener dispatch, browser launch and close tracking, keep-alive, backdrop |
+| `StashNative` | Public API |
+| `StashNativePlugin` | Session IDs, listener dispatch, browser launch and close tracking, keep-alive, backdrop |
 | `StashCheckoutActivity` | Non-exported activity hosting one card or scanner |
 | `StashPresentationController` | Insets, keyboard, folds, layout, animation, gestures |
 | `StashCheckoutSizing` | Sizing math and pane selection around hinges |
@@ -28,13 +28,13 @@ A Java library for API 21+, package `com.stash.stashnative`, compiled against SD
 | `StashKeepAliveService` | Foreground service during browser sessions |
 | `StashCodeLinkSession`, `StashCodeLinkSupport` | Scanner isolation and CameraX binding |
 
-`StashNativeCardPlugin` is public in Java but internal to the SDK.
+`StashNativePlugin` is public in Java but internal to the SDK.
 
 ## Events
 
 ```mermaid
 flowchart TB
-    Host[Host activity] -->|openCard| Plugin[StashNativeCardPlugin]
+    Host[Host activity] -->|openCard| Plugin[StashNativePlugin]
     Plugin -->|startActivity with session ID| Checkout[StashCheckoutActivity]
     Checkout --> WebView
     WebView -->|StashAndroid| JsInterface[StashCheckoutJsInterface]
@@ -45,6 +45,8 @@ flowchart TB
 ```
 
 - Every accepted open gets a new session ID. Events with an old ID are dropped.
+- Card and scanner dismissals have separate callbacks. Browser closure sends browser dismissed for both `openBrowser` and checkout's payment handoff.
+- The plugin holds one strong listener registration, exposed through the facade. Each event snapshots the current listener, so replacement affects future events from open flows. Register, read, replace, and clear it on main; open calls may come from any thread and dispatch to main.
 - Broadcasts stay in the app package. The receiver is not exported on API 33+ and needs a signature permission on API 21 to 32.
 - Checkout runs in the host process. A separate process breaks the WebView data directory and host `Application` classes.
 
@@ -95,7 +97,7 @@ URLs containing `klarna`, `paypal`, or `stripe` show a native Home button that r
 
 ```mermaid
 sequenceDiagram
-    participant Plugin as StashNativeCardPlugin
+    participant Plugin as StashNativePlugin
     participant Proxy as StashNativeBrowserProxyActivity
     participant Tab as Custom Tab
 
@@ -103,17 +105,17 @@ sequenceDiagram
     Proxy->>Tab: startActivityForResult
     Tab-->>Proxy: Result or engagement signal
     Proxy-->>Plugin: Browser closed
-    Plugin-->>Plugin: onBrowserClosed()
+    Plugin-->>Plugin: onBrowserDismissed()
 ```
 
 - Custom Tabs load through reflection. A missing or old `androidx.browser` falls back to `ACTION_VIEW`.
-- With `ACTION_VIEW`, `onBrowserClosed` fires after the host stays resumed for 500 ms.
+- With `ACTION_VIEW`, browser dismissed fires after the host stays resumed for 500 ms.
 - The keep-alive service uses the `shortService` foreground type and stops on timeout or when the host resumes.
 
 ## CodeLink
 
 - Runs in the same activity and card as checkout, following the host orientation.
-- The scanner class loads through reflection, so a missing CameraX or ZXing only fails CodeLink.
+- The scanner class loads through reflection. A missing CameraX or ZXing closes CodeLink and reports `SCANNER_UNAVAILABLE` after teardown, without a dismissal event. `CAMERA_CONFIGURATION_FAILED` leaves the scanner open.
 - It binds only its own CameraX use cases and never calls `unbindAll`.
 - ZXing decodes the scan frame region locally. No Play Services.
 

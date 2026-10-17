@@ -90,3 +90,8 @@ NSDictionary *StashBrowserPreparationProbe(void);
 void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^completion)(NSDictionary *));
 NSDictionary *StashInstanceThemeProbe(void);
 NSDictionary *StashInstanceClosingOwnerReleaseProbe(void);
+NSDictionary * _Nonnull StashCallbackDismissalProbe(void);
+NSDictionary * _Nonnull StashCallbackLiveReceiverProbe(BOOL clear);
+NSDictionary * _Nonnull StashCallbackReentrantProbe(void);
+NSDictionary * _Nonnull StashCallbackDelayedProbe(void);
+NSDictionary * _Nonnull StashCallbackIsolationProbe(void);

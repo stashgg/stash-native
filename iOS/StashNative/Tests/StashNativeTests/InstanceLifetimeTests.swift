@@ -57,4 +57,48 @@ final class InstanceLifetimeTests: XCTestCase {
         }
         wait(for: [done], timeout: 5)
     }
+    private func checkCallbacks(_ probe: @escaping () -> [AnyHashable: Any]) {
+        let done = expectation(description: "callback contract")
+        DispatchQueue.main.async {
+            for (name, value) in probe() {
+                XCTAssertEqual((value as? NSNumber)?.boolValue, true, String(describing: name))
+            }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
+    func testNamedDismissalsIdentifyCardScanAndBrowser() {
+        let done = expectation(description: "named dismissal routing")
+        DispatchQueue.main.async {
+            let result = StashCallbackDismissalProbe()
+            XCTAssertEqual(result["events"] as? [String], result["expected"] as? [String])
+            for name in ["cardAdmitted", "scannerAdmitted", "handoffKeepsSession", "handoffUsesReplacement", "closed"] {
+                XCTAssertEqual((result[name] as? NSNumber)?.boolValue, true, name)
+            }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
+    func testReplacingReceiverDuringSelectorCheckUsesOneLiveSnapshot() {
+        checkCallbacks { StashCallbackLiveReceiverProbe(false) }
+    }
+
+    func testClearingReceiverDuringSelectorCheckFinishesTheExecutingEvent() {
+        checkCallbacks { StashCallbackLiveReceiverProbe(true) }
+    }
+
+    func testReentrantReceiverAndSessionReplacementPreserveEventTiming() {
+        checkCallbacks { StashCallbackReentrantProbe() }
+    }
+
+    func testDelayedScannerAndBrowserEventsUseLiveReceiverAndRejectStaleSession() {
+        checkCallbacks { StashCallbackDelayedProbe() }
+    }
+
+    func testCallbackRegistrationIsIndependentAndPaymentEventsCanRepeat() {
+        checkCallbacks { StashCallbackIsolationProbe() }
+    }
+
 }

@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 import androidx.lifecycle.AndroidViewModel;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
-import com.stash.stashnative.StashNativeCard;
+import com.stash.stashnative.StashNative;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -85,11 +85,11 @@ public class MainViewModel extends AndroidViewModel {
   // payload screen is open; committed to the editing instance by savePayload().
   private String payloadDraft = "";
 
-  private final StashNativeCard.CardConfig cardConfig = new StashNativeCard.CardConfig();
+  private final StashNative.CardConfig cardConfig = new StashNative.CardConfig();
   private BackdropSource backdropSource = BackdropSource.NONE;
   private SampleBackdropImage backdropImage;
-  private final StashNativeCard.CodeLinkConfig codeLinkConfig =
-      new StashNativeCard.CodeLinkConfig();
+  private final StashNative.CodeLinkConfig codeLinkConfig =
+      new StashNative.CodeLinkConfig();
 
   /** Restores saved keys and payloads from prefs. */
   public MainViewModel(Application application) {
@@ -598,7 +598,7 @@ public class MainViewModel extends AndroidViewModel {
     return keepAliveEnabled;
   }
 
-  public StashNativeCard.CardConfig getCardConfig() {
+  public StashNative.CardConfig getCardConfig() {
     return cardConfig;
   }
 
@@ -643,7 +643,7 @@ public class MainViewModel extends AndroidViewModel {
     super.onCleared();
   }
 
-  public StashNativeCard.CodeLinkConfig getCodeLinkConfig() {
+  public StashNative.CodeLinkConfig getCodeLinkConfig() {
     return codeLinkConfig;
   }
 
@@ -677,8 +677,8 @@ public class MainViewModel extends AndroidViewModel {
   public void setForcePortraitOnCheckout(boolean on) {
     cardConfig.orientationPreference =
         on
-            ? StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
-            : StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST;
+            ? StashNative.CardConfig.ORIENTATION_PORTRAIT
+            : StashNative.CardConfig.ORIENTATION_FOLLOW_HOST;
     refreshList();
   }
 
@@ -777,7 +777,7 @@ public class MainViewModel extends AndroidViewModel {
     list.add(SettingsItem.sectionHeader(R.string.section_about, true, false));
     list.add(
         SettingsItem.infoPreference(
-            R.string.option_sdk_version, StashNativeCard.getVersion(), false, true));
+            R.string.option_sdk_version, StashNative.getVersion(), false, true));
     return list;
   }
 
@@ -870,7 +870,7 @@ public class MainViewModel extends AndroidViewModel {
         SettingsItem.switchPreference(
             R.string.option_force_portrait_on_checkout,
             R.string.option_force_portrait_on_checkout_supporting,
-            cardConfig.orientationPreference == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT,
+            cardConfig.orientationPreference == StashNative.CardConfig.ORIENTATION_PORTRAIT,
             false,
             false));
     list.add(

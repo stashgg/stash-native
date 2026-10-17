@@ -5,7 +5,7 @@ import android.content.Intent;
 
 /**
  * Sends checkout lifecycle events from {@link StashCheckoutActivity} to
- * {@link StashNativeCardPlugin}'s receiver (same app process by default; package-local broadcasts).
+ * {@link StashNativePlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
   static final String EXTRA_SESSION_ID = "com.stash.stashnative.SESSION_ID";
@@ -60,7 +60,7 @@ final class StashCheckoutBridge {
     context.getApplicationContext().sendBroadcast(intent);
   }
 
-  static void emitCodeLinkError(Context context, StashNativeCard.CodeLinkError error) {
+  static void emitCodeLinkError(Context context, StashNative.CodeLinkError error) {
     Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_ERROR);
     intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR, error.name());
     context.getApplicationContext().sendBroadcast(intent);

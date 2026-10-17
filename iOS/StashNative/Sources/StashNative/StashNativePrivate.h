@@ -1,4 +1,4 @@
-#import "StashNativeCard.h"
+#import "StashNative.h"
 #import <WebKit/WebKit.h>
 #import <SafariServices/SafariServices.h>
 
@@ -30,8 +30,9 @@
 
 void StashInstallPortraitOrientationHooks(id applicationDelegate, UIWindowScene *scene);
 
-@interface StashNativeCard ()
+@interface StashNative ()
 @property (nonatomic, strong) StashCheckoutSession *session;
+- (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery;
 @end
 
 typedef struct {
@@ -66,7 +67,7 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 
 @interface StashCheckoutSession : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler,
     SFSafariViewControllerDelegate, UISheetPresentationControllerDelegate>
-@property (nonatomic, STASH_WEAK) StashNativeCard *owner;
+@property (nonatomic, STASH_WEAK) StashNative *owner;
 @property (nonatomic, STASH_WEAK) UIViewController *presenter;
 @property (nonatomic, readonly) UIViewController *presentationPresenter;
 @property (nonatomic, strong) StashPortraitPresentation *portraitPresentation;

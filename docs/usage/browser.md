@@ -15,12 +15,14 @@ The browser cannot send payment events to the game. Checkout returns the result 
 
 ## Open the browser
 
+Register the [receiver](callbacks.md#set-the-receiver) on main before opening to receive the browser-dismissed event.
+
 ```swift
-StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self)
+StashNative.sharedInstance().openBrowser(withURL: url, from: self)
 ```
 
 ```java
-StashNativeCard.getInstance().openBrowser(activity, url);
+StashNative.getInstance().openBrowser(activity, url);
 ```
 
 On Android, add `androidx.browser` ([Installation](installation.md#aar)). Without it, the link opens in the system browser and the player leaves your app.
@@ -52,9 +54,9 @@ On iOS, close Safari when the deep link arrives. `dismissSafariViewController(wi
 func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
     guard let url = contexts.first?.url, url.scheme == "mygame", url.host == "stash-pay" else { return }
     switch url.path {
-    case "/success": StashNativeCard.sharedInstance().dismissSafariViewController(withResult: true)
-    case "/failure": StashNativeCard.sharedInstance().dismissSafariViewController(withResult: false)
-    default: StashNativeCard.sharedInstance().closeBrowser()
+    case "/success": StashNative.sharedInstance().dismissSafariViewController(withResult: true)
+    case "/failure": StashNative.sharedInstance().dismissSafariViewController(withResult: false)
+    default: StashNative.sharedInstance().closeBrowser()
     }
 }
 ```
@@ -63,9 +65,11 @@ Android cannot close Custom Tabs from code. Give the activity that receives the 
 
 As with the card, confirm every purchase on your backend before granting items.
 
-## Browser closed
+## Browser dismissed
 
-`stashNativeCardDidCloseBrowser` (iOS) and `onBrowserClosed()` (Android) fire when the browser closes, whether the player tapped Done or your app closed it. Use it to resume the game. Android needs no `onActivityResult` forwarding.
+`stashNativeDidDismissBrowser()` (iOS) and `onBrowserDismissed()` (Android) fire when the browser closes, whether opened with `openBrowser` or through checkout's payment handoff. Use this event to resume the game. Android needs no `onActivityResult` forwarding.
+
+Safari Done, `closeBrowser()`, and `dismiss()` send only browser dismissed. `dismissSafariViewController(withResult:)` also sends the requested payment result.
 
 ## Portrait Safari (iOS)
 
@@ -74,7 +78,7 @@ Landscape games can show Safari in portrait on iPhone. The game returns to its o
 ```swift
 let config = StashNativeBrowserConfig()
 config.orientationPreference = .portrait
-StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self, config: config)
+StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: config)
 ```
 
 ## Keep-alive service (Android)
@@ -82,12 +86,12 @@ StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self, config: c
 On devices with little memory, Android can stop a backgrounded game while the player pays in the browser, and the player returns to a restarted game. The keep-alive service runs a short foreground service with a notification while the browser is open, which makes that less likely. It is off by default; we recommend enabling it.
 
 ```java
-StashNativeCard.KeepAliveConfig config = new StashNativeCard.KeepAliveConfig();
+StashNative.KeepAliveConfig config = new StashNative.KeepAliveConfig();
 config.notificationTitle = "Payment in progress";
 config.notificationText = "Tap to return to the game";
 config.notificationIconResId = R.drawable.ic_notification; // 0 uses the SDK icon
-StashNativeCard.getInstance().setKeepAliveConfig(config);
-StashNativeCard.getInstance().setKeepAliveEnabled(true);
+StashNative.getInstance().setKeepAliveConfig(config);
+StashNative.getInstance().setKeepAliveEnabled(true);
 ```
 
 Set the notification text in the player's language. The service stops when the game returns to the foreground. The manifest entries it needs are already in the SDK.

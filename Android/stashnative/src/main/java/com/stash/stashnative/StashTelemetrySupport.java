@@ -140,7 +140,7 @@ final class StashTelemetrySupport {
     }
     JSONObject runtime =
         new JSONObject()
-            .put("sdkVersion", StashNativeCard.getVersion())
+            .put("sdkVersion", StashNative.getVersion())
             .put("webViewEngine", "chromium")
             .put("webViewPackage", JSONObject.NULL)
             .put("webViewVersion", JSONObject.NULL);
@@ -170,7 +170,7 @@ final class StashTelemetrySupport {
     }
     boolean portraitRequested =
         activity.options != null
-            && activity.options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT;
+            && activity.options.orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT;
     JSONObject presentation =
         activity.presentation == null ? emptyPresentation() : activity.presentation.telemetry();
     presentation

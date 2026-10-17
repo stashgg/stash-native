@@ -30,7 +30,7 @@ extension ViewController {
             return
         }
         let config = buildCardConfig()
-        StashNativeCard.sharedInstance().openCard(withURL: url, from: self, config: config)
+        StashNative.sharedInstance().openCard(withURL: url, from: self, config: config)
     }
 
     @objc func openBrowserTapped() {
@@ -40,12 +40,12 @@ extension ViewController {
             showAlert(title: "Error", message: "Please enter a browser URL")
             return
         }
-        StashNativeCard.sharedInstance().openBrowser(withURL: url, from: self, config: browserConfig)
+        StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: browserConfig)
     }
 
     @objc func codeLinkTapped() {
         cancelGenerateRequest()
-        StashNativeCard.sharedInstance().codeLink(from: self, config: codeLinkConfig)
+        StashNative.sharedInstance().codeLink(from: self, config: codeLinkConfig)
     }
 
     func buildCardConfig() -> StashNativeCardConfig {
@@ -81,21 +81,21 @@ extension ViewController {
         performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
             let config = self.buildCardConfig()
-            StashNativeCard.sharedInstance().openCard(withURL: checkoutUrl, from: self, config: config)
+            StashNative.sharedInstance().openCard(withURL: checkoutUrl, from: self, config: config)
         }
     }
 
     @objc func generateCheckoutForBrowserTapped() {
         performGenerateUrl(.checkout) { [weak self] checkoutUrl in
             guard let self = self else { return }
-            StashNativeCard.sharedInstance().openBrowser(withURL: checkoutUrl, from: self, config: self.browserConfig)
+            StashNative.sharedInstance().openBrowser(withURL: checkoutUrl, from: self, config: self.browserConfig)
         }
     }
 
     @objc func openWebshopForBrowserTapped() {
         performGenerateUrl(.webshop) { [weak self] webshopUrl in
             guard let self = self else { return }
-            StashNativeCard.sharedInstance().openBrowser(withURL: webshopUrl, from: self, config: self.browserConfig)
+            StashNative.sharedInstance().openBrowser(withURL: webshopUrl, from: self, config: self.browserConfig)
         }
     }
 

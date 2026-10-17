@@ -9,7 +9,7 @@ import android.webkit.WebViewClient;
 
 /** Routes checkout results, deeplinks, and new-window URLs without creating a second tab. */
 final class StashCheckoutNavigationSupport {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
 
   private StashCheckoutNavigationSupport() {}
 

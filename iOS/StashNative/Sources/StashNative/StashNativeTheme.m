@@ -1,12 +1,12 @@
 //
-//  StashNativeCardTheme.m
+//  StashNativeTheme.m
 //  StashNative
 //
 //  Checkout theme selection.
 //
 
-#import "StashNativeCard.h"
-#import "StashNativeCardPrivate.h"
+#import "StashNative.h"
+#import "StashNativePrivate.h"
 #import <UIKit/UIKit.h>
 
 // Non-ARC compatibility: These warnings are suppressed when compiling without ARC

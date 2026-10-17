@@ -5,7 +5,7 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import com.stash.stashnative.StashNativeCard;
+import com.stash.stashnative.StashNative;
 
 /** Minimal Java integration built against the release AAR with R8 enabled. */
 public class MainActivity extends Activity {
@@ -15,13 +15,25 @@ public class MainActivity extends Activity {
     LinearLayout layout = new LinearLayout(this);
     layout.setOrientation(LinearLayout.VERTICAL);
     TextView status = new TextView(this);
-    StashNativeCard sdk = StashNativeCard.getInstance();
-    sdk.setListener(new StashNativeCard.StashNativeCardListenerAdapter() {
+    StashNative sdk = StashNative.getInstance();
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onPageLoaded(long milliseconds) {
         status.setText("Checkout loaded");
       }
 
-      @Override public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
+      @Override public void onCardDismissed() {
+        status.setText("Card dismissed");
+      }
+
+      @Override public void onScanDismissed() {
+        status.setText("Scan dismissed");
+      }
+
+      @Override public void onBrowserDismissed() {
+        status.setText("Browser dismissed");
+      }
+
+      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
         status.setText(error.name());
       }
 
@@ -32,7 +44,7 @@ public class MainActivity extends Activity {
     Button checkout = new Button(this);
     checkout.setText("Open checkout");
     checkout.setOnClickListener(view -> sdk.openCard(
-        this, "https://test.stashpreview.com", new StashNativeCard.CardConfig()));
+        this, "https://test.stashpreview.com", new StashNative.CardConfig()));
     layout.addView(checkout);
     Button browser = new Button(this);
     browser.setText("Open browser");
@@ -48,8 +60,8 @@ public class MainActivity extends Activity {
 
   @Override
   protected void onDestroy() {
-    StashNativeCard.getInstance().resetPresentationState();
-    StashNativeCard.getInstance().setListener(null);
+    StashNative.getInstance().resetPresentationState();
+    StashNative.getInstance().setListener(null);
     super.onDestroy();
   }
 }

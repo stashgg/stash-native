@@ -29,7 +29,7 @@ public class HapticBridgeTest {
   private StashCheckoutJsInterface bridge;
 
   @Before public void prepare() {
-    StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+    StashNativePlugin plugin = StashNativePlugin.getInstance();
     plugin.resetPresentationState();
     plugin.isCurrentlyPresented = true;
     Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
@@ -41,7 +41,7 @@ public class HapticBridgeTest {
   }
 
   @After public void cleanup() {
-    StashNativeCardPlugin.getInstance().resetPresentationState();
+    StashNativePlugin.getInstance().resetPresentationState();
     web.destroy();
   }
 

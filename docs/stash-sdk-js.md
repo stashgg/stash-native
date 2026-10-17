@@ -9,7 +9,7 @@ description: Internal window.stash_sdk contract between the SDK and Stash checko
 
 `window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. Checkout cards inject it into the top-level page; browser and CodeLink presentations do not. Integrators never call it.
 
-Sources: `StashBridgeScript()` in [`StashNativeCardViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeCardViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
+Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
 
 On Android the object can appear after early inline scripts run. Look it up when you call it:
 
@@ -49,6 +49,8 @@ try {
 
 Strings reach the host unchanged; other values arrive as `JSON.stringify` output. No argument arrives as `nil` or `null`. `onPaymentFailure` ignores its arguments.
 
+With `autoClose` off, payment events can repeat and leave the card open. On iOS the payment callback runs before teardown, so it cannot be used to open the next presentation. See [callback order](usage/callbacks.md#order-of-events).
+
 ## Links
 
 ```javascript
@@ -57,6 +59,8 @@ stash_sdk.openLink('https://stash.gg/terms');                         // terms o
 ```
 
 Both accept `http` and `https` URLs only. `openExternalBrowser` adds the `theme` parameter, sends the external payment callback, closes the card, and opens the browser. `openLink` opens Safari or the app that claims the link (iOS), or Custom Tabs (Android), and sends no callbacks.
+
+After `openExternalBrowser`, browser closure sends `stashNativeDidDismissBrowser()` (iOS) or `onBrowserDismissed()` (Android), as with `openBrowser`. It sends no card-dismissed callback. The JavaScript method names stay the same.
 
 ## Telemetry
 

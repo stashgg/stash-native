@@ -8,8 +8,8 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ## Architecture
 
-- iOS: Objective-C `StashNativeCard` facade owns the active `StashCheckoutSession`. The checkout controller separates lifecycle/layout from its Keyboard, Gestures, and Presentation categories. Configs, Geometry, Theme, ViewUtils, Internal, and WebViewDelegates contain other focused implementation units; internal interfaces live in `StashNativeCardPrivate.h`. Distribution uses SPM and an XCFramework.
-- Android: Java `StashNativeCard` facade, internal `StashNativeCardPlugin`, and same-process `StashCheckoutActivity`. `StashPresentationController` owns responsive layout and state; package-private support classes handle WebView, bridge, and browser concerns. Distribution uses an AAR.
+- iOS: Objective-C `StashNative` facade owns the active `StashCheckoutSession`. The checkout controller separates lifecycle/layout from its Keyboard, Gestures, and Presentation categories. Configs, Geometry, Theme, ViewUtils, Internal, and WebViewDelegates contain other focused implementation units; internal interfaces live in `StashNativePrivate.h`. Distribution uses SPM and an XCFramework.
+- Android: Java `StashNative` facade, internal `StashNativePlugin`, and same-process `StashCheckoutActivity`. `StashPresentationController` owns responsive layout and state; package-private support classes handle WebView, bridge, and browser concerns. Distribution uses an AAR.
 - Desktop, when present: `Desktop/shared` contains the C++17 session, configuration, URL, theme, JSON, and JS bridge contract. The macOS host uses Objective-C++/AppKit/WKWebView with a Swift sample; Windows uses C++/Win32/WebView2 with a C++ sample. Both export `Desktop/include/StashNativeDesktop.h` through a bundle or DLL.
 - Desktop development currently lives on `desktop/*` branches, with the combined implementation on `desktop/integration`. Discover the actual files and resolve refs before treating desktop as absent or using a branch's documentation.
 - `window.stash_sdk` is the shared page contract; `docs/stash-sdk-js.md` describes it. Read documentation from the same revision as the implementation being examined.
@@ -27,7 +27,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ### Bridge and callbacks
 
-Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeCardViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
+Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
 
 Desktop callback ordering, once-guards, processing locks, navigation decisions, and dismissal semantics belong in the shared `Session`. Hosts own platform plumbing. Preserve documented differences: macOS marshals operations to the main queue; Windows operations use the host window's message-loop thread, with explicitly documented atomic queries treated separately. Desktop browser handoff does not promise a browser-closed callback.
 
@@ -52,7 +52,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 
 ### iOS state and file membership
 
-The facade owns the active session; the session owns checkout state, callbacks, WebView, and presentation lifetime. View controllers own layout and platform presentation details. Declare internal interfaces in `StashNativeCardPrivate.h`; other implementation files import it. Keep single-file constants `static`. Account for ARC and non-ARC ownership when changing lifecycle or asynchronous work.
+The facade owns the active session; the session owns checkout state, callbacks, WebView, and presentation lifetime. View controllers own layout and platform presentation details. Declare internal interfaces in `StashNativePrivate.h`; other implementation files import it. Keep single-file constants `static`. Account for ARC and non-ARC ownership when changing lifecycle or asynchronous work.
 
 Add new iOS implementation files to `StashNative.xcodeproj` as well as the source tree. SPM discovers files automatically; the Xcode project does not.
 
@@ -77,8 +77,8 @@ Desktop shared tests can run without Windows. They do not establish that the Win
 
 When releasing, keep version declarations and artifacts aligned within that release:
 
-- iOS `+sdkVersion` in `StashNativeCard.m` and relevant bundle metadata.
-- Android `SDK_VERSION` in `StashNativeCard.java`.
+- iOS `+sdkVersion` in `StashNative.m` and relevant bundle metadata.
+- Android `SDK_VERSION` in `StashNative.java`.
 - Desktop `STASH_NATIVE_DESKTOP_VERSION` in `Desktop/include/StashNativeDesktopVersion.h`, when present.
 - Changelog and release-workflow version gates.
 

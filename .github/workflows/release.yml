@@ -94,7 +94,7 @@ jobs:
         if: steps.check-tag.outputs.skip != 'true'
         run: |
           VERSION="${{ steps.parse.outputs.version }}"
-          FILE="iOS/StashNative/Sources/StashNative/StashNativeCard.m"
+          FILE="iOS/StashNative/Sources/StashNative/StashNative.m"
           if [ ! -f "$FILE" ]; then
             echo "Error: $FILE not found"
             exit 1
@@ -121,7 +121,7 @@ jobs:
         if: steps.check-tag.outputs.skip != 'true'
         run: |
           VERSION="${{ steps.parse.outputs.version }}"
-          FILE="Android/stashnative/src/main/java/com/stash/stashnative/StashNativeCard.java"
+          FILE="Android/stashnative/src/main/java/com/stash/stashnative/StashNative.java"
           if [ ! -f "$FILE" ]; then
             echo "Error: $FILE not found"
             exit 1

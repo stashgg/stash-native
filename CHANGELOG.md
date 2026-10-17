@@ -8,6 +8,12 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 
 ### Breaking changes
 
+- Rename the iOS and Android entry point from `StashNativeCard` to `StashNative`. On iOS, use `StashNativeDelegate`, `stashNative...` callbacks, and the `StashNative.h` header. On Android, use `StashNative.StashNativeListener` or `StashNative.StashNativeListenerAdapter`.
+- Replace generic dismissal and browser-close callbacks with named events: Android `onCardDismissed`, `onScanDismissed`, and `onBrowserDismissed`; iOS `stashNativeDidDismissCard`, `stashNativeDidDismissScan`, and `stashNativeDidDismissBrowser`. Each takes no arguments; one shared receiver handles all events. Browser dismissal covers both `openBrowser` and checkout's payment handoff.
+- Require receiver registration, reads, replacement, and clearing on the platform main thread. Open calls still accept any thread. Each event uses the current receiver, including events from already-open flows; reset stays silent and preserves registration.
+- Remove the no-argument iOS payment-success callback. Implement only `stashNativeDidCompletePaymentWithOrder:` (`stashNativeDidCompletePayment(withOrder:)` in Swift), whose order remains optional.
+- Safari Done, `closeBrowser()`, and `dismiss()` send only browser dismissed, without a card or scan dismissal event.
+- Android missing scanner dependencies now report terminal `CodeLinkError.SCANNER_UNAVAILABLE` after teardown. `CAMERA_CONFIGURATION_FAILED` remains nonterminal.
 - Replace phone/tablet and orientation ratios with preferred content dimensions, a height cap, and edge margins.
 - Require the presenting activity or view controller for card and browser calls.
 - Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.

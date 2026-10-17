@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 
 @implementation StashCheckoutSession (Navigation)
 - (BOOL)handlePaymentResultURL:(NSURL *)url {
@@ -51,8 +51,9 @@
     if (self.loadStart > 0) {
         double milliseconds = (CFAbsoluteTimeGetCurrent() - self.loadStart) * 1000;
         self.loadStart = 0;
-        id<StashNativeCardDelegate> delegate = self.owner.delegate;
-        if ([delegate respondsToSelector:@selector(stashNativeCardDidLoadPage:)]) [delegate stashNativeCardDidLoadPage:milliseconds];
+        [self.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+            if ([delegate respondsToSelector:@selector(stashNativeDidLoadPage:)]) [delegate stashNativeDidLoadPage:milliseconds];
+        }];
     }
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action

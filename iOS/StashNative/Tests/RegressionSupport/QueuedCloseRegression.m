@@ -1,27 +1,27 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 
-@interface StashProbeDelegate : NSObject <StashNativeCardDelegate>
+@interface StashProbeDelegate : NSObject <StashNativeDelegate>
 @property NSInteger successes;
 @property NSInteger failures;
 @property NSInteger dismissals;
 @property NSInteger networkErrors;
 @property (nonatomic, strong) NSMutableArray<NSString *> *events;
 @property BOOL closedBeforeNetworkCallback;
-@property (nonatomic, strong) StashNativeCard *owner;
+@property (nonatomic, strong) StashNative *owner;
 @end
 @implementation StashProbeDelegate
-- (void)stashNativeCardDidCompletePaymentWithOrder:(NSString *)order { self.successes++; }
-- (void)stashNativeCardDidFailPayment { self.failures++; }
-- (void)stashNativeCardDidDismiss { self.dismissals++; [self.events addObject:@"dismiss"]; }
-- (void)stashNativeCardDidCloseBrowser { [self.events addObject:@"browser"]; }
-- (void)stashNativeCardDidEncounterNetworkError {
+- (void)stashNativeDidCompletePaymentWithOrder:(NSString *)order { self.successes++; }
+- (void)stashNativeDidFailPayment { self.failures++; }
+- (void)stashNativeDidDismissCard { self.dismissals++; [self.events addObject:@"dismiss"]; }
+- (void)stashNativeDidDismissBrowser { [self.events addObject:@"browser"]; }
+- (void)stashNativeDidEncounterNetworkError {
     self.networkErrors++;
     self.closedBeforeNetworkCallback = !self.owner.isCurrentlyPresented;
 }
 @end
 
-static StashCheckoutSession *newSession(StashNativeCard *owner) {
+static StashCheckoutSession *newSession(StashNative *owner) {
     StashCheckoutSession *session = [StashCheckoutSession new];
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
@@ -29,7 +29,7 @@ static StashCheckoutSession *newSession(StashNativeCard *owner) {
     return session;
 }
 NSDictionary *StashCallbackProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     delegate.owner = owner; owner.delegate = delegate;
     StashCheckoutSession *session = newSession(owner);
@@ -57,7 +57,7 @@ NSDictionary *StashCallbackProbe(void) {
         @"networkErrors":@(delegate.networkErrors), @"closedBeforeNetworkCallback":@(delegate.closedBeforeNetworkCallback)};
 }
 void StashQueuedCloseProbe(NSString *source, BOOL replace, BOOL processing, BOOL allowDismiss, void (^completion)(BOOL, NSInteger)) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     owner.delegate = delegate;
     StashCheckoutSession *session = newSession(owner);
@@ -77,7 +77,7 @@ void StashQueuedCloseProbe(NSString *source, BOOL replace, BOOL processing, BOOL
 }
 
 NSDictionary *StashLifecycleProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     delegate.owner = owner; owner.delegate = delegate;
     delegate.events = [NSMutableArray array];
@@ -98,7 +98,7 @@ NSDictionary *StashLifecycleProbe(void) {
     StashCheckoutSession *browser = newSession(owner);
     [browser browserClosed];
     [browser browserClosed];
-    BOOL browserOrder = [delegate.events isEqualToArray:@[@"dismiss", @"browser"]];
+    BOOL browserOrder = [delegate.events isEqualToArray:@[@"browser"]];
     [delegate.events removeAllObjects];
     StashCheckoutSession *userBrowser = newSession(owner);
     userBrowser.browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:@"https://example.invalid"]];
@@ -129,7 +129,7 @@ NSDictionary *StashLifecycleProbe(void) {
 - (CGPoint)velocityInView:(UIView *)view { return CGPointMake(0, -600); }
 @end
 NSDictionary *StashPresentationStateProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 300);
@@ -184,7 +184,7 @@ NSDictionary *StashPresentationStateProbe(void) {
 @end
 
 NSDictionary *StashContentPanPolicyProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
@@ -242,7 +242,7 @@ NSDictionary *StashContentPanPolicyProbe(void) {
 }
 
 NSDictionary *StashContentExpansionProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
@@ -309,7 +309,7 @@ NSDictionary *StashContentExpansionProbe(void) {
 }
 
 void StashScrollInteractionProbe(void (^completion)(NSDictionary *)) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
@@ -361,11 +361,11 @@ void StashScrollInteractionProbe(void (^completion)(NSDictionary *)) {
     });
 }
 
-@interface StashNativeCard (SnapshotTest)
+@interface StashNative (SnapshotTest)
 - (void)openURL:(NSString *)url presenter:(UIViewController *)presenter
     config:(StashNativeCardConfig *)config browser:(BOOL)browser;
 @end
-@interface StashSnapshotCard : StashNativeCard
+@interface StashSnapshotCard : StashNative
 @property double receivedWidth;
 @end
 @implementation StashSnapshotCard

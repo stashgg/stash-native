@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 #import <AVFoundation/AVFoundation.h>
 
 @interface StashCodeLinkViewController (Regression)
@@ -89,8 +89,8 @@ void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
     dispatch_semaphore_signal(capture.finishStop);
 }
 
-@interface StashCodeLinkDelegateProbe : NSObject <StashNativeCardDelegate>
-@property (nonatomic, weak) StashNativeCard *owner;
+@interface StashCodeLinkDelegateProbe : NSObject <StashNativeDelegate>
+@property (nonatomic, weak) StashNative *owner;
 @property (nonatomic, copy) NSString *content;
 @property (nonatomic) NSInteger scans;
 @property (nonatomic) NSInteger dismissals;
@@ -98,13 +98,13 @@ void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
 @property (nonatomic) BOOL closedBeforeCallback;
 @end
 @implementation StashCodeLinkDelegateProbe
-- (void)stashNativeCardDidScanQRCode:(NSString *)content {
+- (void)stashNativeDidScanQRCode:(NSString *)content {
     self.content = content;
     self.scans++;
     self.closedBeforeCallback = !self.owner.isCurrentlyPresented;
 }
-- (void)stashNativeCardDidDismiss { self.dismissals++; }
-- (void)stashNativeCardCodeLinkDidEncounterError:(NSError *)error { self.errors++; }
+- (void)stashNativeDidDismissScan { self.dismissals++; }
+- (void)stashNativeCodeLinkDidEncounterError:(NSError *)error { self.errors++; }
 @end
 
 @interface StashCodeLinkSessionProbe : StashCheckoutSession
@@ -117,7 +117,7 @@ void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
 @end
 
 void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *)) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCodeLinkDelegateProbe *delegate = [StashCodeLinkDelegateProbe new];
     delegate.owner = owner;
     owner.delegate = delegate;
@@ -169,7 +169,7 @@ void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *)) {
 }
 
 void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *)) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCodeLinkDelegateProbe *delegate = [StashCodeLinkDelegateProbe new];
     owner.delegate = delegate;
     StashCheckoutSession *session = [StashCheckoutSession new];
@@ -209,7 +209,7 @@ static NSString *StashScannerText(UIView *view, NSString *identifier) {
 }
 
 NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLinkConfig *config) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     session.owner = owner;
     owner.session = session;

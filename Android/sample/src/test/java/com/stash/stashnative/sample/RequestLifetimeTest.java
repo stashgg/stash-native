@@ -3,7 +3,7 @@ package com.stash.stashnative.sample;
 import static org.junit.Assert.*;
 import android.app.Activity;
 import android.app.Application;
-import com.stash.stashnative.StashNativeCard;
+import com.stash.stashnative.StashNative;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.lang.reflect.Field;
@@ -34,8 +34,8 @@ public class RequestLifetimeTest {
         Robolectric.buildActivity(MainActivity.class).setup();
     org.robolectric.android.controller.ActivityController<MainActivity> second =
         Robolectric.buildActivity(MainActivity.class).setup();
-    StashNativeCard sdk = StashNativeCard.getInstance();
-    StashNativeCard.StashNativeCardListener replacement = sdk.getListener();
+    StashNative sdk = StashNative.getInstance();
+    StashNative.StashNativeListener replacement = sdk.getListener();
     first.pause().stop().destroy();
     assertSame(replacement, sdk.getListener());
     second.pause().stop().destroy();
@@ -115,7 +115,7 @@ public class RequestLifetimeTest {
       assertTerminated(networkExecutor, requestWorker, "destroyed host request terminated");
       ShadowLooper.idleMainLooper();
       assertNull(Shadows.shadowOf(replacement.get()).getNextStartedActivity());
-      assertFalse(StashNativeCard.getInstance().isCurrentlyPresented());
+      assertFalse(StashNative.getInstance().isCurrentlyPresented());
     } finally {
       respond.countDown();
       if (controller != null && !destroyed) {
@@ -124,7 +124,7 @@ public class RequestLifetimeTest {
       if (replacement != null) {
         replacement.pause().stop().destroy();
       }
-      StashNativeCard.getInstance().resetPresentationState();
+      StashNative.getInstance().resetPresentationState();
       serverWorker.shutdownNow();
       assertTrue("local server terminated",
           serverWorker.awaitTermination(5, TimeUnit.SECONDS));

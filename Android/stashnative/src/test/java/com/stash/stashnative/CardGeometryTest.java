@@ -48,7 +48,7 @@ public class CardGeometryTest {
   }
 
   @Test public void configuredCeilingAppliesToBothDetents() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.maximumContentHeight = 300;
     StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(new StashCheckoutSizing.Box(0, 30, 390, 800),
         1, StashPresentationOptions.card(config), true, 500);
@@ -83,7 +83,7 @@ public class CardGeometryTest {
   }
 
   @Test public void zeroMarginUsesAvailableBounds() {
-    StashNativeCard.CardConfig config = new StashNativeCard.CardConfig();
+    StashNative.CardConfig config = new StashNative.CardConfig();
     config.edgeMargin = 0;
     StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(new StashCheckoutSizing.Box(0, 0, 300, 200),
         1, StashPresentationOptions.card(config), false, 0);

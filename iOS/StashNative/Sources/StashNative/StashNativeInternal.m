@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <math.h>
 
 static void *StashPageBackgroundContext = &StashPageBackgroundContext;
@@ -110,7 +110,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     web.scrollView.pinchGestureRecognizer.enabled = NO;
     web.scrollView.showsHorizontalScrollIndicator = NO;
     StashRemoveFormInputAccessoryView(web);
-    if (@available(iOS 16.4, *)) web.inspectable = [StashNativeCard isInspectableWebViewsEnabled];
+    if (@available(iOS 16.4, *)) web.inspectable = [StashNative isInspectableWebViewsEnabled];
     [self observeRootScroll];
     self.observingPageBackground = YES;
     [web addObserver:self forKeyPath:@"underPageBackgroundColor" options:NSKeyValueObservingOptionNew
@@ -151,11 +151,13 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.codeLinkCompleted = YES;
     [self.controller updateDismissalPolicy];
     NSString *payload = [content copy];
-    StashNativeCard *owner = self.owner;
+    StashNative *owner = self.owner;
     void (^finish)(void) = ^{
         [self finishWithUserDismiss:NO completion:^{
-            if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidScanQRCode:)])
-                [owner.delegate stashNativeCardDidScanQRCode:payload];
+            [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+                if ([delegate respondsToSelector:@selector(stashNativeDidScanQRCode:)])
+                    [delegate stashNativeDidScanQRCode:payload];
+            }];
         }];
     };
     if (self.codeLinkController) [self.codeLinkController showConnectedWithCompletion:finish];
@@ -392,6 +394,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [self retain];
 #endif
     self.closing = YES;
+    BOOL scan = self.codeLink;
     [self.codeLinkController stopScanning];
     [self cancelInitialContentReveal];
     [self.controller.spinner stopAnimating];
@@ -400,12 +403,19 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.loadTimer = nil;
     [self.webView stopLoading];
     void (^finished)(void) = ^{
-        StashNativeCard *owner = self.owner;
+        StashNative *owner = self.owner;
         BOOL owned = owner.session == self;
         [self cleanup];
         if (owned) owner.session = nil;
-        if (owned && userDismiss && [owner.delegate respondsToSelector:@selector(stashNativeCardDidDismiss)]) {
-            [owner.delegate stashNativeCardDidDismiss];
+        if (owned && userDismiss) {
+            [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+                if (scan) {
+                    if ([delegate respondsToSelector:@selector(stashNativeDidDismissScan)])
+                        [delegate stashNativeDidDismissScan];
+                } else if ([delegate respondsToSelector:@selector(stashNativeDidDismissCard)]) {
+                    [delegate stashNativeDidDismissCard];
+                }
+            }];
         }
         if (owned && completion) completion();
 #if !__has_feature(objc_arc)
@@ -479,10 +489,14 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)handoffToBrowserWithURL:(NSString *)url {
     if (![self isActive] || self.browserHandoff) return;
-    StashNativeCard *owner = self.owner;
-    if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidRequestExternalPaymentWithURL:)]) {
-        [owner.delegate stashNativeCardDidRequestExternalPaymentWithURL:url];
-    }
+#if !__has_feature(objc_arc)
+    [[self retain] autorelease];
+#endif
+    StashNative *owner = self.owner;
+    [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeDidRequestExternalPaymentWithURL:)])
+            [delegate stashNativeDidRequestExternalPaymentWithURL:url];
+    }];
     if (![self isActive]) return;
     self.browserHandoff = YES;
     self.webView.navigationDelegate = nil;
@@ -508,39 +522,39 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     if (self.config.autoClose) self.paymentHandled = YES;
     self.processing = NO;
     [self.controller updateDismissalPolicy];
-    id<StashNativeCardDelegate> delegate = self.owner.delegate;
-    if (success && [delegate respondsToSelector:@selector(stashNativeCardDidCompletePaymentWithOrder:)]) {
-        [delegate stashNativeCardDidCompletePaymentWithOrder:order.length ? order : nil];
-    } else if (success && [delegate respondsToSelector:@selector(stashNativeCardDidCompletePayment)]) {
-        [delegate stashNativeCardDidCompletePayment];
-    } else if (!success && [delegate respondsToSelector:@selector(stashNativeCardDidFailPayment)]) {
-        [delegate stashNativeCardDidFailPayment];
-    }
+    [self.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if (success && [delegate respondsToSelector:@selector(stashNativeDidCompletePaymentWithOrder:)])
+            [delegate stashNativeDidCompletePaymentWithOrder:order.length ? order : nil];
+        else if (!success && [delegate respondsToSelector:@selector(stashNativeDidFailPayment)])
+            [delegate stashNativeDidFailPayment];
+    }];
     if (self.browser) [self browserClosed];
     else if (self.config.autoClose) [self finishWithUserDismiss:NO completion:nil];
 }
 - (void)networkFailed {
     if (![self isActive]) return;
-    StashNativeCard *owner = self.owner;
+    StashNative *owner = self.owner;
     [self finishWithUserDismiss:NO completion:^{
-        if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidEncounterNetworkError)]) {
-            [owner.delegate stashNativeCardDidEncounterNetworkError];
-        }
+        [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+            if ([delegate respondsToSelector:@selector(stashNativeDidEncounterNetworkError)])
+                [delegate stashNativeDidEncounterNetworkError];
+        }];
     }];
 }
-- (void)finishBrowserWithDismissCallback:(BOOL)dismissCallback {
+- (void)browserClosed {
     if (![self isActive] || self.browserCloseDelivered) return;
     self.browserCloseDelivered = YES;
-    StashNativeCard *owner = self.owner;
-    [self finishWithUserDismiss:dismissCallback completion:^{
-        if ([owner.delegate respondsToSelector:@selector(stashNativeCardDidCloseBrowser)]) {
-            [owner.delegate stashNativeCardDidCloseBrowser];
-        }
+    StashNative *owner = self.owner;
+    [self finishWithUserDismiss:NO completion:^{
+        [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+            if ([delegate respondsToSelector:@selector(stashNativeDidDismissBrowser)]) {
+                [delegate stashNativeDidDismissBrowser];
+            }
+        }];
     }];
 }
-- (void)browserClosed { [self finishBrowserWithDismissCallback:YES]; }
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
-    if (controller == self.browser) [self finishBrowserWithDismissCallback:NO];
+    if (controller == self.browser) [self browserClosed];
 }
 - (BOOL)presentationControllerShouldDismiss:(UIPresentationController *)presentationController {
     if (presentationController.presentedViewController == self.controller && self.controller.touchBeganInWebContent) return NO;

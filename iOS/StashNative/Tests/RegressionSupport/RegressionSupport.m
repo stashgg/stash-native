@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 #import <math.h>
 
 NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
@@ -187,7 +187,7 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 NSDictionary *StashCardViewportCoverageProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     for (NSNumber *compensation in @[@0, @34]) {
-        StashNativeCard *owner = [StashNativeCard new];
+        StashNative *owner = [StashNative new];
         StashCheckoutSession *session = [StashCheckoutSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.expanded = YES; session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
@@ -226,7 +226,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
         @{@"name":@"compact", @"windowWidth":@466, @"windowHeight":@678, @"hostBottom":@34, @"safeBottom":@34, @"nativeExtra":@34},
         @{@"name":@"tablet", @"windowWidth":@1032, @"windowHeight":@1376, @"hostBottom":@20, @"safeBottom":@20, @"nativeExtra":@20},
         @{@"name":@"floating", @"windowWidth":@951, @"windowHeight":@669, @"hostBottom":@34, @"safeBottom":@26, @"nativeExtra":@0}]) {
-        StashNativeCard *owner = [StashNativeCard new];
+        StashNative *owner = [StashNative new];
         StashCheckoutSession *session = [StashCheckoutSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.measuredContentHeight = 220;
@@ -278,7 +278,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
                 [controller reconcileNativeContentSafeArea:40];
                 result[@"dragKeepsCompensation"] = @(controller.nativeContentSafeAreaCompensation == 26);
             }
-            [(StashNativeCard *)entry[@"owner"] resetPresentationState];
+            [(StashNative *)entry[@"owner"] resetPresentationState];
         }
         completion(result);
     });
@@ -448,7 +448,7 @@ NSDictionary *StashCompactDividerProbe(void) {
 @implementation StashDetentContext
 @end
 NSDictionary *StashNativeExpansionProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];

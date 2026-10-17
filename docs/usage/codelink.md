@@ -23,14 +23,14 @@ The scanner asks for camera access the first time it opens. Decoding happens on 
 ## Open the scanner
 
 ```swift
-StashNativeCard.sharedInstance().codeLink(from: self, config: nil)
+StashNative.sharedInstance().codeLink(from: self, config: nil)
 ```
 
 ```java
-StashNativeCard.getInstance().codeLink(activity, null);
+StashNative.getInstance().codeLink(activity, null);
 ```
 
-The scanner follows the game's orientation.
+Register the [receiver](callbacks.md#set-the-receiver) on main before opening. The scanner follows the game's orientation.
 
 ## Configuration
 
@@ -49,41 +49,41 @@ Translate the scanner text to the game's language, or hide the info callout to g
 let config = StashNativeCodeLinkConfig()
 config.headerText = "Escanear código QR"
 config.showCallout = false
-StashNativeCard.sharedInstance().codeLink(from: self, config: config)
+StashNative.sharedInstance().codeLink(from: self, config: config)
 ```
 
 ```java
-StashNativeCard.CodeLinkConfig config = new StashNativeCard.CodeLinkConfig();
+StashNative.CodeLinkConfig config = new StashNative.CodeLinkConfig();
 config.headerText = "Escanear código QR";
 config.showCallout = false;
-StashNativeCard.getInstance().codeLink(activity, config);
+StashNative.getInstance().codeLink(activity, config);
 ```
 
 ## Callbacks
 
 | Event | iOS | Android | What to do |
 |---|---|---|---|
-| Code scanned | `stashNativeCardDidScanQRCode(_:)` | `onQrCodeScanned(content)` | Use the content to link the account. The card has already closed. |
-| Camera error | `stashNativeCardCodeLinkDidEncounterError(_:)` | `onCodeLinkError(error)` | Log it or guide the player. See [Errors](#errors). |
-| Closed without a scan | `stashNativeCardDidDismiss()` | `onDialogDismissed()` | Resume the game |
+| Code scanned | `stashNativeDidScanQRCode(_:)` | `onQrCodeScanned(content)` | Use the content to link the account. The card has already closed. |
+| Camera error | `stashNativeCodeLinkDidEncounterError(_:)` | `onCodeLinkError(error)` | Log it or guide the player. See [Errors](#errors). |
+| Scan dismissed | `stashNativeDidDismissScan()` | `onScanDismissed()` | Resume the game after the scanner closes without a result |
 
-The scan callback fires once per scanner.
+The scan callback fires once per scanner, after teardown, without a dismissal event.
 
 ## Errors
 
-After an error the card stays open, so the player can grant camera access in Settings and return to scanning, or close the card. Each error is reported once per scanner.
+Most errors leave the card open, so the player can grant camera access in Settings and return to scanning, or close the card. Android `SCANNER_UNAVAILABLE` is terminal: the scanner closes before the error callback, without a dismissal event. Each error is reported once per scanner.
 
 | Cause | iOS `StashNativeCodeLinkError.Code` | Android `CodeLinkError` | Fix |
 |---|---|---|---|
 | Camera access denied | `.cameraPermissionDenied` | `CAMERA_PERMISSION_DENIED` | The card offers a Settings button |
 | No camera available | `.cameraUnavailable` | `CAMERA_UNAVAILABLE` | Offer another way to link |
 | Camera setup failed | `.cameraConfigurationFailed` | `CAMERA_CONFIGURATION_FAILED` | Retry later |
-| CameraX or ZXing missing | Not applicable | `CAMERA_CONFIGURATION_FAILED` | Add the dependencies. The card closes. |
+| CameraX or ZXing missing | Not applicable | `SCANNER_UNAVAILABLE` | Add the dependencies. The card closes. |
 | Usage description missing | `.missingCameraUsageDescription` | Not applicable | Add `NSCameraUsageDescription` |
 | Camera permission removed from the manifest | Not applicable | `CAMERA_PERMISSION_NOT_DECLARED` | Keep `CAMERA` in the manifest |
 
 ```swift
-func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
+func stashNativeCodeLinkDidEncounterError(_ error: Error) {
     if (error as? StashNativeCodeLinkError)?.code == .cameraPermissionDenied {
         // The card already shows a Settings button; log it for analytics.
     }
@@ -92,8 +92,8 @@ func stashNativeCardCodeLinkDidEncounterError(_ error: Error) {
 
 ```java
 @Override
-public void onCodeLinkError(StashNativeCard.CodeLinkError error) {
-    if (error == StashNativeCard.CodeLinkError.CAMERA_PERMISSION_DENIED) {
+public void onCodeLinkError(StashNative.CodeLinkError error) {
+    if (error == StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED) {
         // The card already shows a Settings button; log it for analytics.
     }
 }

@@ -4,15 +4,15 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 
 /**
- * StashNativeCard - Native Android SDK for Stash Native checkout integration.
+ * Native Android SDK for Stash checkout, browser, and CodeLink integration.
  *
- * <p>This is the main entry point for integrating Stash Native checkout into your Android app. It
- * provides methods to display checkout cards, and handles payment callbacks.
+ * <p>This is the main entry point for Stash Native in your Android app. It opens checkout cards,
+ * browser sessions, and the CodeLink scanner, and delivers their callbacks.
  *
  * <p>Usage:
  *
  * <pre>
- * StashNativeCard.getInstance().setListener(new StashNativeCard.StashNativeCardListener() {
+ * StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter() {
  *     {@literal @}Override
  *     public void onPaymentSuccess(String order) {
  *         // The page supplies order as a string or null.
@@ -24,8 +24,8 @@ import android.graphics.Bitmap;
  *     }
  *
  *     {@literal @}Override
- *     public void onDialogDismissed() {
- *         // Handle dialog dismissed
+ *     public void onCardDismissed() {
+ *         // Handle checkout dismissal
  *     }
  *
  *     {@literal @}Override
@@ -44,38 +44,37 @@ import android.graphics.Bitmap;
  *     }
  *
  *     {@literal @}Override
- *     public void onBrowserClosed() {
- *         // Chrome Custom Tabs / browser dismissed; host activity resumed
+ *     public void onBrowserDismissed() {
+ *         // Browser dismissed
  *     }
  * });
  *
- * StashNativeCard.getInstance().openCard(this, "https://your-checkout-url.com", null);
+ * StashNative.getInstance().openCard(this, "https://your-checkout-url.com", null);
  * </pre>
  */
-public class StashNativeCard {
-  private static StashNativeCard instance;
-  private StashNativeCardPlugin plugin;
+public class StashNative {
+  private static StashNative instance;
+  private final StashNativePlugin plugin;
 
   /**
-   * Strong reference so callbacks keep working after Custom Tabs / background (WeakRef would allow
-   * GC).
+   * Shared live listener for all SDK flows. Callbacks run on the main thread. Replacing the
+   * listener affects future events from already-open flows; clearing it drops events.
    */
-  private StashNativeCardListener listener;
-
-  /** Callback interface for Stash Native events. */
-  public interface StashNativeCardListener {
+  public interface StashNativeListener {
 
     /** Returns the unchanged QR payload once, after Connected and the card's dismissal. */
     default void onQrCodeScanned(String content) {}
 
     /**
-     * Reports an error once per CodeLink session. Missing scanner dependencies close the card;
-     * other camera errors leave it open.
+     * Reports an error once per CodeLink session. {@link CodeLinkError#SCANNER_UNAVAILABLE}
+     * closes the card without a dismissal callback when optional scanner dependencies cannot load
+     * or the scanner cannot be constructed. Other camera errors leave the card open.
      */
     default void onCodeLinkError(CodeLinkError error) {}
 
     /**
-     * Called when a payment completes successfully.
+     * Called when a payment completes successfully. With {@code autoClose=false}, payment events
+     * can repeat while the card remains open.
      *
      * @param order Optional payload from {@code window.stash_sdk.onPaymentSuccess(order)}: a plain
      *     string or JSON string; {@code null} if the page called {@code onPaymentSuccess()} with no
@@ -83,14 +82,17 @@ public class StashNativeCard {
      */
     void onPaymentSuccess(String order);
 
-    /** Called when a payment fails. */
+    /** Called when a payment fails; repeatable with {@code autoClose=false}. */
     void onPaymentFailure();
 
     /**
-     * Called when the checkout dialog is dismissed by the user, or when the embedded page calls
-     * {@code window.close()}.
+     * Called when the user, {@link StashNative#dismiss()}, or the page's {@code window.close()}
+     * dismisses checkout. Payment-driven closure and browser handoff do not emit this event.
      */
-    void onDialogDismissed();
+    void onCardDismissed();
+
+    /** Called when the scanner is dismissed without a result by the user or native dismiss. */
+    default void onScanDismissed() {}
 
     /**
      * Called when the checkout page finishes loading.
@@ -108,19 +110,19 @@ public class StashNativeCard {
     void onNetworkError();
 
     /**
-     * Called when the checkout page calls {@code window.stash_sdk.openExternalBrowser(url)}. The
-     * SDK closes the card without invoking {@link #onDialogDismissed()}, then opens the URL
-     * in Chrome Custom Tabs (or the system browser as fallback). The {@code url} includes the theme
-     * query parameter when applicable.
+     * Called before launching the checkout page's {@code window.stash_sdk.openExternalBrowser(url)}
+     * handoff in Chrome Custom Tabs (or the system browser as fallback). The URL includes the
+     * theme query parameter when applicable. The card hides after launch and finishes after the
+     * browser-dismissal callback, without {@link #onCardDismissed()}.
      *
      * @param url Validated {@code http} or {@code https} URL
      */
     void onExternalPayment(String url);
 
     /**
-     * Called when the browser opened via {@link #openBrowser(Activity, String)} or {@code
-     * window.stash_sdk.openExternalBrowser} is dismissed by the user. For Chrome Custom Tabs, the
-     * SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it, engagement
+     * Called when a browser opened via {@link StashNative#openBrowser(Activity, String)} or
+     * checkout's {@code window.stash_sdk.openExternalBrowser} closes. For Chrome Custom Tabs,
+     * the SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it, engagement
      * session callbacks so this also runs when the tab is closed from floating or minimized UI.
      * Handled internally by the SDK's proxy activity; no host forwarding needed. External browser
      * ({@code ACTION_VIEW}) uses host lifecycle with a short debounce.
@@ -128,14 +130,14 @@ public class StashNativeCard {
      * <p>Very old Chrome or devices without engagement support may still delay {@code
      * onActivityResult} in some floating-dismiss cases until the next host activity transition.
      */
-    void onBrowserClosed();
+    void onBrowserDismissed();
   }
 
   /**
-   * Simple adapter class for StashNativeCardListener with empty default implementations. Extend
+   * Simple adapter class for StashNativeListener with empty default implementations. Extend
    * this class if you only need to implement some callbacks.
    */
-  public static class StashNativeCardListenerAdapter implements StashNativeCardListener {
+  public static class StashNativeListenerAdapter implements StashNativeListener {
 
     @Override
     public void onPaymentSuccess(String order) {}
@@ -144,7 +146,7 @@ public class StashNativeCard {
     public void onPaymentFailure() {}
 
     @Override
-    public void onDialogDismissed() {}
+    public void onCardDismissed() {}
 
     @Override
     public void onPageLoaded(long loadTimeMs) {}
@@ -156,7 +158,7 @@ public class StashNativeCard {
     public void onExternalPayment(String url) {}
 
     @Override
-    public void onBrowserClosed() {}
+    public void onBrowserDismissed() {}
   }
 
   /** Responsive card constraints, measured in density-independent pixels. */
@@ -207,8 +209,8 @@ public class StashNativeCard {
     public KeepAliveConfig() {}
   }
 
-  private StashNativeCard() {
-    plugin = StashNativeCardPlugin.getInstance();
+  private StashNative() {
+    plugin = StashNativePlugin.getInstance();
   }
 
   private static final String SDK_VERSION = "3.0.0";
@@ -242,13 +244,13 @@ public class StashNativeCard {
   }
 
   /**
-   * Gets the singleton instance of StashNativeCard.
+   * Gets the singleton instance of StashNative.
    *
-   * @return The StashNativeCard instance
+   * @return The StashNative instance
    */
-  public static synchronized StashNativeCard getInstance() {
+  public static synchronized StashNative getInstance() {
     if (instance == null) {
-      instance = new StashNativeCard();
+      instance = new StashNative();
     }
     return instance;
   }
@@ -264,25 +266,26 @@ public class StashNativeCard {
   }
 
   /**
-   * Sets the listener for Stash Native events.
+   * Sets the single, strongly retained listener on the main thread. Replacing it affects future
+   * callbacks from all flows, including those already open. Pass null on the main thread to stop
+   * delivery; dropped events are not replayed. Clear an Activity-owned listener during teardown.
    *
-   * @param listener The listener to receive callbacks
+   * @param listener The listener to receive callbacks, or null to clear it
    */
-  public void setListener(StashNativeCardListener listener) {
-    this.listener = listener;
+  public void setListener(StashNativeListener listener) {
     plugin.setListener(listener);
   }
 
   /**
-   * Gets the current listener.
+   * Gets the current listener. Call on the main thread.
    *
-   * @return The current StashNativeCardListener
+   * @return The current StashNativeListener
    */
-  public StashNativeCardListener getListener() {
-    return listener;
+  public StashNativeListener getListener() {
+    return plugin.getListener();
   }
 
-  /** Opens a responsive checkout card in the supplied host's task. */
+  /** Opens a responsive checkout card in the supplied host's task. May be called on any thread. */
   public void openCard(Activity activity, String url, CardConfig config) {
     plugin.openCard(activity, url, config);
   }
@@ -292,7 +295,7 @@ public class StashNativeCard {
    * The SDK takes ownership and recycles the bitmap; do not reuse it after this call.
    */
   public static void setBackdropBitmap(Bitmap bitmap) {
-    StashNativeCardPlugin.getInstance().setBackdropBitmap(bitmap);
+    StashNativePlugin.getInstance().setBackdropBitmap(bitmap);
   }
 
   /** Supplies PNG/JPEG backdrop bytes, convenient for Unity/JNI. Null or invalid bytes clear it. */
@@ -300,14 +303,15 @@ public class StashNativeCard {
     setBackdropBitmap(StashHostBackdropSupport.decode(pngOrJpeg));
   }
 
-  /** Opens the QR scanner in the responsive card, following the host app's orientation. */
+  /** Opens the QR scanner following the host app's orientation. May be called on any thread. */
   public void codeLink(Activity activity) {
     codeLink(activity, null);
   }
 
   /**
-   * Opens CodeLink with optional scanner copy. Requires the optional CameraX and ZXing libraries;
-   * missing dependencies report {@link CodeLinkError#CAMERA_CONFIGURATION_FAILED} and close.
+   * Opens CodeLink with optional scanner copy. May be called on any thread. Requires the optional
+   * CameraX and ZXing libraries; missing dependencies or scanner construction failures report
+   * {@link CodeLinkError#SCANNER_UNAVAILABLE} and close without a dismissal callback.
    */
   public void codeLink(Activity activity, CodeLinkConfig config) {
     plugin.codeLink(activity, config);
@@ -317,16 +321,19 @@ public class StashNativeCard {
   public enum CodeLinkError {
     CAMERA_PERMISSION_DENIED,
     CAMERA_UNAVAILABLE,
+    /** Camera setup failed; the scanner card remains open. */
     CAMERA_CONFIGURATION_FAILED,
-    CAMERA_PERMISSION_NOT_DECLARED
+    CAMERA_PERMISSION_NOT_DECLARED,
+    /** Scanner dependencies could not load or scanner construction failed; the card closes. */
+    SCANNER_UNAVAILABLE
   }
 
-  /** Dismisses any currently displayed checkout dialog. */
+  /** Dismisses the active checkout or scanner card. */
   public void dismiss() {
     plugin.dismissDialog();
   }
 
-  /** Resets the presentation state and dismisses any displayed dialog. */
+  /** Silently tears down active flows, retaining the listener. */
   public void resetPresentationState() {
     plugin.resetPresentationState();
   }
@@ -341,11 +348,13 @@ public class StashNativeCard {
   }
 
   /**
-   * Opens a URL in Chrome Custom Tabs when {@code androidx.browser} is present, otherwise in the
-   * system browser ({@code ACTION_VIEW}). For Custom Tabs, the result is handled internally by the
+   * Opens a URL from any thread in Chrome Custom Tabs when {@code androidx.browser} is present,
+   * otherwise in the system browser ({@code ACTION_VIEW}). For Custom Tabs, the result is handled
+   * internally by the
    * SDK's proxy activity; nothing to forward from this activity so {@link
-   * StashNativeCardListener#onBrowserClosed()} runs when the tab closes; {@code ACTION_VIEW} uses
-   * lifecycle-based detection (see {@link StashNativeCardListener#onBrowserClosed}).
+   * StashNativeListener#onBrowserDismissed()} runs when the tab closes;
+   * {@code ACTION_VIEW} uses lifecycle-based detection (see
+   * {@link StashNativeListener#onBrowserDismissed()}).
    *
    * @param url The URL to open in the browser
    */

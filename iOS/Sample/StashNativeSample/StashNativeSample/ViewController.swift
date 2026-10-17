@@ -2,7 +2,7 @@
 //  ViewController.swift
 //  StashNativeSample
 //
-//  StashNativeCard SDK sample with Settings-style layout.
+//  StashNative SDK sample with Settings-style layout.
 //
 
 import UIKit
@@ -204,7 +204,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         setupCheckoutSlidersAndSwitches()
         setupLockLandscape()
         setupTabBar()
-        setupStashNativeCard()
+        setupStashNative()
 
         view.addSubview(tableView)
         view.addSubview(tabBar)
@@ -306,8 +306,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
 
     }
 
-    func setupStashNativeCard() {
-        StashNativeCard.sharedInstance().delegate = self
+    func setupStashNative() {
+        StashNative.sharedInstance().delegate = self
     }
 
     func setupTabBar() {

@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <objc/runtime.h>
 
 static UIView *StashNoInputAccessory(id responder, SEL selector) { return nil; }

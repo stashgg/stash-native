@@ -25,16 +25,18 @@ Setup: [Installation](usage/installation.md).
 
 ## Quick start
 
+Run receiver setup on the platform main thread before opening checkout:
+
 ```swift
 import StashNative
 
-StashNativeCard.sharedInstance().delegate = self
-StashNativeCard.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
+StashNative.sharedInstance().delegate = self
+StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
 ```
 
 ```java
-StashNativeCard.getInstance().setListener(listener);
-StashNativeCard.getInstance().openCard(activity, checkoutUrl, null);
+StashNative.getInstance().setListener(listener);
+StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
 Your backend creates `checkoutURL` and confirms each purchase before the game grants items.

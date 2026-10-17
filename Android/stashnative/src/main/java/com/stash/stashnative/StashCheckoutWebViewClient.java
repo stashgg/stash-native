@@ -10,7 +10,7 @@ import androidx.annotation.RequiresApi;
 
 /** Translates WebView navigation and renderer events into checkout lifecycle updates. */
 final class StashCheckoutWebViewClient extends WebViewClient {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
   private final StashCheckoutActivity activity;
 
   StashCheckoutWebViewClient(StashCheckoutActivity activity) {

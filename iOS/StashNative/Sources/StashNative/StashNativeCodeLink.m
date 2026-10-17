@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <AVFoundation/AVFoundation.h>
 
 @interface StashCodeLinkPreview : UIView
@@ -382,10 +382,11 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
         : @"" settings:denied];
     if (self.errorReported) return;
     self.errorReported = YES;
-    id<StashNativeCardDelegate> delegate = self.session.owner.delegate;
-    if ([delegate respondsToSelector:@selector(stashNativeCardCodeLinkDidEncounterError:)])
-        [delegate stashNativeCardCodeLinkDidEncounterError:[NSError errorWithDomain:StashNativeCodeLinkErrorDomain
-            code:code userInfo:@{NSLocalizedDescriptionKey:message}]];
+    [self.session.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeCodeLinkDidEncounterError:)])
+            [delegate stashNativeCodeLinkDidEncounterError:[NSError errorWithDomain:StashNativeCodeLinkErrorDomain
+                code:code userInfo:@{NSLocalizedDescriptionKey:message}]];
+    }];
 }
 - (void)captureOutput:(AVCaptureOutput *)output didOutputMetadataObjects:(NSArray<AVMetadataObject *> *)objects
     fromConnection:(AVCaptureConnection *)connection {

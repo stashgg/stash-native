@@ -8,7 +8,7 @@ import android.webkit.WebView;
 
 /** Dispatches WebView bridge calls to the checkout's UI thread. */
 final class StashCheckoutJsInterface {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
   private final StashCheckoutActivity activity;
 
   StashCheckoutJsInterface(StashCheckoutActivity activity) {
@@ -98,7 +98,7 @@ final class StashCheckoutJsInterface {
       }
       String themed = StashWebViewUtils.appendThemeQueryParameter(
           normalized, activity.effectiveIsDarkForContent);
-      StashNativeCardPlugin.getInstance().openExternalBrowserFromCheckout(
+      StashNativePlugin.getInstance().openExternalBrowserFromCheckout(
           activity, themed, true,
           activity::hideCardSheetLeavingDimOverlay, activity::finishAfterExternalBrowserClose);
     });
@@ -119,7 +119,7 @@ final class StashCheckoutJsInterface {
     try {
       activity.runOnUiThread(() -> {
         try {
-          StashNativeCardPlugin plugin = StashNativeCardPlugin.getInstance();
+          StashNativePlugin plugin = StashNativePlugin.getInstance();
           if (!plugin.isCurrentlyPresented || activity.isDismissing
               || activity.isFinishing() || activity.isDestroyed()
               || activity.getPresentationSessionId() != plugin.presentationSessionId) {

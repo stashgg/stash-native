@@ -37,7 +37,7 @@
 
         <!--
             Invisible proxy that owns the Chrome Custom Tabs startActivityForResult
-            lifecycle so onBrowserClosed fires without host-activity changes (Unity
+            lifecycle so browser dismissal fires without host-activity changes (Unity
             UnityPlayerActivity, partner apps that cannot ship onActivityResult
             forwarders). Must run in the host app's process for the same reason as
             StashCheckoutActivity (WebView data dir lock conflicts).

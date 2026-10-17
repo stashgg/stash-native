@@ -44,22 +44,22 @@ enum StashSampleDeepLink {
         let urlString = url.absoluteString
 
         if urlString.contains("stash-pay/success") {
-            StashNativeCard.sharedInstance().dismissSafariViewController(withResult: true)
+            StashNative.sharedInstance().dismissSafariViewController(withResult: true)
             return true
         }
         if urlString.contains("stash-pay/failure") {
-            StashNativeCard.sharedInstance().dismissSafariViewController(withResult: false)
+            StashNative.sharedInstance().dismissSafariViewController(withResult: false)
             return true
         }
         if urlString.contains("stash-pay/cancel") {
-            StashNativeCard.sharedInstance().closeBrowser()
+            StashNative.sharedInstance().closeBrowser()
             ViewController.postCallbackChip("Deeplink · Cancel")
             return true
         }
 
         // Pass-through deeplink: close the in-app browser and surface the URL as a chip
         // (parity with the Android sample).
-        StashNativeCard.sharedInstance().closeBrowser()
+        StashNative.sharedInstance().closeBrowser()
         ViewController.postCallbackChip("Deeplink · \(urlString)")
         return true
     }

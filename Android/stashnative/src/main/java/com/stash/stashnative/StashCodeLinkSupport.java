@@ -126,13 +126,13 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     if (hasPermission()) {
       startAuthorized();
     } else if (!permissionDeclared()) {
-      showError(StashNativeCard.CodeLinkError.CAMERA_PERMISSION_NOT_DECLARED);
+      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_NOT_DECLARED);
     } else if (Build.VERSION.SDK_INT >= 23 && !permissionRequested) {
       permissionRequested = true;
       activity.requestPermissions(new String[] {Manifest.permission.CAMERA},
           CAMERA_PERMISSION_REQUEST);
     } else {
-      showError(StashNativeCard.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
     }
   }
 
@@ -146,7 +146,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         startAuthorized();
       }
     } else {
-      showError(StashNativeCard.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
     }
   }
 
@@ -188,7 +188,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
       future = ProcessCameraProvider.getInstance(activity);
     } catch (RuntimeException exception) {
       providerPending = false;
-      showError(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+      showError(StashNative.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
       return;
     }
     future.addListener(() -> {
@@ -200,7 +200,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         provider = future.get();
         geometryChanged();
       } catch (Exception exception) {
-        showError(StashNativeCard.CodeLinkError.CAMERA_UNAVAILABLE);
+        showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
       }
     }, main::post);
   }
@@ -225,7 +225,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     final int epoch = ++generation;
     try {
       if (!provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-        showError(StashNativeCard.CodeLinkError.CAMERA_UNAVAILABLE);
+        showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
         return;
       }
       int rotation = view.getDisplay() == null
@@ -253,7 +253,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
           return;
         }
         if (state.getError() != null) {
-          showError(StashNativeCard.CodeLinkError.CAMERA_UNAVAILABLE);
+          showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
         } else if (state.getType() == CameraState.Type.OPEN
             && view.preview.getPreviewStreamState().getValue()
                 == PreviewView.StreamState.STREAMING) {
@@ -261,9 +261,9 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         }
       });
     } catch (SecurityException exception) {
-      showError(StashNativeCard.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
     } catch (RuntimeException | androidx.camera.core.CameraInfoUnavailableException exception) {
-      showError(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+      showError(StashNative.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
     }
   }
 
@@ -336,11 +336,11 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     }
   }
 
-  private void showError(StashNativeCard.CodeLinkError error) {
+  private void showError(StashNative.CodeLinkError error) {
     if (disposed || confirming || activity.isDismissing) {
       return;
     }
-    boolean denied = error == StashNativeCard.CodeLinkError.CAMERA_PERMISSION_DENIED;
+    boolean denied = error == StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED;
     view.showStatus(denied ? R.string.stash_code_link_permission
         : R.string.stash_code_link_unavailable, false, denied);
     if (!errorReported) {
@@ -354,7 +354,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
       activity.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
           Uri.parse("package:" + activity.getPackageName())));
     } catch (RuntimeException expected) {
-      showError(StashNativeCard.CodeLinkError.CAMERA_UNAVAILABLE);
+      showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
     }
   }
 

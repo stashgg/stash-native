@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <math.h>
 
 CGRect StashChooseAvailableRegion(CGRect bounds, NSArray<NSValue *> *regions, CGPoint preferredPoint, BOOL rightToLeft) {

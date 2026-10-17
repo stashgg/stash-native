@@ -9,7 +9,7 @@ import android.widget.FrameLayout;
 
 /** Creates the checkout WebView and starts navigation after its first resolved layout. */
 final class StashCheckoutWebViewSupport {
-  private static final String TAG = "StashNativeCard";
+  private static final String TAG = "StashNative";
 
   private StashCheckoutWebViewSupport() {}
 

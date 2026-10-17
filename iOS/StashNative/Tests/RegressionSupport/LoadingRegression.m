@@ -1,5 +1,5 @@
 #import "RegressionSupport.h"
-#import "../../Sources/StashNative/StashNativeCardPrivate.h"
+#import "../../Sources/StashNative/StashNativePrivate.h"
 
 @interface StashReadinessWebView : WKWebView
 @property (nonatomic, strong) NSMutableArray *readinessReplies;
@@ -25,7 +25,7 @@
 - (BOOL)isInitialContentForeground { return self.foreground; }
 @end
 
-static StashCheckoutSession *StashLoadingSession(StashNativeCard *owner) {
+static StashCheckoutSession *StashLoadingSession(StashNative *owner) {
     StashReadinessSession *session = [StashReadinessSession new];
     session.foreground = YES;
     owner.session = session; session.owner = owner;
@@ -48,7 +48,7 @@ static void StashReply(StashReadinessWebView *web, NSUInteger index, BOOL ready)
 NSString *StashInitialContentReadinessSource(void) { return StashInitialContentReadinessScript(); }
 
 NSDictionary *StashLoadingPresentationProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = StashLoadingSession(owner);
     StashReadinessWebView *web = (id)session.webView;
     BOOL initiallyCovered = session.controller.loadingCover && !web.userInteractionEnabled && web.accessibilityElementsHidden;
@@ -155,7 +155,7 @@ NSDictionary *StashLoadingPresentationProbe(void) {
 @end
 NSString *StashTopChromeProbeSource(void) { return StashTopChromeScript(); }
 NSDictionary *StashTopChromeLifecycleProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     StashChromeProbeWebView *web = [StashChromeProbeWebView new];
     session.owner = owner; owner.session = session; session.webView = web;
@@ -223,7 +223,7 @@ NSDictionary *StashTopChromeLifecycleProbe(void) {
 
 NSDictionary *StashChromeLoadingCoverProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     session.owner = owner; owner.session = session;
     session.config = [StashNativeCardConfig new];
@@ -278,7 +278,7 @@ NSDictionary *StashChromeLoadingCoverProbe(void) {
 static BOOL StashLoadingSamePaint(UIColor *left, UIColor *right);
 
 NSDictionary *StashPageBackingLifecycleProbe(void) {
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     StashBackingProbeWebView *web = [StashBackingProbeWebView new];
     owner.session = session; session.owner = owner; session.webView = web;
@@ -380,7 +380,7 @@ NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGF
     StashLoadingBackgroundHost *host = [StashLoadingBackgroundHost new];
     [presenter addChildViewController:host]; host.view.frame = presenter.view.bounds;
     [presenter.view addSubview:host.view]; [host didMoveToParentViewController:presenter];
-    StashNativeCard *owner = [StashNativeCard new];
+    StashNative *owner = [StashNative new];
     StashCheckoutSession *session = [StashCheckoutSession new];
     owner.session = session; session.owner = owner; session.presenter = host;
     session.url = @"about:blank"; session.config = [StashNativeCardConfig new];
@@ -413,7 +413,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
     for (NSUInteger dark = 0; dark < 2; dark++) {
         StashLoadingBackgroundHost *host = [StashLoadingBackgroundHost new];
         window.rootViewController = host; [window makeKeyAndVisible];
-        StashNativeCard *owner = [StashNativeCard new];
+        StashNative *owner = [StashNative new];
         StashCheckoutSession *session = [StashCheckoutSession new];
         owner.session = session; session.owner = owner; session.presenter = host;
 
@@ -439,7 +439,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         result[[NSString stringWithFormat:@"%@-%@", @"native", dark ? @"dark" : @"light"]] = @(stable && follows && concealed && revealed);
         [session cleanup]; owner.session = nil;
     }
-    StashNativeCard *shared = [StashNativeCard sharedInstance];
+    StashNative *shared = [StashNative sharedInstance];
     StashCheckoutSession *savedSession = shared.session;
     for (NSUInteger dark = 0; dark < 2; dark++) {
         UIViewController *host = [UIViewController new];

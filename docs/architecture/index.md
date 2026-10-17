@@ -17,7 +17,7 @@ flowchart TB
     Page[Checkout page]
 
     subgraph SDK [Stash Native SDK]
-        Facade[StashNativeCard facade]
+        Facade[StashNative facade]
         Session[Presentation session]
         Surface[Native card]
         Web[WebView with injected scripts]
@@ -37,8 +37,8 @@ flowchart TB
 
 | Layer | iOS | Android |
 |---|---|---|
-| Facade | `StashNativeCard` | `StashNativeCard`, `StashNativeCardPlugin` |
-| Session | `StashCheckoutSession` | Session ID in `StashNativeCardPlugin`, `StashCheckoutActivity` |
+| Facade | `StashNative` | `StashNative`, `StashNativePlugin` |
+| Session | `StashCheckoutSession` | Session ID in `StashNativePlugin`, `StashCheckoutActivity` |
 | Card | `StashCheckoutViewController` in a `UISheetPresentationController` | `StashCheckoutActivity`, `StashPresentationController` |
 | Web content | `WKWebView` with script message handlers | `WebView` with the `StashAndroid` JavaScript interface |
 | Browser | `SFSafariViewController` | Custom Tabs through `StashNativeBrowserProxyActivity`, or `ACTION_VIEW` |
@@ -62,7 +62,7 @@ stateDiagram-v2
     Closing --> [*]: callbacks delivered
 ```
 
-`resetPresentationState()` ends a session in any state without callbacks. During processing only native `dismiss()` can close the card.
+`resetPresentationState()` ends a session in any state without callbacks and preserves receiver registration. During processing only native `dismiss()` can close the card. Payment events may repeat while `autoClose` is off. Callback timing differs by platform; iOS sends payment results before teardown.
 
 ## Opening a checkout card
 
@@ -70,7 +70,7 @@ stateDiagram-v2
 sequenceDiagram
     autonumber
     participant App as Host app
-    participant Facade as StashNativeCard
+    participant Facade as StashNative
     participant Session
     participant Web as WebView
     participant Page as Checkout page
@@ -102,7 +102,7 @@ sequenceDiagram
     Session->>Session: Close card, no dismissal callback
     Session->>Browser: Open url with theme
     Browser-->>Session: User closes browser
-    Session-->>App: Browser closed
+    Session-->>App: Browser dismissed
 ```
 
 ## Sizing
@@ -136,8 +136,11 @@ Background time does not count toward these limits.
 
 | | iOS | Android |
 |---|---|---|
-| Public calls | Any thread; work moves to the main queue | Any thread; work moves to the main looper |
+| Open calls | Any thread; work moves to the main queue | Any thread; work moves to the main looper |
+| Register, read, replace, or clear receiver | Main thread | Main thread |
 | Callbacks | Main thread | Main thread |
 | Callback receiver | Weak (`assign` without ARC) | Strong |
 | Host reference | Weak view controller | Weak activity |
 | Event path | Direct calls | Session-tagged broadcasts from the checkout activity to the plugin |
+
+Each event selects the current receiver, so replacement affects future events from an open flow. Clearing stops future delivery without replay; it cannot undo an executing callback or an event already queued by an engine wrapper. Keep an owner for the iOS delegate; under manual reference counting, clear it on main before releasing it and synchronize teardown with callbacks.

@@ -27,13 +27,13 @@ final class StashPresentationOptions {
     this.allowDismiss = allowDismiss;
     this.autoClose = autoClose;
     this.orientation =
-        orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
-            ? StashNativeCard.CardConfig.ORIENTATION_PORTRAIT
-            : StashNativeCard.CardConfig.ORIENTATION_FOLLOW_HOST;
+        orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT
+            ? StashNative.CardConfig.ORIENTATION_PORTRAIT
+            : StashNative.CardConfig.ORIENTATION_FOLLOW_HOST;
   }
 
-  static StashPresentationOptions card(StashNativeCard.CardConfig config) {
-    StashNativeCard.CardConfig c = config == null ? new StashNativeCard.CardConfig() : config;
+  static StashPresentationOptions card(StashNative.CardConfig config) {
+    StashNative.CardConfig c = config == null ? new StashNative.CardConfig() : config;
     return new StashPresentationOptions(
         c.preferredContentWidth,
         c.preferredContentHeight,

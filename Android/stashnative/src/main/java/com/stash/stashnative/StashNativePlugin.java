@@ -14,13 +14,13 @@ import android.os.Looper;
 import android.util.Log;
 import java.lang.ref.WeakReference;
 
-/** Coordinates checkout sessions and browser handoff for the public {@link StashNativeCard} API. */
-public class StashNativeCardPlugin {
-  private static final String TAG = "StashNativeCard";
+/** Coordinates checkout sessions and browser handoff for the public {@link StashNative} API. */
+public class StashNativePlugin {
+  private static final String TAG = "StashNative";
 
   /** Thread-safe lazy singleton holder. */
   private static class Holder {
-    static final StashNativeCardPlugin INSTANCE = new StashNativeCardPlugin();
+    static final StashNativePlugin INSTANCE = new StashNativePlugin();
   }
 
   private WeakReference<Activity> activityRef;
@@ -32,7 +32,7 @@ public class StashNativeCardPlugin {
    * Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in
    * background.
    */
-  StashNativeCard.StashNativeCardListener listener;
+  private StashNative.StashNativeListener listener;
 
   StashPresentationOptions presentationOptions;
 
@@ -45,6 +45,8 @@ public class StashNativeCardPlugin {
 
   /** Identifies callbacks and cleanup belonging to the admitted presentation. */
   volatile long presentationSessionId;
+
+  private boolean presentationIsScanner;
 
   private BroadcastReceiver checkoutBridgeReceiver;
   private boolean checkoutBridgeReceiverRegistered;
@@ -62,17 +64,17 @@ public class StashNativeCardPlugin {
    */
   private volatile boolean keepAliveEnabled;
 
-  private StashNativeCard.KeepAliveConfig keepAliveConfig;
+  private StashNative.KeepAliveConfig keepAliveConfig;
 
   /**
-   * When true, host {@code onResume} should fire {@link StashNativeCardListener#onBrowserClosed()}.
+   * When true, host {@code onResume} should fire the browser-close callback.
    */
   private boolean isBrowserSessionActive;
 
   /**
    * After launching Custom Tabs / browser we defer arming until the host is paused by that UI or a
    * short timeout. Otherwise the host can resume when checkout or a dialog dismisses before the tab
-   * is shown, which incorrectly fired {@code onBrowserClosed}.
+   * is shown, which incorrectly fired a browser-dismissal callback.
    */
   private boolean browserCloseTrackingPendingArm;
 
@@ -82,8 +84,8 @@ public class StashNativeCardPlugin {
 
   /**
    * Custom Tabs can deliver a transient host {@code onResume} right after the tab opens. Only
-   * invoke {@link StashNativeCardListener#onBrowserClosed()} after the host stays resumed past this
-   * delay; cancel if the host pauses again (browser UI still on top).
+   * invoke the browser-close callback after the host stays resumed past this delay; cancel if
+   * the host pauses again (browser UI still on top).
    */
   private Runnable browserClosedDebounceRunnable;
 
@@ -97,7 +99,7 @@ public class StashNativeCardPlugin {
   private long browserSessionId;
 
   /**
-   * When set (checkout), run on the main thread after {@code onBrowserClosed} so checkout can
+   * When set (checkout), run on the main thread after a browser-dismissal callback so checkout can
    * dismiss only after the tab was started and closed. Avoids finishing checkout before {@code
    * startActivityForResult} runs and losing / deferring the result.
    */
@@ -165,7 +167,7 @@ public class StashNativeCardPlugin {
 
   /**
    * Registers a package-local receiver so events from {@link StashCheckoutActivity} reach {@link
-   * StashNativeCard.StashNativeCardListener} on the main thread (same-process default; broadcasts
+   * StashNative.StashNativeListener} on the main thread (same-process default; broadcasts
    * remain the activity-to-plugin contract).
    */
   private void ensureCheckoutBridgeReceiver(Context context) {
@@ -220,11 +222,12 @@ public class StashNativeCardPlugin {
         || intent.getLongExtra(StashCheckoutBridge.EXTRA_SESSION_ID, 0L) != presentationSessionId) {
       return;
     }
-    StashNativeCard.StashNativeCardListener l = getListener();
+    StashNative.StashNativeListener l = getListener();
+    boolean scanner = presentationIsScanner;
     try {
       if (CardConstants.BROADCAST_CODE_LINK_ERROR.equals(action)) {
         if (l != null) {
-          l.onCodeLinkError(StashNativeCard.CodeLinkError.valueOf(
+          l.onCodeLinkError(StashNative.CodeLinkError.valueOf(
               intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR)));
         }
         return;
@@ -256,7 +259,11 @@ public class StashNativeCardPlugin {
       } else if (CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR.equals(action)) {
         l.onNetworkError();
       } else if (CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(action)) {
-        l.onDialogDismissed();
+        if (scanner) {
+          l.onScanDismissed();
+        } else {
+          l.onCardDismissed();
+        }
       } else if (CardConstants.BROADCAST_CODE_LINK_SCANNED.equals(action)) {
         l.onQrCodeScanned(intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT));
       }
@@ -265,16 +272,16 @@ public class StashNativeCardPlugin {
     }
   }
 
-  StashNativeCard.StashNativeCardListener getListener() {
+  StashNative.StashNativeListener getListener() {
     return listener;
   }
 
   /** Returns the singleton plugin instance. */
-  public static StashNativeCardPlugin getInstance() {
+  public static StashNativePlugin getInstance() {
     return Holder.INSTANCE;
   }
 
-  private StashNativeCardPlugin() {}
+  private StashNativePlugin() {}
 
   /** Observes the current host without retaining it. */
   void setActivity(Activity activity) {
@@ -288,12 +295,8 @@ public class StashNativeCardPlugin {
     return activityRef != null ? activityRef.get() : null;
   }
 
-  void setListener(StashNativeCard.StashNativeCardListener listener) {
+  void setListener(StashNative.StashNativeListener listener) {
     this.listener = listener;
-    Activity a = getActivity();
-    if (a != null) {
-      ensureCheckoutBridgeReceiver(a);
-    }
   }
 
   void setKeepAliveEnabled(boolean enabled) {
@@ -304,7 +307,7 @@ public class StashNativeCardPlugin {
     return keepAliveEnabled;
   }
 
-  void setKeepAliveConfig(StashNativeCard.KeepAliveConfig config) {
+  void setKeepAliveConfig(StashNative.KeepAliveConfig config) {
     this.keepAliveConfig = config;
   }
 
@@ -361,15 +364,15 @@ public class StashNativeCardPlugin {
     cancelBrowserCloseTrackingLaunch();
   }
 
-  private void invokeBrowserClosedListenerAndDismissCheckout() {
+  private void invokeBrowserDismissedListenerAndDismissCheckout() {
     Runnable dismiss = pendingCheckoutDismissAfterExternalBrowser;
     pendingCheckoutDismissAfterExternalBrowser = null;
-    StashNativeCard.StashNativeCardListener l = getListener();
+    StashNative.StashNativeListener l = getListener();
     if (l != null) {
       try {
-        l.onBrowserClosed();
+        l.onBrowserDismissed();
       } catch (Exception e) {
-        Log.w(TAG, "Error in onBrowserClosed: " + e.getMessage(), e);
+        Log.w(TAG, "Error in browser dismissal callback: " + e.getMessage(), e);
       }
     }
     if (dismiss != null) {
@@ -395,8 +398,8 @@ public class StashNativeCardPlugin {
    * Opens Custom Tabs from checkout using {@code checkoutActivity} for {@code
    * startActivityForResult}. {@code hideCheckoutChromeWhileBrowserOpen} runs on the main thread
    * after the URL launcher returns (e.g. hide the sheet while keeping the dim overlay). {@code
-   * dismissAfterBrowserClosed} runs after {@link StashNativeCardListener#onBrowserClosed()}, or
-   * immediately if the URL cannot be opened.
+   * dismissAfterBrowserClosed} runs after the browser-close callback, or immediately if the URL
+   * cannot be opened.
    */
   void openExternalBrowserFromCheckout(
       StashCheckoutActivity checkoutActivity,
@@ -413,7 +416,7 @@ public class StashNativeCardPlugin {
     isCurrentlyPresented = false;
     long browserBeforeCallback = browserSessionId;
     if (notifyExternalPaymentListener) {
-      StashNativeCard.StashNativeCardListener l = getListener();
+      StashNative.StashNativeListener l = getListener();
       if (l != null) {
         try {
           l.onExternalPayment(url);
@@ -451,31 +454,33 @@ public class StashNativeCardPlugin {
 
   private void scheduleBrowserClosedDebounce() {
     cancelBrowserClosedDebounce();
+    long sessionId = browserSessionId;
     browserClosedDebounceRunnable =
         () -> {
-          browserClosedDebounceRunnable = null;
-          if (!isBrowserSessionActive) {
+          if (!isBrowserSessionActive || sessionId != browserSessionId) {
             return;
           }
-          isBrowserSessionActive = false;
-          invokeBrowserClosedListenerAndDismissCheckout();
+          browserClosedDebounceRunnable = null;
+          cancelBrowserCloseTrackingLaunch();
+          invokeBrowserDismissedListenerAndDismissCheckout();
         };
     mainHandler.postDelayed(browserClosedDebounceRunnable, BROWSER_CLOSED_RESUME_DEBOUNCE_MS);
   }
 
   /**
    * Call after {@link StashUrlLauncher#openExternalUrl(Context, String, int)} when Custom Tabs did
-   * not use {@code startActivityForResult}, so {@link StashNativeCardListener#onBrowserClosed()} is
-   * not tied to card teardown.
+   * not use {@code startActivityForResult}, so the browser-close callback is not tied to card
+   * teardown.
    */
-  void beginBrowserCloseTrackingAfterExternalUrlLaunched() {
+  private void beginBrowserCloseTrackingAfterExternalUrlLaunched() {
     cancelBrowserCloseTrackingLaunch();
+    long sessionId = browserSessionId;
     isBrowserSessionActive = false;
     browserCloseTrackingPendingArm = true;
     browserCloseTrackingArmRunnable =
         () -> {
-          browserCloseTrackingArmRunnable = null;
-          if (browserCloseTrackingPendingArm) {
+          if (browserCloseTrackingPendingArm && sessionId == browserSessionId) {
+            browserCloseTrackingArmRunnable = null;
             browserCloseTrackingPendingArm = false;
             isBrowserSessionActive = true;
           }
@@ -488,12 +493,12 @@ public class StashNativeCardPlugin {
    * StashNativeBrowserProxyActivity} so dispatches from the proxy's {@code onActivityResult} and
    * the engagement-session-ended path dedupe via the same gate.
    */
-  void beginBrowserCloseTrackingActivityResult() {
+  private void beginBrowserCloseTrackingActivityResult() {
     cancelBrowserCloseTrackingLaunch();
     browserCloseAwaitingCctResult = true;
   }
 
-  void applyBrowserCloseTrackingForLaunchMode(int launchMode) {
+  private void applyBrowserCloseTrackingForLaunchMode(int launchMode) {
     if (launchMode == StashUrlLauncher.OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT) {
       beginBrowserCloseTrackingActivityResult();
     } else {
@@ -509,8 +514,7 @@ public class StashNativeCardPlugin {
   /**
    * Called by {@link StashNativeBrowserProxyActivity} when Custom Tabs delivered its activity
    * result (or the orphan-resume fallback fired). Unbinds the engagement service and dispatches
-   * {@link StashNativeCard.StashNativeCardListener#onBrowserClosed()} via the shared close-tracking
-   * gate.
+   * the browser-dismissal callback via the shared close-tracking gate.
    */
   void notifyBrowserClosedFromProxyInternal(long sessionId) {
     if (!isCurrentBrowserSession(sessionId)) {
@@ -522,7 +526,7 @@ public class StashNativeCardPlugin {
       StashUrlLauncher.unbindCustomTabsEngagement(unbindCtx);
     }
     cancelBrowserCloseTrackingLaunch();
-    invokeBrowserClosedListenerAndDismissCheckout();
+    invokeBrowserDismissedListenerAndDismissCheckout();
   }
 
   /** Bridge from {@link StashNativeBrowserProxyActivity}'s engagement-session-ended callback. */
@@ -535,7 +539,7 @@ public class StashNativeCardPlugin {
    * androidx.browser} is on the classpath, otherwise falls back to the lifecycle-tracked
    * ACTION_VIEW path on the host activity directly.
    */
-  void launchExternalBrowser(Activity activity, String url) {
+  private void launchExternalBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
       return;
     }
@@ -577,7 +581,7 @@ public class StashNativeCardPlugin {
     return R.drawable.ic_stash_keep_alive;
   }
 
-  void openCard(Activity host, String url, StashNativeCard.CardConfig config) {
+  void openCard(Activity host, String url, StashNative.CardConfig config) {
     openPresentation(host, url, StashPresentationOptions.card(config), null);
   }
 
@@ -614,7 +618,7 @@ public class StashNativeCardPlugin {
     codeLink(host, null);
   }
 
-  void codeLink(Activity host, StashNativeCard.CodeLinkConfig config) {
+  void codeLink(Activity host, StashNative.CodeLinkConfig config) {
     openPresentation(host, null, StashPresentationOptions.card(null),
         StashCodeLinkOptions.from(config));
   }
@@ -626,12 +630,12 @@ public class StashNativeCardPlugin {
     }
     isCurrentlyPresented = false;
     checkoutActivityRef = null;
-    StashNativeCard.StashNativeCardListener current = getListener();
+    StashNative.StashNativeListener current = getListener();
     if (current != null) {
       try {
-        current.onCodeLinkError(StashNativeCard.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+        current.onCodeLinkError(StashNative.CodeLinkError.SCANNER_UNAVAILABLE);
       } catch (Exception error) {
-        Log.w(TAG, "Error delivering CodeLink configuration failure", error);
+        Log.w(TAG, "Error delivering scanner unavailable failure", error);
       }
     }
   }
@@ -655,11 +659,12 @@ public class StashNativeCardPlugin {
     retireCheckoutWithoutCallbacks();
     cleanupAllViews();
     presentationSessionId++;
+    presentationIsScanner = codeLink != null;
     isCurrentlyPresented = true;
     presentationOptions = options;
     if (codeLink == null) {
       Bitmap backdrop = takePendingBackdrop();
-      if (options.orientation == StashNativeCard.CardConfig.ORIENTATION_PORTRAIT) {
+      if (options.orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT) {
         launchingBackdrop = StashHostBackdropSupport.create(host, backdrop);
         backdropSessionId = presentationSessionId;
       } else {
@@ -778,7 +783,7 @@ public class StashNativeCardPlugin {
     }
   }
 
-  /** Removes session observers, browser tracking, and retained callbacks. */
+  /** Removes session observers and browser tracking, retaining the live listener. */
   public void cleanup() {
     cleanupAllViews();
     setBackdropBitmap(null);

@@ -19,7 +19,7 @@ import androidx.core.app.NotificationCompat;
 /**
  * Optional foreground service that raises process priority while an external browser or Chrome
  * Custom Tabs session is open, reducing the chance of the host app being killed on low-RAM
- * devices. Opt in via {@link StashNativeCard#setKeepAliveEnabled(boolean)}.
+ * devices. Opt in via {@link StashNative#setKeepAliveEnabled(boolean)}.
  */
 public class StashKeepAliveService extends Service {
 

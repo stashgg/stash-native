@@ -1,4 +1,4 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 #import <math.h>
 
 @implementation StashCheckoutViewController (Gestures)

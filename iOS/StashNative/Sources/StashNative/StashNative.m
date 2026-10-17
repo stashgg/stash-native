@@ -1,13 +1,26 @@
-#import "StashNativeCardPrivate.h"
+#import "StashNativePrivate.h"
 
 static BOOL stashInspectableWebViewsEnabled = NO;
 
 NSString *const StashTopChromeHandlerName = @"stashTopChrome";
 NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink";
 
-@implementation StashNativeCard
+@implementation StashNative
+- (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery {
+    id<StashNativeDelegate> delegate = self.delegate;
+#if !__has_feature(objc_arc)
+    [delegate retain];
+#endif
+    @try {
+        if (delegate) delivery(delegate);
+    } @finally {
+#if !__has_feature(objc_arc)
+        [delegate release];
+#endif
+    }
+}
 + (instancetype)sharedInstance {
-    static StashNativeCard *instance;
+    static StashNative *instance;
     static dispatch_once_t once;
     dispatch_once(&once, ^{ instance = [[self alloc] init]; });
     return instance;
