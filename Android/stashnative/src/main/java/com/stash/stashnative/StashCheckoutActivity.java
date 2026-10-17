@@ -102,6 +102,19 @@ public class StashCheckoutActivity extends Activity {
   long pageLoadStartTime;
   boolean pageLoadedCallbackSent;
 
+  /** Token the injected main-frame bridge passes with every StashAndroid call. */
+  String bridgeDocumentToken;
+
+  /** Issues the token for the next document; calls carrying earlier tokens are ignored. */
+  String issueBridgeDocumentToken() {
+    bridgeDocumentToken = java.util.UUID.randomUUID().toString();
+    return bridgeDocumentToken;
+  }
+
+  boolean acceptsBridgeToken(String token) {
+    return token != null && token.equals(bridgeDocumentToken);
+  }
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -299,9 +312,13 @@ public class StashCheckoutActivity extends Activity {
       return;
     }
     networkErrorHandled = true;
-    StashCheckoutLoadingSupport.cancelLoadTimers(this);
-    StashCheckoutBridge.emitNetworkError(this);
     callbackSent = true;
+    StashCheckoutLoadingSupport.cancelLoadTimers(this);
+    try {
+      StashCheckoutBridge.emitNetworkError(this);
+    } catch (Exception e) {
+      Log.w(TAG, "Network error broadcast failed: " + e.getMessage(), e);
+    }
     finishActivityWithNoAnimation();
   }
 
@@ -413,18 +430,26 @@ public class StashCheckoutActivity extends Activity {
               }
               isPurchaseProcessing = false;
               applyDragHandlePurchaseProcessingFade(false);
+              try {
+                if (success) {
+                  StashCheckoutBridge.emitPaymentSuccess(
+                      StashCheckoutActivity.this,
+                      StashCheckoutBridge.capPaymentOrder(order),
+                      options.autoClose);
+                } else {
+                  StashCheckoutBridge.emitPaymentFailure(
+                      StashCheckoutActivity.this, options.autoClose);
+                }
+              } catch (Exception e) {
+                // The once-flags are still clear. End through the network error path so the
+                // plugin releases the presentation instead of waiting on a lost result.
+                Log.w(TAG, "Payment result broadcast failed: " + e.getMessage(), e);
+                handleNetworkError();
+                return;
+              }
               if (options.autoClose) {
                 callbackSent = true;
                 paymentResultHandled = true;
-              }
-              if (success) {
-                StashCheckoutBridge.emitPaymentSuccess(
-                    StashCheckoutActivity.this, order, options.autoClose);
-              } else {
-                StashCheckoutBridge.emitPaymentFailure(
-                    StashCheckoutActivity.this, options.autoClose);
-              }
-              if (options.autoClose) {
                 dismissWithAnimation();
               }
             } catch (Exception e) {

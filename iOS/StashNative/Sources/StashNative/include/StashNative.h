@@ -78,7 +78,7 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 
 /**
  * Called after checkout card dismissal by the user, page window.close() outside processing,
- * or programmatic dismiss. Payment auto-close, load failure, and browser handoff do not emit it.
+ * or programmatic dismiss. Payment auto-close, network error, and browser handoff do not emit it.
  */
 - (void)stashNativeDidDismissCard;
 
@@ -92,9 +92,10 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 - (void)stashNativeDidLoadPage:(double)loadTimeMs;
 
 /**
- * Called when a network error occurs during initial page load.
- * This includes no connection, a failed initial response, or a 15-second foreground response deadline.
- * The dialog is automatically dismissed before this callback is invoked.
+ * Called when checkout ends because of a network error: no connection, a failed initial response,
+ * the 15-second foreground response deadline, or a connection failure after the page loaded
+ * (including during purchase processing). The card is dismissed before this callback is invoked
+ * and \c stashNativeDidDismissCard is not emitted.
  */
 - (void)stashNativeDidEncounterNetworkError;
 

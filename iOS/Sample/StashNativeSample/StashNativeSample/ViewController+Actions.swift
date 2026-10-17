@@ -153,9 +153,10 @@ extension ViewController {
         // Body is the active instance's saved payload for this endpoint, sent verbatim.
         // Sign the exact bytes that go on the wire, then send them unchanged.
         let bodyData = Data(activePayload(kind).utf8)
+        // Signing fails only when the secret is not base64; say so instead of blaming the network.
         guard let signature = StashHmac.signature(
                 appId: activeAppId(), ingressSecretB64: activeApiKey(), body: bodyData) else {
-            showAlert(title: "Error", message: failureMessage)
+            showAlert(title: "Error", message: "Ingress secret is not valid base64")
             return
         }
         request.setValue(signature, forHTTPHeaderField: "x-stash-hmac-signature")

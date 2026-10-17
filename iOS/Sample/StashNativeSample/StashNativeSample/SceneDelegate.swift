@@ -28,8 +28,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     ) {
         guard let windowScene = scene as? UIWindowScene else { return }
 
-        // Sample/QA build: allow Safari Web Inspector and Appium to inspect checkout webviews.
+        // Debug builds only: allow Safari Web Inspector and Appium to inspect checkout webviews.
+        #if DEBUG
         StashNative.setInspectableWebViewsEnabled(true)
+        #endif
 
         let window = UIWindow(windowScene: windowScene)
         let nav = ForwardingNavigationController(rootViewController: ViewController())

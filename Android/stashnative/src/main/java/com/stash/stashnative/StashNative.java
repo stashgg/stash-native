@@ -87,7 +87,8 @@ public class StashNative {
 
     /**
      * Called when the user, {@link StashNative#dismiss()}, or the page's {@code window.close()}
-     * dismisses checkout. Payment-driven closure and browser handoff do not emit this event.
+     * dismisses checkout. Payment-driven closure, browser handoff, and load or connection
+     * failures (reported through {@link #onNetworkError()}) do not emit this event.
      */
     void onCardDismissed();
 
@@ -102,10 +103,11 @@ public class StashNative {
     void onPageLoaded(long loadTimeMs);
 
     /**
-     * Called when checkout cannot be shown or must be torn down due to a load failure. This
-     * includes: no network connection, page load failure, a 15-second foreground timeout, and
-     * renderer termination on Android 8.0+ (API 26+). For renderer termination,
-     * the card is dismissed before this callback runs.
+     * Called when checkout cannot be shown or must be torn down: no network connection, a failed
+     * initial response, the 15-second load deadline, a connection failure after the page loaded
+     * (also during purchase processing), or an unrecoverable renderer loss on Android 8.0+
+     * (API 26+). The card is dismissed before this callback runs; {@link #onCardDismissed()} is
+     * not sent.
      */
     void onNetworkError();
 
@@ -124,8 +126,9 @@ public class StashNative {
      * checkout's {@code window.stash_sdk.openExternalBrowser} closes. For Chrome Custom Tabs,
      * the SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it, engagement
      * session callbacks so this also runs when the tab is closed from floating or minimized UI.
-     * Handled internally by the SDK's proxy activity; no host forwarding needed. External browser
-     * ({@code ACTION_VIEW}) uses host lifecycle with a short debounce.
+     * Handled internally by the SDK's proxy activity; no host forwarding needed. The system
+     * browser fallback ({@code ACTION_VIEW}) uses activity lifecycle with a short debounce: the
+     * host activity after {@code openBrowser}, the checkout activity after a checkout handoff.
      *
      * <p>Very old Chrome or devices without engagement support may still delay {@code
      * onActivityResult} in some floating-dismiss cases until the next host activity transition.

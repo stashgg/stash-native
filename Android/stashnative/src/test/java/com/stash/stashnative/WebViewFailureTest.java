@@ -84,11 +84,23 @@ public class WebViewFailureTest {
     assertFalse(activity.isFinishing());
   }
 
-  @Test public void failedNavigationAfterLoadClosesWithoutInitialLoadErrorCallback() {
+  private long dialogDismissals() {
+    return Shadows.shadowOf(activity.getApplication()).getBroadcastIntents().stream()
+        .filter(intent -> CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(intent.getAction()))
+        .count();
+  }
+
+  @Test public void transportFailureAfterLoadEndsCheckoutAsNetworkErrorEvenWhileProcessing() {
     activity.initialPageLoadComplete = true;
+    activity.isPurchaseProcessing = true;
     client.onReceivedError(web, WebViewClient.ERROR_TIMEOUT, "Timed out", activity.url);
     assertTrue(activity.isFinishing());
-    assertEquals(0, networkErrors());
+    assertTrue(activity.callbackSent);
+    assertEquals(1, networkErrors());
+    assertEquals(0, dialogDismissals());
+    client.onReceivedError(web, WebViewClient.ERROR_CONNECT, "Duplicate failure", activity.url);
+    assertEquals(1, networkErrors());
+    assertEquals(0, dialogDismissals());
   }
 
   @Test public void cancelledNavigationAfterLoadKeepsCheckoutOpen() {

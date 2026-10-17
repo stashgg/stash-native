@@ -94,7 +94,7 @@ NSString *StashInitialContentReadinessScript(void) {
         @"return checkoutPresentationReady();";
 }
 
-NSString *NormalizeExternalPaymentURL(NSString *raw) {
+NSString *StashNormalizeExternalPaymentURL(NSString *raw) {
     if (![raw isKindOfClass:[NSString class]]) return nil;
     NSString *value = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (!value.length) return nil;
@@ -102,6 +102,24 @@ NSString *NormalizeExternalPaymentURL(NSString *raw) {
     if (!components.scheme.length) components = [NSURLComponents componentsWithString:[@"https://" stringByAppendingString:value]];
     if (![@[@"http", @"https"] containsObject:components.scheme.lowercaseString] || !components.host.length) return nil;
     return components.URL.absoluteString;
+}
+
+static void (^StashExternalURLOpener)(NSURL *, NSDictionary *, void (^)(BOOL));
+
+void StashSetExternalURLOpener(void (^opener)(NSURL *url, NSDictionary *options, void (^completion)(BOOL success))) {
+    void (^previous)(NSURL *, NSDictionary *, void (^)(BOOL)) = StashExternalURLOpener;
+    StashExternalURLOpener = [opener copy];
+#if !__has_feature(objc_arc)
+    [previous release];
+#else
+    (void)previous;
+#endif
+}
+
+void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(BOOL success)) {
+    if (!url) { if (completion) completion(NO); return; }
+    if (StashExternalURLOpener) { StashExternalURLOpener(url, options ?: @{}, completion); return; }
+    [UIApplication.sharedApplication openURL:url options:options ?: @{} completionHandler:completion];
 }
 
 NSArray<NSString *> *StashScriptHandlerNames(void) {

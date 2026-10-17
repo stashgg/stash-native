@@ -75,7 +75,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
 }
 - (void)openURL:(NSString *)url presenter:(UIViewController *)presenter
          config:(StashNativeCardConfig *)config browser:(BOOL)browser {
-    NSString *normalized = NormalizeExternalPaymentURL(url);
+    NSString *normalized = StashNormalizeExternalPaymentURL(url);
     StashNativeCardConfig *snapshot = StashNormalizedConfig(config);
     if (!NSThread.isMainThread) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self openURL:normalized presenter:presenter config:snapshot browser:browser]; });
@@ -90,7 +90,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     session.presenter = presenter;
     session.config = snapshot;
     self.session = session;
-    session.url = appendThemeQueryParameter(normalized, presenter.traitCollection);
+    session.url = StashAppendThemeQueryParameter(normalized, presenter.traitCollection);
     if (browser) [session presentBrowser]; else [session presentCheckout];
 #if !__has_feature(objc_arc)
     [session release];

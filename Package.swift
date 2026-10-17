@@ -19,7 +19,8 @@ let package = Package(
             name: "StashNative",
             dependencies: [],
             path: "iOS/StashNative/Sources/StashNative",
-            publicHeadersPath: "include"
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("AVFoundation")]
         ),
         .target(
             name: "RegressionSupport",

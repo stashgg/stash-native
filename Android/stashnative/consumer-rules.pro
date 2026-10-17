@@ -10,7 +10,9 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Engagement + Custom Tabs bind helper (loaded via reflection from StashUrlLauncher)
+# Engagement + Custom Tabs bind helper. StashNativeBrowserProxyActivity calls tryLaunchForResult
+# directly; StashUrlLauncher.unbindCustomTabsEngagement (and the deprecated 5-arg openExternalUrl)
+# still reach the class through reflection, so both entry points stay named.
 -keep class com.stash.stashnative.StashCustomTabsEngagement {
     public static boolean tryLaunchForResult(android.app.Activity, android.net.Uri, int, com.stash.stashnative.StashUrlLauncher$LaunchModeCallback, java.lang.Runnable);
     public static void unbindIfBound(android.content.Context);

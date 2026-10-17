@@ -288,7 +288,7 @@ NSDictionary *StashPageBackingLifecycleProbe(void) {
     session.controller = controller; controller.session = session;
     UIColor *coverColor = UIColor.magentaColor;
     controller.loadingCover = [UIView new]; controller.loadingCover.backgroundColor = coverColor;
-    web.backgroundColor = stash_sheetBackgroundUIColor(session.presenter.traitCollection);
+    web.backgroundColor = StashSheetBackgroundUIColor(session.presenter.traitCollection);
     UIColor *fallback = web.underPageBackgroundColor;
     UIColor *panel = [UIColor colorWithRed:247/255.0 green:249/255.0 blue:244/255.0 alpha:1];
     StashChromeProbeFrame *frame = [StashChromeProbeFrame new]; frame.top = YES;
@@ -457,7 +457,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         session.controller = controller; controller.session = session;
         controller.topChromeColor = edge;
         [controller configurePresentation];
-        UIColor *initial = stash_sheetBackgroundUIColor(host.traitCollection);
+        UIColor *initial = StashSheetBackgroundUIColor(host.traitCollection);
         BOOL notLoaded = !controller.isViewLoaded;
         [controller loadViewIfNeeded];
         UIView *cover = controller.loadingCover;
@@ -470,7 +470,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         }
 #endif
         BOOL covered = notLoaded && cover && cover.alpha == 1 && !session.initialContentRevealed &&
-            stash_effectiveThemeIsDark(host.traitCollection) == (dark != 0) &&
+            StashEffectiveThemeIsDark(host.traitCollection) == (dark != 0) &&
             StashLoadingSamePaint(cover.backgroundColor, glass ? UIColor.clearColor : initial) &&
             session.webView.alpha == (glass ? 0 : 1) && !StashLoadingSamePaint(initial, page);
         BOOL contentPaint = StashLoadingSamePaint(controller.view.backgroundColor, glass ? UIColor.clearColor : edge);
@@ -486,6 +486,426 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         [session cleanup]; shared.session = nil;
     }
     shared.session = savedSession;
+    window.hidden = YES; [previous makeKeyWindow];
+    return result;
+}
+
+#pragma mark - Navigation policy, load budget, new windows, dialogs, post-load failure
+
+@interface StashNavigationProbeDelegate : NSObject <StashNativeDelegate>
+@property (nonatomic) NSInteger successes;
+@property (nonatomic) NSInteger failures;
+@property (nonatomic) NSInteger dismissals;
+@property (nonatomic) NSInteger networkErrors;
+@property (nonatomic) BOOL presentedAtNetworkError;
+@property (nonatomic, weak) StashNative *owner;
+@end
+@implementation StashNavigationProbeDelegate
+- (void)stashNativeDidCompletePaymentWithOrder:(NSString *)order { self.successes++; }
+- (void)stashNativeDidFailPayment { self.failures++; }
+- (void)stashNativeDidDismissCard { self.dismissals++; }
+- (void)stashNativeDidEncounterNetworkError {
+    self.networkErrors++;
+    self.presentedAtNetworkError = self.owner.isCurrentlyPresented;
+}
+@end
+
+@interface StashNavigationActionDouble : NSObject
+@property (nonatomic, strong) NSURLRequest *request;
+@property (nonatomic) WKNavigationType navigationType;
+@property (nonatomic, strong) id targetFrame;
+@end
+@implementation StashNavigationActionDouble
+@end
+
+@interface StashNavigationResponseDouble : NSObject
+@property (nonatomic, getter=isForMainFrame) BOOL forMainFrame;
+@property (nonatomic, strong) NSURLResponse *response;
+@end
+@implementation StashNavigationResponseDouble
+@end
+
+@interface StashExternalOpenRecorder : NSObject
+@property (nonatomic, strong) NSMutableArray<NSURL *> *urls;
+@property (nonatomic, strong) NSMutableArray<NSDictionary *> *options;
+@property (nonatomic, strong) NSMutableArray *completions;
+@end
+@implementation StashExternalOpenRecorder
+- (instancetype)init {
+    if ((self = [super init])) {
+        self.urls = [NSMutableArray array]; self.options = [NSMutableArray array]; self.completions = [NSMutableArray array];
+    }
+    return self;
+}
+- (void)install {
+    StashExternalOpenRecorder *recorder = self;
+    StashSetExternalURLOpener(^(NSURL *url, NSDictionary *options, void (^completion)(BOOL)) {
+        [recorder.urls addObject:url];
+        [recorder.options addObject:options ?: @{}];
+        [recorder.completions addObject:completion ? [completion copy] : NSNull.null];
+    });
+}
+- (void)reset { [self.urls removeAllObjects]; [self.options removeAllObjects]; [self.completions removeAllObjects]; }
+- (NSString *)lastURL { return self.urls.lastObject.absoluteString ?: @""; }
+@end
+
+static StashNavigationActionDouble *StashNavigationAction(NSString *url, WKNavigationType type, BOOL mainFrame) {
+    StashNavigationActionDouble *action = [StashNavigationActionDouble new];
+    action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:url]];
+    action.navigationType = type;
+    StashChromeProbeFrame *frame = [StashChromeProbeFrame new];
+    frame.top = mainFrame;
+    action.targetFrame = frame;
+    return action;
+}
+
+static StashNavigationResponseDouble *StashNavigationResponse(NSInteger status, BOOL mainFrame) {
+    StashNavigationResponseDouble *response = [StashNavigationResponseDouble new];
+    response.forMainFrame = mainFrame;
+    response.response = [[NSHTTPURLResponse alloc] initWithURL:[NSURL URLWithString:@"https://checkout.invalid"]
+        statusCode:status HTTPVersion:@"HTTP/1.1" headerFields:nil];
+    return response;
+}
+
+static StashNavigationProbeDelegate *StashNavigationDelegate(StashNative *owner) {
+    StashNavigationProbeDelegate *delegate = [StashNavigationProbeDelegate new];
+    delegate.owner = owner;
+    owner.delegate = delegate;
+    return delegate;
+}
+
+NSDictionary *StashNavigationPolicyProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    StashExternalOpenRecorder *opens = [StashExternalOpenRecorder new];
+    [opens install];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+    StashCheckoutSession *session = StashLoadingSession(owner);
+    session.config.autoClose = NO;
+    session.loaded = YES;
+    __block NSInteger calls = 0;
+    __block WKNavigationActionPolicy policy = WKNavigationActionPolicyAllow;
+    void (^decide)(WKNavigationActionPolicy) = ^(WKNavigationActionPolicy decision) { calls++; policy = decision; };
+    void (^reset)(void) = ^{ calls = 0; policy = WKNavigationActionPolicyAllow; [opens reset]; };
+    void (^navigate)(NSString *, WKNavigationType, BOOL) = ^(NSString *url, WKNavigationType type, BOOL mainFrame) {
+        [session webView:session.webView decidePolicyForNavigationAction:(id)StashNavigationAction(url, type, mainFrame)
+            decisionHandler:decide];
+    };
+
+    reset(); navigate(@"stashdemo://stash-pay/success", WKNavigationTypeOther, YES);
+    result[@"resultSchemeCancelsAndRoutesPayment"] = @(calls == 1 && policy == WKNavigationActionPolicyCancel &&
+        delegate.successes == 1 && opens.urls.count == 0 && owner.isCurrentlyPresented);
+
+    reset(); navigate(@"stashdemo://open/settings", WKNavigationTypeOther, YES);
+    result[@"customSchemeCancelsAndOpensExternally"] = @(calls == 1 && policy == WKNavigationActionPolicyCancel &&
+        [opens.lastURL isEqualToString:@"stashdemo://open/settings"] && opens.urls.count == 1 &&
+        opens.options.firstObject.count == 0 && delegate.successes == 1 && delegate.failures == 0);
+
+    reset(); navigate(@"https://apps.apple.com/app/id123456", WKNavigationTypeLinkActivated, YES);
+    result[@"appStoreHostCancelsAndOpensExternally"] = @(calls == 1 && policy == WKNavigationActionPolicyCancel &&
+        opens.urls.count == 1 && [opens.lastURL isEqualToString:@"https://apps.apple.com/app/id123456"] &&
+        opens.options.firstObject.count == 0);
+
+    reset(); navigate(@"https://merchant.example/pay", WKNavigationTypeLinkActivated, YES);
+    BOOL deferred = calls == 0 && opens.urls.count == 1 &&
+        [opens.options.firstObject[UIApplicationOpenURLOptionUniversalLinksOnly] boolValue] &&
+        opens.completions.firstObject != NSNull.null;
+    void (^complete)(BOOL) = opens.completions.firstObject;
+    if (deferred) complete(YES);
+    result[@"universalLinkSuccessCancelsOnce"] = @(deferred && calls == 1 && policy == WKNavigationActionPolicyCancel);
+
+    reset(); navigate(@"https://merchant.example/pay", WKNavigationTypeLinkActivated, YES);
+    complete = opens.completions.firstObject;
+    if (opens.completions.count == 1 && (id)complete != NSNull.null) complete(NO);
+    result[@"universalLinkFailureAllowsOnce"] = @(calls == 1 && policy == WKNavigationActionPolicyAllow);
+
+    reset(); navigate(@"https://merchant.example/frame", WKNavigationTypeLinkActivated, NO);
+    result[@"subframeLinkAllowsInline"] = @(calls == 1 && policy == WKNavigationActionPolicyAllow && opens.urls.count == 0);
+
+    reset(); navigate(@"https://merchant.example/3ds", WKNavigationTypeOther, YES);
+    result[@"scriptNavigationAllowsInline"] = @(calls == 1 && policy == WKNavigationActionPolicyAllow && opens.urls.count == 0);
+
+    reset(); navigate(@"about:blank", WKNavigationTypeOther, YES);
+    result[@"aboutBlankAllows"] = @(calls == 1 && policy == WKNavigationActionPolicyAllow && opens.urls.count == 0);
+
+    [session finishWithUserDismiss:NO completion:nil];
+    reset(); navigate(@"https://merchant.example/late", WKNavigationTypeOther, YES);
+    result[@"inactiveSessionCancels"] = @(calls == 1 && policy == WKNavigationActionPolicyCancel && opens.urls.count == 0 &&
+        delegate.dismissals == 0 && delegate.networkErrors == 0);
+    StashSetExternalURLOpener(nil);
+    owner.session = nil;
+    return result;
+}
+
+NSDictionary *StashNavigationResponseProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+    __block NSInteger calls = 0;
+    __block WKNavigationResponsePolicy policy = WKNavigationResponsePolicyAllow;
+    void (^decide)(WKNavigationResponsePolicy) = ^(WKNavigationResponsePolicy decision) { calls++; policy = decision; };
+
+    StashCheckoutSession *failing = StashLoadingSession(owner);
+    [failing beginLoadBudget];
+    [failing webView:failing.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(404, YES) decisionHandler:decide];
+    result[@"errorBeforeLoadCancelsAndFails"] = @(calls == 1 && policy == WKNavigationResponsePolicyCancel &&
+        delegate.networkErrors == 1 && !delegate.presentedAtNetworkError && delegate.dismissals == 0 &&
+        owner.session == nil && failing.loadTimer == nil);
+
+    StashCheckoutSession *loaded = StashLoadingSession(owner);
+    loaded.loaded = YES;
+    calls = 0;
+    [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(404, YES) decisionHandler:decide];
+    result[@"errorAfterLoadAllows"] = @(calls == 1 && policy == WKNavigationResponsePolicyAllow &&
+        owner.session == loaded && delegate.networkErrors == 1);
+
+    loaded.loaded = NO;
+    calls = 0;
+    [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(404, NO) decisionHandler:decide];
+    result[@"subframeErrorBeforeLoadAllows"] = @(calls == 1 && policy == WKNavigationResponsePolicyAllow &&
+        owner.session == loaded && delegate.networkErrors == 1);
+
+    [loaded beginLoadBudget];
+    BOOL armed = loaded.loadTimer != nil && !loaded.receivedResponse;
+    calls = 0;
+    [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(302, YES) decisionHandler:decide];
+    BOOL redirectKeepsBudget = calls == 1 && policy == WKNavigationResponsePolicyAllow && loaded.loadTimer != nil && !loaded.receivedResponse;
+    calls = 0;
+    [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(200, YES) decisionHandler:decide];
+    result[@"successResponseStopsBudget"] = @(armed && redirectKeepsBudget && calls == 1 &&
+        policy == WKNavigationResponsePolicyAllow && loaded.receivedResponse && loaded.loadTimer == nil);
+
+    [loaded finishWithUserDismiss:NO completion:nil];
+    calls = 0;
+    [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(200, YES) decisionHandler:decide];
+    result[@"inactiveSessionCancels"] = @(calls == 1 && policy == WKNavigationResponsePolicyCancel && delegate.dismissals == 0);
+    owner.session = nil;
+    return result;
+}
+
+NSDictionary *StashLoadBudgetProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+
+    StashCheckoutSession *session = StashLoadingSession(owner);
+    StashReadinessWebView *web = (id)session.webView;
+    [session beginLoadBudget];
+    BOOL armed = session.loadTimer != nil && web.requests == 0 && !session.retriedLoad && !session.receivedResponse;
+    session.foregroundLoadElapsed = 9.5;
+    [session updateLoadBudget];
+    result[@"belowRetryThresholdWaits"] = @(armed && web.requests == 0 && !session.retriedLoad && owner.session == session);
+    session.foregroundLoadElapsed = 10;
+    [session updateLoadBudget];
+    result[@"retriesAtTenSeconds"] = @(web.requests == 1 && session.retriedLoad && owner.session == session &&
+        delegate.networkErrors == 0);
+    session.foregroundLoadElapsed = 14.5;
+    [session updateLoadBudget];
+    result[@"retriesOnlyOnce"] = @(web.requests == 1 && owner.session == session && delegate.networkErrors == 0);
+    session.foregroundLoadElapsed = 15;
+    [session updateLoadBudget];
+    result[@"failsAtFifteenSeconds"] = @(owner.session == nil && delegate.networkErrors == 1 &&
+        !delegate.presentedAtNetworkError && delegate.dismissals == 0 && session.loadTimer == nil && web.requests == 1);
+
+    StashCheckoutSession *responded = StashLoadingSession(owner);
+    StashReadinessWebView *respondedWeb = (id)responded.webView;
+    [responded beginLoadBudget];
+    responded.receivedResponse = YES;
+    responded.foregroundLoadElapsed = 20;
+    [responded updateLoadBudget];
+    result[@"responseSuppressesRetryAndDeadline"] = @(respondedWeb.requests == 0 && !responded.retriedLoad &&
+        owner.session == responded && delegate.networkErrors == 1);
+    [responded finishWithUserDismiss:NO completion:nil];
+
+    StashCheckoutSession *finished = StashLoadingSession(owner);
+    StashReadinessWebView *finishedWeb = (id)finished.webView;
+    [finished beginLoadBudget];
+    finished.loaded = YES;
+    finished.foregroundLoadElapsed = 20;
+    [finished updateLoadBudget];
+    result[@"loadedPageSuppressesBudget"] = @(finishedWeb.requests == 0 && owner.session == finished && delegate.networkErrors == 1);
+    [finished finishWithUserDismiss:NO completion:nil];
+    owner.session = nil;
+    return result;
+}
+
+NSDictionary *StashNewWindowProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    StashExternalOpenRecorder *opens = [StashExternalOpenRecorder new];
+    [opens install];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+    StashCheckoutSession *session = StashLoadingSession(owner);
+    session.config.autoClose = NO;
+    session.loaded = YES;
+    WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
+    WKWebView *(^open)(NSString *) = ^WKWebView *(NSString *url) {
+        return [session webView:session.webView createWebViewWithConfiguration:configuration
+            forNavigationAction:(id)StashNavigationAction(url, WKNavigationTypeOther, YES) windowFeatures:nil];
+    };
+    WKWebView *blank = open(@"about:blank");
+    result[@"blankWindowIgnored"] = @(blank == nil && opens.urls.count == 0 && delegate.successes == 0 && delegate.failures == 0);
+    WKWebView *routed = open(@"stashdemo://stash-pay/failure");
+    result[@"resultWindowRoutedToPayment"] = @(routed == nil && opens.urls.count == 0 && delegate.failures == 1 &&
+        owner.isCurrentlyPresented);
+    WKWebView *external = open(@"https://merchant.example/help");
+    result[@"otherWindowOpensExternally"] = @(external == nil && opens.urls.count == 1 &&
+        [opens.lastURL isEqualToString:@"https://merchant.example/help"] && opens.options.firstObject.count == 0 &&
+        owner.isCurrentlyPresented);
+    [session finishWithUserDismiss:NO completion:nil];
+    WKWebView *late = open(@"https://merchant.example/late");
+    result[@"inactiveWindowIgnored"] = @(late == nil && opens.urls.count == 1 && delegate.dismissals == 0);
+    StashSetExternalURLOpener(nil);
+    owner.session = nil;
+    return result;
+}
+
+@interface StashDialogProbeController : StashCheckoutViewController
+@property (nonatomic, strong) UIViewController *occupant;
+@property (nonatomic, strong) NSMutableArray<UIViewController *> *presented;
+@end
+@implementation StashDialogProbeController
+- (UIViewController *)presentedViewController { return self.occupant ?: self.presented.lastObject; }
+- (void)presentViewController:(UIViewController *)controller animated:(BOOL)animated completion:(void (^)(void))completion {
+    [self.presented addObject:controller];
+    if (completion) completion();
+}
+@end
+
+static StashCheckoutSession *StashDialogSession(StashNative *owner, StashDialogProbeController **controllerOut) {
+    StashCheckoutSession *session = [StashCheckoutSession new];
+    owner.session = session; session.owner = owner;
+    session.config = [StashNativeCardConfig new];
+    session.url = @"https://checkout.invalid";
+    session.loaded = YES;
+    session.webView = [StashReadinessWebView new];
+    StashDialogProbeController *controller = [StashDialogProbeController new];
+    controller.presented = [NSMutableArray array];
+    controller.session = session; session.controller = controller;
+    if (controllerOut) *controllerOut = controller;
+    return session;
+}
+
+NSDictionary *StashJavaScriptDialogProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+    __block NSInteger alerts = 0, confirms = 0, prompts = 0;
+    __block BOOL confirmValue = YES;
+    __block NSString *promptValue = @"unset";
+    void (^alertDone)(void) = ^{ alerts++; };
+    void (^confirmDone)(BOOL) = ^(BOOL value) { confirms++; confirmValue = value; };
+    void (^promptDone)(NSString *) = ^(NSString *value) { prompts++; promptValue = value; };
+
+    // A dialog already on screen: every completion runs immediately, exactly once, with the dismissive value.
+    StashDialogProbeController *occupied = nil;
+    StashCheckoutSession *busy = StashDialogSession(owner, &occupied);
+    occupied.occupant = [UIViewController new];
+    [busy webView:busy.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
+    [busy webView:busy.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
+    [busy webView:busy.webView runJavaScriptTextInputPanelWithPrompt:@"p" defaultText:@"d" initiatedByFrame:nil completionHandler:promptDone];
+    result[@"occupiedCompletesImmediately"] = @(alerts == 1 && confirms == 1 && !confirmValue && prompts == 1 &&
+        promptValue == nil && occupied.presented.count == 0 && busy.dialogCompletion == nil);
+    [busy completeDialog:@YES];
+    result[@"occupiedHasNoPendingCompletion"] = @(alerts == 1 && confirms == 1 && prompts == 1);
+    [busy cleanup]; owner.session = nil;
+
+    // Alert presented: completion waits for the dialog, then runs once even if completed twice.
+    alerts = 0;
+    StashDialogProbeController *free = nil;
+    StashCheckoutSession *open = StashDialogSession(owner, &free);
+    [open webView:open.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
+    BOOL presentedAlert = free.presented.count == 1 && [free.presented.firstObject isKindOfClass:UIAlertController.class] &&
+        alerts == 0 && open.dialogCompletion != nil;
+    [open completeDialog:nil];
+    [open completeDialog:nil];
+    result[@"alertCompletesOnce"] = @(presentedAlert && alerts == 1 && open.dialogCompletion == nil);
+    [open cleanup]; owner.session = nil;
+
+    // Confirm presented, then the checkout finishes: completion runs once with NO; later taps are no-ops.
+    confirms = 0; confirmValue = YES;
+    StashDialogProbeController *confirming = nil;
+    StashCheckoutSession *finishing = StashDialogSession(owner, &confirming);
+    [finishing webView:finishing.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
+    BOOL presentedConfirm = confirming.presented.count == 1 && confirms == 0;
+    [finishing finishWithUserDismiss:NO completion:nil];
+    BOOL finishedOnce = confirms == 1 && !confirmValue && owner.session == nil;
+    [finishing completeDialog:@YES];
+    result[@"confirmCompletesOnceOnFinish"] = @(presentedConfirm && finishedOnce && confirms == 1 && !confirmValue);
+
+    // Prompt presented, then teardown without callbacks: completion runs once with nil.
+    prompts = 0; promptValue = @"unset";
+    StashDialogProbeController *prompting = nil;
+    StashCheckoutSession *tearing = StashDialogSession(owner, &prompting);
+    [tearing webView:tearing.webView runJavaScriptTextInputPanelWithPrompt:@"p" defaultText:@"d" initiatedByFrame:nil completionHandler:promptDone];
+    BOOL presentedPrompt = prompting.presented.count == 1 && prompts == 0;
+    [tearing cleanup];
+    BOOL tornOnce = prompts == 1 && promptValue == nil;
+    [tearing completeDialog:@"late"];
+    result[@"promptCompletesOnceOnCleanup"] = @(presentedPrompt && tornOnce && prompts == 1 && promptValue == nil);
+    owner.session = nil;
+
+    // Inactive session: completions run immediately and nothing is presented.
+    alerts = 0; confirms = 0; prompts = 0;
+    StashDialogProbeController *retired = nil;
+    StashCheckoutSession *inactive = StashDialogSession(owner, &retired);
+    owner.session = nil;
+    [inactive webView:inactive.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
+    [inactive webView:inactive.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
+    [inactive webView:inactive.webView runJavaScriptTextInputPanelWithPrompt:@"p" defaultText:nil initiatedByFrame:nil completionHandler:promptDone];
+    result[@"inactiveCompletesImmediately"] = @(alerts == 1 && confirms == 1 && prompts == 1 && retired.presented.count == 0 &&
+        delegate.dismissals == 0);
+    [inactive cleanup];
+    return result;
+}
+
+NSDictionary *StashPostLoadFailureProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    UIWindow *window = previous.windowScene ? [[UIWindow alloc] initWithWindowScene:previous.windowScene] :
+        [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 700)];
+    StashLoadingBackgroundHost *host = [StashLoadingBackgroundHost new];
+    window.rootViewController = host; [window makeKeyAndVisible];
+    StashNative *owner = [StashNative new];
+    StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
+    StashCheckoutSession *(^present)(void) = ^StashCheckoutSession *{
+        StashCheckoutSession *session = [StashCheckoutSession new];
+        owner.session = session; session.owner = owner; session.presenter = host;
+        session.url = @"about:blank"; session.config = [StashNativeCardConfig new];
+        [session presentCheckout]; [session.webView stopLoading];
+        session.loaded = YES;
+        return session;
+    };
+
+    StashCheckoutSession *session = present();
+    result[@"presented"] = @(owner.isCurrentlyPresented && session.controller.viewIfLoaded.window == window && session.webView != nil);
+    [session handleMessage:@"stashPurchaseProcessing" body:@{}];
+    result[@"processingLocked"] = @(session.processing && owner.isPurchaseProcessing && ![session canUserDismiss]);
+    [session webView:session.webView didFailNavigation:nil
+        withError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorTimedOut userInfo:nil]];
+    result[@"networkErrorDelivered"] = @(delegate.networkErrors == 1);
+    result[@"cardClosedBeforeCallback"] = @(!delegate.presentedAtNetworkError);
+    result[@"noDismissCallback"] = @(delegate.dismissals == 0);
+    result[@"notPresented"] = @(!owner.isCurrentlyPresented && session.webView == nil && session.controller == nil &&
+        !owner.isPurchaseProcessing);
+
+    StashCheckoutSession *second = present();
+    [second webView:second.webView didFailNavigation:nil
+        withError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:nil]];
+    result[@"cancelledFailureIgnored"] = @(owner.isCurrentlyPresented && owner.session == second && delegate.networkErrors == 1);
+    [second webView:second.webView didFailProvisionalNavigation:nil
+        withError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorNotConnectedToInternet userInfo:nil]];
+    result[@"provisionalFailureAfterLoadFails"] = @(!owner.isCurrentlyPresented && delegate.networkErrors == 2 &&
+        !delegate.presentedAtNetworkError && delegate.dismissals == 0);
+
+    StashCheckoutSession *third = present();
+    [third handleMessage:@"stashPurchaseProcessing" body:@{}];
+    [third webViewWebContentProcessDidTerminate:third.webView];
+    result[@"rendererLossWhileProcessingFails"] = @(!owner.isCurrentlyPresented && delegate.networkErrors == 3 &&
+        delegate.dismissals == 0);
     window.hidden = YES; [previous makeKeyWindow];
     return result;
 }

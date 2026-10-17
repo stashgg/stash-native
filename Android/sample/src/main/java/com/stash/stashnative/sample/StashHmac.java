@@ -21,7 +21,12 @@ final class StashHmac {
 
   /** Signs the exact body bytes that will be written to the connection. */
   static String signature(String appId, String ingressSecretB64, byte[] body) throws Exception {
-    long unixMillis = System.currentTimeMillis();
+    return signature(appId, ingressSecretB64, body, System.currentTimeMillis());
+  }
+
+  /** Deterministic form of {@link #signature(String, String, byte[])} for vector tests. */
+  static String signature(String appId, String ingressSecretB64, byte[] body, long unixMillis)
+      throws Exception {
     byte[] key = Base64.decode(ingressSecretB64, Base64.DEFAULT);
     Mac mac = Mac.getInstance("HmacSHA256");
     mac.init(new SecretKeySpec(key, "HmacSHA256"));

@@ -27,6 +27,7 @@ public class HapticBridgeTest {
   private StashCheckoutActivity activity;
   private RecordingWebView web;
   private StashCheckoutJsInterface bridge;
+  private String token;
 
   @Before public void prepare() {
     StashNativePlugin plugin = StashNativePlugin.getInstance();
@@ -38,6 +39,7 @@ public class HapticBridgeTest {
     web = new RecordingWebView(activity);
     activity.webView = web;
     bridge = new StashCheckoutJsInterface(activity);
+    token = activity.issueBridgeDocumentToken();
   }
 
   @After public void cleanup() {
@@ -46,7 +48,7 @@ public class HapticBridgeTest {
   }
 
   @Test public void webThreadDispatchesConfirmationToMainThread() throws Exception {
-    Thread caller = new Thread(bridge::triggerHaptic);
+    Thread caller = new Thread(() -> bridge.triggerHaptic(token));
     caller.start();
     caller.join();
     assertEquals(0, web.calls);
@@ -59,24 +61,24 @@ public class HapticBridgeTest {
 
   @Test public void hiddenBackgroundAndClosingCardsIgnoreFeedback() {
     activity.isActivityPaused = true;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     activity.isActivityPaused = false;
     web.focused = false;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     web.focused = true;
     web.shown = false;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     web.shown = true;
     activity.isDismissing = true;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     activity.isDismissing = false;
     activity.webView = null;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     assertEquals(0, web.calls);
   }
 
   @Test public void queuedCallCannotVibrateAfterDismissalStarts() throws Exception {
-    Thread caller = new Thread(bridge::triggerHaptic);
+    Thread caller = new Thread(() -> bridge.triggerHaptic(token));
     caller.start();
     caller.join();
     activity.isDismissing = true;
@@ -86,7 +88,7 @@ public class HapticBridgeTest {
 
   @Test public void unavailableFeedbackLeavesPurchaseAndPresentationUntouched() {
     activity.isPurchaseProcessing = true;
-    bridge.triggerHaptic();
+    bridge.triggerHaptic(token);
     assertEquals(1, web.calls);
     assertTrue(activity.isPurchaseProcessing);
     assertFalse(activity.isDismissing);

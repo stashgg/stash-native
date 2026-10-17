@@ -65,6 +65,12 @@ public class PresentationSafetyTest {
     return Robolectric.buildActivity(RecordingCheckout.class, intent).get();
   }
 
+  /** The current main-frame bridge token, issuing one for checkouts that never loaded. */
+  private static String token(StashCheckoutActivity checkout) {
+    return checkout.bridgeDocumentToken != null
+        ? checkout.bridgeDocumentToken : checkout.issueBridgeDocumentToken();
+  }
+
   @Test public void cancelledLoadingFadeCannotRevealContentFromAnAbandonedLoad() {
     activity.webView = new WebView(activity);
     activity.loadingView = new View(activity);
@@ -226,16 +232,16 @@ public class PresentationSafetyTest {
     activity.options = StashPresentationOptions.card(config);
     StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
     Thread worker = new Thread(() -> {
-      bridge.onPurchaseProcessing();
-      bridge.requestCloseFromPage();
+      bridge.onPurchaseProcessing(token(activity));
+      bridge.requestCloseFromPage(token(activity));
     });
     worker.start();
     worker.join();
     ShadowLooper.idleMainLooper();
     assertTrue(activity.isPurchaseProcessing);
     assertEquals(0, activity.dismissCalls);
-    bridge.onProcessingCompleted();
-    bridge.requestCloseFromPage();
+    bridge.onProcessingCompleted(token(activity));
+    bridge.requestCloseFromPage(token(activity));
     assertEquals(1, activity.dismissCalls);
   }
 
@@ -245,13 +251,13 @@ public class PresentationSafetyTest {
     activity.options = StashPresentationOptions.card(config);
     activity.requestUserDismiss();
     assertEquals(0, activity.dismissCalls);
-    new StashCheckoutJsInterface(activity).requestCloseFromPage();
+    new StashCheckoutJsInterface(activity).requestCloseFromPage(token(activity));
     assertEquals(1, activity.dismissCalls);
     config.allowDismiss = true;
     activity.options = StashPresentationOptions.card(config);
     activity.requestUserDismiss();
     assertEquals(2, activity.dismissCalls);
-    new StashCheckoutJsInterface(activity).requestCloseFromPage();
+    new StashCheckoutJsInterface(activity).requestCloseFromPage(token(activity));
     assertEquals(3, activity.dismissCalls);
   }
 
@@ -280,8 +286,8 @@ public class PresentationSafetyTest {
       List<Intent> broadcasts = Shadows.shadowOf(checkout.getApplication()).getBroadcastIntents();
       int previousCount = broadcasts.size();
       for (int attempt = 0; attempt < 2; attempt++) {
-        if (success) bridge.onPaymentSuccess("order-1");
-        else bridge.onPaymentFailure();
+        if (success) bridge.onPaymentSuccess(token(checkout), "order-1");
+        else bridge.onPaymentFailure(token(checkout));
       }
       broadcasts = Shadows.shadowOf(checkout.getApplication()).getBroadcastIntents();
       assertEquals(previousCount + 1, broadcasts.size());
@@ -304,12 +310,12 @@ public class PresentationSafetyTest {
     activity.options = StashPresentationOptions.card(config);
     StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
     activity.isPurchaseProcessing = true;
-    bridge.onPaymentFailure();
+    bridge.onPaymentFailure(token(activity));
     assertFalse(activity.isPurchaseProcessing);
-    bridge.onPaymentSuccess("retry-order");
+    bridge.onPaymentSuccess(token(activity), "retry-order");
     assertFalse(activity.callbackSent);
     assertEquals(0, activity.dismissCalls);
-    bridge.requestCloseFromPage();
+    bridge.requestCloseFromPage(token(activity));
     assertEquals(1, activity.dismissCalls);
   }
 
@@ -353,7 +359,7 @@ public class PresentationSafetyTest {
     activity.presentation.onTouch(handle, down);
     activity.presentation.onTouch(handle, move);
     assertTrue(activity.cardContainer.getTranslationY() > 0);
-    new StashCheckoutJsInterface(activity).onPurchaseProcessing();
+    new StashCheckoutJsInterface(activity).onPurchaseProcessing(token(activity));
     assertEquals(0, activity.cardContainer.getTranslationY(), 0);
     MotionEvent up = MotionEvent.obtain(0, 200, MotionEvent.ACTION_UP, 360, 760, 0);
     activity.presentation.onTouch(handle, up);

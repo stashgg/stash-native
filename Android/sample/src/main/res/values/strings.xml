@@ -49,6 +49,9 @@
     <string name="instance_secret">Ingress secret</string>
     <string name="instance_production">Production</string>
     <string name="instance_select">Select instance</string>
+    <string name="instance_select_named">Select %1$s</string>
+    <string name="instance_selected">Selected</string>
+    <string name="instance_not_selected">Not selected</string>
     <string name="nav_delete_instance">Delete Instance</string>
     <string name="delete_instance_title">Delete instance?</string>
     <string name="delete_instance_confirm">Delete</string>
@@ -71,6 +74,8 @@
     <string name="generate_checkout_for_browser">Generate Checkout</string>
     <string name="error_generate_checkout_url">Failed to generate checkout URL</string>
     <string name="error_generate_webshop_url">Failed to generate webshop URL</string>
+    <string name="error_sign_request">Could not sign the request. Check the instance\'s ingress secret.</string>
+    <string name="error_secret_base64">Ingress secret is not valid base64</string>
     <string name="option_force_portrait_on_checkout">Prefer portrait</string>
     <string name="option_force_portrait_on_checkout_supporting">Request portrait where supported.</string>
     <string name="option_backdrop_source">Portrait backdrop</string>

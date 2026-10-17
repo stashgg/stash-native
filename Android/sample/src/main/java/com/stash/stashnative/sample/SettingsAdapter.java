@@ -292,15 +292,22 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       boolean hasOpen = titleRes == R.string.hint_checkout_url
           || titleRes == R.string.hint_browser_url;
       binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
-      // Stable ids for UI tests; rows are recycled, so null out non-open rows.
+      // Stable ids for UI tests live in view tags; rows are recycled, so null out other rows.
+      // contentDescription stays the spoken name: the hint for the field, "Open" for the button.
       String tag = null;
       if (titleRes == R.string.hint_checkout_url) {
         tag = "card";
       } else if (titleRes == R.string.hint_browser_url) {
         tag = "browser";
       }
-      binding.urlEditText.setContentDescription(tag == null ? null : tag + "-url-field");
-      binding.urlOpenButton.setContentDescription(tag == null ? null : tag + "-open-button");
+      binding.urlEditText.setTag(tag == null ? null : tag + "-url-field");
+      binding.urlOpenButton.setTag(tag == null ? null : tag + "-open-button");
+      binding.urlEditText.setContentDescription(null);
+      binding.urlOpenButton.setContentDescription(
+          itemView.getContext().getString(R.string.open_button));
+      boolean isSecret = titleRes == R.string.instance_secret;
+      binding.urlInputLayout.setErrorEnabled(isSecret);
+      binding.urlInputLayout.setError(isSecret ? secretError(item.value) : null);
       binding.urlOpenButton.setOnClickListener(v -> {
         if (titleRes == R.string.hint_checkout_url) {
           callbacks.onOpenCard();
@@ -330,11 +337,18 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           viewModel.setEditingAppId(text);
         } else if (boundTitleRes == R.string.instance_secret) {
           viewModel.setEditingSecret(text);
+          binding.urlInputLayout.setError(secretError(text));
         } else if (codeLinkDefaultText(boundTitleRes) != 0) {
           viewModel.setCodeLinkText(boundTitleRes, text);
         }
       }
     };
+
+    /** Inline message for a secret that cannot be used as an HMAC key; null when valid. */
+    private String secretError(String secret) {
+      return MainViewModel.isValidBase64(secret) ? null
+          : itemView.getContext().getString(R.string.error_secret_base64);
+    }
   }
 
   class ActionPreferenceVH extends RecyclerView.ViewHolder {
@@ -470,19 +484,22 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.sliderValue.setText(item.value);
       androidx.core.view.ViewCompat.setStateDescription(binding.sliderSeekBar, item.value);
       binding.sliderSeekBar.setOnSeekBarChangeListener(null);
-      binding.sliderSeekBar.setMax(item.titleRes == R.string.edge_margin ? 64 : 1200);
-      binding.sliderSeekBar.setProgress(item.progress);
+      // SeekBar has no minimum before API 26, so progress is offset from the row's minimum.
+      final int minimum = sliderMinimum(item.titleRes);
+      binding.sliderSeekBar.setMax(sliderMaximum(item.titleRes) - minimum);
+      binding.sliderSeekBar.setProgress(Math.max(0, item.progress - minimum));
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          String label = progress == 0 && item.titleRes == R.string.maximum_content_height
-              ? "Available" : progress + " dp";
+          int value = progress + minimum;
+          String label = value == 0 && item.titleRes == R.string.maximum_content_height
+              ? "Available" : value + " dp";
           androidx.core.view.ViewCompat.setStateDescription(seekBar, label);
           if (!fromUser) {
             return;
           }
           binding.sliderValue.setText(label);
-          viewModel.setDimension(item.titleRes, progress);
+          viewModel.setDimension(item.titleRes, value);
         }
 
         @Override
@@ -492,6 +509,16 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         public void onStopTrackingTouch(SeekBar seekBar) {}
       });
     }
+  }
+
+  /** Width and height floor at the SDK's smallest useful card; zero maximum means available. */
+  static int sliderMinimum(int title) {
+    return title == R.string.preferred_content_width || title == R.string.preferred_content_height
+        ? MainViewModel.MIN_CONTENT_DIMENSION_DP : 0;
+  }
+
+  static int sliderMaximum(int title) {
+    return title == R.string.edge_margin ? 64 : 1200;
   }
 
   /** Free-form JSON editor. Keystrokes update the draft only -- refreshing the list here would
@@ -555,6 +582,11 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       // Leading radio selects the active instance; tapping the row opens its details.
       binding.apiKeySelected.setImageResource(
           item.checked ? R.drawable.ic_radio_selected_24 : R.drawable.ic_radio_unselected_24);
+      Context ctx = itemView.getContext();
+      binding.apiKeySelected.setContentDescription(
+          ctx.getString(R.string.instance_select_named, item.name));
+      androidx.core.view.ViewCompat.setStateDescription(binding.apiKeySelected, ctx.getString(
+          item.checked ? R.string.instance_selected : R.string.instance_not_selected));
       binding.apiKeySelected.setOnClickListener(v -> viewModel.selectApiKey(item.stringId));
       binding.apiKeyRow.setOnClickListener(v -> viewModel.openInstanceDetails(item.stringId));
     }

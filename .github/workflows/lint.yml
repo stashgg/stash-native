@@ -117,6 +117,19 @@ jobs:
       - name: Test sample request and credential handling
         run: HS_TEMP="$RUNNER_TEMP" python3 iOS/Sample/Tests/run_regressions.py --output "$RUNNER_TEMP/stash-sample-regressions"
 
+      - name: Build root Swift package for iOS Simulator
+        # The repository-root manifest is what remote SPM consumers resolve; keep it building.
+        run: |
+          PKG=$(mktemp -d "${RUNNER_TEMP}/stash-root-package.XXXXXX")
+          cp Package.swift "$PKG/" && cp -R iOS "$PKG/"
+          cd "$PKG"
+          set -o pipefail
+          xcodebuild -scheme StashNative \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/stash-root-package-derived" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/stash-root-package-clones" \
+            build 2>&1 | tail -5
+
       - name: Run unit tests
         run: |
           TEST_SOURCE=$(mktemp -d "${RUNNER_TEMP}/stash-ios-tests.XXXXXX")

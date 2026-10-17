@@ -9,9 +9,9 @@
 import UIKit
 
 /// A pushed screen for editing a single instance. Identity fields commit into the host's in-memory
-/// model as the user types and are persisted immediately; the payload editors (pushed from here)
-/// persist on their own Save. Rows reuse the app's shared cell styling so the screen matches the
-/// Test and options screens.
+/// model as the user types and persist when the screen closes (the environment switch persists at
+/// once); the payload editors (pushed from here) persist on their own Save. Rows reuse the app's
+/// shared cell styling so the screen matches the Test and options screens.
 final class InstanceDetailViewController: UITableViewController, UITextFieldDelegate {
 
     private weak var host: ViewController?
@@ -60,7 +60,7 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        // Commit any in-flight edit and refresh the list.
+        // Commit any in-flight edit, write the edited entry once, and refresh the list.
         view.endEditing(true)
         host?.persistInstances()
     }
@@ -68,7 +68,8 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
     private func configureField(_ field: UITextField, text: String, placeholder: String) {
         field.text = text
         field.placeholder = placeholder
-        field.font = .systemFont(ofSize: 17, weight: .regular)
+        field.font = .preferredFont(forTextStyle: .body)
+        field.adjustsFontForContentSizeCategory = true
         field.textColor = .label
         field.textAlignment = .right
         field.autocapitalizationType = .none
@@ -88,6 +89,18 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         textField.resignFirstResponder()
         return true
+    }
+
+    /// Flags a secret that cannot be decoded as base64 as soon as editing ends. The value stays in
+    /// memory so the user can correct it; signing reports the same message if it is left as is.
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        guard textField === secretField, transitionCoordinator == nil, presentedViewController == nil else { return }
+        let secret = (textField.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !secret.isEmpty, !StashHmac.isValidIngressSecret(secret) else { return }
+        let alert = UIAlertController(title: "Error", message: "Ingress secret is not valid base64",
+                                      preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     // MARK: - Table
@@ -181,7 +194,8 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
         iconView.setContentHuggingPriority(.required, for: .horizontal)
         let title = UILabel()
         title.text = label
-        title.font = .systemFont(ofSize: 17, weight: .regular)
+        title.font = .preferredFont(forTextStyle: .body)
+        title.adjustsFontForContentSizeCategory = true
         title.textColor = .label
         title.setContentHuggingPriority(.required, for: .horizontal)
         title.setContentCompressionResistancePriority(.required, for: .horizontal)
@@ -205,7 +219,8 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
     private func navCell(_ title: String) -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = title
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
         cell.accessoryType = .disclosureIndicator
         return cell
@@ -214,7 +229,8 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
     private func deleteCell() -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = "Delete Instance"
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .systemRed
         cell.textLabel?.textAlignment = .center
         return cell

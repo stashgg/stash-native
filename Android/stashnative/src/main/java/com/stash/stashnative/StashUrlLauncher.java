@@ -98,7 +98,12 @@ public final class StashUrlLauncher {
   /**
    * Opens Custom Tabs with an engagement callback for floating or minimized tab closure.
    * The callback must be scoped to the originating browser session.
+   *
+   * @deprecated Unused by the SDK; {@link StashNativeBrowserProxyActivity} calls {@link
+   *     StashCustomTabsEngagement#tryLaunchForResult} directly. Removal planned for the next
+   *     major.
    */
+  @Deprecated
   public static void openExternalUrl(
       @Nullable Activity activity,
       @Nullable String url,
@@ -158,31 +163,7 @@ public final class StashUrlLauncher {
 
   @Nullable
   private static Uri parseHttpUri(@Nullable String url) {
-    if (url == null) {
-      return null;
-    }
-    String trimmed = url.trim();
-    if (trimmed.isEmpty()) {
-      return null;
-    }
-    Uri uri;
-    try {
-      uri = Uri.parse(trimmed);
-    } catch (Exception e) {
-      return null;
-    }
-    String scheme = uri.getScheme();
-    if (scheme == null) {
-      return null;
-    }
-    String sch = scheme.toLowerCase(java.util.Locale.ROOT);
-    if (!"http".equals(sch) && !"https".equals(sch)) {
-      return null;
-    }
-    if (uri.getHost() == null || uri.getHost().isEmpty()) {
-      return null;
-    }
-    return uri;
+    return StashWebViewUtils.parseAcceptedHttpUri(url);
   }
 
   private static void startActionView(Context context, Uri uri) {

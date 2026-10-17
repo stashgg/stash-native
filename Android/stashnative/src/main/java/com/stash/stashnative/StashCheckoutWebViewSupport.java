@@ -97,6 +97,7 @@ final class StashCheckoutWebViewSupport {
         urlWithTheme = activity.url;
       }
       activity.webViewCommittedReloadUrl = urlWithTheme;
+      activity.issueBridgeDocumentToken();
       activity.webViewRetryCount = 0;
       activity.pageLoadStartTime = 0;
       activity.pageLoadedCallbackSent = false;
@@ -145,9 +146,14 @@ final class StashCheckoutWebViewSupport {
     webView.post(initialPage);
   }
 
-  static void injectSDK(WebView view) {
+  /** Evaluates the bridge script in the main frame, bound to the current document token. */
+  static void injectSDK(StashCheckoutActivity activity, WebView view) {
     StashWebInteractionSupport.apply(view);
-    view.evaluateJavascript(StashWebViewUtils.JS_SDK_SCRIPT, null);
+    String token = activity.bridgeDocumentToken;
+    if (token == null) {
+      token = activity.issueBridgeDocumentToken();
+    }
+    view.evaluateJavascript(StashWebViewUtils.bridgeScript(token), null);
   }
 
   static void checkProvider(StashCheckoutActivity activity, String url) {

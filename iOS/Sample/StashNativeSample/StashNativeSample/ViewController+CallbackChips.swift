@@ -29,7 +29,8 @@ extension ViewController {
         let label = UILabel()
         label.text = text
         label.textColor = .white
-        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.font = UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: .systemFont(ofSize: 14, weight: .medium))
+        label.adjustsFontForContentSizeCategory = true
         label.numberOfLines = 1
         label.lineBreakMode = .byTruncatingTail
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -38,7 +39,8 @@ extension ViewController {
         let time = UILabel()
         time.text = ViewController.chipTimeFormatter.string(from: Date())
         time.textColor = UIColor.white.withAlphaComponent(0.75)
-        time.font = .systemFont(ofSize: 12, weight: .regular)
+        time.font = .preferredFont(forTextStyle: .caption1)
+        time.adjustsFontForContentSizeCategory = true
         time.setContentHuggingPriority(.required, for: .horizontal)
         time.setContentCompressionResistancePriority(.required, for: .horizontal)
 

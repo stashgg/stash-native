@@ -1,0 +1,50 @@
+import Foundation
+
+func check(_ name: String, _ body: () -> Void) {
+    body()
+    print("PASS hmac: \(name)")
+}
+
+// Shared with the Android sample test: appId app_test, secret base64 of "secret-key", body "{}",
+// timestamp 1700000000000. Expected header computed independently with Python hmac/sha256.
+let secret = "c2VjcmV0LWtleQ=="
+let body = Data("{}".utf8)
+let millis: Int64 = 1_700_000_000_000
+let expected = "v1;app_test;1700000000000;BcQuOn6SZzdxDZnMg0flRAhb9SVL0H2seNBiU2W+Mq4="
+
+check("shared vector produces the documented header") {
+    let signature = StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body, unixMillis: millis)
+    precondition(signature == expected, signature ?? "nil")
+}
+check("unpadded secret signs identically to the padded one") {
+    let signature = StashHmac.signature(appId: "app_test", ingressSecretB64: "c2VjcmV0LWtleQ", body: body,
+                                        unixMillis: millis)
+    precondition(signature == expected)
+    precondition(StashHmac.isValidIngressSecret(" c2VjcmV0LWtleQ\n"))
+}
+check("invalid base64 is rejected before signing") {
+    precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: "not base64!", body: body,
+                                     unixMillis: millis) == nil)
+    precondition(!StashHmac.isValidIngressSecret("abcde"))
+    precondition(!StashHmac.isValidIngressSecret(""))
+}
+check("the body bytes and timestamp both change the signature") {
+    let otherBody = StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: Data("{ }".utf8),
+                                        unixMillis: millis)
+    let otherTime = StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
+                                        unixMillis: millis + 1)
+    precondition(otherBody != expected && otherTime != expected)
+}
+check("clock overload emits the same format with the current millisecond timestamp") {
+    let before = Int64(Date().timeIntervalSince1970 * 1000)
+    guard let signature = StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body) else {
+        preconditionFailure("clock overload must sign a valid secret")
+    }
+    let parts = signature.split(separator: ";", omittingEmptySubsequences: false)
+    precondition(parts.count == 4 && parts[0] == "v1" && parts[1] == "app_test")
+    guard let signedMillis = Int64(parts[2]) else { preconditionFailure("timestamp must be integer millis") }
+    precondition(signedMillis >= before && signedMillis <= Int64(Date().timeIntervalSince1970 * 1000))
+    precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
+                                     unixMillis: signedMillis) == signature)
+}
+print("PASS: 5 HMAC signing cases")

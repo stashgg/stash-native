@@ -34,7 +34,8 @@ extension ViewController {
         topRow.alignment = .center
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        titleLabel.font = .preferredFont(forTextStyle: .body)
+        titleLabel.adjustsFontForContentSizeCategory = true
         titleLabel.textColor = .label
         valueLabel.setContentHuggingPriority(.required, for: .horizontal)
         topRow.addArrangedSubview(titleLabel)
@@ -49,7 +50,8 @@ extension ViewController {
     func actionCell(_ title: String) -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = title
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .systemBlue
         return cell
     }
@@ -87,17 +89,24 @@ extension ViewController {
         radio.setImage(systemImage(isSelected ? "checkmark.circle.fill" : "circle"), for: .normal)
         radio.tintColor = isSelected ? .systemBlue : .tertiaryLabel
         radio.tag = row
-        radio.accessibilityLabel = "Select instance"
+        radio.accessibilityLabel = "Select instance \(entry.name)"
+        if isSelected {
+            radio.accessibilityTraits.insert(.selected)
+        } else {
+            radio.accessibilityTraits.remove(.selected)
+        }
         radio.addTarget(self, action: #selector(instanceRadioTapped(_:)), for: .touchUpInside)
         radio.translatesAutoresizingMaskIntoConstraints = false
 
         let nameLabel = UILabel()
         nameLabel.text = entry.name
-        nameLabel.font = .systemFont(ofSize: 17, weight: .regular)
+        nameLabel.font = .preferredFont(forTextStyle: .body)
+        nameLabel.adjustsFontForContentSizeCategory = true
         nameLabel.textColor = .label
         let modeLabel = UILabel()
         modeLabel.text = entry.production ? "Production" : "Test"
-        modeLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        modeLabel.font = .preferredFont(forTextStyle: .footnote)
+        modeLabel.adjustsFontForContentSizeCategory = true
         modeLabel.textColor = .secondaryLabel
         let stack = UIStackView(arrangedSubviews: [nameLabel, modeLabel])
         stack.axis = .vertical
@@ -126,7 +135,8 @@ extension ViewController {
         let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
         cell.selectionStyle = .none
         cell.textLabel?.text = label
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
         cell.imageView?.image = systemImage(imageName)
         cell.imageView?.tintColor = .secondaryLabel
@@ -180,10 +190,12 @@ extension ViewController {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: nil)
         cell.selectionStyle = .none
         cell.textLabel?.text = title
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
         cell.detailTextLabel?.text = subtitle
-        cell.detailTextLabel?.font = .systemFont(ofSize: 13, weight: .regular)
+        cell.detailTextLabel?.font = .preferredFont(forTextStyle: .footnote)
+        cell.detailTextLabel?.adjustsFontForContentSizeCategory = true
         cell.detailTextLabel?.textColor = .secondaryLabel
         cell.accessoryView = switchView
         return cell

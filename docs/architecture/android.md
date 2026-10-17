@@ -109,7 +109,7 @@ sequenceDiagram
 ```
 
 - Custom Tabs load through reflection. A missing or old `androidx.browser` falls back to `ACTION_VIEW`.
-- With `ACTION_VIEW`, browser dismissed fires after the host stays resumed for 500 ms.
+- With `ACTION_VIEW`, browser dismissed fires after the launching activity stays resumed for 500 ms: the host after `openBrowser`, the checkout activity after a checkout handoff (the host stays paused beneath the translucent checkout).
 - The keep-alive service uses the `shortService` foreground type and stops on timeout or when the host resumes.
 
 ## CodeLink

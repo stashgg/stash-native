@@ -53,6 +53,16 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 - Preserve the optional Custom Tabs fallback in minified Android apps and declare service visibility for browser discovery on Android 11+.
 - Add responsive test content and an Android host fixture targeting API 36 and 37.
 
+### Reliability and security
+
+- End checkout as a network error, not a card dismissal, when the main frame loses its connection after the page loaded, including during purchase processing. `stashNativeDidEncounterNetworkError` / `onNetworkError` now cover no connection, a failed initial response, the 15-second deadline, and post-load connection failures; the card is dismissed before the callback on both platforms.
+- Complete Android checkout browser handoff on the `ACTION_VIEW` fallback used when `androidx.browser` is absent: browser dismissal now tracks the checkout Activity, which is the one that resumes when the browser closes.
+- Bind the Android `window.stash_sdk` bridge to a per-document token so scripts in cross-origin frames cannot drive checkout through the injected `StashAndroid` object. Page-facing method names and signatures are unchanged.
+- Keep Android presentation state consistent when a payment-result broadcast fails: cap the order payload and fall back to a network error instead of stranding `isCurrentlyPresented`.
+- Prefix the remaining iOS C helper symbols so source-embedded and statically linked builds cannot collide on generic names.
+- Gate sample uploads to BrowserStack and Appetize to trusted refs, check their HTTP status, and build the repository-root Swift package in CI.
+- Samples: debug-only inspectable WebViews, accessible names for instance and URL controls, Dynamic Type on iOS, sensitive clipboard export, no autofill capture of the ingress secret, base64 validation of secrets with a specific error, a shared HMAC signing vector test, a 240 dp slider floor, and persistence on screen exit instead of per keystroke.
+
 Engine wrapper migrations and desktop changes are separate releases.
 
 ## [2.3.1] - 2026-09-03

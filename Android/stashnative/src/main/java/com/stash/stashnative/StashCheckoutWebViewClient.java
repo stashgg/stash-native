@@ -37,8 +37,12 @@ final class StashCheckoutWebViewClient extends WebViewClient {
   public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
     try {
       super.onPageStarted(view, url, favicon);
-      if (view == activity.webView && activity.telemetrySupport != null) {
-        activity.telemetrySupport.navigationStarted();
+      if (view == activity.webView) {
+        // A new main-frame document gets a new bridge token; earlier wrappers stop working.
+        activity.issueBridgeDocumentToken();
+        if (activity.telemetrySupport != null) {
+          activity.telemetrySupport.navigationStarted();
+        }
       }
       if (activity.contentSizeSupport != null) {
         activity.contentSizeSupport.navigationStarted(url);
@@ -46,7 +50,7 @@ final class StashCheckoutWebViewClient extends WebViewClient {
       activity.pageLoadStartTime = System.currentTimeMillis();
       activity.contentRevealSupport.navigationStarted();
       StashCheckoutLoadingSupport.showLoading(activity);
-      StashCheckoutWebViewSupport.injectSDK(view);
+      StashCheckoutWebViewSupport.injectSDK(activity, view);
       StashCheckoutWebViewSupport.checkProvider(activity, url);
     } catch (Exception e) {
       Log.w(TAG, "Error in onPageStarted");
@@ -70,7 +74,7 @@ final class StashCheckoutWebViewClient extends WebViewClient {
 
       activity.contentRevealSupport.documentFinished();
       StashCheckoutLoadingSupport.maybeRevealWhenReady(activity);
-      StashCheckoutWebViewSupport.injectSDK(view);
+      StashCheckoutWebViewSupport.injectSDK(activity, view);
       if (activity.contentSizeSupport != null) {
         activity.contentSizeSupport.documentCommitted(view, url);
       }
@@ -127,7 +131,7 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     if (activity.telemetrySupport != null) {
       activity.telemetrySupport.documentCommitted(view, pageUrl);
     }
-    StashCheckoutWebViewSupport.injectSDK(view);
+    StashCheckoutWebViewSupport.injectSDK(activity, view);
     if (activity.contentSizeSupport != null) {
       activity.contentSizeSupport.documentCommitted(view, pageUrl);
     }
@@ -190,8 +194,11 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     } else if (code == WebViewClient.ERROR_HOST_LOOKUP || code == WebViewClient.ERROR_CONNECT
         || code == WebViewClient.ERROR_TIMEOUT || code == WebViewClient.ERROR_IO) {
       // ERROR_UNKNOWN also represents cancelled navigations; keep those pages open.
+      // A lost connection after load ends checkout as a network error, even while processing,
+      // so the host never mistakes it for a user dismissal.
+      Log.e(TAG, "Network error on main frame after load: " + code);
       activity.mainFrameErrorReceived = true;
-      activity.dismissWithAnimation();
+      activity.handleNetworkError();
     }
   }
 }

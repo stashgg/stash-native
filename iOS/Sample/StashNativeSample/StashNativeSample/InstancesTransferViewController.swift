@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import UniformTypeIdentifiers
 
 /// One text view serves both directions: it opens holding the exported document (copy it out),
 /// and Import reads back whatever is in it. The format is shared with the Android sample.
@@ -38,7 +39,9 @@ final class InstancesTransferViewController: UIViewController {
         ]
 
         textView.text = host?.exportInstancesJson() ?? "{}"
-        textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
+        textView.font = UIFontMetrics(forTextStyle: .caption1)
+            .scaledFont(for: .monospacedSystemFont(ofSize: 12, weight: .regular))
+        textView.adjustsFontForContentSizeCategory = true
         textView.autocapitalizationType = .none
         textView.autocorrectionType = .no
         textView.smartQuotesType = .no
@@ -64,7 +67,10 @@ final class InstancesTransferViewController: UIViewController {
     }
 
     @objc private func copyTapped() {
-        UIPasteboard.general.string = textView.text
+        // The document carries ingress secrets: keep it off Universal Clipboard and expire it.
+        UIPasteboard.general.setItems(
+            [[UTType.utf8PlainText.identifier: textView.text ?? ""]],
+            options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(60)])
         flash("Copied to clipboard")
     }
 

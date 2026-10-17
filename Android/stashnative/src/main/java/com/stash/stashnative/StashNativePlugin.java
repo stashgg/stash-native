@@ -118,12 +118,12 @@ public class StashNativePlugin {
         new Application.ActivityLifecycleCallbacks() {
           @Override
           public void onActivityResumed(Activity activity) {
-            Activity host = getActivity();
-            if (host != null && activity == host) {
-              stopKeepAliveForegroundService(activity.getApplicationContext());
-              if (isBrowserSessionActive && !browserCloseAwaitingCctResult) {
-                scheduleBrowserClosedDebounce();
-              }
+            if (!isBrowserBoundaryActivity(activity)) {
+              return;
+            }
+            stopKeepAliveForegroundService(activity.getApplicationContext());
+            if (isBrowserSessionActive && !browserCloseAwaitingCctResult) {
+              scheduleBrowserClosedDebounce();
             }
           }
 
@@ -135,8 +135,7 @@ public class StashNativePlugin {
 
           @Override
           public void onActivityPaused(Activity activity) {
-            Activity host = getActivity();
-            if (host == null || activity != host) {
+            if (!isBrowserBoundaryActivity(activity)) {
               return;
             }
             if (browserCloseTrackingPendingArm) {
@@ -163,6 +162,21 @@ public class StashNativePlugin {
         };
     app.registerActivityLifecycleCallbacks(checkoutHostLifecycleCallbacks);
     checkoutHostLifecycleRegistered = true;
+  }
+
+  /**
+   * The activity whose pause and resume bracket an ACTION_VIEW browser: the host for {@link
+   * #openBrowser}, and the checkout activity while a checkout handoff waits for the browser to
+   * close. The host stays paused beneath the translucent checkout, so only the checkout resumes
+   * when the browser goes away.
+   */
+  private boolean isBrowserBoundaryActivity(Activity activity) {
+    Activity host = getActivity();
+    if (host != null && activity == host) {
+      return true;
+    }
+    return pendingCheckoutDismissAfterExternalBrowser != null
+        && activity == getCheckoutActivity();
   }
 
   /**
@@ -536,8 +550,8 @@ public class StashNativePlugin {
 
   /**
    * Launches the URL in Chrome Custom Tabs via {@link StashNativeBrowserProxyActivity} when {@code
-   * androidx.browser} is on the classpath, otherwise falls back to the lifecycle-tracked
-   * ACTION_VIEW path on the host activity directly.
+   * androidx.browser} is on the classpath, otherwise falls back to ACTION_VIEW tracked through
+   * the lifecycle of the launching activity (see {@link #isBrowserBoundaryActivity}).
    */
   private void launchExternalBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {

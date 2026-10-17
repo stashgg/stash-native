@@ -6,33 +6,51 @@ import android.view.HapticFeedbackConstants;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
-/** Dispatches WebView bridge calls to the checkout's UI thread. */
+/**
+ * Dispatches WebView bridge calls to the checkout's UI thread.
+ *
+ * <p>WebView exposes this object to every frame. The main-frame bridge script passes the
+ * document token issued by {@link StashCheckoutActivity} as the first argument; calls without
+ * the current token are ignored, so subframes cannot drive checkout. {@link #setContentHeight}
+ * and {@link #getTelemetry} keep their own per-document tokens.
+ */
 final class StashCheckoutJsInterface {
   private static final String TAG = "StashNative";
   private final StashCheckoutActivity activity;
+  private final boolean nativeCaller;
 
   StashCheckoutJsInterface(StashCheckoutActivity activity) {
+    this(activity, false);
+  }
+
+  private StashCheckoutJsInterface(StashCheckoutActivity activity, boolean nativeCaller) {
     this.activity = activity;
+    this.nativeCaller = nativeCaller;
+  }
+
+  /** For stash-pay deeplink results: no page token, but the same session guards and dispatch. */
+  static StashCheckoutJsInterface forNativeResults(StashCheckoutActivity activity) {
+    return new StashCheckoutJsInterface(activity, true);
   }
 
   @JavascriptInterface
-  public void onPaymentSuccess(String order) {
-    dispatch("onPaymentSuccess", () -> activity.notifyPaymentResult(true, order));
+  public void onPaymentSuccess(String token, String order) {
+    dispatch("onPaymentSuccess", token, () -> activity.notifyPaymentResult(true, order));
   }
 
   @JavascriptInterface
-  public void onPaymentFailure() {
-    dispatch("onPaymentFailure", () -> activity.notifyPaymentResult(false, null));
+  public void onPaymentFailure(String token) {
+    dispatch("onPaymentFailure", token, () -> activity.notifyPaymentResult(false, null));
   }
 
   @JavascriptInterface
-  public void onPurchaseProcessing() {
-    dispatch("onPurchaseProcessing", () -> setProcessing(true));
+  public void onPurchaseProcessing(String token) {
+    dispatch("onPurchaseProcessing", token, () -> setProcessing(true));
   }
 
   @JavascriptInterface
-  public void onProcessingCompleted() {
-    dispatch("onProcessingCompleted", () -> setProcessing(false));
+  public void onProcessingCompleted(String token) {
+    dispatch("onProcessingCompleted", token, () -> setProcessing(false));
   }
 
   private void setProcessing(boolean processing) {
@@ -44,13 +62,13 @@ final class StashCheckoutJsInterface {
   }
 
   @JavascriptInterface
-  public void expand() {
-    dispatch("expand", activity::animateExpand);
+  public void expand(String token) {
+    dispatch("expand", token, activity::animateExpand);
   }
 
   @JavascriptInterface
-  public void collapse() {
-    dispatch("collapse", activity::animateCollapse);
+  public void collapse(String token) {
+    dispatch("collapse", token, activity::animateCollapse);
   }
 
   @JavascriptInterface
@@ -72,8 +90,8 @@ final class StashCheckoutJsInterface {
   }
 
   @JavascriptInterface
-  public void triggerHaptic() {
-    dispatch("triggerHaptic", () -> {
+  public void triggerHaptic(String token) {
+    dispatch("triggerHaptic", token, () -> {
       WebView web = activity.webView;
       if (activity.isDismissing || activity.isActivityPaused || web == null
           || !web.isShown() || !web.hasWindowFocus()) {
@@ -85,13 +103,13 @@ final class StashCheckoutJsInterface {
   }
 
   @JavascriptInterface
-  public void requestCloseFromPage() {
-    dispatch("requestCloseFromPage", activity::requestCloseFromPage);
+  public void requestCloseFromPage(String token) {
+    dispatch("requestCloseFromPage", token, activity::requestCloseFromPage);
   }
 
   @JavascriptInterface
-  public void openExternalBrowser(String url) {
-    dispatch("openExternalBrowser", () -> {
+  public void openExternalBrowser(String token, String url) {
+    dispatch("openExternalBrowser", token, () -> {
       String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
       if (normalized == null) {
         return;
@@ -106,11 +124,19 @@ final class StashCheckoutJsInterface {
 
   /** Opens a link without payment callbacks or checkout dismissal. */
   @JavascriptInterface
-  public void openLink(String url) {
-    dispatch("openLink", () -> {
+  public void openLink(String token, String url) {
+    dispatch("openLink", token, () -> {
       String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
       if (normalized != null) {
         StashWebViewUtils.openInSystemBrowser(activity, normalized);
+      }
+    });
+  }
+
+  private void dispatch(String operation, String token, Runnable action) {
+    dispatch(operation, () -> {
+      if (nativeCaller || activity.acceptsBridgeToken(token)) {
+        action.run();
       }
     });
   }

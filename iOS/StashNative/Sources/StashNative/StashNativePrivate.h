@@ -50,20 +50,23 @@ StashPresentationGeometry StashResolveGeometry(CGRect safeBounds, StashNativeCar
                                                BOOL expanded, CGFloat measuredContentHeight);
 BOOL StashValidateContentHeight(NSDictionary *payload, NSString *documentID, CGFloat viewportWidth,
                                CGFloat scale, CGFloat nativeWidth, CGFloat *height);
-UIColor *getSystemBackgroundColor(UITraitCollection *traits);
+UIColor *StashSystemBackgroundColor(UITraitCollection *traits);
 NSString *StashTopChromeScript(void);
 WKContentWorld *StashTopChromeWorld(void);
 extern NSString *const StashTopChromeHandlerName;
-UIColor *stash_sheetBackgroundUIColor(UITraitCollection *traits);
-BOOL stash_effectiveThemeIsDark(UITraitCollection *traits);
-NSString *appendThemeQueryParameter(NSString *url, UITraitCollection *traits);
-NSString *NormalizeExternalPaymentURL(NSString *raw);
+UIColor *StashSheetBackgroundUIColor(UITraitCollection *traits);
+BOOL StashEffectiveThemeIsDark(UITraitCollection *traits);
+NSString *StashAppendThemeQueryParameter(NSString *url, UITraitCollection *traits);
+NSString *StashNormalizeExternalPaymentURL(NSString *raw);
 NSArray<NSString *> *StashScriptHandlerNames(void);
 NSString *StashBridgeScript(void);
 NSString *StashNativeInteractionScript(void);
 NSString *StashInitialContentReadinessScript(void);
 void StashRemoveFormInputAccessoryView(WKWebView *webView);
 NSString *StashContentMeasurementScript(NSString *documentID);
+// Routes external opens through UIApplication unless a test opener is installed; nil restores the default.
+void StashSetExternalURLOpener(void (^opener)(NSURL *url, NSDictionary *options, void (^completion)(BOOL success)));
+void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(BOOL success));
 
 @interface StashCheckoutSession : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler,
     SFSafariViewControllerDelegate, UISheetPresentationControllerDelegate>

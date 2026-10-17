@@ -126,6 +126,7 @@ jobs:
           retention-days: 7
       
       - name: Upload APK to BrowserStack
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         id: browserstack-android
         run: |
           APK_PATH="${{ steps.find-apk.outputs.apk_path }}"
@@ -139,14 +140,21 @@ jobs:
           UPLOAD_NAME="StashNative_${SHORT_SHA}_${SAFE_BRANCH}.apk"
           cp "$APK_PATH" "/tmp/$UPLOAD_NAME"
           echo "Uploading APK to BrowserStack as: $UPLOAD_NAME"
-          RESPONSE=$(curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
             -X POST "https://api-cloud.browserstack.com/app-live/upload" \
             -F "file=@/tmp/$UPLOAD_NAME")
-          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
-          echo "BrowserStack Android Upload Response:"
-          echo "$RESPONSE"
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "response=$BODY" >> "$GITHUB_OUTPUT"
+          echo "BrowserStack Android Upload Response ($HTTP_CODE):"
+          echo "$BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Failed to upload Android sample to BrowserStack (HTTP $HTTP_CODE)"
+            exit 1
+          fi
 
       - name: Upload APK to Appetize
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           # Appetize requires a signed APK; use debug build (signed with debug keystore)
           APK_PATH=$(find Android/sample/build/outputs/apk/debug -name "*.apk" -type f 2>/dev/null | head -1)
@@ -282,6 +290,7 @@ jobs:
           if-no-files-found: error
       
       - name: Upload IPA to BrowserStack
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         id: browserstack-ios
         run: |
           IPA_PATH="iOS/Sample/StashNativeSample/build/StashNativeSample.ipa"
@@ -295,12 +304,18 @@ jobs:
           UPLOAD_NAME="StashNative_${SHORT_SHA}_${SAFE_BRANCH}.ipa"
           cp "$IPA_PATH" "/tmp/$UPLOAD_NAME"
           echo "Uploading IPA to BrowserStack as: $UPLOAD_NAME"
-          RESPONSE=$(curl -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -u "${{ secrets.BROWSERSTACK_USERNAME }}:${{ secrets.BROWSERSTACK_ACCESS_KEY }}" \
             -X POST "https://api-cloud.browserstack.com/app-live/upload" \
             -F "file=@/tmp/$UPLOAD_NAME")
-          echo "response=$RESPONSE" >> "$GITHUB_OUTPUT"
-          echo "BrowserStack iOS Upload Response:"
-          echo "$RESPONSE"
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "response=$BODY" >> "$GITHUB_OUTPUT"
+          echo "BrowserStack iOS Upload Response ($HTTP_CODE):"
+          echo "$BODY"
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Failed to upload iOS sample to BrowserStack (HTTP $HTTP_CODE)"
+            exit 1
+          fi
 
       - name: Build iOS Sample for Simulator
         working-directory: iOS/Sample/StashNativeSample
@@ -336,6 +351,7 @@ jobs:
           echo "Simulator zip created at build/StashNativeDemo-simulator.zip"
 
       - name: Upload iOS Simulator build to Appetize
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         run: |
           SIM_ZIP="iOS/Sample/StashNativeSample/build/StashNativeSample-simulator.zip"
           if [ ! -f "$SIM_ZIP" ]; then

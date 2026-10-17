@@ -54,6 +54,12 @@ public class MainActivity extends AppCompatActivity {
   private SettingsAdapter adapter;
   private volatile boolean destroyed;
   private volatile int requestGeneration;
+
+  /** Completions that passed the lifetime guard and reached the UI branch (tests observe). */
+  int acceptedCompletions;
+
+  /** Card opens that passed presentCard's guard (tests observe). */
+  int cardOpenRequests;
   private volatile HttpURLConnection activeConnection;
   private java.util.concurrent.Future<?> pendingRequest;
   private java.util.concurrent.Future<?> pendingBackdropLoad;
@@ -74,8 +80,10 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    // Sample/QA build: allow chrome://inspect and Appium to inspect checkout webviews.
-    StashNative.setInspectableWebViewsEnabled(true);
+    // Debug builds only: allow chrome://inspect and Appium to inspect checkout webviews.
+    if (BuildConfig.DEBUG) {
+      StashNative.setInspectableWebViewsEnabled(true);
+    }
 
     binding = ActivityMainBinding.inflate(getLayoutInflater());
     setContentView(binding.getRoot());
@@ -566,8 +574,15 @@ public class MainActivity extends AppCompatActivity {
         android.content.ClipboardManager clipboard =
             (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         if (clipboard != null) {
-          clipboard.setPrimaryClip(android.content.ClipData.newPlainText(
-              "Stash instances", field.getText().toString()));
+          android.content.ClipData clip = android.content.ClipData.newPlainText(
+              "Stash instances", field.getText().toString());
+          if (android.os.Build.VERSION.SDK_INT >= 33) {
+            // The document holds plaintext secrets; keep them out of the clipboard preview.
+            android.os.PersistableBundle extras = new android.os.PersistableBundle();
+            extras.putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true);
+            clip.getDescription().setExtras(extras);
+          }
+          clipboard.setPrimaryClip(clip);
           android.widget.Toast.makeText(
               this, R.string.import_export_copied, android.widget.Toast.LENGTH_SHORT).show();
         }
@@ -623,7 +638,10 @@ public class MainActivity extends AppCompatActivity {
           String name = nameField.getText() != null ? nameField.getText().toString() : "";
           String appId = appIdField.getText() != null ? appIdField.getText().toString() : "";
           String key = valueField.getText() != null ? valueField.getText().toString() : "";
-          if (!viewModel.addApiKey(name, appId, key, prodSwitch.isChecked())) {
+          if (!key.trim().isEmpty() && !MainViewModel.isValidBase64(key)) {
+            android.widget.Toast.makeText(this, R.string.error_secret_base64,
+                android.widget.Toast.LENGTH_SHORT).show();
+          } else if (!viewModel.addApiKey(name, appId, key, prodSwitch.isChecked())) {
             android.widget.Toast.makeText(this, R.string.add_api_key_incomplete,
                 android.widget.Toast.LENGTH_SHORT).show();
           }
@@ -709,6 +727,7 @@ public class MainActivity extends AppCompatActivity {
     if (isFinishing() || isDestroyed()) {
       return;
     }
+    cardOpenRequests++;
     StashNative sdk = StashNative.getInstance();
     StashNative.CardConfig config = viewModel.getCardConfig();
     if (!sdk.isCurrentlyPresented()) {
@@ -778,12 +797,24 @@ public class MainActivity extends AppCompatActivity {
       previous.disconnect();
     }
     pendingRequest = networkExecutor.submit(() -> {
+      // Sign the exact bytes that go on the wire, then send them unchanged.
+      byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
+      final String signature;
+      try {
+        signature = StashHmac.signature(appId, ingressSecret, bytes);
+      } catch (Exception e) {
+        // A secret that does not decode or a missing MAC is a configuration error, not a
+        // network failure; say so instead of showing the generic generation dialog.
+        Log.e(TAG, "Signing " + label + " request failed");
+        runOnUiThread(() -> {
+          if (!destroyed && !isFinishing() && generation == requestGeneration) {
+            showOutcomeDialog("Error", getString(R.string.error_sign_request));
+          }
+        });
+        return;
+      }
       HttpURLConnection conn = null;
       try {
-        // Sign the exact bytes that go on the wire, then send them unchanged.
-        byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
-        final String signature = StashHmac.signature(appId, ingressSecret, bytes);
-
         URL url = new URL(urlString);
         conn = (HttpURLConnection) url.openConnection();
         activeConnection = conn;
@@ -819,6 +850,7 @@ public class MainActivity extends AppCompatActivity {
                 if (destroyed || isFinishing() || generation != requestGeneration) {
                   return;
                 }
+                acceptedCompletions++;
                 if (openInBrowser) {
                   syncKeepAlive();
                   Log.i(TAG, "Opening browser");
@@ -853,6 +885,13 @@ public class MainActivity extends AppCompatActivity {
   protected void onResume() {
     super.onResume();
     StashNative.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+  }
+
+  @Override
+  protected void onPause() {
+    // Credential edits persist on screen exit; also write them before a background kill.
+    viewModel.flushPendingEdits();
+    super.onPause();
   }
 
   @Override

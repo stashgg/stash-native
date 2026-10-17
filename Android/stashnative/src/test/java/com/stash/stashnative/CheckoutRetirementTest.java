@@ -68,7 +68,8 @@ public class CheckoutRetirementTest {
       @Override public void onExternalPayment(String url) { replacement = open(); }
       @Override public void onCardDismissed() { dismissed++; }
     });
-    new StashCheckoutJsInterface(original).openExternalBrowser("https://example.invalid/payment");
+    new StashCheckoutJsInterface(original).openExternalBrowser(
+        original.issueBridgeDocumentToken(), "https://example.invalid/payment");
     assertNull(Shadows.shadowOf(original).getNextStartedActivity());
     assertReplacementSurvivesOriginalDestruction(original);
   }
@@ -79,7 +80,8 @@ public class CheckoutRetirementTest {
       @Override public void onBrowserDismissed() { replacement = open(); }
       @Override public void onCardDismissed() { dismissed++; }
     });
-    new StashCheckoutJsInterface(original).openExternalBrowser("https://example.invalid/payment");
+    new StashCheckoutJsInterface(original).openExternalBrowser(
+        original.issueBridgeDocumentToken(), "https://example.invalid/payment");
     Intent proxy = Shadows.shadowOf(original).getNextStartedActivity();
     assertNotNull(proxy);
     StashNativePlugin.getInstance().notifyBrowserClosedFromProxyInternal(

@@ -117,22 +117,6 @@ public final class StashNativeBrowserProxyActivity extends Activity {
   }
 
   private static Uri parseUri(String url) {
-    try {
-      Uri uri = Uri.parse(url.trim());
-      String scheme = uri.getScheme();
-      if (scheme == null) {
-        return null;
-      }
-      String s = scheme.toLowerCase(java.util.Locale.ROOT);
-      if (!"http".equals(s) && !"https".equals(s)) {
-        return null;
-      }
-      if (uri.getHost() == null || uri.getHost().isEmpty()) {
-        return null;
-      }
-      return uri;
-    } catch (Throwable t) {
-      return null;
-    }
+    return StashWebViewUtils.parseAcceptedHttpUri(url);
   }
 }

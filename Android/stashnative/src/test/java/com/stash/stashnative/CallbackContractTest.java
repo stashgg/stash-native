@@ -148,7 +148,7 @@ public class CallbackContractTest {
 
   @Test public void handoffKeepsItsCallbackAfterScannerAndListenerReplacement() {
     StashCheckoutActivity card = open(false);
-    new StashCheckoutJsInterface(card).openExternalBrowser("https://example.invalid/pay");
+    new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     long browser = launchedBrowser(card);
     final StashCheckoutActivity scanner = open(true);
     sdk.setListener(recordingListener("replacement"));
@@ -162,7 +162,7 @@ public class CallbackContractTest {
 
   @Test public void reentrantBrowserOpeningDeliversDismissalToEachLiveListener() {
     StashCheckoutActivity card = open(false);
-    new StashCheckoutJsInterface(card).openExternalBrowser("https://example.invalid/pay");
+    new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     long firstBrowser = launchedBrowser(card);
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onBrowserDismissed() {
@@ -272,7 +272,7 @@ public class CallbackContractTest {
   @Config(shadows = ActionViewLauncher.class)
   public void fallbackHandoffDismissesOnceToReplacementListener() {
     StashCheckoutActivity card = open(false);
-    new StashCheckoutJsInterface(card).openExternalBrowser("https://example.invalid/pay");
+    new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     Intent launched = Shadows.shadowOf(card).getNextStartedActivity();
     assertNotNull(launched);
     assertEquals(Intent.ACTION_VIEW, launched.getAction());
@@ -289,6 +289,62 @@ public class CallbackContractTest {
     assertEquals(Arrays.asList("replacement:browser-dismissed"), events);
     assertTrue(card.isFinishing());
     assertFalse(sdk.isCurrentlyPresented());
+  }
+
+  /**
+   * Framework order for a translucent checkout over the host when an opaque browser comes and
+   * goes: the host was paused at open; the browser pauses the card and stops the host; closing
+   * it starts the host (still paused under the card) and resumes only the card.
+   */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void fallbackHandoffCompletesWhenOnlyTheCheckoutResumes() {
+    StashCheckoutActivity card = open(false);
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    Intent launched = Shadows.shadowOf(card).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals(Intent.ACTION_VIEW, launched.getAction());
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(card);
+    lifecycle.onActivityStopped(host);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertTrue(events.isEmpty());
+    lifecycle.onActivityStarted(host);
+    lifecycle.onActivityResumed(card);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(499));
+    assertTrue(events.isEmpty());
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    assertTrue(card.isFinishing());
+    assertFalse(sdk.isCurrentlyPresented());
+  }
+
+  /** Without a pending handoff the checkout's own lifecycle never stands in for the host. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void checkoutLifecycleIsIgnoredWithoutAPendingHandoff() {
+    StashCheckoutActivity card = open(false);
+    sdk.openBrowser(host, "https://example.invalid/help");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    Intent launched = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals(Intent.ACTION_VIEW, launched.getAction());
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(card);
+    lifecycle.onActivityResumed(card);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertTrue(events.isEmpty());
+    assertFalse(card.isFinishing());
+    lifecycle.onActivityPaused(host);
+    lifecycle.onActivityResumed(host);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    assertFalse(card.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
   }
 
   /** Selects the browser fallback without requiring a second test dependency graph. */

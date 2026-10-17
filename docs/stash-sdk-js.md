@@ -7,7 +7,7 @@ description: Internal window.stash_sdk contract between the SDK and Stash checko
 
 # JavaScript bridge
 
-`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. Checkout cards inject it into the top-level page; browser and CodeLink presentations do not. Integrators never call it.
+`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. Checkout cards inject it into the top-level page; browser and CodeLink presentations do not. Integrators never call it. Calls from frames other than the top document are ignored: iOS drops sub-frame messages, and the Android bridge script binds its calls to a per-document token that only the top document holds.
 
 Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
 

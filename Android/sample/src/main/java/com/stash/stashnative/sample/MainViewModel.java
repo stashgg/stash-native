@@ -40,6 +40,13 @@ public class MainViewModel extends AndroidViewModel {
   /** Display name of the bundled credential. */
   public static final String DEFAULT_STASH_KEY_NAME = "Howling Woods";
 
+  /** Smallest card width or height the sample offers; matches the iOS sample's slider floor. */
+  public static final int MIN_CONTENT_DIMENSION_DP = 240;
+
+  /** Padded standard base64, the form both samples accept as an ingress secret. */
+  private static final java.util.regex.Pattern BASE64 = java.util.regex.Pattern.compile(
+      "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$");
+
   /** Secrets previously shipped as the bundled credential. */
   private static final String[] SUPERSEDED_BUNDLED_SECRETS = {
     "QtwPBppVziJPg7NAcfH1sbwkwx5DRbYJtezohJvFy4z505D8zNYOtstVVtJvNfxg"
@@ -77,6 +84,9 @@ public class MainViewModel extends AndroidViewModel {
 
   /** Instance whose details screen (and its payload editors) is currently open. */
   private String editingInstanceId;
+
+  /** Credential edits typed on the details screen that have not been written to storage yet. */
+  private boolean editingDirty;
 
   // Browser options
   private boolean keepAliveEnabled = true;
@@ -231,7 +241,11 @@ public class MainViewModel extends AndroidViewModel {
 
   /** Switches the visible list to a bottom-nav tab or a dedicated drill-in screen. */
   public void navigateTo(Screen screen) {
-    currentScreen = screen != null ? screen : Screen.TEST;
+    Screen next = screen != null ? screen : Screen.TEST;
+    if (currentScreen == Screen.INSTANCE_DETAILS && next != Screen.INSTANCE_DETAILS) {
+      flushPendingEdits();
+    }
+    currentScreen = next;
     // Entering a payload screen starts a fresh draft from the editing instance's saved body.
     ApiKeyEntry editing = editingInstance();
     if (currentScreen == Screen.CHECKOUT_PAYLOAD) {
@@ -307,7 +321,15 @@ public class MainViewModel extends AndroidViewModel {
     return false;
   }
 
+  /** Writes credential edits made on the details screen; a no-op when nothing changed. */
+  public void flushPendingEdits() {
+    if (editingDirty) {
+      saveApiKeys();
+    }
+  }
+
   private void saveApiKeys() {
+    editingDirty = false;
     try {
       JSONArray arr = new JSONArray();
       for (ApiKeyEntry e : apiKeys) {
@@ -388,31 +410,43 @@ public class MainViewModel extends AndroidViewModel {
     return findApiKey(editingInstanceId);
   }
 
-  /** Saves the name without rebinding the active text field. */
+  // Keystroke edits update memory only; storage is written when the details screen is left,
+  // when the ViewModel is cleared, or when the host pauses (see flushPendingEdits).
+
+  /** Updates the name without rebinding the active text field. */
   public void setEditingName(String name) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
       e.name = name != null ? name : "";
-      saveApiKeys();
+      editingDirty = true;
     }
   }
 
-  /** Saves the app ID without rebinding the active text field. */
+  /** Updates the app ID without rebinding the active text field. */
   public void setEditingAppId(String appId) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
       e.appId = appId != null ? appId : "";
-      saveApiKeys();
+      editingDirty = true;
     }
   }
 
-  /** Saves the secret without rebinding the active text field. */
+  /** Updates the secret without rebinding the active text field. */
   public void setEditingSecret(String secret) {
     ApiKeyEntry e = editingInstance();
     if (e != null) {
       e.key = secret != null ? secret : "";
-      saveApiKeys();
+      editingDirty = true;
     }
+  }
+
+  /** True for padded standard base64, the only secret form that signs on both samples. */
+  public static boolean isValidBase64(String secret) {
+    if (secret == null) {
+      return false;
+    }
+    String trimmed = secret.trim();
+    return !trimmed.isEmpty() && BASE64.matcher(trimmed).matches();
   }
 
   /** Saves the selected instance's API environment. */
@@ -637,6 +671,7 @@ public class MainViewModel extends AndroidViewModel {
 
   @Override
   protected void onCleared() {
+    flushPendingEdits();
     if (backdropImage != null) {
       backdropImage.recycle();
     }
@@ -695,9 +730,9 @@ public class MainViewModel extends AndroidViewModel {
   /** Updates the card dimension associated with a settings row. */
   public void setDimension(int title, int value) {
     if (title == R.string.preferred_content_width) {
-      cardConfig.preferredContentWidth = Math.max(1, value);
+      cardConfig.preferredContentWidth = Math.max(MIN_CONTENT_DIMENSION_DP, value);
     } else if (title == R.string.preferred_content_height) {
-      cardConfig.preferredContentHeight = Math.max(1, value);
+      cardConfig.preferredContentHeight = Math.max(MIN_CONTENT_DIMENSION_DP, value);
     } else if (title == R.string.maximum_content_height) {
       cardConfig.maximumContentHeight = value;
     } else if (title == R.string.edge_margin) {

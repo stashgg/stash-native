@@ -40,4 +40,18 @@ public class StashCheckoutBridgeTest {
       app.unregisterReceiver(receiver);
     }
   }
+
+  @Test
+  public void oversizedOrderIsTruncatedBeforeBroadcast() {
+    int max = StashCheckoutBridge.MAX_PAYMENT_ORDER_CHARS;
+    StringBuilder big = new StringBuilder(max + 16);
+    while (big.length() < max + 16) {
+      big.append('x');
+    }
+    assertEquals(max, StashCheckoutBridge.capPaymentOrder(big.toString()).length());
+    String exact = big.substring(0, max);
+    assertSame(exact, StashCheckoutBridge.capPaymentOrder(exact));
+    assertSame("order", StashCheckoutBridge.capPaymentOrder("order"));
+    assertNull(StashCheckoutBridge.capPaymentOrder(null));
+  }
 }

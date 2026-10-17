@@ -181,32 +181,31 @@ extension ViewController {
         apiKeys.first(where: { $0.id == id })
     }
 
-    // Detail fields update in memory and attempt a save after each edit.
+    // Typed detail fields update in memory only; persistInstances writes them when the details
+    // screen closes, so the Keychain is not rewritten on every keystroke.
     func setInstanceName(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].name = value
-        saveApiKeys()
     }
 
     func setInstanceAppId(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].appId = value
-        saveApiKeys()
     }
 
     func setInstanceSecret(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].key = value
-        saveApiKeys()
     }
 
+    /// The environment switch is a discrete change, so it persists at once.
     func setInstanceProduction(_ id: String, _ value: Bool) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].production = value
         saveApiKeys()
     }
 
-    /// Refreshes the instances list to reflect edits; call when the details screen closes.
+    /// Persists pending edits and refreshes the instances list; call when the details screen closes.
     func persistInstances() {
         saveApiKeys()
         reloadApiSection()
@@ -284,6 +283,11 @@ extension ViewController {
         }
         let add: (Bool) -> Void = { [weak self, weak alert] production in
             guard let self = self, let fields = alert?.textFields, fields.count >= 3 else { return }
+            let secret = (fields[2].text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !secret.isEmpty, !StashHmac.isValidIngressSecret(secret) {
+                self.showAlert(title: "Error", message: "Ingress secret is not valid base64")
+                return
+            }
             let added = self.addApiKey(name: fields[0].text ?? "",
                                        appId: fields[1].text ?? "",
                                        key: fields[2].text ?? "",

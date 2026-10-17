@@ -69,6 +69,56 @@ final class AuditRegressionTests: XCTestCase {
         wait(for: [done], timeout: 5)
     }
 
+    func testMainFrameFailureAfterLoadEndsCheckoutAsNetworkError() {
+        let done = expectation(description: "post-load failure")
+        DispatchQueue.main.async {
+            let result = StashPostLoadFailureProbe() as! [String: NSNumber]
+            XCTAssertEqual(result["presented"]?.boolValue, true)
+            XCTAssertEqual(result["processingLocked"]?.boolValue, true)
+            XCTAssertEqual(result["networkErrorDelivered"]?.boolValue, true)
+            XCTAssertEqual(result["noDismissCallback"]?.boolValue, true)
+            XCTAssertEqual(result["cardClosedBeforeCallback"]?.boolValue, true)
+            XCTAssertEqual(result["notPresented"]?.boolValue, true)
+            XCTAssertEqual(result["cancelledFailureIgnored"]?.boolValue, true)
+            XCTAssertEqual(result["provisionalFailureAfterLoadFails"]?.boolValue, true)
+            XCTAssertEqual(result["rendererLossWhileProcessingFails"]?.boolValue, true)
+            XCTAssertEqual(result.count, 9)
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
+    func testNavigationActionPolicyDecidesOnceAndRoutesExternalURLs() {
+        assertProbe("navigation action", count: 9, StashNavigationPolicyProbe)
+    }
+
+    func testNavigationResponsePolicyFailsBeforeLoadAndStopsBudgetOnSuccess() {
+        assertProbe("navigation response", count: 5, StashNavigationResponseProbe)
+    }
+
+    func testLoadBudgetRetriesAtTenSecondsAndFailsAtFifteen() {
+        assertProbe("load budget", count: 6, StashLoadBudgetProbe)
+    }
+
+    func testNewWindowRequestsRouteResultsOrOpenExternallyWithoutCreatingWebViews() {
+        assertProbe("new window", count: 4, StashNewWindowProbe)
+    }
+
+    func testJavaScriptDialogCompletionsRunExactlyOnceWhenBusyOrTornDown() {
+        assertProbe("javascript dialogs", count: 6, StashJavaScriptDialogProbe)
+    }
+
+    private func assertProbe(_ name: String, count: Int, _ probe: @escaping () -> [AnyHashable: Any]?) {
+        let done = expectation(description: name)
+        DispatchQueue.main.async {
+            let result = probe() as! [String: NSNumber]
+            XCTAssertEqual(result.count, count, name)
+            for (key, value) in result { XCTAssertTrue(value.boolValue, "\(name): \(key)") }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
     func testDetachedPresenterAndInvalidURLDoNotAdmitSession() {
         let done = expectation(description: "invalid presentation")
         DispatchQueue.main.async {

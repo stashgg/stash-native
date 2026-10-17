@@ -13,7 +13,7 @@
         android:layout_height="wrap_content"
         android:hint="@string/add_api_key_name_hint"
         android:inputType="text"
-        android:autofillHints="name" />
+        android:importantForAutofill="no" />
 
     <EditText
         android:id="@+id/addKeyAppId"
@@ -22,7 +22,7 @@
         android:layout_marginTop="8dp"
         android:hint="@string/add_api_key_app_id_hint"
         android:inputType="textNoSuggestions"
-        android:autofillHints="username" />
+        android:importantForAutofill="no" />
 
     <EditText
         android:id="@+id/addKeyValue"
@@ -31,7 +31,7 @@
         android:layout_marginTop="8dp"
         android:hint="@string/add_api_key_key_hint"
         android:inputType="textNoSuggestions"
-        android:autofillHints="password" />
+        android:importantForAutofill="no" />
 
     <LinearLayout
         android:layout_width="match_parent"

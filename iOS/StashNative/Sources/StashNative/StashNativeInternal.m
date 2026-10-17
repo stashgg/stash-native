@@ -99,7 +99,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     web.UIDelegate = self;
     web.allowsLinkPreview = NO;
     web.allowsBackForwardNavigationGestures = NO;
-    web.backgroundColor = stash_sheetBackgroundUIColor(self.presenter.traitCollection);
+    web.backgroundColor = StashSheetBackgroundUIColor(self.presenter.traitCollection);
     web.scrollView.backgroundColor = web.backgroundColor;
     web.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     web.scrollView.bounces = NO;
@@ -218,7 +218,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
             if (self.applyingPageBacking) return;
             UIColor *background = self.webView.underPageBackgroundColor;
             self.webView.scrollView.backgroundColor = background;
-            self.webView.backgroundColor = background ?: stash_sheetBackgroundUIColor(self.presenter.traitCollection);
+            self.webView.backgroundColor = background ?: StashSheetBackgroundUIColor(self.presenter.traitCollection);
             if (self.controller.isViewLoaded) {
                 [self.controller updateTopChromeBackgroundColor];
             }
@@ -618,12 +618,12 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     } else if ([name isEqualToString:@"stashContentHeight"]) {
         if ([body isKindOfClass:NSDictionary.class]) [self acceptContentHeight:body];
     } else if ([name isEqualToString:@"stashOpenLink"] || [name isEqualToString:@"stashExternalPayment"]) {
-        NSString *url = NormalizeExternalPaymentURL(body);
+        NSString *url = StashNormalizeExternalPaymentURL(body);
         if (!url) return;
         if ([name isEqualToString:@"stashOpenLink"]) {
-            [UIApplication.sharedApplication openURL:[NSURL URLWithString:url] options:@{} completionHandler:nil];
+            StashOpenExternalURL([NSURL URLWithString:url], nil, nil);
         } else {
-            [self handoffToBrowserWithURL:appendThemeQueryParameter(url, self.presenter.traitCollection)];
+            [self handoffToBrowserWithURL:StashAppendThemeQueryParameter(url, self.presenter.traitCollection)];
         }
     }
 }
@@ -700,10 +700,10 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     } else if (self.inferredPageBackingApplied) {
         self.inferredPageBackingApplied = NO;
         // Transparent pages fall back to WK's view background after clearing the override.
-        web.backgroundColor = stash_sheetBackgroundUIColor(self.presenter.traitCollection);
+        web.backgroundColor = StashSheetBackgroundUIColor(self.presenter.traitCollection);
         web.underPageBackgroundColor = nil;
     }
-    UIColor *background = web.underPageBackgroundColor ?: stash_sheetBackgroundUIColor(self.presenter.traitCollection);
+    UIColor *background = web.underPageBackgroundColor ?: StashSheetBackgroundUIColor(self.presenter.traitCollection);
     web.backgroundColor = background;
     web.scrollView.backgroundColor = background;
     self.applyingPageBacking = NO;

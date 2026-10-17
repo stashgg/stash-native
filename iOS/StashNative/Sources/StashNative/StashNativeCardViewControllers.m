@@ -4,7 +4,7 @@
 @implementation StashCheckoutViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
-    UIColor *initialBackground = stash_sheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
+    UIColor *initialBackground = StashSheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
     if (@available(iOS 26.0, *)) self.glassLoading = !self.session.initialContentRevealed;
     self.view.backgroundColor = initialBackground;
     self.view.accessibilityIdentifier = @"stash-card";
@@ -355,7 +355,7 @@
         return;
     }
     UIColor *color = self.topChromeColor;
-    color = color ?: self.session.webView.underPageBackgroundColor ?: stash_sheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
+    color = color ?: self.session.webView.underPageBackgroundColor ?: StashSheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
     self.view.backgroundColor = color;
 }
 - (void)dealloc {

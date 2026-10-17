@@ -42,7 +42,43 @@ public class RequestLifetimeTest {
     assertNull(sdk.getListener());
   }
 
+  /** When the host is destroyed relative to the generate response. */
+  private enum Host { ALIVE, DESTROYED_BEFORE_RESPONSE, DESTROYED_AFTER_RESPONSE }
+
+  /** A completion that arrives while the host is alive reaches the UI branch and opens a card. */
+  @Test public void responseWhileHostIsAliveOpensCheckoutOnce() throws Exception {
+    MainActivity activity = generateWithLocalServer(Host.ALIVE);
+    assertEquals(1, activity.acceptedCompletions);
+    assertEquals(1, activity.cardOpenRequests);
+    assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+  }
+
+  /** Destroying the host cancels the request itself, so no completion is ever produced. */
+  @Test public void destroyBeforeResponseCancelsTheRequest() throws Exception {
+    MainActivity activity = generateWithLocalServer(Host.DESTROYED_BEFORE_RESPONSE);
+    assertEquals(0, activity.acceptedCompletions);
+    assertEquals(0, activity.cardOpenRequests);
+    assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+  }
+
+  /**
+   * Discriminating form of the A-010 guard test: the response is parsed and posted to the main
+   * thread before the host is destroyed, so only the UI-thread lifetime guard and presentCard's
+   * guard stand between the stale completion and the counters. Removing either guard fails this
+   * test independently of the SDK's own rejection of destroyed hosts.
+   */
   @Test public void responseAfterDestroyCannotOpenCheckoutOnReplacementHost() throws Exception {
+    MainActivity activity = generateWithLocalServer(Host.DESTROYED_AFTER_RESPONSE);
+    assertEquals(0, activity.acceptedCompletions);
+    assertEquals(0, activity.cardOpenRequests);
+    assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+  }
+
+  /**
+   * Serves one generate request from a local socket, destroys the host at the requested point,
+   * and returns the (possibly destroyed) host after the main looper drained the completion.
+   */
+  private MainActivity generateWithLocalServer(Host hostLifetime) throws Exception {
     CountDownLatch requested = new CountDownLatch(1);
     CountDownLatch respond = new CountDownLatch(1);
     ExecutorService serverWorker = Executors.newSingleThreadExecutor();
@@ -107,15 +143,29 @@ public class RequestLifetimeTest {
         response.get();
       }
       assertTrue("local server received complete request", received);
-      controller.pause().stop().destroy();
-      destroyed = true;
-      replacement = Robolectric.buildActivity(Activity.class).setup();
+      if (hostLifetime == Host.DESTROYED_BEFORE_RESPONSE) {
+        controller.pause().stop().destroy();
+        destroyed = true;
+        replacement = Robolectric.buildActivity(Activity.class).setup();
+      }
       respond.countDown();
       response.get(5, TimeUnit.SECONDS);
-      assertTerminated(networkExecutor, requestWorker, "destroyed host request terminated");
+      if (hostLifetime == Host.DESTROYED_BEFORE_RESPONSE) {
+        assertTerminated(networkExecutor, requestWorker, "destroyed host request terminated");
+      } else {
+        // The worker has parsed the response and posted the completion; the looper is paused.
+        pendingRequest(activity).get(5, TimeUnit.SECONDS);
+      }
+      if (hostLifetime == Host.DESTROYED_AFTER_RESPONSE) {
+        controller.pause().stop().destroy();
+        destroyed = true;
+        replacement = Robolectric.buildActivity(Activity.class).setup();
+      }
       ShadowLooper.idleMainLooper();
-      assertNull(Shadows.shadowOf(replacement.get()).getNextStartedActivity());
-      assertFalse(StashNative.getInstance().isCurrentlyPresented());
+      if (replacement != null) {
+        assertNull(Shadows.shadowOf(replacement.get()).getNextStartedActivity());
+      }
+      return activity;
     } finally {
       respond.countDown();
       if (controller != null && !destroyed) {
@@ -133,6 +183,12 @@ public class RequestLifetimeTest {
         assertTerminated(networkExecutor, requestWorker, "request cleanup terminated");
       }
     }
+  }
+
+  private static Future<?> pendingRequest(MainActivity activity) throws Exception {
+    Field field = MainActivity.class.getDeclaredField("pendingRequest");
+    field.setAccessible(true);
+    return (Future<?>) field.get(activity);
   }
 
   private static void assertTerminated(ExecutorService executor, Thread worker, String message)

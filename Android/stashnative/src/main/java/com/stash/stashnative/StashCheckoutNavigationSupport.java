@@ -23,13 +23,13 @@ final class StashCheckoutNavigationSupport {
       return false;
     }
     int result = StashWebViewUtils.classifyDeeplinkResult(url);
-    StashCheckoutJsInterface bridge = new StashCheckoutJsInterface(activity);
+    StashCheckoutJsInterface bridge = StashCheckoutJsInterface.forNativeResults(activity);
     if (result == StashWebViewUtils.DEEPLINK_RESULT_SUCCESS) {
-      bridge.onPaymentSuccess(null);
+      bridge.onPaymentSuccess(null, null);
     } else if (result == StashWebViewUtils.DEEPLINK_RESULT_FAILURE) {
-      bridge.onPaymentFailure();
+      bridge.onPaymentFailure(null);
     } else if (result == StashWebViewUtils.DEEPLINK_RESULT_CANCEL) {
-      bridge.requestCloseFromPage();
+      bridge.requestCloseFromPage(null);
     } else {
       openDeeplinkExternally(activity, url);
     }

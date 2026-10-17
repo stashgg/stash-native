@@ -2,15 +2,30 @@ package com.stash.stashnative;
 
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 
 /**
  * Sends checkout lifecycle events from {@link StashCheckoutActivity} to
  * {@link StashNativePlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
+  private static final String TAG = "StashNative";
   static final String EXTRA_SESSION_ID = "com.stash.stashnative.SESSION_ID";
 
+  /** Longest order payload broadcast to the host; 256 Ki chars stays under the Binder limit. */
+  static final int MAX_PAYMENT_ORDER_CHARS = 256 * 1024;
+
   private StashCheckoutBridge() {}
+
+  /** Truncates an oversized order payload so the success broadcast cannot fail. */
+  static String capPaymentOrder(String order) {
+    if (order == null || order.length() <= MAX_PAYMENT_ORDER_CHARS) {
+      return order;
+    }
+    Log.w(TAG, "Payment order payload truncated from " + order.length() + " to "
+        + MAX_PAYMENT_ORDER_CHARS + " chars");
+    return order.substring(0, MAX_PAYMENT_ORDER_CHARS);
+  }
 
   private static Intent baseIntent(Context context, String action) {
     Context app = context.getApplicationContext();

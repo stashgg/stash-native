@@ -56,12 +56,16 @@ def main():
     for name in ["SecItemCopyMatching", "SecItemUpdate", "SecItemAdd"]:
         store = store.replace(name, "probe" + name)
     storage_methods = "\n".join(method(instances, name) for name in [
-        "loadApiKeys", "saveApiKeys", "importInstancesJson", "setInstanceName", "saveInstancePayload"])
+        "loadApiKeys", "saveApiKeys", "importInstancesJson", "setInstanceName", "persistInstances",
+        "saveInstancePayload"])
     storage = (tests / "CredentialStore.swift.template").read_text().replace(
         "// INSERT_PROPERTIES", properties(controller, [
             "apiKeys", "selectedApiKeyId", "canSaveApiKeys", "didShowCredentialSaveError"]))
     storage = storage.replace("// INSERT_METHODS", storage_methods)
-    for name, source in [("request-lifetime", request), ("credential-store", entry + store + storage)]:
+    # The signer compiles verbatim; only the vector harness is appended.
+    hmac = (sample / "StashHmac.swift").read_text() + "\n" + (tests / "HmacVector.swift.template").read_text()
+    for name, source in [("request-lifetime", request), ("credential-store", entry + store + storage),
+                         ("hmac-vector", hmac)]:
         source_path = output / f"{name}.swift"
         source_path.write_text(source)
         executable = output / name

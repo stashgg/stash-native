@@ -31,6 +31,7 @@ public class BrowserLifetimeTest {
   private StashCheckoutActivity checkout;
   private int externalPayments;
   private int browserClosed;
+  private String token;
 
   @Before public void prepare() {
     sdk.resetPresentationState();
@@ -55,11 +56,12 @@ public class BrowserLifetimeTest {
     result.options = StashPresentationOptions.card(null);
     result.cardContainer = new StashSheetLayout(result, 24f);
     plugin.setCheckoutActivity(result);
+    token = result.issueBridgeDocumentToken();
     return result;
   }
 
   private void handoff() {
-    new StashCheckoutJsInterface(checkout).openExternalBrowser("https://example.invalid/payment");
+    new StashCheckoutJsInterface(checkout).openExternalBrowser(token, "https://example.invalid/payment");
   }
 
   @Test public void queuedSignalFromResetCheckoutCannotRetireReplacement() throws Exception {
@@ -136,7 +138,7 @@ public class BrowserLifetimeTest {
 
   @Test public void queuedLinkCannotLaunchAfterResetOrRetireReplacement() throws Exception {
     Thread js = new Thread(() -> new StashCheckoutJsInterface(checkout)
-        .openLink("https://example.invalid/terms"));
+        .openLink(token, "https://example.invalid/terms"));
     js.start();
     js.join();
     sdk.resetPresentationState();
@@ -151,7 +153,7 @@ public class BrowserLifetimeTest {
   }
 
   @Test public void activeLinkLaunchesWithoutCallbacksThemeOrDismissal() {
-    new StashCheckoutJsInterface(checkout).openLink("https://example.invalid/terms");
+    new StashCheckoutJsInterface(checkout).openLink(token, "https://example.invalid/terms");
     ShadowLooper.idleMainLooper();
     Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
     assertNotNull(launched);
@@ -164,7 +166,7 @@ public class BrowserLifetimeTest {
 
   @Test public void queuedLinkCannotLaunchAfterBrowserHandoff() throws Exception {
     Thread js = new Thread(() -> new StashCheckoutJsInterface(checkout)
-        .openLink("https://example.invalid/terms"));
+        .openLink(token, "https://example.invalid/terms"));
     js.start();
     js.join();
     handoff();
@@ -210,6 +212,31 @@ public class BrowserLifetimeTest {
     ShadowLooper.idleMainLooper();
     assertEquals(0, browserClosed);
     assertFalse(checkout.isFinishing());
+  }
+
+  /** A tab that closes without a result is detected on the proxy's second resume, once. */
+  @Test public void proxyResumeFallbackReportsOneCloseForTheCurrentSession() {
+    handoff();
+    Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(intent);
+    org.robolectric.android.controller.ActivityController<StashNativeBrowserProxyActivity> proxy =
+        Robolectric.buildActivity(StashNativeBrowserProxyActivity.class, intent)
+            .create().start().resume();
+    ShadowLooper.idleMainLooper();
+    assertNotNull(Shadows.shadowOf(proxy.get()).getNextStartedActivityForResult());
+    assertEquals(0, browserClosed);
+    assertFalse(proxy.get().isFinishing());
+    assertFalse(checkout.isFinishing());
+    proxy.pause().resume();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, browserClosed);
+    assertTrue(proxy.get().isFinishing());
+    assertTrue(checkout.isFinishing());
+    proxy.pause().resume();
+    proxy.get().onActivityResult(
+        CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB, Activity.RESULT_CANCELED, null);
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, browserClosed);
   }
 
   @Test public void resetBeforeProxyCreationCannotLaunchBrowser() {

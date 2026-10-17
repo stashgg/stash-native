@@ -17,7 +17,8 @@ extension ViewController {
         let cell = UITableViewCell(style: .value1, reuseIdentifier: nil)
         cell.selectionStyle = .none
         cell.textLabel?.text = "SDK version"
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
         cell.detailTextLabel?.text = StashNative.sdkVersion()
         cell.detailTextLabel?.textColor = .secondaryLabel
@@ -57,7 +58,8 @@ extension ViewController {
     private func navCell(_ title: String) -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.textLabel?.text = title
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .regular)
+        cell.textLabel?.font = .preferredFont(forTextStyle: .body)
+        cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
         cell.accessoryType = .disclosureIndicator
         return cell

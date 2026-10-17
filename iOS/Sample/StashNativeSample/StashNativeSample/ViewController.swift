@@ -7,10 +7,7 @@
 
 import UIKit
 import StashNative
-import Security
 
-/// A named Stash app credential: the app ID plus its ingress secret, with a production/test flag.
-/// Both are needed to sign requests (see `StashHmac`).
 class ViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
 
     // MARK: - Properties
@@ -293,7 +290,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         field.autocorrectionType = .no
         field.keyboardType = .URL
         field.textAlignment = .right
-        field.font = .systemFont(ofSize: 17, weight: .regular)
+        field.font = .preferredFont(forTextStyle: .body)
+        field.adjustsFontForContentSizeCategory = true
         field.clearButtonMode = .whileEditing
     }
 

@@ -41,7 +41,8 @@ extension ViewController {
         slider.minimumValue = minimum
         slider.maximumValue = maximum
         slider.value = value
-        label.font = .systemFont(ofSize: 17, weight: .regular)
+        label.font = .preferredFont(forTextStyle: .body)
+        label.adjustsFontForContentSizeCategory = true
         label.textColor = .secondaryLabel
         sliderLabels[slider] = label
         slider.addTarget(self, action: #selector(sliderValueChanged(_:)), for: .valueChanged)

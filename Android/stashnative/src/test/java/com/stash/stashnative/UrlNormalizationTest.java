@@ -44,4 +44,37 @@ public class UrlNormalizationTest {
     assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("ftp://example.invalid"));
     assertNull(StashWebViewUtils.normalizeExternalPaymentUrl("https://"));
   }
+
+  @Test
+  public void sharedAcceptanceRuleCanonicalizesSchemeAndRejectsOtherInput() {
+    assertEquals("https://Example.invalid/pay?x=1#f",
+        StashWebViewUtils.parseAcceptedHttpUri(" HTTPS://Example.invalid/pay?x=1#f ").toString());
+    assertEquals("http", StashWebViewUtils.parseAcceptedHttpUri("HTTP://example.invalid").getScheme());
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri(null));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("  "));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("https://"));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("example.invalid/path"));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("ftp://example.invalid"));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("javascript:alert(1)"));
+    assertNull(StashWebViewUtils.parseAcceptedHttpUri("file:///etc/passwd"));
+  }
+
+  @Test
+  public void launcherOpensUppercaseSchemeAsCanonicalHttps() {
+    android.app.Activity host = org.robolectric.Robolectric.buildActivity(
+        android.app.Activity.class).setup().get();
+    try {
+      StashUrlLauncher.openExternalUrl(host, "HTTPS://example.invalid/pay", 0);
+      android.content.Intent launched =
+          org.robolectric.Shadows.shadowOf(host).getNextStartedActivity();
+      assertNotNull(launched);
+      assertEquals("https", launched.getData().getScheme());
+      assertEquals("https://example.invalid/pay", launched.getDataString());
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_ACTION_VIEW,
+          StashUrlLauncher.openExternalUrl(host, "FTP://example.invalid/pay", 0));
+      assertNull(org.robolectric.Shadows.shadowOf(host).getNextStartedActivity());
+    } finally {
+      host.finish();
+    }
+  }
 }

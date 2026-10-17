@@ -5,7 +5,8 @@ final class SampleSectionHeaderView: UIView {
         super.init(frame: .zero)
         let label = UILabel()
         label.text = title.uppercased()
-        label.font = .systemFont(ofSize: 13, weight: .semibold)
+        label.font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13, weight: .semibold))
+        label.adjustsFontForContentSizeCategory = true
         label.textColor = .secondaryLabel
         label.accessibilityTraits.insert(.header)
         label.translatesAutoresizingMaskIntoConstraints = false

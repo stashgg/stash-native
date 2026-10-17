@@ -77,12 +77,18 @@ public class StashWebViewUtils {
   public static final String COLOR_BACKGROUND_DIM = CardConstants.COLOR_OVERLAY_DIM;
   public static final String COLOR_DARK_BG = CardConstants.COLOR_DARK_BG;
   
+  /** Replaced with the per-document bridge token by {@link #bridgeScript(String)}. */
+  static final String JS_SDK_TOKEN_PLACEHOLDER = "__STASH_BRIDGE_TOKEN__";
+
   // Canonical spec: docs/stash-sdk-js.md. Mirror changes in iOS StashNativeViewUtils.m.
+  // Evaluated in the main frame only. WebView exposes StashAndroid to every frame, so each
+  // wrapper passes the document token and StashCheckoutJsInterface ignores calls without it.
   public static final String JS_SDK_SCRIPT = "(function() {"
+      + "  var token = '" + JS_SDK_TOKEN_PLACEHOLDER + "';"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + StashTelemetrySupport.API_SCRIPT
       + "  window.stash_sdk.triggerHaptic = function() {"
-      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(); } catch(e) {}"
+      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
       + "    try { var p=null;"
@@ -90,49 +96,55 @@ public class StashWebViewUtils {
       + "        p=(typeof order==='string')?order:JSON.stringify(order);"
       + "      }"
       + JS_INTERFACE_NAME
-      + ".onPaymentSuccess(p); } catch(e) {}"
+      + ".onPaymentSuccess(token, p); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onPaymentFailure = function(data) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".onPaymentFailure(); } catch(e) {}"
+      + ".onPaymentFailure(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onPurchaseProcessing = function(data) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".onPurchaseProcessing(); } catch(e) {}"
+      + ".onPurchaseProcessing(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onProcessingCompleted = function(data) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".onProcessingCompleted(); } catch(e) {}"
+      + ".onProcessingCompleted(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.setContentHeight = window.stash_sdk.setContentHeight || function() {};"
       + "  window.stash_sdk.expand = function() {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".expand(); } catch(e) {}"
+      + ".expand(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.collapse = function() {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".collapse(); } catch(e) {}"
+      + ".collapse(token); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.openExternalBrowser = function(url) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".openExternalBrowser((url !== undefined && url !== null) ? String(url) : '');"
+      + ".openExternalBrowser(token, (url !== undefined && url !== null) ? String(url) : '');"
       + " } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.openLink = function(url) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".openLink((url !== undefined && url !== null) ? String(url) : ''); } catch(e) {}"
+      + ".openLink(token, (url !== undefined && url !== null) ? String(url) : '');"
+      + " } catch(e) {}"
       + "  };"
       + "  try { window.close = function() { try { "
       + JS_INTERFACE_NAME
-      + ".requestCloseFromPage(); } catch(e2) {} }; } catch(e) {}"
+      + ".requestCloseFromPage(token); } catch(e2) {} }; } catch(e) {}"
       + "})();";
+
+  /** The bridge script bound to one document's token (a UUID, safe inside the quotes). */
+  static String bridgeScript(String documentToken) {
+    return JS_SDK_SCRIPT.replace(JS_SDK_TOKEN_PLACEHOLDER, documentToken);
+  }
 
   /**
    * Returns true if the context is in dark theme (night mode).
@@ -276,8 +288,24 @@ public class StashWebViewUtils {
       }
       s = "https://" + s;
     }
+    Uri uri = parseAcceptedHttpUri(s);
+    return uri != null ? uri.toString() : null;
+  }
+
+  /**
+   * The one http(s)-plus-host acceptance rule shared by checkout, the URL launcher, and the
+   * browser proxy. Returns the URI with a lowercase scheme, or {@code null} when rejected.
+   */
+  static Uri parseAcceptedHttpUri(String raw) {
+    if (raw == null) {
+      return null;
+    }
+    String trimmed = raw.trim();
+    if (trimmed.isEmpty()) {
+      return null;
+    }
     try {
-      Uri uri = Uri.parse(s);
+      Uri uri = Uri.parse(trimmed);
       String scheme = uri.getScheme();
       if (scheme == null) {
         return null;
@@ -290,9 +318,9 @@ public class StashWebViewUtils {
         return null;
       }
       // Android intent filters match schemes case-sensitively.
-      return uri.buildUpon().scheme(scheme).build().toString();
+      return uri.buildUpon().scheme(scheme).build();
     } catch (Exception e) {
-      Log.w(TAG, "Invalid external payment URL");
+      Log.w(TAG, "Invalid http(s) URL");
       return null;
     }
   }
@@ -360,7 +388,9 @@ public class StashWebViewUtils {
    *
    * @param context context to check theme
    * @return color (white or dark)
+   * @deprecated Unused by the SDK; removal planned for the next major.
    */
+  @Deprecated
   public static int getThemeBackgroundColor(Context context) {
     if (context == null) {
       return Color.WHITE;
@@ -374,7 +404,9 @@ public class StashWebViewUtils {
    * @param context context
    * @param container parent to add the loading view to
    * @return the loading container view, or null on error
+   * @deprecated Unused by the SDK; removal planned for the next major.
    */
+  @Deprecated
   public static View createAndShowLoadingView(Context context, ViewGroup container) {
     if (context == null || container == null) {
       return null;

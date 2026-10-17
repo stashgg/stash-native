@@ -64,20 +64,19 @@
     BOOL webScheme = [@[@"http", @"https", @"about", @"blob", @"data", @"file", @"javascript"] containsObject:scheme];
     if (!webScheme && scheme.length) {
         decisionHandler(WKNavigationActionPolicyCancel);
-        if (![self handlePaymentResultURL:url]) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+        if (![self handlePaymentResultURL:url]) StashOpenExternalURL(url, nil, nil);
         return;
     }
     if ([@[@"apps.apple.com", @"itunes.apple.com"] containsObject:url.host.lowercaseString]) {
         decisionHandler(WKNavigationActionPolicyCancel);
-        [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+        StashOpenExternalURL(url, nil, nil);
         return;
     }
     if (action.navigationType == WKNavigationTypeLinkActivated && action.targetFrame.isMainFrame &&
         ([@[@"http", @"https"] containsObject:scheme])) {
-        [UIApplication.sharedApplication openURL:url options:@{UIApplicationOpenURLOptionUniversalLinksOnly:@YES}
-            completionHandler:^(BOOL success) {
-                decisionHandler(success || ![self isActive] ? WKNavigationActionPolicyCancel : WKNavigationActionPolicyAllow);
-            }];
+        StashOpenExternalURL(url, @{UIApplicationOpenURLOptionUniversalLinksOnly:@YES}, ^(BOOL success) {
+            decisionHandler(success || ![self isActive] ? WKNavigationActionPolicyCancel : WKNavigationActionPolicyAllow);
+        });
         return;
     }
     decisionHandler(WKNavigationActionPolicyAllow);
@@ -102,7 +101,8 @@
 }
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     if (error.code == NSURLErrorCancelled || ![self isActive]) return;
-    if (!self.loaded) [self networkFailed]; else [self finishWithUserDismiss:YES completion:nil];
+    // A main-frame failure before or after the first load ends checkout as a network error, never as a user dismissal.
+    [self networkFailed];
 }
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     BOOL keepsDocument = error.code == NSURLErrorCancelled && [self isActive] && webView == self.webView &&
@@ -127,7 +127,7 @@
     forNavigationAction:(WKNavigationAction *)action windowFeatures:(WKWindowFeatures *)features {
     NSURL *url = action.request.URL;
     if ([self isActive] && url.absoluteString.length && ![url.absoluteString isEqualToString:@"about:blank"]) {
-        if (![self handlePaymentResultURL:url]) [UIApplication.sharedApplication openURL:url options:@{} completionHandler:nil];
+        if (![self handlePaymentResultURL:url]) StashOpenExternalURL(url, nil, nil);
     }
     return nil;
 }

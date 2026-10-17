@@ -40,9 +40,9 @@ NSDictionary *StashConfigurationProbe(void) {
 NSString *StashMeasurementSource(void) { return StashContentMeasurementScript(@"document-test"); }
 NSString *StashNativeInteractionSource(void) { return StashNativeInteractionScript(); }
 NSDictionary *StashURLProbe(void) {
-    return @{@"bare":NormalizeExternalPaymentURL(@"example.invalid/path") ?: @"",
-        @"javascript":NormalizeExternalPaymentURL(@"javascript:alert(1)") ?: @"",
-        @"themed":appendThemeQueryParameter(@"https://example.invalid/?token=a%2Bb%26c&theme=light#section", nil)};
+    return @{@"bare":StashNormalizeExternalPaymentURL(@"example.invalid/path") ?: @"",
+        @"javascript":StashNormalizeExternalPaymentURL(@"javascript:alert(1)") ?: @"",
+        @"themed":StashAppendThemeQueryParameter(@"https://example.invalid/?token=a%2Bb%26c&theme=light#section", nil)};
 }
 NSDictionary *StashNativeSurfaceProbe(void) {
     CGRect safe = CGRectMake(0, 0, 466, 644);
