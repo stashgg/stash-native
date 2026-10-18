@@ -4,11 +4,14 @@ name: Ripley (auto)
 # on-demand /ripley:review comment workflow (ripley.yml). It fires on the
 # same PR lifecycle points Bugbot uses: a PR opened ready for review, a draft
 # promoted to ready, follow-up commits while ready, and a ready PR reopened.
-# Drafts never trigger a review (the draft==false gate). Actions runs no agent
-# and checks out no code; it signs a request to the delegate, which does all the
-# compute and posts the ack, description stamp, review comments, and the "Ripley"
-# check run as stash-ripley[bot]. This workflow uploads the delegate response as
-# a run artifact and reports failures only.
+# Drafts never trigger a review (the draft==false gate), and neither does a PR
+# whose head is the repository's default branch: that is a promotion of work
+# already reviewed on its way into it, and /ripley:review still reviews one on
+# request. Actions runs no agent and checks out no code; it signs a request to
+# the delegate, which does all the compute and posts the ack, description stamp,
+# review comments, and the "Ripley" check run as stash-ripley[bot]. This
+# workflow uploads the delegate response as a run artifact and reports failures
+# only.
 #
 # There is no ack_comment_id here (no comment triggered it), so the delegate
 # acks the PR itself with an eyes reaction. Requires the RIPLEY_REVIEW_SECRET
@@ -32,10 +35,12 @@ jobs:
     # mirror Bugbot: an opened-ready PR and a draft->ready promotion both pass,
     # a push while ready (synchronize) passes, a push while draft is skipped, and
     # a reopened ready PR passes. The head-repo guard skips forks (whose runs get
-    # no secret anyway) so we never auto-spend on external PRs.
+    # no secret anyway) so we never auto-spend on external PRs, and the head-ref
+    # guard skips a PR from the default branch, a promotion of reviewed work.
     if: >-
       github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != github.event.repository.default_branch
     timeout-minutes: 35
     runs-on: blacksmith-2vcpu-ubuntu-2404
     # Shared group with the on-demand /ripley:review workflow (same ripley-<pr>
