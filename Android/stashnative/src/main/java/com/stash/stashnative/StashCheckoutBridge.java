@@ -5,7 +5,7 @@ import android.content.Intent;
 import android.util.Log;
 
 /**
- * Sends checkout lifecycle events from {@link StashCheckoutActivity} to
+ * Sends checkout lifecycle events from {@link StashCardActivity} to
  * {@link StashNativePlugin}'s receiver (same app process by default; package-local broadcasts).
  */
 final class StashCheckoutBridge {
@@ -31,9 +31,9 @@ final class StashCheckoutBridge {
     Context app = context.getApplicationContext();
     Intent intent = new Intent(action);
     intent.setPackage(app.getPackageName());
-    if (context instanceof StashCheckoutActivity) {
+    if (context instanceof StashCardActivity) {
       intent.putExtra(EXTRA_SESSION_ID,
-          ((StashCheckoutActivity) context).getPresentationSessionId());
+          ((StashCardActivity) context).getPresentationSessionId());
     }
     return intent;
   }
@@ -70,14 +70,14 @@ final class StashCheckoutBridge {
   }
 
   static void emitQrCodeScanned(Context context, String content) {
-    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_SCANNED);
-    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT, content);
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_SCANNER_SCANNED);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_SCANNER_CONTENT, content);
     context.getApplicationContext().sendBroadcast(intent);
   }
 
-  static void emitCodeLinkError(Context context, StashNative.CodeLinkError error) {
-    Intent intent = baseIntent(context, CardConstants.BROADCAST_CODE_LINK_ERROR);
-    intent.putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR, error.name());
+  static void emitScannerError(Context context, StashNative.ScannerError error) {
+    Intent intent = baseIntent(context, CardConstants.BROADCAST_SCANNER_ERROR);
+    intent.putExtra(CardConstants.BROADCAST_EXTRA_SCANNER_ERROR, error.name());
     context.getApplicationContext().sendBroadcast(intent);
   }
 }

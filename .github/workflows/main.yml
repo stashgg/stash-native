@@ -34,7 +34,7 @@ jobs:
 
       - name: Clean and build Android library (stashnative)
         working-directory: Android
-        run: ./gradlew clean :stashnative:assembleRelease
+        run: ./gradlew clean :stashnative:assembleRelease :stashnative-codelink:assembleRelease
 
   build-ios-library:
     name: Build iOS library only
@@ -56,16 +56,20 @@ jobs:
       - name: Clean and build iOS library (StashNative)
         working-directory: iOS/StashNative
         run: |
-          xcodebuild clean build \
-            -project StashNative.xcodeproj \
-            -scheme StashNative \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build/DerivedData \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          for SCHEME in StashNative StashNativeCodeLink; do
+            xcodebuild clean build \
+              -project StashNative.xcodeproj \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build/DerivedData \
+              IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          done
+          # The core framework must stay free of camera references.
+          ! otool -L build/DerivedData/Build/Products/Release-iphoneos/StashNative.framework/StashNative | grep -q AVFoundation
 
   build-android:
     name: Build Android Sample APK
@@ -201,16 +205,18 @@ jobs:
       - name: Build iOS library (StashNative)
         working-directory: iOS/StashNative
         run: |
-          xcodebuild build \
-            -project StashNative.xcodeproj \
-            -scheme StashNative \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build/DerivedData \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+          for SCHEME in StashNative StashNativeCodeLink; do
+            xcodebuild build \
+              -project StashNative.xcodeproj \
+              -scheme "$SCHEME" \
+              -configuration Release \
+              -sdk iphoneos \
+              -derivedDataPath build/DerivedData \
+              IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO
+          done
       
       - name: Build iOS Sample for Device
         working-directory: iOS/Sample/StashNativeSample

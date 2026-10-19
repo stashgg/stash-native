@@ -26,12 +26,12 @@ import org.robolectric.annotation.LooperMode;
 @LooperMode(LooperMode.Mode.PAUSED)
 @SuppressWarnings("deprecation")
 public class WebViewFailureTest {
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private WebView web;
   private WebViewClient client;
 
   @Before public void prepare() {
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class).get();
     activity.url = "https://unavailable.invalid/checkout";
     activity.cardContainer = new StashSheetLayout(activity, 24f);
     StashCheckoutWebViewSupport.addWebView(activity);

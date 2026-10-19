@@ -18,12 +18,8 @@
     public static void unbindIfBound(android.content.Context);
 }
 
-# Optional scanner implementation, loaded only when CodeLink is opened.
--keep class com.stash.stashnative.StashCodeLinkSupport {
-    <init>(com.stash.stashnative.StashCheckoutActivity);
-}
--dontwarn androidx.camera.**
--dontwarn com.google.zxing.**
+# The scanner SPI is implemented by the optional stashnative-codelink AAR, whose own consumer
+# rules keep its entry class. The core only references these types directly.
 
 # Optional Custom Tabs fallback accessed reflectively by StashUrlLauncher.
 -keep,allowoptimization class androidx.browser.customtabs.CustomTabsIntent {

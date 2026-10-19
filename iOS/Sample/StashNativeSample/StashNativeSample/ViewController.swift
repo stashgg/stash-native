@@ -95,7 +95,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let cardMaximumHeightLabel = UILabel()
     let cardEdgeMarginSlider = UISlider()
     let cardEdgeMarginLabel = UILabel()
-    let codeLinkConfig = StashNativeCodeLinkConfig()
+    let scannerConfig = StashNativeScannerConfig()
     let browserConfig = StashNativeBrowserConfig()
 
     // API keys: named, each production or test; Keychain-persisted (survives reinstall).
@@ -118,7 +118,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     enum Section {
         case card
         case browser
-        case codeLink
+        case scanner
         case presentationOptions
         case other
         case about
@@ -137,7 +137,7 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     /// Sections visible for the current tab, in display order.
     var visibleSections: [Section] {
         switch currentTab {
-        case .test: return [.card, .browser, .codeLink]
+        case .test: return [.card, .browser, .scanner]
         case .settings: return [.presentationOptions, .other, .about]
         case .api: return [.checkoutGenerationSettings]
         }

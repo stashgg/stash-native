@@ -32,7 +32,7 @@ public class BridgeTokenTest {
       "requestCloseFromPage"
   };
 
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private StashCheckoutJsInterface bridge;
 
   @Before public void prepare() {
@@ -41,7 +41,7 @@ public class BridgeTokenTest {
     plugin.isCurrentlyPresented = true;
     Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
         plugin.presentationSessionId);
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class, intent).get();
     activity.options = StashPresentationOptions.card(null);
     bridge = new StashCheckoutJsInterface(activity);
   }

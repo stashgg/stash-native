@@ -1,4 +1,4 @@
-package com.stash.stashnative;
+package com.stash.stashnative.codelink;
 
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
@@ -29,12 +29,13 @@ import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import androidx.camera.view.PreviewView;
+import com.stash.stashnative.StashScannerOptions;
 
 /** Camera chrome inside the shared card; all controls avoid its bottom system inset. */
 @SuppressLint("ViewConstructor") // Created by the card; never inflated from XML.
-final class StashCodeLinkView extends FrameLayout {
+final class StashScannerView extends FrameLayout {
   final PreviewView preview;
-  private final StashCodeLinkOptions options;
+  private final StashScannerOptions options;
   private final Guide guide;
   private final TextView heading;
   private final Symbol close;
@@ -50,7 +51,7 @@ final class StashCodeLinkView extends FrameLayout {
   private int bottomInset;
   private Runnable geometryListener;
 
-  StashCodeLinkView(Context context, StashCodeLinkOptions options,
+  StashScannerView(Context context, StashScannerOptions options,
       Runnable dismiss, Runnable openSettings) {
     super(context);
     this.options = options;
@@ -61,11 +62,11 @@ final class StashCodeLinkView extends FrameLayout {
     addView(preview, new LayoutParams(-1, -1));
     guide = new Guide(context);
     addView(guide, new LayoutParams(-1, -1));
-    heading = label(R.string.stash_code_link_heading, 20, false);
+    heading = label(R.string.stash_scanner_heading, 20, false);
     setCustomText(heading, options.headerText);
     addView(heading);
     close = new Symbol(context, Symbol.CLOSE);
-    close.setContentDescription(context.getString(R.string.stash_code_link_close));
+    close.setContentDescription(context.getString(R.string.stash_scanner_close));
     close.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44ffffff),
         rounded(0x66747478, 24), null));
     close.setOnClickListener(view -> dismiss.run());
@@ -80,10 +81,10 @@ final class StashCodeLinkView extends FrameLayout {
     callout.addView(symbol, new LinearLayout.LayoutParams(dp(44), dp(44)));
     LinearLayout text = new LinearLayout(context);
     text.setOrientation(LinearLayout.VERTICAL);
-    TextView title = label(R.string.stash_code_link_callout, 16, true);
+    TextView title = label(R.string.stash_scanner_callout, 16, true);
     setCustomText(title, options.calloutTitle);
     text.addView(title);
-    TextView subtitle = label(R.string.stash_code_link_instruction, 13, false);
+    TextView subtitle = label(R.string.stash_scanner_instruction, 13, false);
     setCustomText(subtitle, options.calloutSubtitle);
     subtitle.setTextColor(0xffb7b7bd);
     subtitle.setPadding(0, dp(4), 0, 0);
@@ -105,7 +106,7 @@ final class StashCodeLinkView extends FrameLayout {
     statusText.setPadding(0, dp(12), 0, dp(8));
     status.addView(statusText);
     settings = new Button(context);
-    settings.setText(R.string.stash_code_link_settings);
+    settings.setText(R.string.stash_scanner_settings);
     settings.setTextColor(Color.WHITE);
     settings.setBackground(new RippleDrawable(ColorStateList.valueOf(0x44ffffff),
         rounded(0xff3a3a3c, 20), null));
@@ -134,7 +135,7 @@ final class StashCodeLinkView extends FrameLayout {
 
   void showStatus(int message, boolean loading, boolean showSettings) {
     statusText.setText(loading ? null : getContext().getText(message));
-    if (!loading && message == R.string.stash_code_link_unavailable) {
+    if (!loading && message == R.string.stash_scanner_unavailable) {
       setCustomText(statusText, options.cameraUnavailableText);
     }
     statusText.setVisibility(loading ? GONE : VISIBLE);
@@ -176,7 +177,7 @@ final class StashCodeLinkView extends FrameLayout {
     confirmation.setClickable(true);
     Symbol check = new Symbol(getContext(), Symbol.CHECK);
     confirmation.addView(check, new LinearLayout.LayoutParams(dp(80), dp(80)));
-    TextView title = label(R.string.stash_code_link_connected, 22, true);
+    TextView title = label(R.string.stash_scanner_connected, 22, true);
     setCustomText(title, options.connectedText);
     title.setGravity(Gravity.CENTER);
     title.setPadding(0, dp(12), 0, 0);

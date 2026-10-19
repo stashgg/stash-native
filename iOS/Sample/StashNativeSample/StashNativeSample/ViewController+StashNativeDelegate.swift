@@ -13,12 +13,12 @@ import StashNative
 extension ViewController: StashNativeDelegate {
 
     func stashNativeDidScanQRCode(_ content: String) {
-        addCallbackChip("CodeLink · \(content)")
+        addCallbackChip("Scanner · \(content)")
         flushPendingAlertsIfPossible()
     }
 
-    func stashNativeCodeLinkDidEncounterError(_ error: Error) {
-        addCallbackChip("CodeLink · \(error.localizedDescription)")
+    func stashNativeScannerDidEncounterError(_ error: Error) {
+        addCallbackChip("Scanner · \(error.localizedDescription)")
     }
 
     func stashNativeDidCompletePayment(withOrder order: String?) {
@@ -43,8 +43,8 @@ extension ViewController: StashNativeDelegate {
         recordDismissal("Card Dismissed")
     }
 
-    func stashNativeDidDismissScan() {
-        recordDismissal("Scan Dismissed")
+    func stashNativeDidDismissScanner() {
+        recordDismissal("Scanner Dismissed")
     }
 
     private func recordDismissal(_ label: String) {

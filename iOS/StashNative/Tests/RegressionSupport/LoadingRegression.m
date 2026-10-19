@@ -18,21 +18,21 @@
 - (WKNavigation *)loadRequest:(NSURLRequest *)request { self.requests++; return nil; }
 @end
 
-@interface StashReadinessSession : StashCheckoutSession
+@interface StashReadinessSession : StashCardSession
 @property (nonatomic) BOOL foreground;
 @end
 @implementation StashReadinessSession
 - (BOOL)isInitialContentForeground { return self.foreground; }
 @end
 
-static StashCheckoutSession *StashLoadingSession(StashNative *owner) {
+static StashCardSession *StashLoadingSession(StashNative *owner) {
     StashReadinessSession *session = [StashReadinessSession new];
     session.foreground = YES;
     owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];
     session.url = @"https://checkout.invalid";
     session.webView = [StashReadinessWebView new];
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     controller.session = session; session.controller = controller;
     [controller loadViewIfNeeded];
     [session webView:session.webView didStartProvisionalNavigation:nil];
@@ -49,7 +49,7 @@ NSString *StashInitialContentReadinessSource(void) { return StashInitialContentR
 
 NSDictionary *StashLoadingPresentationProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = StashLoadingSession(owner);
+    StashCardSession *session = StashLoadingSession(owner);
     StashReadinessWebView *web = (id)session.webView;
     BOOL initiallyCovered = session.controller.loadingCover && !web.userInteractionEnabled && web.accessibilityElementsHidden;
     NSTimer *initialWatchdog = session.contentRevealTimer;
@@ -73,7 +73,7 @@ NSDictionary *StashLoadingPresentationProbe(void) {
     BOOL recoveryStaysVisible = web.requests == 1 && !session.controller.loadingCover && web.readinessReplies.count == 2;
     [session finishWithUserDismiss:NO completion:nil];
 
-    StashCheckoutSession *capped = StashLoadingSession(owner);
+    StashCardSession *capped = StashLoadingSession(owner);
     capped.receivedResponse = YES;
     capped.contentWaitElapsed = 16;
     ((StashReadinessSession *)capped).foreground = NO;
@@ -87,7 +87,7 @@ NSDictionary *StashLoadingPresentationProbe(void) {
         !capped.controller.loadingCover && !capped.controller.spinner.isAnimating && !capped.loaded;
     [capped finishWithUserDismiss:NO completion:nil];
 
-    StashCheckoutSession *stalled = StashLoadingSession(owner);
+    StashCardSession *stalled = StashLoadingSession(owner);
     stalled.receivedResponse = YES;
     [stalled webView:stalled.webView didStartProvisionalNavigation:nil];
     stalled.contentWaitElapsed = 16;
@@ -95,15 +95,15 @@ NSDictionary *StashLoadingPresentationProbe(void) {
     BOOL provisionalStallReleasesCover = stalled.initialContentRevealed && !stalled.controller.loadingCover;
     [stalled finishWithUserDismiss:NO completion:nil];
 
-    StashCheckoutSession *closed = StashLoadingSession(owner);
-    StashCheckoutViewController *closedController = closed.controller;
+    StashCardSession *closed = StashLoadingSession(owner);
+    StashCardViewController *closedController = closed.controller;
     StashReadinessWebView *closedWeb = (id)closed.webView;
     [closed finishWithUserDismiss:NO completion:nil];
     StashReply(closedWeb, 0, YES);
     BOOL closeDiscardsReply = owner.session == nil && !closedController.loadingCover && !closedController.spinner.isAnimating;
 
-    StashCheckoutSession *failed = StashLoadingSession(owner);
-    StashCheckoutViewController *failedController = failed.controller;
+    StashCardSession *failed = StashLoadingSession(owner);
+    StashCardViewController *failedController = failed.controller;
     [failed networkFailed];
     BOOL errorStopsLoading = owner.session == nil && !failedController.loadingCover && !failedController.spinner.isAnimating;
     return @{@"initiallyCovered":@(initiallyCovered), @"retryRejectsOldReply":@(retryRejectsOldReply),
@@ -156,12 +156,12 @@ NSDictionary *StashLoadingPresentationProbe(void) {
 NSString *StashTopChromeProbeSource(void) { return StashTopChromeScript(); }
 NSDictionary *StashTopChromeLifecycleProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     StashChromeProbeWebView *web = [StashChromeProbeWebView new];
     session.owner = owner; owner.session = session; session.webView = web;
     session.config = [StashNativeCardConfig new]; session.loaded = YES; session.initialContentRevealed = YES;
     session.url = @"https://checkout.invalid";
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     controller.session = session; session.controller = controller;
     UIColor *fallback = [UIColor colorWithRed:0.2 green:0.3 blue:0.4 alpha:1];
     web.underPageBackgroundColor = fallback;
@@ -224,11 +224,11 @@ NSDictionary *StashTopChromeLifecycleProbe(void) {
 NSDictionary *StashChromeLoadingCoverProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.owner = owner; owner.session = session;
     session.config = [StashNativeCardConfig new];
     session.webView = [WKWebView new];
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session; [controller configurePresentation];
     controller.view.frame = CGRectMake(0, 0, 390, 576);
     [controller viewDidLayoutSubviews];
@@ -260,7 +260,7 @@ NSDictionary *StashChromeLoadingCoverProbe(void) {
 }
 @end
 @interface StashBackingReentryObserver : NSObject
-@property (nonatomic, weak) StashCheckoutSession *session;
+@property (nonatomic, weak) StashCardSession *session;
 @property (nonatomic, strong) UIColor *color;
 @property (nonatomic) NSUInteger callbacks;
 @property (nonatomic) NSUInteger callbackDepth;
@@ -279,12 +279,12 @@ static BOOL StashLoadingSamePaint(UIColor *left, UIColor *right);
 
 NSDictionary *StashPageBackingLifecycleProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     StashBackingProbeWebView *web = [StashBackingProbeWebView new];
     owner.session = session; session.owner = owner; session.webView = web;
     session.config = [StashNativeCardConfig new]; session.loaded = YES; session.initialContentRevealed = YES;
     session.url = @"https://checkout.invalid";
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     UIColor *coverColor = UIColor.magentaColor;
     controller.loadingCover = [UIView new]; controller.loadingCover.backgroundColor = coverColor;
@@ -381,13 +381,13 @@ NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGF
     [presenter addChildViewController:host]; host.view.frame = presenter.view.bounds;
     [presenter.view addSubview:host.view]; [host didMoveToParentViewController:presenter];
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner; session.presenter = host;
     session.url = @"about:blank"; session.config = [StashNativeCardConfig new];
     session.measuredContentHeight = measured;
     [session presentCheckout]; [session.webView stopLoading];
     session.loaded = YES; session.initialContentRevealed = YES;
-    StashCheckoutViewController *controller = session.controller;
+    StashCardViewController *controller = session.controller;
     [controller revealInitialContentAnimated:NO];
     controller.view.frame = CGRectMake(30, 50, 390, [controller contentHeightForMaximum:800 expanded:NO]);
     [controller viewDidLayoutSubviews]; controller.previousWidth = session.webView.bounds.size.width;
@@ -414,7 +414,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         StashLoadingBackgroundHost *host = [StashLoadingBackgroundHost new];
         window.rootViewController = host; [window makeKeyAndVisible];
         StashNative *owner = [StashNative new];
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.presenter = host;
 
         session.url = @"about:blank";
@@ -440,12 +440,12 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         [session cleanup]; owner.session = nil;
     }
     StashNative *shared = [StashNative sharedInstance];
-    StashCheckoutSession *savedSession = shared.session;
+    StashCardSession *savedSession = shared.session;
     for (NSUInteger dark = 0; dark < 2; dark++) {
         UIViewController *host = [UIViewController new];
         host.overrideUserInterfaceStyle = dark ? UIUserInterfaceStyleDark : UIUserInterfaceStyleLight;
         window.rootViewController = host; [window makeKeyAndVisible];
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         shared.session = session; session.owner = shared; session.presenter = host;
 
         session.config = [StashNativeCardConfig new];
@@ -453,7 +453,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
         UIColor *page = UIColor.magentaColor;
         UIColor *edge = UIColor.greenColor;
         session.webView.underPageBackgroundColor = page;
-        StashCheckoutViewController *controller = [StashCheckoutViewController new];
+        StashCardViewController *controller = [StashCardViewController new];
         session.controller = controller; controller.session = session;
         controller.topChromeColor = edge;
         [controller configurePresentation];
@@ -580,7 +580,7 @@ NSDictionary *StashNavigationPolicyProbe(void) {
     [opens install];
     StashNative *owner = [StashNative new];
     StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
-    StashCheckoutSession *session = StashLoadingSession(owner);
+    StashCardSession *session = StashLoadingSession(owner);
     session.config.autoClose = NO;
     session.loaded = YES;
     __block NSInteger calls = 0;
@@ -645,14 +645,14 @@ NSDictionary *StashNavigationResponseProbe(void) {
     __block WKNavigationResponsePolicy policy = WKNavigationResponsePolicyAllow;
     void (^decide)(WKNavigationResponsePolicy) = ^(WKNavigationResponsePolicy decision) { calls++; policy = decision; };
 
-    StashCheckoutSession *failing = StashLoadingSession(owner);
+    StashCardSession *failing = StashLoadingSession(owner);
     [failing beginLoadBudget];
     [failing webView:failing.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(404, YES) decisionHandler:decide];
     result[@"errorBeforeLoadCancelsAndFails"] = @(calls == 1 && policy == WKNavigationResponsePolicyCancel &&
         delegate.networkErrors == 1 && !delegate.presentedAtNetworkError && delegate.dismissals == 0 &&
         owner.session == nil && failing.loadTimer == nil);
 
-    StashCheckoutSession *loaded = StashLoadingSession(owner);
+    StashCardSession *loaded = StashLoadingSession(owner);
     loaded.loaded = YES;
     calls = 0;
     [loaded webView:loaded.webView decidePolicyForNavigationResponse:(id)StashNavigationResponse(404, YES) decisionHandler:decide];
@@ -688,7 +688,7 @@ NSDictionary *StashLoadBudgetProbe(void) {
     StashNative *owner = [StashNative new];
     StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
 
-    StashCheckoutSession *session = StashLoadingSession(owner);
+    StashCardSession *session = StashLoadingSession(owner);
     StashReadinessWebView *web = (id)session.webView;
     [session beginLoadBudget];
     BOOL armed = session.loadTimer != nil && web.requests == 0 && !session.retriedLoad && !session.receivedResponse;
@@ -707,7 +707,7 @@ NSDictionary *StashLoadBudgetProbe(void) {
     result[@"failsAtFifteenSeconds"] = @(owner.session == nil && delegate.networkErrors == 1 &&
         !delegate.presentedAtNetworkError && delegate.dismissals == 0 && session.loadTimer == nil && web.requests == 1);
 
-    StashCheckoutSession *responded = StashLoadingSession(owner);
+    StashCardSession *responded = StashLoadingSession(owner);
     StashReadinessWebView *respondedWeb = (id)responded.webView;
     [responded beginLoadBudget];
     responded.receivedResponse = YES;
@@ -717,7 +717,7 @@ NSDictionary *StashLoadBudgetProbe(void) {
         owner.session == responded && delegate.networkErrors == 1);
     [responded finishWithUserDismiss:NO completion:nil];
 
-    StashCheckoutSession *finished = StashLoadingSession(owner);
+    StashCardSession *finished = StashLoadingSession(owner);
     StashReadinessWebView *finishedWeb = (id)finished.webView;
     [finished beginLoadBudget];
     finished.loaded = YES;
@@ -735,7 +735,7 @@ NSDictionary *StashNewWindowProbe(void) {
     [opens install];
     StashNative *owner = [StashNative new];
     StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
-    StashCheckoutSession *session = StashLoadingSession(owner);
+    StashCardSession *session = StashLoadingSession(owner);
     session.config.autoClose = NO;
     session.loaded = YES;
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
@@ -760,7 +760,7 @@ NSDictionary *StashNewWindowProbe(void) {
     return result;
 }
 
-@interface StashDialogProbeController : StashCheckoutViewController
+@interface StashDialogProbeController : StashCardViewController
 @property (nonatomic, strong) UIViewController *occupant;
 @property (nonatomic, strong) NSMutableArray<UIViewController *> *presented;
 @end
@@ -772,8 +772,8 @@ NSDictionary *StashNewWindowProbe(void) {
 }
 @end
 
-static StashCheckoutSession *StashDialogSession(StashNative *owner, StashDialogProbeController **controllerOut) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+static StashCardSession *StashDialogSession(StashNative *owner, StashDialogProbeController **controllerOut) {
+    StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];
     session.url = @"https://checkout.invalid";
@@ -799,7 +799,7 @@ NSDictionary *StashJavaScriptDialogProbe(void) {
 
     // A dialog already on screen: every completion runs immediately, exactly once, with the dismissive value.
     StashDialogProbeController *occupied = nil;
-    StashCheckoutSession *busy = StashDialogSession(owner, &occupied);
+    StashCardSession *busy = StashDialogSession(owner, &occupied);
     occupied.occupant = [UIViewController new];
     [busy webView:busy.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
     [busy webView:busy.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
@@ -813,7 +813,7 @@ NSDictionary *StashJavaScriptDialogProbe(void) {
     // Alert presented: completion waits for the dialog, then runs once even if completed twice.
     alerts = 0;
     StashDialogProbeController *free = nil;
-    StashCheckoutSession *open = StashDialogSession(owner, &free);
+    StashCardSession *open = StashDialogSession(owner, &free);
     [open webView:open.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
     BOOL presentedAlert = free.presented.count == 1 && [free.presented.firstObject isKindOfClass:UIAlertController.class] &&
         alerts == 0 && open.dialogCompletion != nil;
@@ -825,7 +825,7 @@ NSDictionary *StashJavaScriptDialogProbe(void) {
     // Confirm presented, then the checkout finishes: completion runs once with NO; later taps are no-ops.
     confirms = 0; confirmValue = YES;
     StashDialogProbeController *confirming = nil;
-    StashCheckoutSession *finishing = StashDialogSession(owner, &confirming);
+    StashCardSession *finishing = StashDialogSession(owner, &confirming);
     [finishing webView:finishing.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
     BOOL presentedConfirm = confirming.presented.count == 1 && confirms == 0;
     [finishing finishWithUserDismiss:NO completion:nil];
@@ -836,7 +836,7 @@ NSDictionary *StashJavaScriptDialogProbe(void) {
     // Prompt presented, then teardown without callbacks: completion runs once with nil.
     prompts = 0; promptValue = @"unset";
     StashDialogProbeController *prompting = nil;
-    StashCheckoutSession *tearing = StashDialogSession(owner, &prompting);
+    StashCardSession *tearing = StashDialogSession(owner, &prompting);
     [tearing webView:tearing.webView runJavaScriptTextInputPanelWithPrompt:@"p" defaultText:@"d" initiatedByFrame:nil completionHandler:promptDone];
     BOOL presentedPrompt = prompting.presented.count == 1 && prompts == 0;
     [tearing cleanup];
@@ -848,7 +848,7 @@ NSDictionary *StashJavaScriptDialogProbe(void) {
     // Inactive session: completions run immediately and nothing is presented.
     alerts = 0; confirms = 0; prompts = 0;
     StashDialogProbeController *retired = nil;
-    StashCheckoutSession *inactive = StashDialogSession(owner, &retired);
+    StashCardSession *inactive = StashDialogSession(owner, &retired);
     owner.session = nil;
     [inactive webView:inactive.webView runJavaScriptAlertPanelWithMessage:@"a" initiatedByFrame:nil completionHandler:alertDone];
     [inactive webView:inactive.webView runJavaScriptConfirmPanelWithMessage:@"c" initiatedByFrame:nil completionHandler:confirmDone];
@@ -871,8 +871,8 @@ NSDictionary *StashPostLoadFailureProbe(void) {
     window.rootViewController = host; [window makeKeyAndVisible];
     StashNative *owner = [StashNative new];
     StashNavigationProbeDelegate *delegate = StashNavigationDelegate(owner);
-    StashCheckoutSession *(^present)(void) = ^StashCheckoutSession *{
-        StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *(^present)(void) = ^StashCardSession *{
+        StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.presenter = host;
         session.url = @"about:blank"; session.config = [StashNativeCardConfig new];
         [session presentCheckout]; [session.webView stopLoading];
@@ -880,7 +880,7 @@ NSDictionary *StashPostLoadFailureProbe(void) {
         return session;
     };
 
-    StashCheckoutSession *session = present();
+    StashCardSession *session = present();
     result[@"presented"] = @(owner.isCurrentlyPresented && session.controller.viewIfLoaded.window == window && session.webView != nil);
     [session handleMessage:@"stashPurchaseProcessing" body:@{}];
     result[@"processingLocked"] = @(session.processing && owner.isPurchaseProcessing && ![session canUserDismiss]);
@@ -892,7 +892,7 @@ NSDictionary *StashPostLoadFailureProbe(void) {
     result[@"notPresented"] = @(!owner.isCurrentlyPresented && session.webView == nil && session.controller == nil &&
         !owner.isPurchaseProcessing);
 
-    StashCheckoutSession *second = present();
+    StashCardSession *second = present();
     [second webView:second.webView didFailNavigation:nil
         withError:[NSError errorWithDomain:NSURLErrorDomain code:NSURLErrorCancelled userInfo:nil]];
     result[@"cancelledFailureIgnored"] = @(owner.isCurrentlyPresented && owner.session == second && delegate.networkErrors == 1);
@@ -901,7 +901,7 @@ NSDictionary *StashPostLoadFailureProbe(void) {
     result[@"provisionalFailureAfterLoadFails"] = @(!owner.isCurrentlyPresented && delegate.networkErrors == 2 &&
         !delegate.presentedAtNetworkError && delegate.dismissals == 0);
 
-    StashCheckoutSession *third = present();
+    StashCardSession *third = present();
     [third handleMessage:@"stashPurchaseProcessing" body:@{}];
     [third webViewWebContentProcessDidTerminate:third.webView];
     result[@"rendererLossWhileProcessingFails"] = @(!owner.isCurrentlyPresented && delegate.networkErrors == 3 &&

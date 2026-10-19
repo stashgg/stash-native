@@ -1,7 +1,7 @@
 #import "StashNativePrivate.h"
 #import <math.h>
 
-@implementation StashCheckoutViewController (Gestures)
+@implementation StashCardViewController (Gestures)
 - (BOOL)canExpandFromContent {
     return ![self usesFloatingNativeSizing] && !self.singleDetent && !self.session.expanded &&
         !self.session.keyboardVisible && !self.session.processing && !self.session.closing && !self.geometryTransitioning;
@@ -177,7 +177,7 @@
 }
 - (void)updateDismissalPolicy {
     self.modalInPresentation = !self.session.config.allowDismiss || self.session.processing ||
-        self.session.codeLinkCompleted || self.touchBeganInWebContent;
+        self.session.scanCompleted || self.touchBeganInWebContent;
     self.sheetPresentationController.prefersGrabberVisible = !self.session.processing;
 }
 @end

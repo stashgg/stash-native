@@ -15,7 +15,7 @@ final class StashCheckoutLoadingSupport {
 
   private StashCheckoutLoadingSupport() {}
 
-  static void scheduleInitialLoadTimers(StashCheckoutActivity activity) {
+  static void scheduleInitialLoadTimers(StashCardActivity activity) {
     if (activity.loadTimersHandler == null) {
       activity.loadTimersHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     }
@@ -72,7 +72,7 @@ final class StashCheckoutLoadingSupport {
     activity.loadTimersHandler.postDelayed(activity.networkDeadlineRunnable, remaining);
   }
 
-  static void markMainFrameNavigationCommittedIfNeeded(StashCheckoutActivity activity) {
+  static void markMainFrameNavigationCommittedIfNeeded(StashCardActivity activity) {
     if (activity.mainFrameNavigationCommitted || activity.networkErrorHandled) {
       return;
     }
@@ -81,7 +81,7 @@ final class StashCheckoutLoadingSupport {
   }
 
   /** Waits for document completion and a committed frame before revealing content. */
-  static void maybeRevealWhenReady(StashCheckoutActivity activity) {
+  static void maybeRevealWhenReady(StashCardActivity activity) {
     if (activity.networkErrorHandled || activity.mainFrameErrorReceived || activity.isDismissing) {
       return;
     }
@@ -101,7 +101,7 @@ final class StashCheckoutLoadingSupport {
     return url + sep + "_stash_nc=" + System.currentTimeMillis();
   }
 
-  static void cancelLoadTimers(StashCheckoutActivity activity) {
+  static void cancelLoadTimers(StashCardActivity activity) {
     if (activity.loadTimersHandler == null) {
       return;
     }
@@ -117,7 +117,7 @@ final class StashCheckoutLoadingSupport {
    * Stops the loading/WebView crossfade and resets alpha so a new load can show the spinner until
    * {@link #revealWebViewAndRemoveLoading} runs again.
    */
-  static void cancelLoadingRevealAnimation(StashCheckoutActivity activity) {
+  static void cancelLoadingRevealAnimation(StashCardActivity activity) {
     // Clear this before cancel() so any onAnimationEnd from the crossfade treats this as cancelled.
     activity.webViewRevealAnimationRunning = false;
     activity.webViewRevealAnimationToken++;
@@ -135,7 +135,7 @@ final class StashCheckoutLoadingSupport {
     }
   }
 
-  static void showLoading(StashCheckoutActivity activity) {
+  static void showLoading(StashCardActivity activity) {
     activity.runOnUiThread(() -> {
       if (activity.webViewLoadingRevealComplete || activity.webViewRevealAnimationRunning) {
         return;
@@ -164,7 +164,7 @@ final class StashCheckoutLoadingSupport {
     });
   }
 
-  static void emitPageLoadedIfNeeded(StashCheckoutActivity activity) {
+  static void emitPageLoadedIfNeeded(StashCardActivity activity) {
     if (activity.pageLoadedCallbackSent || activity.pageLoadStartTime <= 0) {
       return;
     }
@@ -183,7 +183,7 @@ final class StashCheckoutLoadingSupport {
    * First load: crossfade loading overlay out and WebView in (aligned with iOS
    * {@code showWebViewAndRemoveLoading}). Later navigations: no-op if overlay already gone.
    */
-  static void revealWebViewAndRemoveLoading(StashCheckoutActivity activity) {
+  static void revealWebViewAndRemoveLoading(StashCardActivity activity) {
     activity.runOnUiThread(() -> {
       if (activity.webView == null || activity.isDismissing
           || activity.webViewRevealAnimationRunning) {
@@ -232,7 +232,7 @@ final class StashCheckoutLoadingSupport {
     });
   }
 
-  static void removeLoadingViewFromParent(StashCheckoutActivity activity) {
+  static void removeLoadingViewFromParent(StashCardActivity activity) {
     if (activity.loadingView != null && activity.loadingView.getParent() != null) {
       ((ViewGroup) activity.loadingView.getParent()).removeView(activity.loadingView);
     }

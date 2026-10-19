@@ -21,8 +21,8 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.window.OnBackInvokedCallback;
 
-/** Same-process host for a responsive card. */
-public class StashCheckoutActivity extends Activity {
+/** Same-process host for a responsive card: checkout, browser handoff, or the scanner. */
+public class StashCardActivity extends Activity implements StashScannerHost {
   private static final String TAG = "StashNative";
   FrameLayout rootLayout;
   View backdropView;
@@ -44,11 +44,12 @@ public class StashCheckoutActivity extends Activity {
   StashPresentationController presentation;
   StashContentSizeSupport contentSizeSupport;
   StashTelemetrySupport telemetrySupport;
-  StashCodeLinkSession codeLinkSupport;
-  boolean codeLink;
-  boolean codeLinkCompleted;
-  private boolean codeLinkCancelled;
-  private String codeLinkResult;
+  StashScannerContent scannerContent;
+  StashScannerOptions scannerOptions;
+  boolean scanner;
+  boolean scanCompleted;
+  private boolean scanCancelled;
+  private String scanResult;
   private boolean awaitingExternalBrowserDimOverlay;
   private OnBackInvokedCallback backCallback;
   boolean initialPageLoadComplete;
@@ -137,10 +138,11 @@ public class StashCheckoutActivity extends Activity {
     plugin.setCheckoutActivity(this);
     Intent intent = getIntent();
     options = StashPresentationOptions.read(intent);
-    codeLink = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_CODE_LINK, false);
+    scanner = intent.getBooleanExtra(CardConstants.INTENT_EXTRA_SCANNER, false);
+    scannerOptions = scanner ? StashScannerOptions.read(intent) : null;
     url = intent.getStringExtra(CardConstants.INTENT_EXTRA_URL);
     initialURL = url;
-    if (url == null && !codeLink) {
+    if (url == null && !scanner) {
       finish();
       return;
     }
@@ -151,7 +153,7 @@ public class StashCheckoutActivity extends Activity {
       hostBackdrop.dispose();
       hostBackdrop = null;
     }
-    boolean dark = codeLink || StashWebViewUtils.isDarkTheme(this);
+    boolean dark = scanner || StashWebViewUtils.isDarkTheme(this);
     sheetChromeBackgroundArgb =
         dark ? Color.parseColor(CardConstants.COLOR_DARK_BG) : Color.WHITE;
     effectiveIsDarkForContent = dark;
@@ -166,7 +168,7 @@ public class StashCheckoutActivity extends Activity {
       callbackSent = true;
       isDismissing = true;
       finishActivityWithNoAnimation();
-      plugin.codeLinkUnavailable(this);
+      plugin.scannerUnavailable(this);
       return;
     }
     if (Build.VERSION.SDK_INT >= 33) {
@@ -193,19 +195,19 @@ public class StashCheckoutActivity extends Activity {
     rootLayout.addView(cardContainer, new FrameLayout.LayoutParams(1, 1));
     presentation = new StashPresentationController(this, options);
     cardContainer.controller = presentation;
-    if (codeLink) {
-      codeLinkSupport = StashCodeLinkSession.create(this);
-      if (codeLinkSupport == null) {
+    if (scanner) {
+      scannerContent = StashScannerContent.create(this);
+      if (scannerContent == null) {
         return false;
       }
-      cardContainer.addView(codeLinkSupport.getView(), new FrameLayout.LayoutParams(-1, -1));
+      cardContainer.addView(scannerContent.getView(), new FrameLayout.LayoutParams(-1, -1));
     } else {
       contentSizeSupport = new StashContentSizeSupport(this);
       telemetrySupport = new StashTelemetrySupport(this);
       StashCheckoutWebViewSupport.addWebView(this);
     }
     addDragHandle();
-    if (!codeLink) {
+    if (!scanner) {
       addHomeButton();
     }
     setContentView(rootLayout);
@@ -233,7 +235,7 @@ public class StashCheckoutActivity extends Activity {
             Gravity.TOP | Gravity.CENTER_HORIZONTAL);
     pill.topMargin = StashWebViewUtils.dpToPx(this, 8);
     tray.addView(handle, pill);
-    tray.setContentDescription(codeLink ? "Resize scanner" : "Resize checkout");
+    tray.setContentDescription(scanner ? "Resize scanner" : "Resize checkout");
     tray.setOnTouchListener(presentation);
     tray.setFocusable(true);
     tray.setOnClickListener(
@@ -345,7 +347,7 @@ public class StashCheckoutActivity extends Activity {
   }
 
   void dismissWithAnimation() {
-    cancelCodeLink();
+    cancelScan();
     if (isDismissing) {
       return;
     }
@@ -376,7 +378,7 @@ public class StashCheckoutActivity extends Activity {
   }
 
   void finishForPluginResetWithoutCallbacks() {
-    cancelCodeLink();
+    cancelScan();
     callbackSent = true;
     isDismissing = true;
     if (hostBackdrop != null) {
@@ -386,25 +388,61 @@ public class StashCheckoutActivity extends Activity {
   }
 
   boolean isInteractionLocked() {
-    return isPurchaseProcessing || codeLinkCompleted;
+    return isPurchaseProcessing || scanCompleted;
   }
 
-  void completeCodeLink(String content) {
-    if (!codeLink || codeLinkCompleted || isDismissing || codeLinkSupport == null
+  @Override
+  public Activity getActivity() {
+    return this;
+  }
+
+  @Override
+  public StashScannerOptions getScannerOptions() {
+    if (scannerOptions == null) {
+      scannerOptions = StashScannerOptions.read(getIntent());
+    }
+    return scannerOptions;
+  }
+
+  @Override
+  public boolean isDismissing() {
+    return isDismissing;
+  }
+
+  @Override
+  public void requestDismiss() {
+    requestUserDismiss();
+  }
+
+  @Override
+  public void reportScannerError(StashNative.ScannerError error) {
+    if (isDismissing || error == null) {
+      return;
+    }
+    try {
+      StashCheckoutBridge.emitScannerError(this, error);
+    } catch (Exception e) {
+      Log.w(TAG, "Scanner error broadcast failed: " + e.getMessage(), e);
+    }
+  }
+
+  @Override
+  public void completeScan(String content) {
+    if (!scanner || scanCompleted || isDismissing || scannerContent == null
         || content == null || content.isEmpty()) {
       return;
     }
-    codeLinkCompleted = true;
+    scanCompleted = true;
     presentation.processingStarted();
     applyDragHandlePurchaseProcessingFade(true);
-    codeLinkSupport.showConnected(() -> {
-      if (codeLinkCancelled || isDismissing) {
+    scannerContent.showConnected(() -> {
+      if (scanCancelled || isDismissing) {
         return;
       }
       isDismissing = true;
       presentation.dismiss(() -> {
-        if (!codeLinkCancelled) {
-          codeLinkResult = content;
+        if (!scanCancelled) {
+          scanResult = content;
           callbackSent = true;
         }
         finishActivityWithNoAnimation();
@@ -412,11 +450,11 @@ public class StashCheckoutActivity extends Activity {
     });
   }
 
-  private void cancelCodeLink() {
-    codeLinkCancelled = true;
-    codeLinkResult = null;
-    if (codeLinkSupport != null) {
-      codeLinkSupport.dispose();
+  private void cancelScan() {
+    scanCancelled = true;
+    scanResult = null;
+    if (scannerContent != null) {
+      scannerContent.dispose();
     }
   }
 
@@ -433,12 +471,12 @@ public class StashCheckoutActivity extends Activity {
               try {
                 if (success) {
                   StashCheckoutBridge.emitPaymentSuccess(
-                      StashCheckoutActivity.this,
+                      StashCardActivity.this,
                       StashCheckoutBridge.capPaymentOrder(order),
                       options.autoClose);
                 } else {
                   StashCheckoutBridge.emitPaymentFailure(
-                      StashCheckoutActivity.this, options.autoClose);
+                      StashCardActivity.this, options.autoClose);
                 }
               } catch (Exception e) {
                 // The once-flags are still clear. End through the network error path so the
@@ -479,8 +517,8 @@ public class StashCheckoutActivity extends Activity {
   protected void onPause() {
     super.onPause();
     isActivityPaused = true;
-    if (codeLinkSupport != null) {
-      codeLinkSupport.pause();
+    if (scannerContent != null) {
+      scannerContent.pause();
     }
     if (contentRevealSupport != null) {
       contentRevealSupport.pause();
@@ -504,8 +542,8 @@ public class StashCheckoutActivity extends Activity {
   protected void onResume() {
     super.onResume();
     isActivityPaused = false;
-    if (codeLinkSupport != null && !isDismissing) {
-      codeLinkSupport.resume();
+    if (scannerContent != null && !isDismissing) {
+      scannerContent.resume();
     }
     StashNativePlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
@@ -545,8 +583,8 @@ public class StashCheckoutActivity extends Activity {
     if (hostBackdrop != null) {
       hostBackdrop.geometryChanged();
     }
-    if (codeLinkSupport != null) {
-      codeLinkSupport.geometryChanged();
+    if (scannerContent != null) {
+      scannerContent.geometryChanged();
     }
     if (presentation != null) {
       rootLayout.post(presentation::environmentChanged);
@@ -565,7 +603,7 @@ public class StashCheckoutActivity extends Activity {
     }
     boolean windowed = Build.VERSION.SDK_INT >= 24 && isInMultiWindowMode();
     boolean compact = getResources().getConfiguration().smallestScreenWidthDp < 600;
-    int orientation = !codeLink
+    int orientation = !scanner
         && options.orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT
         && compact && !windowed
         ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_BEHIND;
@@ -586,8 +624,8 @@ public class StashCheckoutActivity extends Activity {
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
     super.onRequestPermissionsResult(requestCode, permissions, results);
-    if (requestCode == StashCodeLinkSession.CAMERA_PERMISSION_REQUEST && codeLinkSupport != null) {
-      codeLinkSupport.permissionResult();
+    if (requestCode == StashScannerContent.CAMERA_PERMISSION_REQUEST && scannerContent != null) {
+      scannerContent.permissionResult();
     }
   }
 
@@ -597,8 +635,8 @@ public class StashCheckoutActivity extends Activity {
       hostBackdrop.dispose();
       hostBackdrop = null;
     }
-    if (codeLinkSupport != null) {
-      codeLinkSupport.dispose();
+    if (scannerContent != null) {
+      scannerContent.dispose();
     }
     if (presentation != null) {
       presentation.dispose();
@@ -627,7 +665,7 @@ public class StashCheckoutActivity extends Activity {
       webView.destroy();
       webView = null;
     }
-    if (!codeLink) {
+    if (!scanner) {
       try {
         android.webkit.CookieManager.getInstance().flush();
       } catch (Throwable expected) {
@@ -639,9 +677,9 @@ public class StashCheckoutActivity extends Activity {
       StashCheckoutBridge.emitDialogDismissed(this);
     }
     super.onDestroy();
-    if (codeLinkResult != null) {
-      StashCheckoutBridge.emitQrCodeScanned(this, codeLinkResult);
-      codeLinkResult = null;
+    if (scanResult != null) {
+      StashCheckoutBridge.emitQrCodeScanned(this, scanResult);
+      scanResult = null;
     }
   }
 }

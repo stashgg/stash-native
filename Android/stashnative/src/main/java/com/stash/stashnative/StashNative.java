@@ -4,10 +4,10 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 
 /**
- * Native Android SDK for Stash checkout, browser, and CodeLink integration.
+ * Native Android SDK for Stash checkout, browser, and QR Code Linking integration.
  *
  * <p>This is the main entry point for Stash Native in your Android app. It opens checkout cards,
- * browser sessions, and the CodeLink scanner, and delivers their callbacks.
+ * browser sessions, and the QR scanner, and delivers their callbacks.
  *
  * <p>Usage:
  *
@@ -66,11 +66,11 @@ public class StashNative {
     default void onQrCodeScanned(String content) {}
 
     /**
-     * Reports an error once per CodeLink session. {@link CodeLinkError#SCANNER_UNAVAILABLE}
-     * closes the card without a dismissal callback when optional scanner dependencies cannot load
-     * or the scanner cannot be constructed. Other camera errors leave the card open.
+     * Reports an error once per scanner session. {@link ScannerError#SCANNER_UNAVAILABLE}
+     * closes the card without a dismissal callback when the optional {@code stashnative-codelink}
+     * module or its camera libraries are missing. Other camera errors leave the card open.
      */
-    default void onCodeLinkError(CodeLinkError error) {}
+    default void onScannerError(ScannerError error) {}
 
     /**
      * Called when a payment completes successfully. With {@code autoClose=false}, payment events
@@ -93,7 +93,7 @@ public class StashNative {
     void onCardDismissed();
 
     /** Called when the scanner is dismissed without a result by the user or native dismiss. */
-    default void onScanDismissed() {}
+    default void onScannerDismissed() {}
 
     /**
      * Called when the checkout page finishes loading.
@@ -183,8 +183,8 @@ public class StashNative {
     public boolean autoClose = true;
   }
 
-  /** Scanner copy, snapshotted when CodeLink opens. Null or empty text uses bundled defaults. */
-  public static final class CodeLinkConfig {
+  /** Scanner copy, snapshotted when the scanner opens. Null or empty text uses bundled defaults. */
+  public static final class ScannerConfig {
     /** Default: "Scan QR code". */
     public String headerText;
     /** Default: "Scan the webshop code". */
@@ -307,27 +307,31 @@ public class StashNative {
   }
 
   /** Opens the QR scanner following the host app's orientation. May be called on any thread. */
-  public void codeLink(Activity activity) {
-    codeLink(activity, null);
+  public void openScanner(Activity activity) {
+    openScanner(activity, null);
   }
 
   /**
-   * Opens CodeLink with optional scanner copy. May be called on any thread. Requires the optional
-   * CameraX and ZXing libraries; missing dependencies or scanner construction failures report
-   * {@link CodeLinkError#SCANNER_UNAVAILABLE} and close without a dismissal callback.
+   * Opens the QR scanner with optional copy. May be called on any thread. Scanning is opt in:
+   * the host adds the {@code stashnative-codelink} module, which declares {@code
+   * android.permission.CAMERA} and uses the CameraX and ZXing libraries. A missing permission
+   * declaration reports {@link ScannerError#CAMERA_PERMISSION_NOT_DECLARED}; a missing module
+   * or library reports {@link ScannerError#SCANNER_UNAVAILABLE} and closes without a dismissal
+   * callback.
    */
-  public void codeLink(Activity activity, CodeLinkConfig config) {
-    plugin.codeLink(activity, config);
+  public void openScanner(Activity activity, ScannerConfig config) {
+    plugin.openScanner(activity, config);
   }
 
-  /** Camera and dependency errors reported by CodeLink. */
-  public enum CodeLinkError {
+  /** Camera and dependency errors reported by the scanner. */
+  public enum ScannerError {
     CAMERA_PERMISSION_DENIED,
     CAMERA_UNAVAILABLE,
     /** Camera setup failed; the scanner card remains open. */
     CAMERA_CONFIGURATION_FAILED,
+    /** The host manifest does not declare android.permission.CAMERA; the card stays open. */
     CAMERA_PERMISSION_NOT_DECLARED,
-    /** Scanner dependencies could not load or scanner construction failed; the card closes. */
+    /** The stashnative-codelink module or its libraries are missing; the card closes. */
     SCANNER_UNAVAILABLE
   }
 

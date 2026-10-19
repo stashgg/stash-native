@@ -25,9 +25,9 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         fabs(lb - rb) <= 0.000001 && fabs(la - ra) <= 0.000001;
 }
 
-@implementation StashCheckoutSession
+@implementation StashCardSession
 - (BOOL)isActive { return self.owner.session == self && !self.closing; }
-- (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing && !self.codeLinkCompleted; }
+- (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing && !self.scanCompleted; }
 - (UIViewController *)presentationPresenter { return self.portraitPresentation.presenter ?: self.presenter; }
 
 - (void)presentCheckout {
@@ -67,10 +67,12 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         [self finishWithUserDismiss:NO completion:nil];
         return;
     }
-    if (self.codeLink) {
-        StashCodeLinkViewController *scanner = [[StashCodeLinkViewController alloc] init];
-        scanner.session = self;
-        self.codeLinkController = scanner;
+    if (self.scanner) {
+        Class contentClass = StashScannerContentClass();
+        if (!contentClass) { [self finishWithUserDismiss:NO completion:nil]; return; }
+        UIViewController<StashNativeScannerContent> *scanner = [[contentClass alloc] init];
+        scanner.scannerHost = self;
+        self.scannerController = scanner;
         self.initialContentRevealed = YES;
         [self presentCardFrom:presenter];
 #if !__has_feature(objc_arc)
@@ -134,7 +136,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 #endif
 }
 - (void)presentCardFrom:(UIViewController *)presenter {
-    StashCheckoutViewController *controller = [[StashCheckoutViewController alloc] init];
+    StashCardViewController *controller = [[StashCardViewController alloc] init];
     self.controller = controller;
     controller.session = self;
     [controller configurePresentation];
@@ -146,9 +148,20 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [controller release];
 #endif
 }
-- (void)completeCodeLink:(NSString *)content {
-    if (![self isActive] || !self.codeLink || self.codeLinkCompleted || !content.length) return;
-    self.codeLinkCompleted = YES;
+- (BOOL)scannerSessionIsActive { return [self isActive]; }
+- (void)scannerRequestedDismissal {
+    if ([self canUserDismiss]) [self finishWithUserDismiss:YES completion:nil];
+}
+- (void)scannerDidFailWithError:(NSError *)error {
+    if (![self isActive]) return;
+    [self.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeScannerDidEncounterError:)])
+            [delegate stashNativeScannerDidEncounterError:error];
+    }];
+}
+- (void)completeScan:(NSString *)content {
+    if (![self isActive] || !self.scanner || self.scanCompleted || !content.length) return;
+    self.scanCompleted = YES;
     [self.controller updateDismissalPolicy];
     NSString *payload = [content copy];
     StashNative *owner = self.owner;
@@ -160,7 +173,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
             }];
         }];
     };
-    if (self.codeLinkController) [self.codeLinkController showConnectedWithCompletion:finish];
+    if (self.scannerController) [self.scannerController showConnectedWithCompletion:finish];
     else finish();
 #if !__has_feature(objc_arc)
     [payload release];
@@ -394,8 +407,8 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [self retain];
 #endif
     self.closing = YES;
-    BOOL scan = self.codeLink;
-    [self.codeLinkController stopScanning];
+    BOOL scan = self.scanner;
+    [self.scannerController stopScanning];
     [self cancelInitialContentReveal];
     [self.controller.spinner stopAnimating];
     [self completeDialog:nil];
@@ -410,8 +423,8 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         if (owned && userDismiss) {
             [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
                 if (scan) {
-                    if ([delegate respondsToSelector:@selector(stashNativeDidDismissScan)])
-                        [delegate stashNativeDidDismissScan];
+                    if ([delegate respondsToSelector:@selector(stashNativeDidDismissScanner)])
+                        [delegate stashNativeDidDismissScanner];
                 } else if ([delegate respondsToSelector:@selector(stashNativeDidDismissCard)]) {
                     [delegate stashNativeDidDismissCard];
                 }
@@ -428,9 +441,9 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }];
 }
 - (void)cleanupCheckout {
-    [self.codeLinkController dispose];
-    self.codeLinkController.session = nil;
-    self.codeLinkController = nil;
+    [self.scannerController dispose];
+    self.scannerController.scannerHost = nil;
+    self.scannerController = nil;
     [self stopObservingRootScroll];
     [self invalidateTopChrome];
     [self.webView evaluateJavaScript:@"window.__stashTopEdgeProbe&&window.__stashTopEdgeProbe.stop()"
@@ -597,7 +610,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     } else if ([name isEqualToString:@"stashWindowClose"]) {
         WKWebView *web = self.webView;
         dispatch_async(dispatch_get_main_queue(), ^{
-            if ([self isActive] && !self.processing && !self.codeLinkCompleted &&
+            if ([self isActive] && !self.processing && !self.scanCompleted &&
                 !self.browserHandoff && self.webView == web)
                 [self finishWithUserDismiss:YES completion:nil];
         });
@@ -755,7 +768,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)dealloc {
     [self cleanup];
 #if !__has_feature(objc_arc)
-    [_config release]; [_codeLinkConfig release]; [_url release]; [super dealloc];
+    [_config release]; [_scannerConfig release]; [_url release]; [super dealloc];
 #endif
 }
 @end

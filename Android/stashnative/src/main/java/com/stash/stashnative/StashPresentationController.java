@@ -29,7 +29,7 @@ import org.json.JSONObject;
 final class StashPresentationController implements View.OnTouchListener {
   private enum AnimationKind { ENTRANCE, RESIZE, DISMISS }
 
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
   final StashPresentationState state = new StashPresentationState();
   private final StashPresentationOptions options;
   private Insets bars = Insets.NONE;
@@ -61,7 +61,7 @@ final class StashPresentationController implements View.OnTouchListener {
   private int dragHeight;
   private VelocityTracker velocity;
 
-  StashPresentationController(StashCheckoutActivity activity, StashPresentationOptions options) {
+  StashPresentationController(StashCardActivity activity, StashPresentationOptions options) {
     this.activity = activity;
     this.options = options;
   }
@@ -339,8 +339,8 @@ final class StashPresentationController implements View.OnTouchListener {
     activity.cardContainer.setLayoutParams(p);
     activity.cardContainer.setBottomAttached(layout != null && layout.bottomAttached);
     int bottomInset = layout == null ? 0 : layout.bottomInset;
-    if (activity.codeLinkSupport != null) {
-      activity.codeLinkSupport.setBottomInset(bottomInset);
+    if (activity.scannerContent != null) {
+      activity.scannerContent.setBottomInset(bottomInset);
     }
     if (appliedBottomInset != bottomInset) {
       appliedBottomInset = bottomInset;

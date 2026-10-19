@@ -11,9 +11,9 @@ import androidx.annotation.RequiresApi;
 /** Translates WebView navigation and renderer events into checkout lifecycle updates. */
 final class StashCheckoutWebViewClient extends WebViewClient {
   private static final String TAG = "StashNative";
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
 
-  StashCheckoutWebViewClient(StashCheckoutActivity activity) {
+  StashCheckoutWebViewClient(StashCardActivity activity) {
     this.activity = activity;
   }
 
@@ -182,7 +182,7 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     return true;
   }
 
-  private static void handleMainFrameError(StashCheckoutActivity activity, WebView view, int code) {
+  private static void handleMainFrameError(StashCardActivity activity, WebView view, int code) {
     if (view != activity.webView || activity.isDismissing || activity.networkErrorHandled
         || activity.mainFrameErrorReceived) {
       return;

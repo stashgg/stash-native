@@ -2,12 +2,15 @@
 
 This independent build runs the shared sample against the release AAR with Android 16 and 17 target behavior enabled. It uses AGP 9.1.1, Gradle 9.3.1, JDK 17, compile SDK 37, and minimum SDK 21. The SDK's own build remains independent.
 
-Install Android platform 37.0 and Build Tools 36.0.0, then build the SDK AAR using the repository's usual verification process. Set `ANDROID_HOME` to the SDK directory and `JAVA_HOME` to JDK 17.
+Install Android platform 37.0 and Build Tools 36.0.0, then build the core and codelink AARs using the repository's usual verification process. Set `ANDROID_HOME` to the SDK directory and `JAVA_HOME` to JDK 17.
 
 ```sh
 ./gradlew -PstashAar=/absolute/path/to/stashnative-release.aar \
+    -PstashCodeLinkAar=/absolute/path/to/stashnative-codelink-release.aar \
     assembleApi36Debug assembleApi37Debug assembleApi36Release assembleApi37Release
 ```
+
+`STASH_AAR` and `STASH_CODELINK_AAR` environment variables work in place of the properties.
 
 The wrapper puts caches, temporary files, the debug signing key, and build outputs below `$HS_TEMP/stash-modern-host`, or `~/Temp/stash-modern-host` when `HS_TEMP` is unset. APKs are under `build/outputs/apk`. Release variants enable shrinking and use a debug key so they can be installed for verification. Do not distribute them.
 

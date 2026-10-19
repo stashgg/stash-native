@@ -28,9 +28,9 @@ import org.robolectric.shadows.ShadowLooper;
 @LooperMode(LooperMode.Mode.PAUSED)
 public class CheckoutRetirementTest {
   private final StashNative sdk = StashNative.getInstance();
-  private final List<ActivityController<StashCheckoutActivity>> checkouts = new ArrayList<>();
+  private final List<ActivityController<StashCardActivity>> checkouts = new ArrayList<>();
   private Activity host;
-  private StashCheckoutActivity replacement;
+  private StashCardActivity replacement;
   private int dismissed;
 
   @Before public void prepare() {
@@ -43,7 +43,7 @@ public class CheckoutRetirementTest {
   @After public void cleanup() {
     sdk.resetPresentationState();
     sdk.setListener(null);
-    for (ActivityController<StashCheckoutActivity> controller : checkouts) {
+    for (ActivityController<StashCardActivity> controller : checkouts) {
       if (!controller.get().isDestroyed()) {
         controller.pause().stop().destroy();
       }
@@ -52,18 +52,18 @@ public class CheckoutRetirementTest {
     ShadowLooper.idleMainLooper();
   }
 
-  private StashCheckoutActivity open() {
+  private StashCardActivity open() {
     sdk.openCard(host, "https://example.invalid/checkout", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
-    ActivityController<StashCheckoutActivity> controller =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create().start().resume();
+    ActivityController<StashCardActivity> controller =
+        Robolectric.buildActivity(StashCardActivity.class, intent).create().start().resume();
     checkouts.add(controller);
     return controller.get();
   }
 
   @Test public void externalPaymentReplacementRetiresOldActivityWithoutDismissalCallback() {
-    StashCheckoutActivity original = open();
+    StashCardActivity original = open();
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { replacement = open(); }
       @Override public void onCardDismissed() { dismissed++; }
@@ -75,7 +75,7 @@ public class CheckoutRetirementTest {
   }
 
   @Test public void browserCloseReplacementRetiresOldActivityWithoutDismissalCallback() {
-    StashCheckoutActivity original = open();
+    StashCardActivity original = open();
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onBrowserDismissed() { replacement = open(); }
       @Override public void onCardDismissed() { dismissed++; }
@@ -89,7 +89,7 @@ public class CheckoutRetirementTest {
     assertReplacementSurvivesOriginalDestruction(original);
   }
 
-  private void assertReplacementSurvivesOriginalDestruction(StashCheckoutActivity original) {
+  private void assertReplacementSurvivesOriginalDestruction(StashCardActivity original) {
     assertNotNull(replacement);
     assertTrue(original.isFinishing());
     checkouts.get(0).pause().stop().destroy();

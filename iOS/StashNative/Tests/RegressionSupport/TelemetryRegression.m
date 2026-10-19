@@ -2,7 +2,7 @@
 #import "../../Sources/StashNative/StashNativePrivate.h"
 
 NSDictionary *StashTelemetryLifecycleProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     WKNavigation *first = (id)[NSObject new];
     WKNavigation *second = (id)[NSObject new];
@@ -20,7 +20,7 @@ NSDictionary *StashTelemetryLifecycleProbe(void) {
     session.keyboardVisible = YES;
     [session finishTelemetryNavigation:second];
     NSDictionary *finished = [session telemetrySnapshot];
-    StashCheckoutSession *fresh = [StashCheckoutSession new];
+    StashCardSession *fresh = [StashCardSession new];
     BOOL independent = fresh.telemetryFirstCallAt == nil && fresh.telemetryPageLoadedAt == nil;
     [session cleanup];
     return @{@"initial":initial, @"loaded":loaded, @"next":next, @"finished":finished,
@@ -30,7 +30,7 @@ NSDictionary *StashTelemetryLifecycleProbe(void) {
 
 NSDictionary *StashTelemetryFixture(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session;
     session.owner = owner;
     session.config = [StashNativeCardConfig new];

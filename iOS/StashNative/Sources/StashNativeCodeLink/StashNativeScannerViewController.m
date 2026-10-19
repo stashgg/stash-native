@@ -1,13 +1,13 @@
-#import "StashNativePrivate.h"
+#import "StashNativeScannerViewController.h"
 #import <AVFoundation/AVFoundation.h>
 
-@interface StashCodeLinkPreview : UIView
+@interface StashScannerPreview : UIView
 @end
-@implementation StashCodeLinkPreview
+@implementation StashScannerPreview
 + (Class)layerClass { return AVCaptureVideoPreviewLayer.class; }
 @end
 
-static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloat alpha) {
+static UILabel *StashScannerLabel(NSString *text, UIFontTextStyle style, CGFloat alpha) {
     UILabel *label = [[UILabel alloc] init];
     label.text = text;
     label.font = [UIFont preferredFontForTextStyle:style];
@@ -21,12 +21,12 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
 #endif
 }
 
-@interface StashCodeLinkViewController () <AVCaptureMetadataOutputObjectsDelegate> {
+@interface StashNativeScannerViewController () <AVCaptureMetadataOutputObjectsDelegate> {
     dispatch_queue_t _cameraQueue;
 }
 @property (nonatomic, strong) AVCaptureSession *capture;
 @property (nonatomic, strong) AVCaptureMetadataOutput *metadata;
-@property (nonatomic, strong) StashCodeLinkPreview *preview;
+@property (nonatomic, strong) StashScannerPreview *preview;
 @property (nonatomic, strong) UILabel *heading;
 @property (nonatomic, strong) UIButton *closeButton;
 @property (nonatomic, strong) UIVisualEffectView *callout;
@@ -48,7 +48,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
 @property (nonatomic) BOOL errorReported;
 @end
 
-@implementation StashCodeLinkViewController
+@implementation StashNativeScannerViewController
+@synthesize scannerHost = _scannerHost;
 - (instancetype)init {
     self = [super init];
     if (self) {
@@ -71,7 +72,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.view.backgroundColor = UIColor.blackColor;
     self.view.accessibilityIdentifier = @"stash-code-link";
     self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
-    StashCodeLinkPreview *preview = [[StashCodeLinkPreview alloc] init];
+    StashScannerPreview *preview = [[StashScannerPreview alloc] init];
     self.preview = preview;
     preview.userInteractionEnabled = NO;
     preview.alpha = 0;
@@ -87,8 +88,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.frameLayer.strokeColor = UIColor.whiteColor.CGColor;
     self.frameLayer.lineWidth = 2;
     [self.view.layer addSublayer:self.frameLayer];
-    NSString *header = self.session.codeLinkConfig.headerText;
-    self.heading = StashCodeLinkLabel(header.length ? header : @"Scan QR code", UIFontTextStyleTitle3, 1);
+    NSString *header = self.scannerHost.scannerConfig.headerText;
+    self.heading = StashScannerLabel(header.length ? header : @"Scan QR code", UIFontTextStyleTitle3, 1);
     self.heading.accessibilityIdentifier = @"stash-code-link-header";
     [self.view addSubview:self.heading];
     self.closeButton = [UIButton buttonWithType:UIButtonTypeClose];
@@ -106,7 +107,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     self.closeButton.accessibilityIdentifier = @"stash-code-link-close";
     [self.closeButton addTarget:self action:@selector(closeTapped) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.closeButton];
-    if (!self.session.codeLinkConfig || self.session.codeLinkConfig.showCallout) [self installCallout];
+    if (!self.scannerHost.scannerConfig || self.scannerHost.scannerConfig.showCallout) [self installCallout];
     [self installStatus];
 #if !__has_feature(objc_arc)
     [preview release];
@@ -127,10 +128,10 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     icon.backgroundColor = [UIColor.whiteColor colorWithAlphaComponent:0.06];
     icon.layer.cornerRadius = 12;
     icon.isAccessibilityElement = NO;
-    StashNativeCodeLinkConfig *config = self.session.codeLinkConfig;
-    UILabel *title = StashCodeLinkLabel(config.calloutTitle.length ? config.calloutTitle : @"Scan the webshop code",
+    StashNativeScannerConfig *config = self.scannerHost.scannerConfig;
+    UILabel *title = StashScannerLabel(config.calloutTitle.length ? config.calloutTitle : @"Scan the webshop code",
         UIFontTextStyleHeadline, 1);
-    UILabel *subtitle = StashCodeLinkLabel(config.calloutSubtitle.length ? config.calloutSubtitle :
+    UILabel *subtitle = StashScannerLabel(config.calloutSubtitle.length ? config.calloutSubtitle :
         @"Keep the QR code centered inside the frame.", UIFontTextStyleFootnote, 0.65);
     title.accessibilityIdentifier = @"stash-code-link-callout-title";
     subtitle.accessibilityIdentifier = @"stash-code-link-callout-subtitle";
@@ -157,8 +158,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.spinner = spinner;
     [spinner startAnimating];
-    self.statusTitle = StashCodeLinkLabel(@"", UIFontTextStyleHeadline, 1);
-    self.statusMessage = StashCodeLinkLabel(@"", UIFontTextStyleFootnote, 0.7);
+    self.statusTitle = StashScannerLabel(@"", UIFontTextStyleHeadline, 1);
+    self.statusMessage = StashScannerLabel(@"", UIFontTextStyleFootnote, 0.7);
     self.statusTitle.hidden = self.statusMessage.hidden = YES;
     self.statusTitle.textAlignment = NSTextAlignmentCenter;
     self.statusMessage.textAlignment = NSTextAlignmentCenter;
@@ -259,20 +260,20 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     UIWindowScene *scene = window.windowScene;
     BOOL foreground = scene ? scene.activationState == UISceneActivationStateForegroundActive
         : UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
-    return !self.disposed && self.visible && !self.session.codeLinkCompleted && [self.session isActive] && self.viewIfLoaded.window &&
-        foreground;
+    return !self.disposed && self.visible && !self.scannerHost.scanCompleted &&
+        [self.scannerHost scannerSessionIsActive] && self.viewIfLoaded.window && foreground;
 }
 - (void)requestCamera {
     if (![self canScan]) return;
     id purpose = [NSBundle.mainBundle objectForInfoDictionaryKey:@"NSCameraUsageDescription"];
     if (![purpose isKindOfClass:NSString.class] || ![purpose length]) {
-        [self cameraFailed:StashNativeCodeLinkErrorMissingCameraUsageDescription
-            message:@"CodeLink requires NSCameraUsageDescription in the host app's Info.plist."];
+        [self cameraFailed:StashNativeScannerErrorMissingCameraUsageDescription
+            message:@"The scanner requires NSCameraUsageDescription in the host app's Info.plist."];
         return;
     }
     if (!self.configurationAttempted && ![AVCaptureDevice defaultDeviceWithDeviceType:AVCaptureDeviceTypeBuiltInWideAngleCamera
         mediaType:AVMediaTypeVideo position:AVCaptureDevicePositionBack]) {
-        [self cameraFailed:StashNativeCodeLinkErrorCameraUnavailable message:@"No camera is available for QR scanning."];
+        [self cameraFailed:StashNativeScannerErrorCameraUnavailable message:@"No camera is available for QR scanning."];
         return;
     }
     AVAuthorizationStatus authorization = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
@@ -286,7 +287,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
             });
         }];
     } else if (authorization != AVAuthorizationStatusAuthorized) {
-        [self cameraFailed:StashNativeCodeLinkErrorCameraPermissionDenied message:@"Camera access is not allowed."];
+        [self cameraFailed:StashNativeScannerErrorCameraPermissionDenied message:@"Camera access is not allowed."];
     } else if (self.captureReady) {
         dispatch_async(_cameraQueue, ^{ if (!self.capture.isRunning) [self.capture startRunning]; });
     } else if (!self.configurationAttempted) {
@@ -318,13 +319,13 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
         }
         [self.capture commitConfiguration];
         dispatch_async(dispatch_get_main_queue(), ^{
-            if (self.disposed || ![self.session isActive]) return;
+            if (self.disposed || ![self.scannerHost scannerSessionIsActive]) return;
             self.captureReady = ready;
             if (ready) {
                 [self.view setNeedsLayout];
                 [self.view layoutIfNeeded];
                 [self requestCamera];
-            } else [self cameraFailed:device ? StashNativeCodeLinkErrorCameraConfigurationFailed : StashNativeCodeLinkErrorCameraUnavailable
+            } else [self cameraFailed:device ? StashNativeScannerErrorCameraConfigurationFailed : StashNativeScannerErrorCameraUnavailable
                 message:error.localizedDescription ?: @"No camera is available for QR scanning."];
         });
     });
@@ -356,7 +357,7 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
         } else {
             NSError *error = note.userInfo[AVCaptureSessionErrorKey];
             if (error.code == AVErrorMediaServicesWereReset) [self requestCamera];
-            else [self cameraFailed:StashNativeCodeLinkErrorCameraConfigurationFailed
+            else [self cameraFailed:StashNativeScannerErrorCameraConfigurationFailed
                 message:error.localizedDescription ?: @"The camera could not start."];
         }
     });
@@ -372,21 +373,18 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     [self.view setNeedsLayout];
     UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, self.statusTitle);
 }
-- (void)cameraFailed:(StashNativeCodeLinkError)code message:(NSString *)message {
-    if (self.disposed || self.session.codeLinkCompleted || ![self.session isActive]) return;
+- (void)cameraFailed:(StashNativeScannerError)code message:(NSString *)message {
+    if (self.disposed || self.scannerHost.scanCompleted || ![self.scannerHost scannerSessionIsActive]) return;
     self.scanning = NO;
-    BOOL denied = code == StashNativeCodeLinkErrorCameraPermissionDenied;
-    NSString *unavailable = self.session.codeLinkConfig.cameraUnavailableText;
+    BOOL denied = code == StashNativeScannerErrorCameraPermissionDenied;
+    NSString *unavailable = self.scannerHost.scannerConfig.cameraUnavailableText;
     [self showStatus:denied ? @"Allow camera access" : (unavailable.length ? unavailable : @"Camera unavailable")
         message:denied ? @"Enable camera access in Settings to scan your webshop code."
         : @"" settings:denied];
     if (self.errorReported) return;
     self.errorReported = YES;
-    [self.session.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
-        if ([delegate respondsToSelector:@selector(stashNativeCodeLinkDidEncounterError:)])
-            [delegate stashNativeCodeLinkDidEncounterError:[NSError errorWithDomain:StashNativeCodeLinkErrorDomain
-                code:code userInfo:@{NSLocalizedDescriptionKey:message}]];
-    }];
+    [self.scannerHost scannerDidFailWithError:[NSError errorWithDomain:StashNativeScannerErrorDomain code:code
+        userInfo:@{NSLocalizedDescriptionKey:message}]];
 }
 - (void)captureOutput:(AVCaptureOutput *)output didOutputMetadataObjects:(NSArray<AVMetadataObject *> *)objects
     fromConnection:(AVCaptureConnection *)connection {
@@ -396,12 +394,12 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
             ![object isKindOfClass:AVMetadataMachineReadableCodeObject.class]) continue;
         AVMetadataMachineReadableCodeObject *code = (id)[self.previewLayer transformedMetadataObjectForMetadataObject:object];
         if (!code.stringValue.length || !CGRectContainsRect(self.scanFrame, code.bounds)) continue;
-        [self.session completeCodeLink:code.stringValue];
+        [self.scannerHost completeScan:code.stringValue];
         return;
     }
 }
 - (void)closeTapped {
-    if ([self.session canUserDismiss]) [self.session finishWithUserDismiss:YES completion:nil];
+    [self.scannerHost scannerRequestedDismissal];
 }
 - (void)showConnectedWithCompletion:(void (^)(void))completion {
     [self loadViewIfNeeded];
@@ -421,8 +419,8 @@ static UILabel *StashCodeLinkLabel(NSString *text, UIFontTextStyle style, CGFloa
     checkmark.tintColor = UIColor.whiteColor;
     checkmark.contentMode = UIViewContentModeCenter;
     checkmark.isAccessibilityElement = NO;
-    NSString *connected = self.session.codeLinkConfig.connectedText;
-    UILabel *title = StashCodeLinkLabel(connected.length ? connected : @"Connected", UIFontTextStyleTitle2, 1);
+    NSString *connected = self.scannerHost.scannerConfig.connectedText;
+    UILabel *title = StashScannerLabel(connected.length ? connected : @"Connected", UIFontTextStyleTitle2, 1);
     title.accessibilityIdentifier = @"stash-code-link-connected-title";
     title.textAlignment = NSTextAlignmentCenter;
     UIStackView *content = [[UIStackView alloc] initWithArrangedSubviews:@[checkmark, title]];

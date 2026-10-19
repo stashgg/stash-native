@@ -13,7 +13,7 @@ final class StashCheckoutWebViewSupport {
 
   private StashCheckoutWebViewSupport() {}
 
-  static void addWebView(StashCheckoutActivity activity) {
+  static void addWebView(StashCardActivity activity) {
     if (activity.url == null || activity.url.isEmpty() || activity.cardContainer == null) {
       Log.e(TAG, "Invalid parameters in addWebView");
       return;
@@ -109,7 +109,7 @@ final class StashCheckoutWebViewSupport {
     }
   }
 
-  private static void loadWhenLaidOut(StashCheckoutActivity activity, String url) {
+  private static void loadWhenLaidOut(StashCardActivity activity, String url) {
     final WebView webView = activity.webView;
     // Older providers lock the initial viewport scale to the first measured size.
     final class InitialPage implements View.OnLayoutChangeListener, Runnable {
@@ -147,7 +147,7 @@ final class StashCheckoutWebViewSupport {
   }
 
   /** Evaluates the bridge script in the main frame, bound to the current document token. */
-  static void injectSDK(StashCheckoutActivity activity, WebView view) {
+  static void injectSDK(StashCardActivity activity, WebView view) {
     StashWebInteractionSupport.apply(view);
     String token = activity.bridgeDocumentToken;
     if (token == null) {
@@ -156,7 +156,7 @@ final class StashCheckoutWebViewSupport {
     view.evaluateJavascript(StashWebViewUtils.bridgeScript(token), null);
   }
 
-  static void checkProvider(StashCheckoutActivity activity, String url) {
+  static void checkProvider(StashCardActivity activity, String url) {
     if (activity.homeButton == null || url == null) {
       return;
     }

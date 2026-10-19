@@ -43,7 +43,7 @@ extension ViewController {
                 BrowserOptionsViewController(config: browserConfig), animated: true)
         case 2:
             navigationController?.pushViewController(
-                CodeLinkOptionsViewController(config: codeLinkConfig), animated: true)
+                ScannerOptionsViewController(config: scannerConfig), animated: true)
         default: break
         }
     }

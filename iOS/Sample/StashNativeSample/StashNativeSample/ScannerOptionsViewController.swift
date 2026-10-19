@@ -1,8 +1,8 @@
 import UIKit
 import StashNative
 
-final class CodeLinkOptionsViewController: UITableViewController {
-    private let config: StashNativeCodeLinkConfig
+final class ScannerOptionsViewController: UITableViewController {
+    private let config: StashNativeScannerConfig
 
     private enum TextField: Int {
         case header, title, subtitle, cameraUnavailable, connected
@@ -27,7 +27,7 @@ final class CodeLinkOptionsViewController: UITableViewController {
             }
         }
 
-        var keyPath: ReferenceWritableKeyPath<StashNativeCodeLinkConfig, String?> {
+        var keyPath: ReferenceWritableKeyPath<StashNativeScannerConfig, String?> {
             switch self {
             case .header: return \.headerText
             case .title: return \.calloutTitle
@@ -38,7 +38,7 @@ final class CodeLinkOptionsViewController: UITableViewController {
         }
     }
 
-    init(config: StashNativeCodeLinkConfig) {
+    init(config: StashNativeScannerConfig) {
         self.config = config
         super.init(style: .insetGrouped)
     }
@@ -89,7 +89,7 @@ final class CodeLinkOptionsViewController: UITableViewController {
             cell.selectionStyle = .none
             let toggle = UISwitch()
             toggle.isOn = config.showCallout
-            toggle.accessibilityIdentifier = "code-link-show-callout"
+            toggle.accessibilityIdentifier = "scanner-show-callout"
             toggle.accessibilityLabel = "Show info callout"
             toggle.addAction(UIAction { [weak self, weak toggle] _ in
                 self?.config.showCallout = toggle?.isOn ?? true
@@ -130,7 +130,7 @@ final class CodeLinkOptionsViewController: UITableViewController {
         input.clearButtonMode = .whileEditing
         input.returnKeyType = .done
         input.accessibilityLabel = field.label
-        input.accessibilityIdentifier = "code-link-text-\(field.rawValue)"
+        input.accessibilityIdentifier = "scanner-text-\(field.rawValue)"
         input.addAction(UIAction { [weak self, weak input] _ in
             let text = input?.text ?? ""
             self?.config[keyPath: field.keyPath] = text.isEmpty ? nil : text

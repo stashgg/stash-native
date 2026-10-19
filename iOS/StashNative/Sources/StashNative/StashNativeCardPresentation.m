@@ -1,7 +1,7 @@
 #import "StashNativePrivate.h"
 #import <math.h>
 
-@implementation StashCheckoutViewController (Presentation)
+@implementation StashCardViewController (Presentation)
 - (UIView *)layoutContainer {
     return self.session.presentationPresenter.view.window ?: self.session.presentationPresenter.view;
 }
@@ -233,7 +233,7 @@
         CGFloat expandedHeight = [self contentHeightForMaximum:maximum expanded:YES];
         self.singleDetent = fabs(expandedHeight - resting) < 1;
         BOOL expanded = self.session.expanded || self.session.keyboardVisible;
-        STASH_WEAK_REF StashCheckoutViewController *weakSelf = self;
+        STASH_WEAK_REF StashCardViewController *weakSelf = self;
         NSMutableArray *detents = [NSMutableArray array];
         if (!self.singleDetent || !expanded) [detents addObject:[UISheetPresentationControllerDetent
             customDetentWithIdentifier:[self nativeDetentIdentifierForExpanded:NO] resolver:^CGFloat(id<UISheetPresentationControllerDetentResolutionContext> context) {

@@ -25,10 +25,10 @@ flowchart TB
 | Part | iOS | Android |
 |---|---|---|
 | Facade | `StashNative` | `StashNative` and `StashNativePlugin` |
-| Native card | Sheet from `UISheetPresentationController` | `StashCheckoutActivity` |
+| Native card | Sheet from `UISheetPresentationController` | `StashCardActivity` |
 | Checkout | `WKWebView` | `WebView` |
 | In-game browser | `SFSafariViewController` | Chrome Custom Tabs |
-| QR scanner | AVFoundation | CameraX and ZXing |
+| QR scanner | Optional `StashNativeCodeLink` module (AVFoundation) | Optional `stashnative-codelink` module (CameraX and ZXing) |
 
 ## Session lifecycle
 

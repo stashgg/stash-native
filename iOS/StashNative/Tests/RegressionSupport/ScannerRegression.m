@@ -1,8 +1,9 @@
 #import "RegressionSupport.h"
 #import "../../Sources/StashNative/StashNativePrivate.h"
+#import "../../Sources/StashNativeCodeLink/StashNativeScannerViewController.h"
 #import <AVFoundation/AVFoundation.h>
 
-@interface StashCodeLinkViewController (Regression)
+@interface StashNativeScannerViewController (Regression)
 @property (nonatomic, readonly) CGRect scanFrame;
 @property (nonatomic, readonly) UIView *callout;
 @property (nonatomic, readonly) UIView *closeButton;
@@ -13,16 +14,16 @@
 @property (nonatomic, readonly) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) AVCaptureSession *capture;
 - (AVCaptureVideoPreviewLayer *)previewLayer;
-- (void)cameraFailed:(StashNativeCodeLinkError)code message:(NSString *)message;
+- (void)cameraFailed:(StashNativeScannerError)code message:(NSString *)message;
 @end
 
-@interface StashCodeLinkCaptureProbe : AVCaptureSession
+@interface StashScannerCaptureProbe : AVCaptureSession
 @property (nonatomic, strong) dispatch_semaphore_t stopEntered;
 @property (nonatomic, strong) dispatch_semaphore_t finishStop;
 @property (atomic) NSInteger stopCount;
 @property (atomic) BOOL stopping;
 @end
-@implementation StashCodeLinkCaptureProbe
+@implementation StashScannerCaptureProbe
 - (instancetype)init {
     if ((self = [super init])) {
         _stopEntered = dispatch_semaphore_create(0);
@@ -41,15 +42,15 @@
 }
 @end
 
-@interface StashCodeLinkPreviewProbe : AVCaptureVideoPreviewLayer
-@property (nonatomic, strong) StashCodeLinkCaptureProbe *capture;
+@interface StashScannerPreviewProbe : AVCaptureVideoPreviewLayer
+@property (nonatomic, strong) StashScannerCaptureProbe *capture;
 @property (nonatomic, copy) void (^didDetach)(BOOL, BOOL, BOOL);
 @property (nonatomic) BOOL detached;
 @end
-@implementation StashCodeLinkPreviewProbe
+@implementation StashScannerPreviewProbe
 - (void)setSession:(AVCaptureSession *)session {
     if (session) {
-        self.capture = (StashCodeLinkCaptureProbe *)session;
+        self.capture = (StashScannerCaptureProbe *)session;
         self.detached = NO;
         return;
     }
@@ -60,17 +61,17 @@
 }
 @end
 
-@interface StashCodeLinkCaptureControllerProbe : StashCodeLinkViewController
-@property (nonatomic, strong) StashCodeLinkPreviewProbe *probePreview;
+@interface StashScannerCaptureControllerProbe : StashNativeScannerViewController
+@property (nonatomic, strong) StashScannerPreviewProbe *probePreview;
 @end
-@implementation StashCodeLinkCaptureControllerProbe
+@implementation StashScannerCaptureControllerProbe
 - (AVCaptureVideoPreviewLayer *)previewLayer { return self.probePreview; }
 @end
 
-void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
-    StashCodeLinkCaptureControllerProbe *scanner = [StashCodeLinkCaptureControllerProbe new];
-    StashCodeLinkCaptureProbe *capture = [StashCodeLinkCaptureProbe new];
-    StashCodeLinkPreviewProbe *preview = [StashCodeLinkPreviewProbe new];
+void StashScannerCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
+    StashScannerCaptureControllerProbe *scanner = [StashScannerCaptureControllerProbe new];
+    StashScannerCaptureProbe *capture = [StashScannerCaptureProbe new];
+    StashScannerPreviewProbe *preview = [StashScannerPreviewProbe new];
     scanner.capture = capture;
     scanner.probePreview = preview;
     [scanner loadViewIfNeeded];
@@ -89,55 +90,56 @@ void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *)) {
     dispatch_semaphore_signal(capture.finishStop);
 }
 
-@interface StashCodeLinkDelegateProbe : NSObject <StashNativeDelegate>
+@interface StashScannerDelegateProbe : NSObject <StashNativeDelegate>
 @property (nonatomic, weak) StashNative *owner;
 @property (nonatomic, copy) NSString *content;
 @property (nonatomic) NSInteger scans;
 @property (nonatomic) NSInteger dismissals;
 @property (nonatomic) NSInteger errors;
+@property (nonatomic, strong) NSError *lastError;
 @property (nonatomic) BOOL closedBeforeCallback;
 @end
-@implementation StashCodeLinkDelegateProbe
+@implementation StashScannerDelegateProbe
 - (void)stashNativeDidScanQRCode:(NSString *)content {
     self.content = content;
     self.scans++;
     self.closedBeforeCallback = !self.owner.isCurrentlyPresented;
 }
-- (void)stashNativeDidDismissScan { self.dismissals++; }
-- (void)stashNativeCodeLinkDidEncounterError:(NSError *)error { self.errors++; }
+- (void)stashNativeDidDismissScanner { self.dismissals++; }
+- (void)stashNativeScannerDidEncounterError:(NSError *)error { self.errors++; self.lastError = error; }
 @end
 
-@interface StashCodeLinkSessionProbe : StashCheckoutSession
+@interface StashScannerSessionProbe : StashCardSession
 @property (nonatomic, copy) void (^pendingDismissal)(void);
 @end
-@implementation StashCodeLinkSessionProbe
+@implementation StashScannerSessionProbe
 - (void)dismissPresentedSurfaceAnimated:(BOOL)animated completion:(void (^)(void))completion {
     self.pendingDismissal = completion;
 }
 @end
 
-void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *)) {
+void StashScannerLifecycleProbe(void (^completion)(NSDictionary *)) {
     StashNative *owner = [StashNative new];
-    StashCodeLinkDelegateProbe *delegate = [StashCodeLinkDelegateProbe new];
+    StashScannerDelegateProbe *delegate = [StashScannerDelegateProbe new];
     delegate.owner = owner;
     owner.delegate = delegate;
-    StashCodeLinkSessionProbe *session = [StashCodeLinkSessionProbe new];
+    StashScannerSessionProbe *session = [StashScannerSessionProbe new];
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
-    session.codeLink = YES;
+    session.scanner = YES;
     owner.session = session;
-    StashCodeLinkViewController *scanner = [StashCodeLinkViewController new];
-    scanner.session = session;
-    session.codeLinkController = scanner;
+    StashNativeScannerViewController *scanner = [StashNativeScannerViewController new];
+    scanner.scannerHost = session;
+    session.scannerController = scanner;
     [scanner loadViewIfNeeded];
-    [scanner cameraFailed:StashNativeCodeLinkErrorCameraPermissionDenied message:@"Denied"];
-    [scanner cameraFailed:StashNativeCodeLinkErrorCameraUnavailable message:@"Unavailable"];
+    [scanner cameraFailed:StashNativeScannerErrorCameraPermissionDenied message:@"Denied"];
+    [scanner cameraFailed:StashNativeScannerErrorCameraUnavailable message:@"Unavailable"];
     BOOL errorKeepsCard = owner.isCurrentlyPresented && delegate.errors == 1;
-    [session completeCodeLink:@""];
+    [session completeScan:@""];
     BOOL emptyIgnored = !session.closing && delegate.scans == 0;
     NSString *payload = @"https://example.invalid/link?code=hello%20world&value=+\nsecond line";
-    [session completeCodeLink:payload];
-    [session completeCodeLink:@"duplicate"];
+    [session completeScan:payload];
+    [session completeScan:@"duplicate"];
     BOOL waitsForConfirmation = scanner.confirmation != nil && !session.closing && delegate.scans == 0 &&
         owner.isCurrentlyPresented && !session.canUserDismiss;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -145,22 +147,22 @@ void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *)) {
         void (^finish)(void) = session.pendingDismissal;
         session.pendingDismissal = nil;
         if (finish) finish();
-        [session completeCodeLink:@"late"];
+        [session completeScan:@"late"];
         BOOL scannedOnce = delegate.scans == 1 && [delegate.content isEqualToString:payload] && delegate.dismissals == 0;
-        BOOL stopped = session.codeLinkController == nil && scanner.session == nil;
+        BOOL stopped = session.scannerController == nil && scanner.scannerHost == nil;
 
-        StashCheckoutSession *cancelled = [StashCheckoutSession new];
+        StashCardSession *cancelled = [StashCardSession new];
         cancelled.owner = owner;
         cancelled.config = [StashNativeCardConfig new];
-        cancelled.codeLink = YES;
+        cancelled.scanner = YES;
         owner.session = cancelled;
         [owner dismiss];
-        [cancelled completeCodeLink:@"after cancel"];
+        [cancelled completeScan:@"after cancel"];
         BOOL cancelledOnce = delegate.dismissals == 1 && delegate.scans == 1;
         owner.session = cancelled;
         cancelled.closing = NO;
         [owner resetPresentationState];
-        [cancelled completeCodeLink:@"after reset"];
+        [cancelled completeScan:@"after reset"];
         completion(@{@"errorKeepsCard":@(errorKeepsCard), @"emptyIgnored":@(emptyIgnored),
             @"waitsForConfirmation":@(waitsForConfirmation), @"waitsForDismissal":@(waitsForDismissal),
             @"scannedOnce":@(scannedOnce), @"closedBeforeCallback":@(delegate.closedBeforeCallback), @"stopped":@(stopped),
@@ -168,21 +170,21 @@ void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *)) {
     });
 }
 
-void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *)) {
+void StashScannerInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *)) {
     StashNative *owner = [StashNative new];
-    StashCodeLinkDelegateProbe *delegate = [StashCodeLinkDelegateProbe new];
+    StashScannerDelegateProbe *delegate = [StashScannerDelegateProbe new];
     owner.delegate = delegate;
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
-    session.codeLink = YES;
+    session.scanner = YES;
     owner.session = session;
-    StashCodeLinkViewController *scanner = [StashCodeLinkViewController new];
-    scanner.session = session;
-    session.codeLinkController = scanner;
-    [session completeCodeLink:@"interrupted"];
+    StashNativeScannerViewController *scanner = [StashNativeScannerViewController new];
+    scanner.scannerHost = session;
+    session.scannerController = scanner;
+    [session completeScan:@"interrupted"];
     if (reset) [owner resetPresentationState]; else [owner dismiss];
-    StashCheckoutSession *replacement = [StashCheckoutSession new];
+    StashCardSession *replacement = [StashCardSession new];
     replacement.owner = owner;
     owner.session = replacement;
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.6 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -190,12 +192,12 @@ void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NS
         [owner resetPresentationState];
         completion(@{@"noScanCallback":@(delegate.scans == 0),
             @"dismissalsCorrect":@(delegate.dismissals == (reset ? 0 : 1)),
-            @"stopped":@(scanner.session == nil), @"replacementUntouched":@(replacementUntouched)});
+            @"stopped":@(scanner.scannerHost == nil), @"replacementUntouched":@(replacementUntouched)});
     });
 }
 
-NSDictionary *StashCodeLinkLayoutProbe(CGSize size) {
-    return StashCodeLinkConfiguredLayoutProbe(size, nil);
+NSDictionary *StashScannerLayoutProbe(CGSize size) {
+    return StashScannerConfiguredLayoutProbe(size, nil);
 }
 
 static NSString *StashScannerText(UIView *view, NSString *identifier) {
@@ -208,14 +210,14 @@ static NSString *StashScannerText(UIView *view, NSString *identifier) {
     return nil;
 }
 
-NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLinkConfig *config) {
+NSDictionary *StashScannerConfiguredLayoutProbe(CGSize size, StashNativeScannerConfig *config) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.owner = owner;
     owner.session = session;
-    session.codeLinkConfig = config;
-    StashCodeLinkViewController *scanner = [StashCodeLinkViewController new];
-    scanner.session = session;
+    session.scannerConfig = config;
+    StashNativeScannerViewController *scanner = [StashNativeScannerViewController new];
+    scanner.scannerHost = session;
     scanner.view.frame = (CGRect){CGPointZero, size};
     [scanner.view setNeedsLayout];
     [scanner.view layoutIfNeeded];
@@ -233,15 +235,43 @@ NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLin
         @"headerText":scanner.heading.text ?: @"",
         @"calloutTitle":StashScannerText(scanner.view, @"stash-code-link-callout-title") ?: @"",
         @"calloutSubtitle":StashScannerText(scanner.view, @"stash-code-link-callout-subtitle") ?: @"",
-        @"snapshot":@(!config || session.codeLinkConfig != config),
+        @"snapshot":@(!config || session.scannerConfig != config),
         @"spinnerOnly":@(scanner.spinner.isAnimating && scanner.statusTitle.hidden && scanner.statusMessage.hidden),
         @"closeTargetWidth":@(close.size.width), @"closeTargetHeight":@(close.size.height)} mutableCopy];
-    [scanner cameraFailed:StashNativeCodeLinkErrorCameraPermissionDenied message:@"Denied"];
-    [scanner cameraFailed:StashNativeCodeLinkErrorCameraUnavailable message:@"Diagnostic detail"];
+    [scanner cameraFailed:StashNativeScannerErrorCameraPermissionDenied message:@"Denied"];
+    [scanner cameraFailed:StashNativeScannerErrorCameraUnavailable message:@"Diagnostic detail"];
     result[@"cameraUnavailableText"] = scanner.statusTitle.text;
     result[@"unavailableMessageHidden"] = @(scanner.statusMessage.hidden && scanner.statusMessage.text.length == 0);
     [scanner showConnectedWithCompletion:nil];
     result[@"connectedText"] = StashScannerText(scanner.confirmation, @"stash-code-link-connected-title");
     [scanner dispose];
     return result;
+}
+
+void StashScannerUnavailableProbe(void (^completion)(NSDictionary *)) {
+    StashNative *owner = [StashNative new];
+    StashScannerDelegateProbe *delegate = [StashScannerDelegateProbe new];
+    delegate.owner = owner;
+    owner.delegate = delegate;
+    UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
+    UIViewController *host = [UIViewController new];
+    window.rootViewController = host;
+    window.hidden = NO;
+    Class linked = StashScannerContentClass();
+    StashSetScannerContentClassName(@"StashMissingScannerContent");
+    BOOL resolvesNil = StashScannerContentClass() == Nil;
+    [owner openScannerFromViewController:host];
+    BOOL nothingPresented = !owner.isCurrentlyPresented && owner.session == nil && host.presentedViewController == nil;
+    BOOL asynchronous = delegate.errors == 0;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSError *error = delegate.lastError;
+        BOOL reported = delegate.errors == 1 && [error.domain isEqualToString:StashNativeScannerErrorDomain] &&
+            error.code == StashNativeScannerErrorScannerUnavailable && error.localizedDescription.length > 0;
+        BOOL stillIdle = !owner.isCurrentlyPresented && delegate.dismissals == 0 && host.presentedViewController == nil;
+        StashSetScannerContentClassName(nil);
+        BOOL restored = StashScannerContentClass() == linked && linked == StashNativeScannerViewController.class;
+        window.hidden = YES;
+        completion(@{@"resolvesNil":@(resolvesNil), @"nothingPresented":@(nothingPresented), @"asynchronous":@(asynchronous),
+            @"reported":@(reported), @"stillIdle":@(stillIdle), @"restored":@(restored)});
+    });
 }

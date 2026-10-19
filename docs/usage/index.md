@@ -34,7 +34,7 @@ Both platforms expose one singleton, `StashNative`. Open calls work from any thr
 | Set the callback receiver | `delegate = self` | `setListener(listener)` |
 | Open the checkout card | `openCard(withURL:from:config:)` | `openCard(activity, url, config)` |
 | Open the in-game browser | `openBrowser(withURL:from:config:)` | `openBrowser(activity, url)` |
-| Open the QR scanner | `codeLink(from:config:)` | `codeLink(activity, config)` |
+| Open the QR scanner | `openScanner(from:config:)` | `openScanner(activity, config)` |
 | Close the card or scanner | `dismiss()` | `dismiss()` |
 | Close the browser | `closeBrowser()` | `closeBrowser()`, no effect |
 | Reset silently, for example on logout | `resetPresentationState()` | `resetPresentationState()` |

@@ -42,7 +42,8 @@ dependencies {
     implementation project(':stashnative')
     // So the sample APK includes Custom Tabs classes; the AAR does not require this for hosts.
     implementation 'androidx.browser:browser:1.7.0'
-    // The sample also demonstrates CodeLink.
+    // QR Code Linking: the optional module plus the libraries AAR hosts must add themselves.
+    implementation project(':stashnative-codelink')
     implementation 'androidx.camera:camera-camera2:1.4.2'
     implementation 'androidx.camera:camera-lifecycle:1.4.2'
     implementation 'androidx.camera:camera-view:1.4.2'

@@ -194,7 +194,7 @@ NSDictionary *StashPortraitCancellationProbe(void) {
 
 NSDictionary *StashPortraitFinishProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     StashManualPortraitRestoration *portrait = [[StashManualPortraitRestoration alloc] initWithPresenter:nil];
     StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
     owner.delegate = delegate; delegate.owner = owner;
@@ -211,7 +211,7 @@ NSDictionary *StashPortraitFinishProbe(void) {
 
 NSDictionary *StashPortraitBrowserDismissProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     StashManualPortraitRestoration *portrait = [[StashManualPortraitRestoration alloc] initWithPresenter:nil];
     StashPortraitCallbackProbe *delegate = [StashPortraitCallbackProbe new];
     StashPortraitBrowserProbe *browser = [StashPortraitBrowserProbe new];
@@ -261,7 +261,7 @@ void StashBrowserConfigurationProbe(void (^completion)(NSDictionary *)) {
     });
 }
 
-@interface StashBrowserDeferredSession : StashCheckoutSession
+@interface StashBrowserDeferredSession : StashCardSession
 @property (nonatomic, copy) void (^preparation)(void);
 @end
 @implementation StashBrowserDeferredSession

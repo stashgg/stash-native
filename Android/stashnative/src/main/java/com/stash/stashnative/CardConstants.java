@@ -18,17 +18,17 @@ final class CardConstants {
 
   public static final String INTENT_EXTRA_URL = "url";
 
-  static final String INTENT_EXTRA_CODE_LINK = "stash.codeLink";
+  static final String INTENT_EXTRA_SCANNER = "stash.scanner";
 
-  static final String BROADCAST_CODE_LINK_SCANNED =
-      "com.stash.stashnative.internal.CODE_LINK_SCANNED";
+  static final String BROADCAST_SCANNER_SCANNED =
+      "com.stash.stashnative.internal.SCANNER_SCANNED";
 
-  static final String BROADCAST_CODE_LINK_ERROR =
-      "com.stash.stashnative.internal.CODE_LINK_ERROR";
+  static final String BROADCAST_SCANNER_ERROR =
+      "com.stash.stashnative.internal.SCANNER_ERROR";
 
-  static final String BROADCAST_EXTRA_CODE_LINK_CONTENT = "stashCodeLinkContent";
+  static final String BROADCAST_EXTRA_SCANNER_CONTENT = "stashScannerContent";
 
-  static final String BROADCAST_EXTRA_CODE_LINK_ERROR = "stashCodeLinkError";
+  static final String BROADCAST_EXTRA_SCANNER_ERROR = "stashScannerError";
 
   public static final String BROADCAST_CHECKOUT_PAYMENT_SUCCESS =
       "com.stash.stashnative.internal.CHECKOUT_PAYMENT_SUCCESS";

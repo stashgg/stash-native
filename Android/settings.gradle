@@ -1,4 +1,5 @@
 rootProject.name = 'StashNative'
 include ':stashnative'
+include ':stashnative-codelink'
 include ':sample'
 include ':consumer'

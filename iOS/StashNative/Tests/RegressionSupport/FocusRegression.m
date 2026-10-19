@@ -41,7 +41,7 @@
 - (UIScrollView *)scrollView { return self.rootProbe ?: [super scrollView]; }
 @end
 
-@interface StashRootInsetKeyboardController : StashCheckoutViewController
+@interface StashRootInsetKeyboardController : StashCardViewController
 @property (nonatomic) CGRect probeDockedKeyboard;
 @end
 @implementation StashRootInsetKeyboardController
@@ -53,9 +53,9 @@
 
 BOOL StashNormalizeRootScrollOffset(WKWebView *webView) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.webView = webView;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new]; controller.session = session;
+    StashCardViewController *controller = [StashCardViewController new]; controller.session = session;
     BOOL changed = [controller normalizeIdleRootScrollOffset];
     session.webView = nil; owner.session = nil;
     return changed;
@@ -63,7 +63,7 @@ BOOL StashNormalizeRootScrollOffset(WKWebView *webView) {
 
 NSDictionary *StashRootScrollOffsetProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 375, 700)];
     UIViewController *host = [UIViewController new]; window.rootViewController = host; window.hidden = NO;
     StashRootOffsetWebView *web = [[StashRootOffsetWebView alloc] initWithFrame:CGRectMake(0, 0, 375, 647)];
@@ -125,7 +125,7 @@ NSDictionary *StashRootScrollOffsetProbe(void) {
         @"undockedKeyboard":@(undockedKeyboard), @"genuineRootScroll":@(genuineRootScroll)};
 }
 
-@interface StashCheckoutViewController (FocusRegression)
+@interface StashCardViewController (FocusRegression)
 - (void)keyboardChanged:(NSNotification *)notification;
 - (void)updateKeyboardGuideOcclusion;
 @end
@@ -163,7 +163,7 @@ static UIWindow *StashKeyboardProbeWindow(Class windowClass, CGRect frame) {
 
 NSDictionary *StashKeyboardVisibilityOwnershipProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     session.measuredContentHeight = 220;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectMake(0, 0, 640, 700)];
@@ -171,7 +171,7 @@ NSDictionary *StashKeyboardVisibilityOwnershipProbe(void) {
     UIWindow *window = StashKeyboardProbeWindow(StashKeyboardHostWindow.class, CGRectMake(0, 0, 640, 700));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     StashKeyboardGuideProbeView *view = [[StashKeyboardGuideProbeView alloc] initWithFrame:window.bounds];
     StashKeyboardGuideProbe *guide = [StashKeyboardGuideProbe new]; view.probeGuide = guide; [view addLayoutGuide:guide];
@@ -220,7 +220,7 @@ NSDictionary *StashKeyboardVisibilityOwnershipProbe(void) {
 NSDictionary *StashUndockedKeyboardLayoutProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];
     session.initialContentRevealed = YES; session.keyboardVisible = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
@@ -228,7 +228,7 @@ NSDictionary *StashUndockedKeyboardLayoutProbe(void) {
     UIWindow *window = StashKeyboardProbeWindow(StashKeyboardHostWindow.class, CGRectMake(0, 0, 744, 1133));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     CGRect surface = CGRectMake(52, 213, 640, 900);
     StashKeyboardGuideProbeView *view = [[StashKeyboardGuideProbeView alloc] initWithFrame:surface];
@@ -260,14 +260,14 @@ NSDictionary *StashUndockedKeyboardLayoutProbe(void) {
 
 NSDictionary *StashFloatingKeyboardGuideProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
     web.focusForKeyboardProbe = YES; session.webView = web;
     UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 744, 1133));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     StashKeyboardGuideProbeView *view = [[StashKeyboardGuideProbeView alloc] initWithFrame:CGRectMake(50, 80, 500, 600)];
     StashKeyboardGuideProbe *guide = [StashKeyboardGuideProbe new]; view.probeGuide = guide; [view addLayoutGuide:guide];
@@ -294,14 +294,14 @@ NSDictionary *StashFloatingKeyboardGuideProbe(void) {
 
 NSDictionary *StashFloatingSheetKeyboardBaselineProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectMake(0, 0, 480, 520)];
     web.focusForKeyboardProbe = YES; session.webView = web;
     UIWindow *window = StashKeyboardProbeWindow(StashKeyboardHostWindow.class, CGRectMake(0, 0, 951, 669));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     StashKeyboardGuideProbeView *view = [[StashKeyboardGuideProbeView alloc] initWithFrame:CGRectMake(193.5, 65.5, 480, 520)];
     StashKeyboardGuideProbe *guide = [StashKeyboardGuideProbe new]; view.probeGuide = guide; [view addLayoutGuide:guide];
@@ -338,14 +338,14 @@ NSDictionary *StashFloatingSheetKeyboardBaselineProbe(void) {
 
 NSDictionary *StashFloatingKeyboardNotificationProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
     web.focusForKeyboardProbe = YES; session.webView = web;
     UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 744, 1133));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session; [presenter.view addSubview:controller.view];
     CGRect floating = [window convertRect:CGRectMake(190, 457, 334, 333.5) toCoordinateSpace:window.screen.coordinateSpace];
     NSNotification *hideFloating = [NSNotification notificationWithName:UIKeyboardWillHideNotification object:window.screen
@@ -367,7 +367,7 @@ NSDictionary *StashFloatingKeyboardNotificationProbe(void) {
 
 void StashFocusSettleProbe(void (^completion)(NSDictionary *)) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];
     session.initialContentRevealed = YES;
@@ -378,7 +378,7 @@ void StashFocusSettleProbe(void (^completion)(NSDictionary *)) {
     UIViewController *presenter = [UIViewController new];
     window.rootViewController = presenter; session.presenter = presenter;
     window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [presenter.view addSubview:controller.view];
     session.keyboardVisible = YES;
@@ -461,14 +461,14 @@ NSDictionary *StashInputAccessoryProbe(void) {
 }
 
 NSDictionary *StashFloatingKeyboardCoordinateProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     session.initialContentRevealed = YES; session.keyboardVisible = YES;
     session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
     UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 640, 700));
     UIViewController *presenter = [UIViewController new];
     window.rootViewController = presenter; session.presenter = presenter; window.hidden = NO;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [presenter.view addSubview:controller.view];
     controller.view.frame = CGRectMake(50, 80, 500, 600);
@@ -502,13 +502,13 @@ NSDictionary *StashFloatingKeyboardCoordinateProbe(void) {
 @implementation StashChromeProbeView
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
 @end
-@interface StashChromeProbeController : StashCheckoutViewController
+@interface StashChromeProbeController : StashCardViewController
 @end
 @implementation StashChromeProbeController
 - (void)loadView { self.view = [[StashChromeProbeView alloc] init]; }
 @end
 
-static BOOL StashMaterialOverWebHeader(StashCheckoutViewController *controller, WKWebView *web) {
+static BOOL StashMaterialOverWebHeader(StashCardViewController *controller, WKWebView *web) {
     CGRect header = CGRectMake(CGRectGetMidX(web.frame) - 36, CGRectGetMinY(web.frame), 72, 24);
     BOOL aboveWeb = NO;
     for (UIView *view in controller.view.subviews) {
@@ -521,13 +521,13 @@ static BOOL StashMaterialOverWebHeader(StashCheckoutViewController *controller, 
 
 NSDictionary *StashNativeGrabberContentProbe(void) {
     if (@available(iOS 16.0, *)) {
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
         session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
         UIWindow *window = [[StashChromeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 800, 900)];
         UIViewController *presenter = [UIViewController new];
         window.rootViewController = presenter; session.presenter = presenter; window.hidden = NO;
-        StashCheckoutViewController *controller = [StashChromeProbeController new];
+        StashCardViewController *controller = [StashChromeProbeController new];
         session.controller = controller; controller.session = session;
         [controller configurePresentation]; [presenter.view addSubview:controller.view];
         [controller.spinner stopAnimating];
@@ -580,11 +580,11 @@ NSDictionary *StashChromeSurfaceGeometryProbe(CGRect bounds, BOOL expanded, CGFl
 
 NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presenter, CGFloat measured) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner; session.presenter = presenter;
     session.config = [StashNativeCardConfig new]; session.measuredContentHeight = measured;
     session.webView = web; session.initialContentRevealed = YES;
-    StashCheckoutViewController *controller = [StashChromeProbeController new];
+    StashCardViewController *controller = [StashChromeProbeController new];
     session.controller = controller; controller.session = session;
     [controller configurePresentation];
     [presenter.view addSubview:controller.view]; [controller.spinner stopAnimating];
@@ -597,30 +597,30 @@ NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presen
 }
 
 CGRect StashChromeProcessingFrame(NSDictionary *fixture, BOOL processing) {
-    StashCheckoutSession *session = fixture[@"session"];
-    StashCheckoutViewController *controller = fixture[@"controller"];
+    StashCardSession *session = fixture[@"session"];
+    StashCardViewController *controller = fixture[@"controller"];
     session.processing = processing; [controller updateDismissalPolicy]; [controller viewDidLayoutSubviews];
     return session.webView.frame;
 }
 
 void StashEndChromeContentFixture(NSDictionary *fixture) {
-    StashCheckoutViewController *controller = fixture[@"controller"];
+    StashCardViewController *controller = fixture[@"controller"];
     [controller.view removeFromSuperview];
     [(StashNative *)fixture[@"owner"] resetPresentationState];
 }
 
 void StashEnableChromeFixtureProbe(NSDictionary *fixture) {
-    StashCheckoutSession *session = fixture[@"session"];
+    StashCardSession *session = fixture[@"session"];
     session.loaded = YES;
     [session installTopChromeProbe:session.webView.configuration.userContentController];
     session.webView.navigationDelegate = session;
 }
 UIColor *StashChromeFixtureInferredColor(NSDictionary *fixture) {
-    return ((StashCheckoutViewController *)fixture[@"controller"]).topChromeColor;
+    return ((StashCardViewController *)fixture[@"controller"]).topChromeColor;
 }
 
 UIColor *StashChromeFixtureBackingColor(NSDictionary *fixture) {
-    StashCheckoutSession *session = fixture[@"session"];
+    StashCardSession *session = fixture[@"session"];
     SEL selector = NSSelectorFromString(@"inferredPageBackingApplied");
     BOOL applied = [session respondsToSelector:selector] && ((BOOL (*)(id,SEL))[session methodForSelector:selector])(session, selector);
     return applied ? session.webView.underPageBackgroundColor : nil;
@@ -632,7 +632,7 @@ UIColor *StashChromeFixtureBackingColor(NSDictionary *fixture) {
 @implementation StashKeyboardRectangleProbeView
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
 @end
-@interface StashKeyboardRectangleProbeController : StashCheckoutViewController
+@interface StashKeyboardRectangleProbeController : StashCardViewController
 @end
 @implementation StashKeyboardRectangleProbeController
 - (void)viewDidLoad {}
@@ -654,7 +654,7 @@ void StashSetKeyboardNotificationContext(id controller, UIWindow *window) {
 
 NSDictionary *StashKeyboardRectangleResolutionProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new]; owner.session = session; session.owner = owner;
+    StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
     web.focusForKeyboardProbe = YES; session.webView = web;

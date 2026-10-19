@@ -7,13 +7,13 @@ import org.json.JSONObject;
 
 /** Card-only content measurement, scoped to a committed document and its CSS viewport. */
 final class StashContentSizeSupport {
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
   private String documentId;
   private String navigationUrl;
   private int reportSequence;
   private boolean disposed;
 
-  StashContentSizeSupport(StashCheckoutActivity activity) {
+  StashContentSizeSupport(StashCardActivity activity) {
     this.activity = activity;
   }
 

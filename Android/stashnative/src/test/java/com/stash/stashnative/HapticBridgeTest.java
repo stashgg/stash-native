@@ -24,7 +24,7 @@ import org.robolectric.shadows.ShadowLooper;
 @Config(sdk = {21, 30})
 @LooperMode(LooperMode.Mode.PAUSED)
 public class HapticBridgeTest {
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private RecordingWebView web;
   private StashCheckoutJsInterface bridge;
   private String token;
@@ -35,7 +35,7 @@ public class HapticBridgeTest {
     plugin.isCurrentlyPresented = true;
     Intent intent = new Intent().putExtra(StashCheckoutBridge.EXTRA_SESSION_ID,
         plugin.presentationSessionId);
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class, intent).get();
     web = new RecordingWebView(activity);
     activity.webView = web;
     bridge = new StashCheckoutJsInterface(activity);

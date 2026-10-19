@@ -109,8 +109,8 @@ public class MainActivity extends AppCompatActivity {
     }
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
-      public void onCodeLink() {
-        StashNative.getInstance().codeLink(MainActivity.this, viewModel.getCodeLinkConfig());
+      public void onOpenScanner() {
+        StashNative.getInstance().openScanner(MainActivity.this, viewModel.getScannerConfig());
       }
 
       @Override
@@ -232,14 +232,14 @@ public class MainActivity extends AppCompatActivity {
     sdkListener = new StashNative.StashNativeListener() {
       @Override
       public void onQrCodeScanned(String content) {
-        Log.i(TAG, "CodeLink QR code scanned");
-        runOnUiThread(() -> addCallbackChip("CodeLink · " + content));
+        Log.i(TAG, "QR code scanned");
+        runOnUiThread(() -> addCallbackChip("QR Scanned · " + content));
       }
 
       @Override
-      public void onCodeLinkError(StashNative.CodeLinkError error) {
-        Log.w(TAG, "CodeLink error: " + error.name());
-        runOnUiThread(() -> addCallbackChip("CodeLink Error · " + error.name()));
+      public void onScannerError(StashNative.ScannerError error) {
+        Log.w(TAG, "Scanner error: " + error.name());
+        runOnUiThread(() -> addCallbackChip("Scanner Error · " + error.name()));
       }
 
       @Override
@@ -264,9 +264,9 @@ public class MainActivity extends AppCompatActivity {
       }
 
       @Override
-      public void onScanDismissed() {
-        Log.i(TAG, "Scan dismissed");
-        runOnUiThread(() -> addCallbackChip("Scan Dismissed"));
+      public void onScannerDismissed() {
+        Log.i(TAG, "Scanner dismissed");
+        runOnUiThread(() -> addCallbackChip("Scanner Dismissed"));
       }
 
       @Override
@@ -469,7 +469,7 @@ public class MainActivity extends AppCompatActivity {
         return MainViewModel.Screen.API;
       case CARD_OPTIONS:
       case BROWSER_OPTIONS:
-      case CODE_LINK_OPTIONS:
+      case SCANNER_OPTIONS:
         return MainViewModel.Screen.SETTINGS;
       default:
         return null;
@@ -514,11 +514,11 @@ public class MainActivity extends AppCompatActivity {
         break;
       case CARD_OPTIONS:
       case BROWSER_OPTIONS:
-      case CODE_LINK_OPTIONS:
+      case SCANNER_OPTIONS:
         int optionsTitle = R.string.nav_card_options;
         if (screen == MainViewModel.Screen.BROWSER_OPTIONS) {
           optionsTitle = R.string.nav_browser_options;
-        } else if (screen == MainViewModel.Screen.CODE_LINK_OPTIONS) {
+        } else if (screen == MainViewModel.Screen.SCANNER_OPTIONS) {
           optionsTitle = R.string.nav_code_link_options;
         }
         binding.toolbar.setTitle(optionsTitle);

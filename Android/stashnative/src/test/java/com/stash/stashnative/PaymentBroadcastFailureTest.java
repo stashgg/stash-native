@@ -61,12 +61,12 @@ public class PaymentBroadcastFailureTest {
     host.finish();
   }
 
-  private StashCheckoutActivity open() {
+  private StashCardActivity open() {
     sdk.openCard(host, "https://example.invalid/checkout", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
-    StashCheckoutActivity card =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
+    StashCardActivity card =
+        Robolectric.buildActivity(StashCardActivity.class, intent).get();
     card.options = StashPresentationOptions.card(null);
     card.cardContainer = new StashSheetLayout(card, 24f);
     plugin.setCheckoutActivity(card);
@@ -74,7 +74,7 @@ public class PaymentBroadcastFailureTest {
   }
 
   @Test public void failedPaymentBroadcastEndsCheckoutAsNetworkErrorAndReleasesPresentation() {
-    StashCheckoutActivity card = open();
+    StashCardActivity card = open();
     card.isPurchaseProcessing = true;
     assertTrue(sdk.isCurrentlyPresented());
     card.notifyPaymentResult(true, "order");
@@ -91,7 +91,7 @@ public class PaymentBroadcastFailureTest {
   }
 
   @Test public void paymentFailureBroadcastStillDeliversWhenOnlySuccessIsRejected() {
-    StashCheckoutActivity card = open();
+    StashCardActivity card = open();
     card.notifyPaymentResult(false, null);
     Shadows.shadowOf(Looper.getMainLooper()).idle();
     assertTrue(card.callbackSent);

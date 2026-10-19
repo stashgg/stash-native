@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="stash_scanner_heading">Scan QR code</string>
+    <string name="stash_scanner_close">Close scanner</string>
+    <string name="stash_scanner_callout">Scan the webshop code</string>
+    <string name="stash_scanner_instruction">Keep the QR code centered inside the frame.</string>
+    <string name="stash_scanner_permission">Allow camera access in Settings to scan a webshop code.</string>
+    <string name="stash_scanner_unavailable">Camera unavailable</string>
+    <string name="stash_scanner_settings">Open Settings</string>
+    <string name="stash_scanner_connected">Connected</string>
+</resources>

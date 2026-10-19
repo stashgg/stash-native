@@ -13,13 +13,15 @@ Initial iOS loading now uses one 10-second stall retry within a 15-second foregr
 - Require receiver registration, reads, replacement, and clearing on the platform main thread. Open calls still accept any thread. Each event uses the current receiver, including events from already-open flows; reset stays silent and preserves registration.
 - Remove the no-argument iOS payment-success callback. Implement only `stashNativeDidCompletePaymentWithOrder:` (`stashNativeDidCompletePayment(withOrder:)` in Swift), whose order remains optional.
 - Safari Done, `closeBrowser()`, and `dismiss()` send only browser dismissed, without a card or scan dismissal event.
-- Android missing scanner dependencies now report terminal `CodeLinkError.SCANNER_UNAVAILABLE` after teardown. `CAMERA_CONFIGURATION_FAILED` remains nonterminal.
+- Move the QR scanner into the optional `StashNativeCodeLink` module on both platforms: the `StashNativeCodeLink` Swift package product and XCFramework (the only code that links AVFoundation, so apps without it need no `NSCameraUsageDescription`) and the `stashnative-codelink` AAR (CameraX, ZXing and the camera permission). The core SDK ships no camera code; the scanner's string resources moved to the module as `stash_scanner_*`. Calling the scanner without the module reports terminal `scannerUnavailable` / `SCANNER_UNAVAILABLE` without presenting anything. `CAMERA_CONFIGURATION_FAILED` remains nonterminal.
+- Adopt scanner vocabulary for the QR entry point and its types, aligning `openCard`, `openBrowser` and `openScanner`: iOS `openScanner(from:config:)`, `StashNativeScannerConfig`, `StashNativeScannerError`, `stashNativeDidDismissScanner`, `stashNativeScannerDidEncounterError`; Android `openScanner(activity, config)`, `ScannerConfig`, `ScannerError`, `onScannerDismissed`, `onScannerError`. The scan result callbacks keep their QR names. Internally the card host is `StashCardSession` / `StashCardActivity`.
 - Replace phone/tablet and orientation ratios with preferred content dimensions, a height cap, and edge margins.
 - Require the presenting activity or view controller for card and browser calls.
 - Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
 - Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
 - Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and iOS screenshot-backdrop workarounds; Android backdrop APIs remain available.
 - Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
+- Make camera access opt in on Android: the core AAR no longer declares `android.permission.CAMERA` or the camera `uses-feature` entries; the `stashnative-codelink` AAR declares them. Games without QR Code Linking add nothing and no longer need a `tools:node="remove"` override.
 
 ### Presentation
 

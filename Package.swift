@@ -12,6 +12,10 @@ let package = Package(
         .library(
             name: "StashNative",
             targets: ["StashNative"]),
+        // Optional QR scanner; the only product that links AVFoundation.
+        .library(
+            name: "StashNativeCodeLink",
+            targets: ["StashNativeCodeLink"]),
     ],
     dependencies: [],
     targets: [
@@ -19,18 +23,24 @@ let package = Package(
             name: "StashNative",
             dependencies: [],
             path: "iOS/StashNative/Sources/StashNative",
+            publicHeadersPath: "include"
+        ),
+        .target(
+            name: "StashNativeCodeLink",
+            dependencies: ["StashNative"],
+            path: "iOS/StashNative/Sources/StashNativeCodeLink",
             publicHeadersPath: "include",
             linkerSettings: [.linkedFramework("AVFoundation")]
         ),
         .target(
             name: "RegressionSupport",
-            dependencies: ["StashNative"],
+            dependencies: ["StashNative", "StashNativeCodeLink"],
             path: "iOS/StashNative/Tests/RegressionSupport",
             publicHeadersPath: "include"
         ),
         .testTarget(
             name: "StashNativeTests",
-            dependencies: ["StashNative", "RegressionSupport"],
+            dependencies: ["StashNative", "StashNativeCodeLink", "RegressionSupport"],
             path: "iOS/StashNative/Tests/StashNativeTests"
         ),
     ]

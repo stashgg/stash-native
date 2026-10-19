@@ -10,26 +10,26 @@ import android.webkit.WebView;
  * Dispatches WebView bridge calls to the checkout's UI thread.
  *
  * <p>WebView exposes this object to every frame. The main-frame bridge script passes the
- * document token issued by {@link StashCheckoutActivity} as the first argument; calls without
+ * document token issued by {@link StashCardActivity} as the first argument; calls without
  * the current token are ignored, so subframes cannot drive checkout. {@link #setContentHeight}
  * and {@link #getTelemetry} keep their own per-document tokens.
  */
 final class StashCheckoutJsInterface {
   private static final String TAG = "StashNative";
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
   private final boolean nativeCaller;
 
-  StashCheckoutJsInterface(StashCheckoutActivity activity) {
+  StashCheckoutJsInterface(StashCardActivity activity) {
     this(activity, false);
   }
 
-  private StashCheckoutJsInterface(StashCheckoutActivity activity, boolean nativeCaller) {
+  private StashCheckoutJsInterface(StashCardActivity activity, boolean nativeCaller) {
     this.activity = activity;
     this.nativeCaller = nativeCaller;
   }
 
   /** For stash-pay deeplink results: no page token, but the same session guards and dispatch. */
-  static StashCheckoutJsInterface forNativeResults(StashCheckoutActivity activity) {
+  static StashCheckoutJsInterface forNativeResults(StashCardActivity activity) {
     return new StashCheckoutJsInterface(activity, true);
   }
 

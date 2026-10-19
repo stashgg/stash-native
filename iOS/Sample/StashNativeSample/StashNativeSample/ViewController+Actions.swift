@@ -43,9 +43,10 @@ extension ViewController {
         StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: browserConfig)
     }
 
-    @objc func codeLinkTapped() {
+    @objc func openScannerTapped() {
         cancelGenerateRequest()
-        StashNative.sharedInstance().codeLink(from: self, config: codeLinkConfig)
+        // StashNativeCodeLink is linked and embedded by the project; no Swift import is needed.
+        StashNative.sharedInstance().openScanner(from: self, config: scannerConfig)
     }
 
     func buildCardConfig() -> StashNativeCardConfig {
@@ -105,8 +106,8 @@ extension ViewController {
         handledLaunchPresentation = true
         let arguments = ProcessInfo.processInfo.arguments
         if let index = arguments.firstIndex(of: "-stash-mode"),
-           arguments.indices.contains(index + 1), arguments[index + 1] == "codelink" {
-            codeLinkTapped()
+           arguments.indices.contains(index + 1), arguments[index + 1] == "scanner" {
+            openScannerTapped()
             return
         }
         guard let urlIndex = arguments.firstIndex(of: "-stash-url"),

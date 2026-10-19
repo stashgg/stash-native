@@ -13,7 +13,7 @@ An Objective-C library for iOS 15 and later that works with and without ARC. Sou
 
 ```mermaid
 flowchart TB
-    Facade[StashNative] --> Session[StashCheckoutSession]
+    Facade[StashNative] --> Session[StashCardSession]
     Session --> Card[Card view controller]
     Session --> Web[WKWebView]
     Session --> Safari[SFSafariViewController]
@@ -29,7 +29,8 @@ The facade owns the active session. The session owns checkout state, the WebView
 | `StashNativeCard*.m` | Card layout, sheet detents, keyboard, gestures |
 | `StashNativeOrientation.m` | Portrait checkout |
 | `StashNativeViewUtils.m` | Injected scripts and URL checks |
-| `StashNativeCodeLink.m` | QR scanner |
+| `include/StashNativeScannerSupport.h` | Contract the optional scanner module implements |
+| `StashNativeCodeLink` target | QR scanner; the only code that links AVFoundation |
 
 ## Presentation
 

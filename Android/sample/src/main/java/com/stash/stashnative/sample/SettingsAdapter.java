@@ -34,7 +34,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
   /** Callbacks for user actions (open card, browser, generate checkout). */
   public interface Callbacks {
 
-    void onCodeLink();
+    void onOpenScanner();
 
     void onOpenCard();
 
@@ -262,14 +262,14 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       int t = item.titleRes;
       boolean isUrl = t == R.string.hint_checkout_url
           || t == R.string.hint_browser_url;
-      int codeLinkDefault = codeLinkDefaultText(t);
-      binding.urlInputLayout.setExpandedHintEnabled(codeLinkDefault == 0);
-      binding.urlInputLayout.setPlaceholderText(codeLinkDefault == 0 ? null
-          : itemView.getContext().getString(codeLinkDefault));
+      int scannerDefault = scannerDefaultText(t);
+      binding.urlInputLayout.setExpandedHintEnabled(scannerDefault == 0);
+      binding.urlInputLayout.setPlaceholderText(scannerDefault == 0 ? null
+          : itemView.getContext().getString(scannerDefault));
       int inputType;
       if (isUrl) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI;
-      } else if (codeLinkDefault != 0) {
+      } else if (scannerDefault != 0) {
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
       } else if (t == R.string.instance_name) {
         inputType = InputType.TYPE_CLASS_TEXT;
@@ -338,8 +338,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (boundTitleRes == R.string.instance_secret) {
           viewModel.setEditingSecret(text);
           binding.urlInputLayout.setError(secretError(text));
-        } else if (codeLinkDefaultText(boundTitleRes) != 0) {
-          viewModel.setCodeLinkText(boundTitleRes, text);
+        } else if (scannerDefaultText(boundTitleRes) != 0) {
+          viewModel.setScannerText(boundTitleRes, text);
         }
       }
     };
@@ -383,9 +383,9 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (item.titleRes == R.string.nav_browser_options) {
           viewModel.navigateTo(MainViewModel.Screen.BROWSER_OPTIONS);
         } else if (item.titleRes == R.string.nav_code_link_options) {
-          viewModel.navigateTo(MainViewModel.Screen.CODE_LINK_OPTIONS);
+          viewModel.navigateTo(MainViewModel.Screen.SCANNER_OPTIONS);
         } else if (item.titleRes == R.string.code_link_reset) {
-          viewModel.resetCodeLinkConfig();
+          viewModel.resetScannerConfig();
         } else if (item.titleRes == R.string.nav_checkout_payload) {
           viewModel.navigateTo(MainViewModel.Screen.CHECKOUT_PAYLOAD);
         } else if (item.titleRes == R.string.nav_webshop_payload) {
@@ -397,7 +397,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (item.titleRes == R.string.open_webshop_for_browser) {
           callbacks.onOpenWebshopForBrowser();
         } else if (item.titleRes == R.string.scan_qr_code) {
-          callbacks.onCodeLink();
+          callbacks.onOpenScanner();
         } else if (item.titleRes == R.string.nav_delete_instance) {
           callbacks.onDeleteInstance();
         } else if (item.titleRes == R.string.option_backdrop_source) {
@@ -443,27 +443,27 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (item.titleRes == R.string.instance_production) {
           viewModel.setEditingProduction(isChecked);
         } else if (item.titleRes == R.string.code_link_show_callout) {
-          viewModel.getCodeLinkConfig().showCallout = isChecked;
+          viewModel.getScannerConfig().showCallout = isChecked;
         }
       });
     }
   }
 
-  private static int codeLinkDefaultText(int title) {
+  private static int scannerDefaultText(int title) {
     if (title == R.string.code_link_header) {
-      return com.stash.stashnative.R.string.stash_code_link_heading;
+      return com.stash.stashnative.codelink.R.string.stash_scanner_heading;
     }
     if (title == R.string.code_link_callout_title) {
-      return com.stash.stashnative.R.string.stash_code_link_callout;
+      return com.stash.stashnative.codelink.R.string.stash_scanner_callout;
     }
     if (title == R.string.code_link_callout_subtitle) {
-      return com.stash.stashnative.R.string.stash_code_link_instruction;
+      return com.stash.stashnative.codelink.R.string.stash_scanner_instruction;
     }
     if (title == R.string.code_link_camera_unavailable) {
-      return com.stash.stashnative.R.string.stash_code_link_unavailable;
+      return com.stash.stashnative.codelink.R.string.stash_scanner_unavailable;
     }
     if (title == R.string.code_link_connected) {
-      return com.stash.stashnative.R.string.stash_code_link_connected;
+      return com.stash.stashnative.codelink.R.string.stash_scanner_connected;
     }
     return 0;
   }

@@ -41,7 +41,7 @@ Checkout pages get CSS safe-area insets from Android WebView 144.
 | iOS | Adds orientation methods to the app and scene delegate classes | Portrait checkout on iPhone |
 | iOS | Sets the `UIDevice` orientation through key-value coding | Portrait on iOS 15 |
 | iOS | Runtime subclass of WebKit content views | Hiding the keyboard toolbar in checkout fields |
-| Android | Reflection into `androidx.browser`, CameraX, and ZXing | Optional dependencies |
+| Android | Reflection into `androidx.browser` and the `stashnative-codelink` module | Optional dependencies |
 
 ## Limits
 

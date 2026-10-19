@@ -17,7 +17,7 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>The regression tests exercise the CodeLink camera lifecycle.</string>
+    <string>The regression tests exercise the scanner camera lifecycle.</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

@@ -3,9 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <!-- No camera permission: the optional stashnative-codelink module declares it. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
     <permission
@@ -27,7 +25,7 @@
             tools:remove prevents wrapper manifests from adding a process attribute.
         -->
         <activity
-            android:name=".StashCheckoutActivity"
+            android:name=".StashCardActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|keyboard|uiMode|smallestScreenSize|screenLayout|density|fontScale|layoutDirection"
             android:exported="false"
             tools:remove="android:process"
@@ -40,7 +38,7 @@
             lifecycle so browser dismissal fires without host-activity changes (Unity
             UnityPlayerActivity, partner apps that cannot ship onActivityResult
             forwarders). Must run in the host app's process for the same reason as
-            StashCheckoutActivity (WebView data dir lock conflicts).
+            StashCardActivity (WebView data dir lock conflicts).
         -->
         <activity
             android:name=".StashNativeBrowserProxyActivity"

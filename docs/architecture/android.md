@@ -14,23 +14,23 @@ A Java library for API 21 and later, package `com.stash.stashnative`. Source: [`
 ```mermaid
 flowchart TB
     Game[Game activity] -->|open| Plugin[StashNativePlugin]
-    Plugin -->|starts| Activity[StashCheckoutActivity]
+    Plugin -->|starts| Activity[StashCardActivity]
     Activity -->|in-app broadcast| Plugin
     Plugin -->|listener| Game
 ```
 
-`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCheckoutActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID, so events from an old session are dropped.
+`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCardActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID, so events from an old session are dropped.
 
 | Class | Responsibility |
 |---|---|
 | `StashNative` | Public API |
 | `StashNativePlugin` | Session, listener, browser, keep-alive, backdrop |
-| `StashCheckoutActivity` | Hosts one card or scanner |
+| `StashCardActivity` | Hosts one card or scanner |
 | `StashPresentationController` | Layout, insets, keyboard, folds, gestures |
 | `StashCheckoutWebViewSupport` | WebView setup, loading, errors |
 | `StashCheckoutJsInterface` | `StashAndroid` bridge |
 | `StashNativeBrowserProxyActivity` | Custom Tabs launch and close detection |
-| `StashCodeLinkSession` | QR scanner |
+| `StashScannerContent`, `StashScannerHost` | Scanner contract; the implementation lives in the `stashnative-codelink` module |
 
 ## Layout
 
@@ -53,4 +53,4 @@ flowchart TB
 
 ## QR scanner
 
-The scanner runs in the same activity and card as checkout. CameraX and ZXing load through reflection; without them, the scanner closes with `SCANNER_UNAVAILABLE`. Decoding runs on the device.
+The scanner runs in the same activity and card as checkout, but its code lives in the optional `stashnative-codelink` module, which carries CameraX, ZXing and the camera permission. The core resolves the module's `StashScannerSupport` by reflection through the `StashScannerContent` and `StashScannerHost` contracts. Without the module, `openScanner` closes with `SCANNER_UNAVAILABLE`; if a host strips the permission, the scanner stays open with `CAMERA_PERMISSION_NOT_DECLARED`. Decoding runs on the device.

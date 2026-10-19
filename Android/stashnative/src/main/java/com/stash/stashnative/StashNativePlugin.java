@@ -14,7 +14,7 @@ import android.os.Looper;
 import android.util.Log;
 import java.lang.ref.WeakReference;
 
-/** Coordinates checkout sessions and browser handoff for the public {@link StashNative} API. */
+/** Coordinates card sessions, the scanner, and browser handoff for {@link StashNative}. */
 public class StashNativePlugin {
   private static final String TAG = "StashNative";
 
@@ -26,7 +26,7 @@ public class StashNativePlugin {
   private WeakReference<Activity> activityRef;
 
   /** Live checkout activity (card path); set in its onCreate, cleared in onDestroy. */
-  private volatile WeakReference<StashCheckoutActivity> checkoutActivityRef;
+  private volatile WeakReference<StashCardActivity> checkoutActivityRef;
 
   /**
    * Strong reference: anonymous listeners are otherwise only weakly reachable and may be GC'd in
@@ -180,7 +180,7 @@ public class StashNativePlugin {
   }
 
   /**
-   * Registers a package-local receiver so events from {@link StashCheckoutActivity} reach {@link
+   * Registers a package-local receiver so events from {@link StashCardActivity} reach {@link
    * StashNative.StashNativeListener} on the main thread (same-process default; broadcasts
    * remain the activity-to-plugin contract).
    */
@@ -208,8 +208,8 @@ public class StashNativePlugin {
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_NETWORK_ERROR);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED);
     filter.addAction(CardConstants.BROADCAST_CHECKOUT_PAGE_LOADED);
-    filter.addAction(CardConstants.BROADCAST_CODE_LINK_SCANNED);
-    filter.addAction(CardConstants.BROADCAST_CODE_LINK_ERROR);
+    filter.addAction(CardConstants.BROADCAST_SCANNER_SCANNED);
+    filter.addAction(CardConstants.BROADCAST_SCANNER_ERROR);
     try {
       // Use platform API directly to avoid requiring androidx.core >= 1.9 (4-arg
       // ContextCompat.registerReceiver). Hosts with old androidx.core (e.g. Unity
@@ -239,10 +239,10 @@ public class StashNativePlugin {
     StashNative.StashNativeListener l = getListener();
     boolean scanner = presentationIsScanner;
     try {
-      if (CardConstants.BROADCAST_CODE_LINK_ERROR.equals(action)) {
+      if (CardConstants.BROADCAST_SCANNER_ERROR.equals(action)) {
         if (l != null) {
-          l.onCodeLinkError(StashNative.CodeLinkError.valueOf(
-              intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR)));
+          l.onScannerError(StashNative.ScannerError.valueOf(
+              intent.getStringExtra(CardConstants.BROADCAST_EXTRA_SCANNER_ERROR)));
         }
         return;
       }
@@ -274,12 +274,12 @@ public class StashNativePlugin {
         l.onNetworkError();
       } else if (CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED.equals(action)) {
         if (scanner) {
-          l.onScanDismissed();
+          l.onScannerDismissed();
         } else {
           l.onCardDismissed();
         }
-      } else if (CardConstants.BROADCAST_CODE_LINK_SCANNED.equals(action)) {
-        l.onQrCodeScanned(intent.getStringExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT));
+      } else if (CardConstants.BROADCAST_SCANNER_SCANNED.equals(action)) {
+        l.onQrCodeScanned(intent.getStringExtra(CardConstants.BROADCAST_EXTRA_SCANNER_CONTENT));
       }
     } catch (Exception e) {
       Log.w(TAG, "Error dispatching checkout bridge: " + e.getMessage(), e);
@@ -327,7 +327,7 @@ public class StashNativePlugin {
 
   /**
    * Starts the optional keep-alive foreground service before opening Custom Tabs / browser.
-   * Package-private for {@link StashCheckoutActivity}.
+   * Package-private for {@link StashCardActivity}.
    */
   void startKeepAliveBeforeBrowser(Context context) {
     if (!keepAliveEnabled || context == null) {
@@ -370,7 +370,7 @@ public class StashNativePlugin {
    * Drops checkout external-browser teardown without running the pending runnable (e.g. user
    * dismissed the dim overlay while Custom Tabs callbacks are missing).
    */
-  void abandonPendingExternalBrowserCheckoutDismiss(StashCheckoutActivity checkout) {
+  void abandonPendingExternalBrowserCheckoutDismiss(StashCardActivity checkout) {
     if (!ownsCheckout(checkout) || pendingCheckoutDismissAfterExternalBrowser == null) {
       return;
     }
@@ -394,13 +394,13 @@ public class StashNativePlugin {
     }
   }
 
-  private boolean ownsCheckout(StashCheckoutActivity checkout) {
+  private boolean ownsCheckout(StashCardActivity checkout) {
     return checkout != null && checkout == getCheckoutActivity()
         && checkout.getPresentationSessionId() == presentationSessionId
         && !checkout.isDismissing && !checkout.isFinishing() && !checkout.isDestroyed();
   }
 
-  private Runnable forCheckout(StashCheckoutActivity checkout, Runnable action) {
+  private Runnable forCheckout(StashCardActivity checkout, Runnable action) {
     return () -> {
       if (ownsCheckout(checkout) && action != null) {
         action.run();
@@ -416,7 +416,7 @@ public class StashNativePlugin {
    * cannot be opened.
    */
   void openExternalBrowserFromCheckout(
-      StashCheckoutActivity checkoutActivity,
+      StashCardActivity checkoutActivity,
       String url,
       boolean notifyExternalPaymentListener,
       Runnable hideCheckoutChromeWhileBrowserOpen,
@@ -628,16 +628,16 @@ public class StashNativePlugin {
     }
   }
 
-  void codeLink(Activity host) {
-    codeLink(host, null);
+  void openScanner(Activity host) {
+    openScanner(host, null);
   }
 
-  void codeLink(Activity host, StashNative.CodeLinkConfig config) {
+  void openScanner(Activity host, StashNative.ScannerConfig config) {
     openPresentation(host, null, StashPresentationOptions.card(null),
-        StashCodeLinkOptions.from(config));
+        StashScannerOptions.from(config));
   }
 
-  void codeLinkUnavailable(StashCheckoutActivity checkout) {
+  void scannerUnavailable(StashCardActivity checkout) {
     if (checkout == null || checkout != getCheckoutActivity()
         || checkout.getPresentationSessionId() != presentationSessionId) {
       return;
@@ -647,7 +647,7 @@ public class StashNativePlugin {
     StashNative.StashNativeListener current = getListener();
     if (current != null) {
       try {
-        current.onCodeLinkError(StashNative.CodeLinkError.SCANNER_UNAVAILABLE);
+        current.onScannerError(StashNative.ScannerError.SCANNER_UNAVAILABLE);
       } catch (Exception error) {
         Log.w(TAG, "Error delivering scanner unavailable failure", error);
       }
@@ -655,28 +655,28 @@ public class StashNativePlugin {
   }
 
   private void openPresentation(
-      Activity host, String url, StashPresentationOptions options, StashCodeLinkOptions codeLink) {
+      Activity host, String url, StashPresentationOptions options, StashScannerOptions scanner) {
     if (Looper.myLooper() != Looper.getMainLooper()) {
-      mainHandler.post(() -> openPresentation(host, url, options, codeLink));
+      mainHandler.post(() -> openPresentation(host, url, options, scanner));
       return;
     }
     if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()) {
       return;
     }
     setActivity(host);
-    String normalized = codeLink != null ? null
+    String normalized = scanner != null ? null
         : StashWebViewUtils.normalizeExternalPaymentUrl(url);
-    if (codeLink == null && normalized == null) {
+    if (scanner == null && normalized == null) {
       return;
     }
     // A terminal callback may reopen before the previous dismissal animation finishes.
     retireCheckoutWithoutCallbacks();
     cleanupAllViews();
     presentationSessionId++;
-    presentationIsScanner = codeLink != null;
+    presentationIsScanner = scanner != null;
     isCurrentlyPresented = true;
     presentationOptions = options;
-    if (codeLink == null) {
+    if (scanner == null) {
       Bitmap backdrop = takePendingBackdrop();
       if (options.orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT) {
         launchingBackdrop = StashHostBackdropSupport.create(host, backdrop);
@@ -691,7 +691,7 @@ public class StashNativePlugin {
         Log.w(TAG, "Cannot apply checkout theme", error);
       }
     }
-    launchCheckoutActivity(normalized, host, codeLink);
+    launchCheckoutActivity(normalized, host, scanner);
   }
 
   /**
@@ -745,7 +745,7 @@ public class StashNativePlugin {
   }
 
   void dismissDialog() {
-    StashCheckoutActivity checkout = getCheckoutActivity();
+    StashCardActivity checkout = getCheckoutActivity();
     if (checkout != null) {
       checkout.runOnUiThread(checkout::dismissWithAnimation);
     }
@@ -754,24 +754,24 @@ public class StashNativePlugin {
   /**
    * Package-private: the checkout activity registers/deregisters itself for programmatic dismiss.
    */
-  void setCheckoutActivity(StashCheckoutActivity activity) {
+  void setCheckoutActivity(StashCardActivity activity) {
     checkoutActivityRef = new WeakReference<>(activity);
   }
 
-  private StashCheckoutActivity getCheckoutActivity() {
-    WeakReference<StashCheckoutActivity> reference = checkoutActivityRef;
+  private StashCardActivity getCheckoutActivity() {
+    WeakReference<StashCardActivity> reference = checkoutActivityRef;
     return reference != null ? reference.get() : null;
   }
 
   private void retireCheckoutWithoutCallbacks() {
-    StashCheckoutActivity checkout = getCheckoutActivity();
+    StashCardActivity checkout = getCheckoutActivity();
     checkoutActivityRef = null;
     if (checkout != null) {
       checkout.finishForPluginResetWithoutCallbacks();
     }
   }
 
-  void clearCheckoutActivity(StashCheckoutActivity activity) {
+  void clearCheckoutActivity(StashCardActivity activity) {
     if (activity.getPresentationSessionId() == backdropSessionId) {
       releaseLaunchingBackdrop();
     }
@@ -851,7 +851,7 @@ public class StashNativePlugin {
    * @return true if processing
    */
   public boolean isPurchaseProcessing() {
-    StashCheckoutActivity checkout = getCheckoutActivity();
+    StashCardActivity checkout = getCheckoutActivity();
     if (!isCurrentlyPresented) {
       return false;
     }
@@ -860,13 +860,13 @@ public class StashNativePlugin {
   }
 
   private void launchCheckoutActivity(
-      String url, Activity activity, StashCodeLinkOptions codeLink) {
+      String url, Activity activity, StashScannerOptions scanner) {
     try {
-      Intent intent = new Intent(activity, StashCheckoutActivity.class);
+      Intent intent = new Intent(activity, StashCardActivity.class);
       intent.putExtra(CardConstants.INTENT_EXTRA_URL, url);
-      intent.putExtra(CardConstants.INTENT_EXTRA_CODE_LINK, codeLink != null);
-      if (codeLink != null) {
-        codeLink.put(intent);
+      intent.putExtra(CardConstants.INTENT_EXTRA_SCANNER, scanner != null);
+      if (scanner != null) {
+        scanner.put(intent);
       }
       intent.putExtra(StashCheckoutBridge.EXTRA_SESSION_ID, presentationSessionId);
       presentationOptions.put(intent);

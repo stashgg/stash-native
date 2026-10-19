@@ -15,26 +15,28 @@ QR code linking lets players link their Stash webshop account to the game by sca
 
 | Platform | Requirement |
 |---|---|
-| iOS | `NSCameraUsageDescription` in Info.plist. iOS shows this text when the scanner asks for the camera. |
-| Android | CameraX and ZXing from [Package Installation](installation.md#android) |
+| iOS | The `StashNativeCodeLink` library or XCFramework, plus `NSCameraUsageDescription` in Info.plist. iOS shows this text when the scanner asks for the camera. |
+| Android | The `StashNativeCodeLink` AAR or `:stashnative-codelink` module with CameraX and ZXing, from [Package Installation](installation.md#android). Its manifest declares the camera permission. |
+
+The core SDK ships no camera code. Without the module, `openScanner` reports `scannerUnavailable` / `SCANNER_UNAVAILABLE` and presents nothing.
 
 The scanner asks for camera access the first time it opens. Decoding runs on the device, and no images are saved.
 
 ## Open the scanner
 
 ```swift
-StashNative.sharedInstance().codeLink(from: self, config: nil)
+StashNative.sharedInstance().openScanner(from: self, config: nil)
 ```
 
 ```java
-StashNative.getInstance().codeLink(activity, null);
+StashNative.getInstance().openScanner(activity, null);
 ```
 
 The scanner follows the game's orientation. `dismiss()` closes it from code.
 
 ## Configuration
 
-Pass a `StashNativeCodeLinkConfig` (iOS) or `StashNative.CodeLinkConfig` (Android) to translate the scanner text or hide the info callout. `nil` or empty values keep the defaults.
+Pass a `StashNativeScannerConfig` (iOS) or `StashNative.ScannerConfig` (Android) to translate the scanner text or hide the info callout. `nil` or empty values keep the defaults.
 
 | Property | Default |
 |---|---|
@@ -46,17 +48,17 @@ Pass a `StashNativeCodeLinkConfig` (iOS) or `StashNative.CodeLinkConfig` (Androi
 | `showCallout` | `true` |
 
 ```swift
-let config = StashNativeCodeLinkConfig()
+let config = StashNativeScannerConfig()
 config.headerText = "Escanear código QR"
 config.showCallout = false
-StashNative.sharedInstance().codeLink(from: self, config: config)
+StashNative.sharedInstance().openScanner(from: self, config: config)
 ```
 
 ```java
-StashNative.CodeLinkConfig config = new StashNative.CodeLinkConfig();
+StashNative.ScannerConfig config = new StashNative.ScannerConfig();
 config.headerText = "Escanear código QR";
 config.showCallout = false;
-StashNative.getInstance().codeLink(activity, config);
+StashNative.getInstance().openScanner(activity, config);
 ```
 
 ## Callbacks

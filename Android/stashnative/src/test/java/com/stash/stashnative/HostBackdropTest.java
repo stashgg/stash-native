@@ -130,7 +130,7 @@ public class HostBackdropTest {
   @Test public void scannerDoesNotUseOrConsumePendingCardBackdrop() {
     Bitmap bitmap = bitmap();
     StashNative.setBackdropBitmap(bitmap);
-    plugin.codeLink(host);
+    plugin.openScanner(host);
     assertNull(plugin.takeBackdrop(plugin.presentationSessionId));
     assertFalse(bitmap.isRecycled());
     plugin.cleanupAllViews();
@@ -164,8 +164,8 @@ public class HostBackdropTest {
     StashNative.setBackdropBitmap(bitmap);
     plugin.openCard(host, "https://example.invalid", config);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
-    org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create();
+    org.robolectric.android.controller.ActivityController<StashCardActivity> controller =
+        Robolectric.buildActivity(StashCardActivity.class, intent).create();
     assertTrue(bitmap.isRecycled());
     assertEquals(ActivityInfo.SCREEN_ORIENTATION_BEHIND,
         controller.get().getRequestedOrientation());

@@ -66,7 +66,7 @@ public class PresentationSafetyTest {
   }
 
   /** The current main-frame bridge token, issuing one for checkouts that never loaded. */
-  private static String token(StashCheckoutActivity checkout) {
+  private static String token(StashCardActivity checkout) {
     return checkout.bridgeDocumentToken != null
         ? checkout.bridgeDocumentToken : checkout.issueBridgeDocumentToken();
   }
@@ -512,7 +512,7 @@ public class PresentationSafetyTest {
     StashCheckoutWebViewSupport.addWebView(activity);
     View page = new View(activity);
     activity.cardContainer.addView(page, new FrameLayout.LayoutParams(-1, -1));
-    java.lang.reflect.Method addHandle = StashCheckoutActivity.class.getDeclaredMethod("addDragHandle");
+    java.lang.reflect.Method addHandle = StashCardActivity.class.getDeclaredMethod("addDragHandle");
     addHandle.setAccessible(true);
     addHandle.invoke(activity);
     activity.presentation.environmentChanged();
@@ -652,7 +652,7 @@ public class PresentationSafetyTest {
   @Test public void rendererRecoveryKeepsGrabberAboveReplacementWebView() throws Exception {
     activity.url = "https://example.invalid/checkout";
     StashCheckoutWebViewSupport.addWebView(activity);
-    java.lang.reflect.Method addHandle = StashCheckoutActivity.class.getDeclaredMethod("addDragHandle");
+    java.lang.reflect.Method addHandle = StashCardActivity.class.getDeclaredMethod("addDragHandle");
     addHandle.setAccessible(true);
     addHandle.invoke(activity);
     View handle = activity.cardContainer.getChildAt(activity.cardContainer.getChildCount() - 1);
@@ -685,7 +685,7 @@ public class PresentationSafetyTest {
     assertEquals(0, activity.dismissCalls);
   }
 
-  public static class RecordingCheckout extends StashCheckoutActivity {
+  public static class RecordingCheckout extends StashCardActivity {
     int dismissCalls;
     int networkErrors;
 

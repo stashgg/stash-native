@@ -1,4 +1,4 @@
-package com.stash.stashnative;
+package com.stash.stashnative.codelink;
 
 import android.graphics.Rect;
 import com.google.zxing.BinaryBitmap;
@@ -15,7 +15,7 @@ import java.nio.ByteBuffer;
 import java.util.Collections;
 
 /** QR-only decoding of the visible scan region, on the camera analysis executor. */
-final class StashCodeLinkDecoder {
+final class StashScannerDecoder {
   private final Decoder decoder = new Decoder();
 
   String decode(ByteBuffer buffer, int width, int height, int rowStride, int pixelStride,

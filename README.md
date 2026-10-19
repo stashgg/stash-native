@@ -55,7 +55,8 @@ dependencies {
     // openBrowser and external payments in Chrome Custom Tabs:
     implementation 'androidx.browser:browser:1.7.0'
 
-    // Only for CodeLink QR scanning (include all four):
+    // Only for QR Code Linking: the scanner module and all four libraries
+    implementation files('libs/StashNativeCodeLink-<tag>.aar')
     implementation 'androidx.camera:camera-camera2:1.4.2'
     implementation 'androidx.camera:camera-lifecycle:1.4.2'
     implementation 'androidx.camera:camera-view:1.4.2'
@@ -63,7 +64,7 @@ dependencies {
 }
 ```
 
-AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [installation guide](https://stashgg.github.io/stash-native/usage/installation.html#android) for details.
+The scanner module's manifest declares `android.permission.CAMERA`; the core SDK contains no camera code or permission. AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [installation guide](https://stashgg.github.io/stash-native/usage/installation.html#android) for details.
 
 ### iOS
 
@@ -71,7 +72,7 @@ Minimum iOS: 15.0. Build with Xcode 27.1 for iPhone Duo APIs and compatibility. 
 
 **XCFramework:** Download `StashNative-<tag>.xcframework.zip` from [GitHub Releases](https://github.com/stashgg/stash-native/releases), unzip it, and add `StashNative.xcframework` to your Xcode project. Under **Frameworks, Libraries, and Embedded Content**, set it to **Embed & Sign**.
 
-**Swift Package Manager:** In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the **StashNative** library to your target.
+**Swift Package Manager:** In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the **StashNative** library to your target. Add **StashNativeCodeLink** (or `StashNativeCodeLink.xcframework`) only if you use QR Code Linking; the core framework contains no camera references.
 
 
 ## Features
@@ -189,23 +190,23 @@ Scan webshop QR codes in a responsive native card and use the returned content t
 
 ![CodeLink scanners on iPhone and Android with simulated camera previews](.github/assets/codelink-devices-dark.png)
 
-On iOS, add `NSCameraUsageDescription` to your app's `Info.plist`. On Android, add the [QR scanning dependencies](#android). The SDK requests camera permission when the scanner opens.
+The scanner ships as the separate `StashNativeCodeLink` module, so camera access is opt in. On iOS, link it and add `NSCameraUsageDescription` to your app's `Info.plist`. On Android, add the [scanner module and its libraries](#android); the module declares the `CAMERA` permission. The SDK requests camera permission when the scanner opens.
 
 **Android**
 
 ```java
-StashNative.getInstance().codeLink(this, null);
+StashNative.getInstance().openScanner(this, null);
 ```
 
 **iOS**
 
 ```swift
-StashNative.sharedInstance().codeLink(from: self, config: nil)
+StashNative.sharedInstance().openScanner(from: self, config: nil)
 ```
 
 #### Scanner Configuration
 
-To customize or translate the scanner text, pass `StashNative.CodeLinkConfig` on Android or `StashNativeCodeLinkConfig` on iOS. Omitted or empty text uses the defaults. Set `showCallout` to `false` to hide the info callout. See [scanner configuration](https://stashgg.github.io/stash-native/usage/codelink.html#configuration) for all properties and their default text.
+To customize or translate the scanner text, pass `StashNative.ScannerConfig` on Android or `StashNativeScannerConfig` on iOS. Omitted or empty text uses the defaults. Set `showCallout` to `false` to hide the info callout. See [scanner configuration](https://stashgg.github.io/stash-native/usage/codelink.html#configuration) for all properties and their default text.
 
 ## Callbacks
 
@@ -240,10 +241,10 @@ A successful scan shows **Connected** before closing and does not emit a dismiss
 | Event | Android | iOS | Description |
 | --- | --- | --- | --- |
 | QR Scanned | `onQrCodeScanned(content)` | `stashNativeDidScanQRCode(_:)` | Returns the unchanged QR content once, after the scanner closes. |
-| Camera or Setup Error | `onCodeLinkError(error)` | `stashNativeCodeLinkDidEncounterError(_:)` | Camera or startup failure; most errors leave the scanner open. |
-| Scan Dismissed | `onScanDismissed()` | `stashNativeDidDismissScan()` | The user or app dismissed the scanner without a result. |
+| Camera or Setup Error | `onScannerError(error)` | `stashNativeScannerDidEncounterError(_:)` | Camera or startup failure; most errors leave the scanner open. |
+| Scanner Dismissed | `onScannerDismissed()` | `stashNativeDidDismissScanner()` | The user or app dismissed the scanner without a result. |
 
-Android `SCANNER_UNAVAILABLE` closes the scanner without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/callbacks.html#errors).
+A missing `StashNativeCodeLink` module reports `SCANNER_UNAVAILABLE` / `.scannerUnavailable` without presenting anything and without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/callbacks.html#errors).
 
 ### Register callbacks
 

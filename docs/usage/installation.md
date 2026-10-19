@@ -7,7 +7,7 @@ description: Download Stash Native and add it to an iOS or Android app.
 
 # Package Installation
 
-Prebuilt packages are on [GitHub Releases](https://github.com/stashgg/stash-native/releases): `StashNative-<tag>.xcframework.zip` for iOS and `StashNative-<tag>.aar` for Android. iOS apps can also use Swift Package Manager.
+Prebuilt packages are on [GitHub Releases](https://github.com/stashgg/stash-native/releases): `StashNative-<tag>.xcframework.zip` for iOS and `StashNative-<tag>.aar` for Android. The QR scanner ships separately as `StashNativeCodeLink-<tag>.xcframework.zip` and `StashNativeCodeLink-<tag>.aar`; add it only if your game uses [QR Code Linking](codelink.md). iOS apps can also use Swift Package Manager.
 
 ## iOS
 
@@ -15,7 +15,7 @@ Requires iOS 15 or later and Xcode 27.1.
 
 ### Swift Package Manager
 
-In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library to your app target. In `Package.swift`:
+In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library to your app target. Add the `StashNativeCodeLink` library as well only if you use QR Code Linking. In `Package.swift`:
 
 ```swift
 .package(url: "https://github.com/stashgg/stash-native.git", from: "3.0.0"),
@@ -23,7 +23,11 @@ In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/
 
 ### XCFramework
 
-Unzip `StashNative-<tag>.xcframework.zip`, add `StashNative.xcframework` to your app target, and set it to **Embed & Sign**.
+Unzip `StashNative-<tag>.xcframework.zip`, add `StashNative.xcframework` to your app target, and set it to **Embed & Sign**. For QR Code Linking, do the same with `StashNativeCodeLink.xcframework`.
+
+### QR Code Linking (opt in)
+
+`StashNative` contains no camera code and no AVFoundation references, so apps that do not scan need no camera purpose string. Apps that link `StashNativeCodeLink` add `NSCameraUsageDescription` to their Info.plist; no Swift import is needed, the core finds the module at runtime. Calling `openScanner` without the module reports `StashNativeScannerError.scannerUnavailable` and presents nothing. Xcode's package integration and the XCFramework keep the scanner class automatically; a custom pipeline that links the SDK as plain static archives must pass `-ObjC` so the linker keeps it.
 
 ### Import
 
@@ -48,7 +52,8 @@ dependencies {
     // Optional: In-Game Browser in Chrome Custom Tabs
     implementation 'androidx.browser:browser:1.7.0'
 
-    // Optional: QR Code Linking, all four
+    // Optional: QR Code Linking, the scanner module and its four libraries
+    implementation files('libs/StashNativeCodeLink-<tag>.aar')
     implementation 'androidx.camera:camera-camera2:1.4.2'
     implementation 'androidx.camera:camera-lifecycle:1.4.2'
     implementation 'androidx.camera:camera-view:1.4.2'
@@ -64,13 +69,8 @@ The AAR brings its own manifest entries and R8 rules.
 import com.stash.stashnative.StashNative;
 ```
 
-### Camera permission
+### QR Code Linking (opt in)
 
-The AAR declares the `CAMERA` permission for QR Code Linking. If your game does not use QR Code Linking, remove it:
+`StashNative` declares no camera permission and contains no camera code. If your game uses [QR Code Linking](codelink.md), add `StashNativeCodeLink` and its four libraries as shown above; its manifest declares `android.permission.CAMERA` and the optional camera features for you. Source-module integrations depend on `:stashnative-codelink` instead of the AAR.
 
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
-    <uses-permission android:name="android.permission.CAMERA" tools:node="remove" />
-</manifest>
-```
+Without the module, `openScanner` reports `ScannerError.SCANNER_UNAVAILABLE` and closes; if a host removes the permission with `tools:node="remove"`, the scanner stays open with `CAMERA_PERMISSION_NOT_DECLARED`. Games that do not use QR Code Linking add nothing.

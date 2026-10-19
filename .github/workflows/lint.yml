@@ -38,7 +38,8 @@ jobs:
         run: |
           java -jar checkstyle.jar -c Android/checkstyle.xml \
             -f plain \
-            Android/stashnative/src/main/java/
+            Android/stashnative/src/main/java/ \
+            Android/stashnative-codelink/src/main/java/
 
   lint-android-sample:
     name: Lint Android Sample (Checkstyle)
@@ -83,10 +84,10 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
       - name: Run unit tests and build samples
-        run: cd Android && ./gradlew :stashnative:testDebugUnitTest :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease
+        run: cd Android && ./gradlew :stashnative:testDebugUnitTest :stashnative-codelink:testDebugUnitTest :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease
 
       - name: Android Lint
-        run: cd Android && ./gradlew :stashnative:lintRelease :sample:lintDebug
+        run: cd Android && ./gradlew :stashnative:lintRelease :stashnative-codelink:lintRelease :sample:lintDebug
 
       - name: Build minimal Java AAR consumers with R8
         run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease
@@ -98,6 +99,7 @@ jobs:
           name: android-test-results
           path: |
             Android/stashnative/build/test-results/
+            Android/stashnative-codelink/build/test-results/
             Android/sample/build/test-results/
           if-no-files-found: ignore
           retention-days: 7
@@ -177,15 +179,17 @@ jobs:
         run: |
           # Run Clang Static Analyzer on Objective-C library (generic destination works on any runner)
           cd iOS/StashNative
-          xcodebuild analyze \
-            -project StashNative.xcodeproj \
-            -scheme StashNative \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath "$RUNNER_TEMP/stash-ios-analysis" \
-            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
-            CLANG_ANALYZER_OUTPUT=plist-html \
-            CLANG_ANALYZER_OUTPUT_DIR="$RUNNER_TEMP/stash-ios-analyzer-results"
+          for SCHEME in StashNative StashNativeCodeLink; do
+            xcodebuild analyze \
+              -project StashNative.xcodeproj \
+              -scheme "$SCHEME" \
+              -sdk iphonesimulator \
+              -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath "$RUNNER_TEMP/stash-ios-analysis" \
+              GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+              CLANG_ANALYZER_OUTPUT=plist-html \
+              CLANG_ANALYZER_OUTPUT_DIR="$RUNNER_TEMP/stash-ios-analyzer-results"
+          done
         continue-on-error: false
 
       - name: Build non-ARC library

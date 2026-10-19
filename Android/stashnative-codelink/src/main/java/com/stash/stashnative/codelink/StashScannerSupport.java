@@ -1,6 +1,7 @@
-package com.stash.stashnative;
+package com.stash.stashnative.codelink;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -39,19 +40,26 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LifecycleRegistry;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.stash.stashnative.StashNative;
+import com.stash.stashnative.StashScannerContent;
+import com.stash.stashnative.StashScannerHost;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Owns camera permission, capture lifetime, scan geometry, and the confirmation hold. */
+/**
+ * Owns camera permission, capture lifetime, scan geometry, and the confirmation hold. The core
+ * resolves this class by name through its public constructor; keep both stable.
+ */
 @OptIn(markerClass = TransformExperimental.class)
-final class StashCodeLinkSupport extends StashCodeLinkSession
+public final class StashScannerSupport extends StashScannerContent
     implements LifecycleOwner, DisplayManager.DisplayListener {
-  final StashCodeLinkView view;
-  private final StashCheckoutActivity activity;
+  final StashScannerView view;
+  private final StashScannerHost host;
+  private final Activity activity;
   private final Handler main = new Handler(Looper.getMainLooper());
   private final LifecycleRegistry lifecycle = new LifecycleRegistry(this);
   private final ExecutorService analysisExecutor = Executors.newSingleThreadExecutor();
-  private final StashCodeLinkDecoder decoder = new StashCodeLinkDecoder();
+  private final StashScannerDecoder decoder = new StashScannerDecoder();
   private final Runnable bind = this::bindCamera;
   private final DisplayManager displays;
   private ProcessCameraProvider provider;
@@ -79,12 +87,14 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     }
   };
 
-  StashCodeLinkSupport(StashCheckoutActivity activity) {
-    this.activity = activity;
+  /** Called reflectively by the core card; see {@code StashScannerContent.create}. */
+  public StashScannerSupport(StashScannerHost host) {
+    this.host = host;
+    this.activity = host.getActivity();
     lifecycle.setCurrentState(Lifecycle.State.CREATED);
     displays = (DisplayManager) activity.getSystemService(Context.DISPLAY_SERVICE);
-    view = new StashCodeLinkView(activity, StashCodeLinkOptions.read(activity.getIntent()),
-        activity::requestUserDismiss, this::openSettings);
+    view = new StashScannerView(activity, host.getScannerOptions(),
+        host::requestDismiss, this::openSettings);
     view.setGeometryListener(this::geometryChanged);
     view.preview.getPreviewStreamState().observe(this, stream -> {
       if (!disposed && !confirming && resumed && stream == PreviewView.StreamState.STREAMING) {
@@ -101,17 +111,17 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
   }
 
   @Override
-  StashCodeLinkView getView() {
+  public StashScannerView getView() {
     return view;
   }
 
   @Override
-  void setBottomInset(int inset) {
+  public void setBottomInset(int inset) {
     view.setBottomInset(inset);
   }
 
   @Override
-  void resume() {
+  public void resume() {
     if (disposed || resumed) {
       return;
     }
@@ -126,18 +136,18 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     if (hasPermission()) {
       startAuthorized();
     } else if (!permissionDeclared()) {
-      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_NOT_DECLARED);
+      showError(StashNative.ScannerError.CAMERA_PERMISSION_NOT_DECLARED);
     } else if (Build.VERSION.SDK_INT >= 23 && !permissionRequested) {
       permissionRequested = true;
       activity.requestPermissions(new String[] {Manifest.permission.CAMERA},
           CAMERA_PERMISSION_REQUEST);
     } else {
-      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.ScannerError.CAMERA_PERMISSION_DENIED);
     }
   }
 
   @Override
-  void permissionResult() {
+  public void permissionResult() {
     if (disposed || confirming) {
       return;
     }
@@ -146,7 +156,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         startAuthorized();
       }
     } else {
-      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.ScannerError.CAMERA_PERMISSION_DENIED);
     }
   }
 
@@ -188,7 +198,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
       future = ProcessCameraProvider.getInstance(activity);
     } catch (RuntimeException exception) {
       providerPending = false;
-      showError(StashNative.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+      showError(StashNative.ScannerError.CAMERA_CONFIGURATION_FAILED);
       return;
     }
     future.addListener(() -> {
@@ -200,13 +210,13 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         provider = future.get();
         geometryChanged();
       } catch (Exception exception) {
-        showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
+        showError(StashNative.ScannerError.CAMERA_UNAVAILABLE);
       }
     }, main::post);
   }
 
   @Override
-  void geometryChanged() {
+  public void geometryChanged() {
     generation++;
     region = null;
     main.removeCallbacks(bind);
@@ -225,7 +235,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     final int epoch = ++generation;
     try {
       if (!provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
-        showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
+        showError(StashNative.ScannerError.CAMERA_UNAVAILABLE);
         return;
       }
       int rotation = view.getDisplay() == null
@@ -253,7 +263,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
           return;
         }
         if (state.getError() != null) {
-          showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
+          showError(StashNative.ScannerError.CAMERA_UNAVAILABLE);
         } else if (state.getType() == CameraState.Type.OPEN
             && view.preview.getPreviewStreamState().getValue()
                 == PreviewView.StreamState.STREAMING) {
@@ -261,9 +271,9 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
         }
       });
     } catch (SecurityException exception) {
-      showError(StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED);
+      showError(StashNative.ScannerError.CAMERA_PERMISSION_DENIED);
     } catch (RuntimeException | androidx.camera.core.CameraInfoUnavailableException exception) {
-      showError(StashNative.CodeLinkError.CAMERA_CONFIGURATION_FAILED);
+      showError(StashNative.ScannerError.CAMERA_CONFIGURATION_FAILED);
     }
   }
 
@@ -305,7 +315,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
       if (content != null) {
         main.post(() -> {
           if (epoch == generation && snapshot == region && resumed && !disposed && !confirming) {
-            activity.completeCodeLink(content);
+            host.completeScan(content);
           }
         });
       }
@@ -317,7 +327,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
   }
 
   @Override
-  void showConnected(Runnable completion) {
+  public void showConnected(Runnable completion) {
     confirming = true;
     generation++;
     region = null;
@@ -336,16 +346,16 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
     }
   }
 
-  private void showError(StashNative.CodeLinkError error) {
-    if (disposed || confirming || activity.isDismissing) {
+  private void showError(StashNative.ScannerError error) {
+    if (disposed || confirming || host.isDismissing()) {
       return;
     }
-    boolean denied = error == StashNative.CodeLinkError.CAMERA_PERMISSION_DENIED;
-    view.showStatus(denied ? R.string.stash_code_link_permission
-        : R.string.stash_code_link_unavailable, false, denied);
+    boolean denied = error == StashNative.ScannerError.CAMERA_PERMISSION_DENIED;
+    view.showStatus(denied ? R.string.stash_scanner_permission
+        : R.string.stash_scanner_unavailable, false, denied);
     if (!errorReported) {
       errorReported = true;
-      StashCheckoutBridge.emitCodeLinkError(activity, error);
+      host.reportScannerError(error);
     }
   }
 
@@ -354,12 +364,12 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
       activity.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
           Uri.parse("package:" + activity.getPackageName())));
     } catch (RuntimeException expected) {
-      showError(StashNative.CodeLinkError.CAMERA_UNAVAILABLE);
+      showError(StashNative.ScannerError.CAMERA_UNAVAILABLE);
     }
   }
 
   @Override
-  void pause() {
+  public void pause() {
     if (resumed && confirming && connectedCompletion != null) {
       holdRemaining = Math.max(0, holdDeadline - SystemClock.uptimeMillis());
     }
@@ -395,7 +405,7 @@ final class StashCodeLinkSupport extends StashCodeLinkSession
   }
 
   @Override
-  void dispose() {
+  public void dispose() {
     if (disposed) {
       return;
     }

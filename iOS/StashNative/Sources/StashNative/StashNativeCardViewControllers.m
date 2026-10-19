@@ -1,7 +1,7 @@
 #import "StashNativePrivate.h"
 #import <math.h>
 
-@implementation StashCheckoutViewController
+@implementation StashCardViewController
 - (void)viewDidLoad {
     [super viewDidLoad];
     UIColor *initialBackground = StashSheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
@@ -28,7 +28,7 @@
     [tracker release];
 #endif
     [self updateTopChromeBackgroundColor];
-    UIViewController *content = self.session.codeLinkController;
+    UIViewController *content = self.session.scannerController;
     if (content) {
         [self addChildViewController:content];
         [self.view addSubview:content.view];
@@ -40,9 +40,9 @@
     [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(keyboardSettled:) name:UIKeyboardDidChangeFrameNotification object:nil];
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000
     if (@available(iOS 18.0, *)) {
-        STASH_WEAK_REF StashCheckoutViewController *weakSelf = self;
+        STASH_WEAK_REF StashCardViewController *weakSelf = self;
         UIUpdateLink *link = [UIUpdateLink updateLinkForView:self.view actionHandler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) {
-            StashCheckoutViewController *controller = weakSelf;
+            StashCardViewController *controller = weakSelf;
             if (![controller.session isActive]) return;
             [controller updateKeyboardGuideOcclusion];
             UIView *container = [controller layoutContainer];
@@ -159,8 +159,8 @@
     [super viewDidLayoutSubviews];
     [self updateKeyboardGuideOcclusion];
     [self reconcileHostSafeAreaInsets];
-    if (self.session.codeLinkController) {
-        self.session.codeLinkController.view.frame = self.view.bounds;
+    if (self.session.scannerController) {
+        self.session.scannerController.view.frame = self.view.bounds;
         [self observeNativePans:self.presentationController.containerView];
         return;
     }
@@ -346,7 +346,7 @@
 }
 - (BOOL)shouldAutorotate { return YES; }
 - (void)updateTopChromeBackgroundColor {
-    if (self.session.codeLink) {
+    if (self.session.scanner) {
         self.view.backgroundColor = UIColor.blackColor;
         return;
     }

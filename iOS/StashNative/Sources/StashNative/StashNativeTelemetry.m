@@ -15,7 +15,7 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
              @"height":available ? @(size.height) : NSNull.null};
 }
 
-@implementation StashCheckoutSession (Telemetry)
+@implementation StashCardSession (Telemetry)
 - (void)beginTelemetryNavigation:(WKNavigation *)navigation {
     self.telemetryNavigation = navigation;
     self.telemetryPageLoadStartedAt = StashTelemetryTimestamp();

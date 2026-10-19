@@ -62,7 +62,7 @@ NSDictionary *StashNativeSurfaceProbe(void) {
         @"unobstructedWidth":@(unobstructed.size.width), @"shortHeight":@(shortContent.frame.size.height)};
 }
 
-@interface StashPaneProbeController : StashCheckoutViewController
+@interface StashPaneProbeController : StashCardViewController
 @end
 @implementation StashPaneProbeController
 - (void)viewDidLoad {}
@@ -71,7 +71,7 @@ NSDictionary *StashNativeSurfaceProbe(void) {
 - (CGRect)availableBoundsInView:(UIView *)view expanded:(BOOL)expanded { return CGRectMake(500, 0, 460, 700); }
 @end
 NSDictionary *StashNativePaneProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     UIViewController *presenter = [UIViewController new];
     presenter.view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 960, 700)];
@@ -104,7 +104,7 @@ NSDictionary *StashNativePaneProbe(void) {
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
 @end
 
-@interface StashKeyboardProbeController : StashCheckoutViewController
+@interface StashKeyboardProbeController : StashCardViewController
 @property (nonatomic, strong) UIWindow *probeWindow;
 @end
 @implementation StashKeyboardProbeController
@@ -115,7 +115,7 @@ NSDictionary *StashNativePaneProbe(void) {
 }
 @end
 NSDictionary *StashNativeKeyboardProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     StashKeyboardProbeController *controller = [StashKeyboardProbeController new];
     controller.session = session;
@@ -171,7 +171,7 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 }
 #endif
 @end
-@interface StashRegionProbeController : StashCheckoutViewController
+@interface StashRegionProbeController : StashCardViewController
 @property (nonatomic, strong) UIView *probeContainer;
 @end
 @implementation StashRegionProbeController
@@ -188,7 +188,7 @@ NSDictionary *StashCardViewportCoverageProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     for (NSNumber *compensation in @[@0, @34]) {
         StashNative *owner = [StashNative new];
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.expanded = YES; session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
         StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 402, 874)];
@@ -227,7 +227,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
         @{@"name":@"tablet", @"windowWidth":@1032, @"windowHeight":@1376, @"hostBottom":@20, @"safeBottom":@20, @"nativeExtra":@20},
         @{@"name":@"floating", @"windowWidth":@951, @"windowHeight":@669, @"hostBottom":@34, @"safeBottom":@26, @"nativeExtra":@0}]) {
         StashNative *owner = [StashNative new];
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.measuredContentHeight = 220;
         session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
@@ -255,7 +255,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSMutableDictionary *result = [NSMutableDictionary dictionary];
         for (NSDictionary *entry in cases) {
-            StashCheckoutSession *session = entry[@"session"];
+            StashCardSession *session = entry[@"session"];
             StashRegionProbeController *controller = (id)session.controller;
             NSDictionary *metrics = entry[@"metrics"];
             NSString *name = metrics[@"name"];
@@ -284,7 +284,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
     });
 }
 NSDictionary *StashNativeHostSafeAreaProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 951, 669)];
     window.probeInsets = UIEdgeInsetsMake(0, 0, 34, 84);
@@ -308,7 +308,7 @@ NSDictionary *StashNativeHostSafeAreaProbe(void) {
         @"sameWindow":@(content.window == window)};
 }
 NSDictionary *StashNativeBottomPaintProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
     StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 951, 669)];
@@ -406,7 +406,7 @@ NSDictionary *StashNativeBottomPaintProbe(void) {
         @"coveredEmpty":@(coveredEmpty)};
 }
 NSDictionary *StashCompactDividerProbe(void) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     UIViewController *presenter = [UIViewController new];
     StashReservedProbeView *view = [[StashReservedProbeView alloc] initWithFrame:CGRectMake(0, 0, 500, 700)];
@@ -449,7 +449,7 @@ NSDictionary *StashCompactDividerProbe(void) {
 @end
 NSDictionary *StashNativeExpansionProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new];
     UIViewController *presenter = [UIViewController new];

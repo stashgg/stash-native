@@ -62,7 +62,7 @@ public class CallbackContractTest {
         events.add(name + ":card-dismissed");
       }
 
-      @Override public void onScanDismissed() {
+      @Override public void onScannerDismissed() {
         events.add(name + ":scan-dismissed");
       }
 
@@ -74,7 +74,7 @@ public class CallbackContractTest {
         events.add(name + ":payment:" + order);
       }
 
-      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
+      @Override public void onScannerError(StashNative.ScannerError error) {
         events.add(name + ":error:" + error);
       }
 
@@ -84,24 +84,24 @@ public class CallbackContractTest {
     };
   }
 
-  private StashCheckoutActivity open(boolean scanner) {
+  private StashCardActivity open(boolean scanner) {
     if (scanner) {
-      sdk.codeLink(host);
+      sdk.openScanner(host);
     } else {
       sdk.openCard(host, "https://example.invalid/checkout", null);
     }
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
-    StashCheckoutActivity checkout =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
+    StashCardActivity checkout =
+        Robolectric.buildActivity(StashCardActivity.class, intent).get();
     checkout.options = StashPresentationOptions.card(null);
-    checkout.codeLink = scanner;
+    checkout.scanner = scanner;
     checkout.cardContainer = new StashSheetLayout(checkout, 24f);
     plugin.setCheckoutActivity(checkout);
     return checkout;
   }
 
-  private void dispatch(StashCheckoutActivity checkout, Intent intent) throws Exception {
+  private void dispatch(StashCardActivity checkout, Intent intent) throws Exception {
     Method method = StashNativePlugin.class.getDeclaredMethod(
         "dispatchCheckoutBridgeIntent", String.class, Intent.class);
     method.setAccessible(true);
@@ -125,7 +125,7 @@ public class CallbackContractTest {
   }
 
   @Test public void standaloneBrowserAndScannerDeliverDistinctDismissals() throws Exception {
-    final StashCheckoutActivity scanner = open(true);
+    final StashCardActivity scanner = open(true);
     sdk.openBrowser(host, "https://example.invalid/help");
     final long browser = launchedBrowser(host);
     plugin.notifyBrowserClosedFromProxyInternal(browser);
@@ -136,7 +136,7 @@ public class CallbackContractTest {
   }
 
   @Test public void cardDismissalDoesNotChangeCoexistingBrowserCallback() throws Exception {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     sdk.openBrowser(host, "https://example.invalid/help");
     final long browser = launchedBrowser(host);
     dispatch(card, new Intent(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
@@ -147,10 +147,10 @@ public class CallbackContractTest {
   }
 
   @Test public void handoffKeepsItsCallbackAfterScannerAndListenerReplacement() {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     long browser = launchedBrowser(card);
-    final StashCheckoutActivity scanner = open(true);
+    final StashCardActivity scanner = open(true);
     sdk.setListener(recordingListener("replacement"));
     plugin.notifyBrowserClosedFromProxyInternal(browser);
     plugin.notifyBrowserEngagementSessionEndedFromProxyInternal(browser);
@@ -161,7 +161,7 @@ public class CallbackContractTest {
   }
 
   @Test public void reentrantBrowserOpeningDeliversDismissalToEachLiveListener() {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     long firstBrowser = launchedBrowser(card);
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
@@ -182,7 +182,7 @@ public class CallbackContractTest {
   }
 
   @Test public void replacementDuringPaymentTakesEffectForNextRepeatableEvent() throws Exception {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onPaymentSuccess(String order) {
         events.add("original:" + order);
@@ -199,33 +199,33 @@ public class CallbackContractTest {
   }
 
   @Test public void clearingDropsEventsWithoutReplayAndResetRetainsListener() throws Exception {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     sdk.setListener(null);
     dispatch(card, new Intent(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
     StashNative.StashNativeListener replacement = recordingListener("replacement");
     sdk.setListener(replacement);
     assertTrue(events.isEmpty());
-    final StashCheckoutActivity scanner = open(true);
+    final StashCardActivity scanner = open(true);
     sdk.openBrowser(host, "https://example.invalid/help");
     final long browser = launchedBrowser(host);
     sdk.resetPresentationState();
     assertSame(replacement, sdk.getListener());
-    dispatch(scanner, new Intent(CardConstants.BROADCAST_CODE_LINK_SCANNED)
-        .putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT, "stale"));
+    dispatch(scanner, new Intent(CardConstants.BROADCAST_SCANNER_SCANNED)
+        .putExtra(CardConstants.BROADCAST_EXTRA_SCANNER_CONTENT, "stale"));
     plugin.notifyBrowserClosedFromProxyInternal(browser);
     assertTrue(events.isEmpty());
-    StashCheckoutActivity next = open(true);
+    StashCardActivity next = open(true);
     dispatch(next, new Intent(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
     assertEquals(Arrays.asList("replacement:scan-dismissed"), events);
   }
 
   @Test public void scannerCameraConfigurationErrorIsNonterminal() throws Exception {
-    final StashCheckoutActivity scanner = open(true);
-    dispatch(scanner, new Intent(CardConstants.BROADCAST_CODE_LINK_ERROR)
-        .putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_ERROR, "CAMERA_CONFIGURATION_FAILED"));
+    final StashCardActivity scanner = open(true);
+    dispatch(scanner, new Intent(CardConstants.BROADCAST_SCANNER_ERROR)
+        .putExtra(CardConstants.BROADCAST_EXTRA_SCANNER_ERROR, "CAMERA_CONFIGURATION_FAILED"));
     assertTrue(sdk.isCurrentlyPresented());
-    dispatch(scanner, new Intent(CardConstants.BROADCAST_CODE_LINK_SCANNED)
-        .putExtra(CardConstants.BROADCAST_EXTRA_CODE_LINK_CONTENT, "payload"));
+    dispatch(scanner, new Intent(CardConstants.BROADCAST_SCANNER_SCANNED)
+        .putExtra(CardConstants.BROADCAST_EXTRA_SCANNER_CONTENT, "payload"));
     dispatch(scanner, new Intent(CardConstants.BROADCAST_CHECKOUT_DIALOG_DISMISSED));
     assertEquals(Arrays.asList(
         "first:error:CAMERA_CONFIGURATION_FAILED", "first:qr:payload"), events);
@@ -233,9 +233,9 @@ public class CallbackContractTest {
   }
 
   @Test public void reentrantScannerDismissalCanOpenCardWithoutStaleDismissal() throws Exception {
-    final StashCheckoutActivity scanner = open(true);
+    final StashCardActivity scanner = open(true);
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
-      @Override public void onScanDismissed() {
+      @Override public void onScannerDismissed() {
         events.add("original:scan-dismissed");
         sdk.setListener(recordingListener("replacement"));
         open(false);
@@ -271,7 +271,7 @@ public class CallbackContractTest {
   @Test
   @Config(shadows = ActionViewLauncher.class)
   public void fallbackHandoffDismissesOnceToReplacementListener() {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     new StashCheckoutJsInterface(card).openExternalBrowser(card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     Intent launched = Shadows.shadowOf(card).getNextStartedActivity();
     assertNotNull(launched);
@@ -299,7 +299,7 @@ public class CallbackContractTest {
   @Test
   @Config(shadows = ActionViewLauncher.class)
   public void fallbackHandoffCompletesWhenOnlyTheCheckoutResumes() {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     new StashCheckoutJsInterface(card).openExternalBrowser(
         card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     Shadows.shadowOf(Looper.getMainLooper()).idle();
@@ -326,7 +326,7 @@ public class CallbackContractTest {
   @Test
   @Config(shadows = ActionViewLauncher.class)
   public void checkoutLifecycleIsIgnoredWithoutAPendingHandoff() {
-    StashCheckoutActivity card = open(false);
+    StashCardActivity card = open(false);
     sdk.openBrowser(host, "https://example.invalid/help");
     Shadows.shadowOf(Looper.getMainLooper()).idle();
     Intent launched = Shadows.shadowOf(host).getNextStartedActivity();

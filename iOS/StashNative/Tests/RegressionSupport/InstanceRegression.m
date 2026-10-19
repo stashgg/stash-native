@@ -26,7 +26,7 @@ static StashInstancePresenter *StashInstanceHost(UIWindow *window, UIUserInterfa
     return host;
 }
 
-@interface StashInstanceSurface : StashCheckoutViewController
+@interface StashInstanceSurface : StashCardViewController
 @end
 @implementation StashInstanceSurface
 - (void)viewDidLoad {}
@@ -34,7 +34,7 @@ static StashInstancePresenter *StashInstanceHost(UIWindow *window, UIUserInterfa
 
 static UIColor *StashInstanceFallbackPaint(UIViewController *presenter) {
     // Exercise the native fallback without a page color or temporary glass loading paint.
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     session.presenter = presenter;
     StashInstanceSurface *surface = [StashInstanceSurface new];
     surface.session = session;
@@ -51,7 +51,7 @@ static UIColor *StashInstanceFallbackPaint(UIViewController *presenter) {
 
 @interface StashInstanceObservation : NSObject <StashNativeDelegate>
 @property (nonatomic, weak) StashNative *owner;
-@property (nonatomic, weak) StashCheckoutSession *session;
+@property (nonatomic, weak) StashCardSession *session;
 @property (nonatomic, weak) WKWebView *webView;
 @property (nonatomic, weak) StashPortraitPresentation *portrait;
 @property (nonatomic, strong) NSTimer *loadTimer;
@@ -62,7 +62,7 @@ static UIColor *StashInstanceFallbackPaint(UIViewController *presenter) {
 @end
 @implementation StashInstanceObservation
 - (void)stashNativeDidDismissCard { self.callbacks++; }
-- (void)stashNativeDidDismissScan { self.callbacks++; }
+- (void)stashNativeDidDismissScanner { self.callbacks++; }
 - (void)stashNativeDidDismissBrowser { self.callbacks++; }
 - (void)stashNativeDidEncounterNetworkError { self.callbacks++; }
 - (void)stashNativeDidLoadPage:(double)loadTimeMs { self.callbacks++; }
@@ -74,7 +74,7 @@ static UIColor *StashInstanceFallbackPaint(UIViewController *presenter) {
 
 static char StashInstanceDeallocationKey;
 
-@interface StashInstancePendingDismissal : StashCheckoutSession
+@interface StashInstancePendingDismissal : StashCardSession
 @property (nonatomic, copy) void (^dismissal)(void);
 @end
 @implementation StashInstancePendingDismissal
@@ -140,7 +140,7 @@ void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^compl
         StashNativeCardConfig *config = [StashNativeCardConfig new];
         if (portrait) config.orientationPreference = StashNativeOrientationPreferencePortrait;
         [owner openCardWithURL:@"https://example.invalid" fromViewController:presenter config:config];
-        StashCheckoutSession *session = owner.session;
+        StashCardSession *session = owner.session;
         observation.owner = owner;
         observation.session = session;
         observation.webView = session.webView;
@@ -216,7 +216,7 @@ NSDictionary *StashInstanceThemeProbe(void) {
     if (self.onEvent) self.onEvent(event);
 }
 - (void)stashNativeDidDismissCard { [self record:@"card-dismissed"]; }
-- (void)stashNativeDidDismissScan { [self record:@"scan-dismissed"]; }
+- (void)stashNativeDidDismissScanner { [self record:@"scan-dismissed"]; }
 - (void)stashNativeDidDismissBrowser { [self record:@"browser-dismissed"]; }
 - (void)stashNativeDidCompletePaymentWithOrder:(NSString *)order { [self record:order ?: @"nil-order"]; }
 - (void)stashNativeDidFailPayment { [self record:@"failure"]; }
@@ -225,8 +225,8 @@ NSDictionary *StashInstanceThemeProbe(void) {
 - (void)dealloc { if (_onRelease) _onRelease(); }
 @end
 
-static StashCheckoutSession *StashCallbackSession(StashNative *owner) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+static StashCardSession *StashCallbackSession(StashNative *owner) {
+    StashCardSession *session = [StashCardSession new];
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
     owner.session = session;
@@ -240,21 +240,21 @@ NSDictionary *StashCallbackDismissalProbe(void) {
     UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
     StashInstancePresenter *host = StashInstanceHost(window, UIUserInterfaceStyleLight);
     [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
-    BOOL cardAdmitted = owner.session != nil && !owner.session.codeLink;
+    BOOL cardAdmitted = owner.session != nil && !owner.session.scanner;
     [owner dismiss];
-    [owner codeLinkFromViewController:host];
-    BOOL scannerAdmitted = owner.session != nil && owner.session.codeLink;
+    [owner openScannerFromViewController:host];
+    BOOL scannerAdmitted = owner.session != nil && owner.session.scanner;
     [owner dismiss];
     for (NSInteger mode = 0; mode < 3; mode++) {
         [owner openBrowserWithURL:@"https://example.invalid" fromViewController:host];
-        StashCheckoutSession *browser = owner.session;
+        StashCardSession *browser = owner.session;
         if (mode == 0) [owner closeBrowser];
         else if (mode == 1) [owner dismiss];
         else [browser safariViewControllerDidFinish:browser.browser];
         [browser browserClosed];
     }
     [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
-    StashCheckoutSession *card = owner.session;
+    StashCardSession *card = owner.session;
     [card handleMessage:@"stashExternalPayment" body:@"https://example.invalid/pay"];
     BOOL sameSession = owner.session == card && card.browser != nil;
     [owner closeBrowser];
@@ -285,7 +285,7 @@ NSDictionary *StashCallbackLiveReceiverProbe(BOOL clear) {
         first = nil;
     };
     owner.delegate = first;
-    StashCheckoutSession *session = StashCallbackSession(owner);
+    StashCardSession *session = StashCallbackSession(owner);
     session.config.autoClose = NO;
     @autoreleasepool { [session paymentSucceeded:YES order:@"first"]; }
     [session paymentSucceeded:YES order:@"second"];
@@ -304,7 +304,7 @@ NSDictionary *StashCallbackReentrantProbe(void) {
     StashNative *owner = [StashNative new];
     StashCallbackReceiver *first = [StashCallbackReceiver new], *second = [StashCallbackReceiver new];
     owner.delegate = first;
-    StashCheckoutSession *session = StashCallbackSession(owner);
+    StashCardSession *session = StashCallbackSession(owner);
     session.browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:@"https://example.invalid"]];
     __block BOOL paymentBeforeTeardown = NO, closeAfterTeardown = NO;
     first.onEvent = ^(NSString *event) {
@@ -314,11 +314,11 @@ NSDictionary *StashCallbackReentrantProbe(void) {
     second.onEvent = ^(NSString *event) {
         closeAfterTeardown = !owner.isCurrentlyPresented;
         owner.delegate = nil;
-        StashCallbackSession(owner).codeLink = YES;
+        StashCallbackSession(owner).scanner = YES;
     };
     [session paymentSucceeded:YES order:nil];
     [session browserClosed];
-    BOOL replacementSurvived = owner.session.codeLink && owner.isCurrentlyPresented;
+    BOOL replacementSurvived = owner.session.scanner && owner.isCurrentlyPresented;
     [owner dismiss];
     BOOL clearSuppressesNext = second.events.count == 1;
     return @{@"paymentBeforeTeardown":@(paymentBeforeTeardown), @"closeAfterTeardown":@(closeAfterTeardown),
@@ -332,8 +332,8 @@ NSDictionary *StashCallbackDelayedProbe(void) {
     StashCallbackReceiver *first = [StashCallbackReceiver new], *second = [StashCallbackReceiver new];
     owner.delegate = first;
     StashInstancePendingDismissal *scanner = [StashInstancePendingDismissal new];
-    scanner.owner = owner; scanner.config = [StashNativeCardConfig new]; scanner.codeLink = YES; owner.session = scanner;
-    [scanner completeCodeLink:@"raw-qr-payload"];
+    scanner.owner = owner; scanner.config = [StashNativeCardConfig new]; scanner.scanner = YES; owner.session = scanner;
+    [scanner completeScan:@"raw-qr-payload"];
     BOOL noEarlyScan = first.events.count == 0 && scanner.closing;
     owner.delegate = second;
     __block BOOL scannerClosed = NO;
@@ -342,7 +342,7 @@ NSDictionary *StashCallbackDelayedProbe(void) {
     BOOL scanUsesLiveReceiver = first.events.count == 0 && [second.events isEqualToArray:@[@"raw-qr-payload"]];
     second.onEvent = nil;
     StashInstancePendingDismissal *cancelled = [StashInstancePendingDismissal new];
-    cancelled.codeLink = YES; cancelled.owner = owner; cancelled.config = [StashNativeCardConfig new]; owner.session = cancelled;
+    cancelled.scanner = YES; cancelled.owner = owner; cancelled.config = [StashNativeCardConfig new]; owner.session = cancelled;
     [owner dismiss];
     owner.delegate = first;
     [cancelled completeDismissal];
@@ -351,7 +351,7 @@ NSDictionary *StashCallbackDelayedProbe(void) {
     stale.owner = owner; stale.config = [StashNativeCardConfig new]; owner.session = stale;
     [stale browserClosed];
     [owner resetPresentationState];
-    StashCheckoutSession *replacement = StashCallbackSession(owner);
+    StashCardSession *replacement = StashCallbackSession(owner);
     [stale completeDismissal];
     BOOL staleSilent = owner.session == replacement && first.events.count == 1;
     [owner resetPresentationState];
@@ -364,9 +364,9 @@ NSDictionary *StashCallbackIsolationProbe(void) {
     StashNative *left = [StashNative new], *right = [StashNative new];
     StashCallbackReceiver *first = [StashCallbackReceiver new], *second = [StashCallbackReceiver new];
     left.delegate = first; right.delegate = second;
-    StashCheckoutSession *leftSession = StashCallbackSession(left);
-    StashCheckoutSession *rightSession = StashCallbackSession(right);
-    rightSession.codeLink = YES;
+    StashCardSession *leftSession = StashCallbackSession(left);
+    StashCardSession *rightSession = StashCallbackSession(right);
+    rightSession.scanner = YES;
     leftSession.config.autoClose = NO;
     [leftSession paymentSucceeded:YES order:@""];
     [leftSession paymentSucceeded:YES order:@"order"];

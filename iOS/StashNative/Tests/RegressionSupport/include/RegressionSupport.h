@@ -1,12 +1,13 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
 
-void StashCodeLinkLifecycleProbe(void (^completion)(NSDictionary *));
-void StashCodeLinkInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *));
-void StashCodeLinkCaptureOrderingProbe(void (^completion)(NSDictionary *));
-NSDictionary *StashCodeLinkLayoutProbe(CGSize size);
-@class StashNativeCodeLinkConfig;
-NSDictionary *StashCodeLinkConfiguredLayoutProbe(CGSize size, StashNativeCodeLinkConfig * _Nullable config);
+void StashScannerLifecycleProbe(void (^completion)(NSDictionary *));
+void StashScannerInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *));
+void StashScannerCaptureOrderingProbe(void (^completion)(NSDictionary *));
+void StashScannerUnavailableProbe(void (^completion)(NSDictionary *));
+NSDictionary *StashScannerLayoutProbe(CGSize size);
+@class StashNativeScannerConfig;
+NSDictionary *StashScannerConfiguredLayoutProbe(CGSize size, StashNativeScannerConfig * _Nullable config);
 @class WKWebView, UIViewController, UIColor, UIWindow;
 NSDictionary *StashTelemetryLifecycleProbe(void);
 NSDictionary *StashTelemetryFixture(void);

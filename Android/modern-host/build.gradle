@@ -9,6 +9,12 @@ def stashAarPath = providers.gradleProperty('stashAar').orElse(providers.environ
 if (!stashAarPath.isPresent() || !file(stashAarPath.get()).isFile()) {
     throw new GradleException('Pass -PstashAar=/absolute/path/to/stashnative-release.aar or set STASH_AAR.')
 }
+def stashCodeLinkAarPath = providers.gradleProperty('stashCodeLinkAar')
+    .orElse(providers.environmentVariable('STASH_CODELINK_AAR'))
+if (!stashCodeLinkAarPath.isPresent() || !file(stashCodeLinkAarPath.get()).isFile()) {
+    throw new GradleException('Pass -PstashCodeLinkAar=/absolute/path/to/stashnative-codelink-release.aar '
+        + 'or set STASH_CODELINK_AAR.')
+}
 
 android {
     enableKotlin = false
@@ -76,7 +82,9 @@ android {
 
 dependencies {
     implementation files(stashAarPath.get())
-    // File-based AAR dependencies do not carry Maven dependency metadata.
+    implementation files(stashCodeLinkAarPath.get())
+    // File-based AAR dependencies do not carry Maven dependency metadata; the last four belong
+    // to the codelink module.
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'

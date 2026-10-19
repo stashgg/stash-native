@@ -35,7 +35,7 @@
 
 NSDictionary *StashHapticFixture(UIViewController *presenter) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = [StashCheckoutSession new];
+    StashCardSession *session = [StashCardSession new];
     owner.session = session;
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
@@ -55,7 +55,7 @@ NSDictionary *StashHapticFixture(UIViewController *presenter) {
 
 NSDictionary *StashHapticLifecycleProbe(NSDictionary *fixture) {
     StashNative *owner = fixture[@"owner"];
-    StashCheckoutSession *session = fixture[@"session"];
+    StashCardSession *session = fixture[@"session"];
     WKWebView *web = fixture[@"web"];
     NSMutableArray *events = fixture[@"events"];
     NSUInteger before = events.count;

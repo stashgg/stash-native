@@ -12,7 +12,7 @@ Stash Native shows Stash Pay checkout and Stash webshop pages inside iOS and And
 |---|---|---|
 | [Checkout Card](usage/checkout-card.md) | `openCard` | WebView in a native card, with payment callbacks |
 | [In-Game Browser](usage/browser.md) | `openBrowser` | Safari View Controller or Chrome Custom Tabs |
-| [QR Code Linking](usage/codelink.md) | `codeLink` | QR scanner in the native card |
+| [QR Code Linking](usage/codelink.md) | `openScanner` | QR scanner in the native card, from the optional `StashNativeCodeLink` module |
 
 ## Requirements
 

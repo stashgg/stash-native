@@ -23,7 +23,7 @@ final class StashTelemetrySupport {
           + "reject(new Error('Stash telemetry is not ready'));return;}"
           + "window.__stashTelemetry.request(resolve,reject);});};";
 
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
   private String documentToken;
   private boolean committed;
   private boolean disposed;
@@ -33,7 +33,7 @@ final class StashTelemetrySupport {
   private Long pageLoadedAt;
   private Long pageLoadTimeMs;
 
-  StashTelemetrySupport(StashCheckoutActivity activity) {
+  StashTelemetrySupport(StashCardActivity activity) {
     this.activity = activity;
   }
 

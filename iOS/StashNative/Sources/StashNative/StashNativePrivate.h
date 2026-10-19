@@ -10,7 +10,7 @@
 #define STASH_WEAK_REF __unsafe_unretained
 #endif
 
-@class StashCheckoutSession, StashCheckoutViewController, StashCodeLinkViewController;
+@class StashCardSession, StashCardViewController;
 @interface StashNativeEntranceCorrection : NSObject
 + (instancetype)correctionForSurface:(CALayer *)surface container:(CALayer *)container;
 - (void)update;
@@ -31,7 +31,7 @@
 void StashInstallPortraitOrientationHooks(id applicationDelegate, UIWindowScene *scene);
 
 @interface StashNative ()
-@property (nonatomic, strong) StashCheckoutSession *session;
+@property (nonatomic, strong) StashCardSession *session;
 - (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery;
 @end
 
@@ -67,20 +67,24 @@ NSString *StashContentMeasurementScript(NSString *documentID);
 // Routes external opens through UIApplication unless a test opener is installed; nil restores the default.
 void StashSetExternalURLOpener(void (^opener)(NSURL *url, NSDictionary *options, void (^completion)(BOOL success)));
 void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(BOOL success));
+// The scanner class from the optional StashNativeCodeLink module, or Nil when it is not linked.
+Class StashScannerContentClass(void);
+// Test seam: resolves a different class name; nil restores StashNativeScannerViewController.
+void StashSetScannerContentClassName(NSString *name);
 
-@interface StashCheckoutSession : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler,
-    SFSafariViewControllerDelegate, UISheetPresentationControllerDelegate>
+@interface StashCardSession : NSObject <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler,
+    SFSafariViewControllerDelegate, UISheetPresentationControllerDelegate, StashNativeScannerHost>
 @property (nonatomic, STASH_WEAK) StashNative *owner;
 @property (nonatomic, STASH_WEAK) UIViewController *presenter;
 @property (nonatomic, readonly) UIViewController *presentationPresenter;
 @property (nonatomic, strong) StashPortraitPresentation *portraitPresentation;
 @property (nonatomic) BOOL browserHandoff;
 @property (nonatomic, strong) StashNativeCardConfig *config;
-@property (nonatomic, strong) StashCheckoutViewController *controller;
-@property (nonatomic) BOOL codeLink;
-@property (nonatomic, copy) StashNativeCodeLinkConfig *codeLinkConfig;
-@property (nonatomic) BOOL codeLinkCompleted;
-@property (nonatomic, strong) StashCodeLinkViewController *codeLinkController;
+@property (nonatomic, strong) StashCardViewController *controller;
+@property (nonatomic) BOOL scanner;
+@property (nonatomic, copy) StashNativeScannerConfig *scannerConfig;
+@property (nonatomic) BOOL scanCompleted;
+@property (nonatomic, strong) UIViewController<StashNativeScannerContent> *scannerController;
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, strong) WKNavigation *telemetryNavigation;
 @property (nonatomic, strong) NSNumber *telemetryFirstCallAt;
@@ -133,7 +137,7 @@ void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(
 - (BOOL)isActive;
 - (BOOL)canUserDismiss;
 - (void)presentCheckout;
-- (void)completeCodeLink:(NSString *)content;
+- (void)completeScan:(NSString *)content;
 - (void)observeRootScroll;
 - (void)stopObservingRootScroll;
 - (void)scheduleRootOffsetRepair;
@@ -168,25 +172,18 @@ void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(
 - (void)acceptTopChromeMessage:(WKScriptMessage *)message;
 @end
 
-@interface StashCodeLinkViewController : UIViewController
-@property (nonatomic, STASH_WEAK) StashCheckoutSession *session;
-- (void)showConnectedWithCompletion:(void (^)(void))completion;
-- (void)stopScanning;
-- (void)dispose;
-@end
-
-@interface StashCheckoutSession (Navigation)
+@interface StashCardSession (Navigation)
 - (BOOL)handlePaymentResultURL:(NSURL *)url;
 @end
 
-@interface StashCheckoutSession (Telemetry) <WKScriptMessageHandlerWithReply>
+@interface StashCardSession (Telemetry) <WKScriptMessageHandlerWithReply>
 - (void)beginTelemetryNavigation:(WKNavigation *)navigation;
 - (void)finishTelemetryNavigation:(WKNavigation *)navigation;
 - (NSDictionary *)telemetrySnapshot;
 @end
 
-@interface StashCheckoutViewController : UIViewController <UIGestureRecognizerDelegate>
-@property (nonatomic, STASH_WEAK) StashCheckoutSession *session;
+@interface StashCardViewController : UIViewController <UIGestureRecognizerDelegate>
+@property (nonatomic, STASH_WEAK) StashCardSession *session;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIView *loadingCover;
 @property (nonatomic) BOOL glassLoading;
@@ -243,7 +240,7 @@ void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(
 - (void)revealInitialContentAnimated:(BOOL)animated;
 @end
 
-@interface StashCheckoutViewController (Keyboard)
+@interface StashCardViewController (Keyboard)
 - (void)keyboardChanged:(NSNotification *)note;
 - (void)keyboardSettled:(NSNotification *)note;
 - (void)updateKeyboardGuideOcclusion;
@@ -254,7 +251,7 @@ void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(
 - (BOOL)normalizeIdleRootScrollOffset;
 @end
 
-@interface StashCheckoutViewController (Gestures)
+@interface StashCardViewController (Gestures)
 - (void)observeContentScrollPans:(UIView *)view;
 - (void)observeNativePans:(UIView *)view;
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch;
@@ -268,7 +265,7 @@ void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(
 - (void)updateDismissalPolicy;
 @end
 
-@interface StashCheckoutViewController (Presentation)
+@interface StashCardViewController (Presentation)
 - (UIView *)layoutContainer;
 - (BOOL)usesFloatingNativeSizing;
 - (void)reconcileNativeSizingPolicy;

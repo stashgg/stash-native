@@ -3,7 +3,25 @@
 static BOOL stashInspectableWebViewsEnabled = NO;
 
 NSString *const StashTopChromeHandlerName = @"stashTopChrome";
-NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink";
+NSErrorDomain const StashNativeScannerErrorDomain = @"gg.stash.native.Scanner";
+static NSString *StashScannerContentClassName;
+
+void StashSetScannerContentClassName(NSString *name) {
+    NSString *previous = StashScannerContentClassName;
+    StashScannerContentClassName = [name copy];
+#if !__has_feature(objc_arc)
+    [previous release];
+#else
+    (void)previous;
+#endif
+}
+
+Class StashScannerContentClass(void) {
+    Class content = NSClassFromString(StashScannerContentClassName ?: @"StashNativeScannerViewController");
+    if (![content isSubclassOfClass:UIViewController.class] ||
+        ![content conformsToProtocol:@protocol(StashNativeScannerContent)]) return Nil;
+    return content;
+}
 
 @implementation StashNative
 - (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery {
@@ -45,28 +63,40 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     [presentationConfig release];
 #endif
 }
-- (void)codeLinkFromViewController:(UIViewController *)presenter {
-    [self codeLinkFromViewController:presenter config:nil];
+- (void)openScannerFromViewController:(UIViewController *)presenter {
+    [self openScannerFromViewController:presenter config:nil];
 }
-- (void)codeLinkFromViewController:(UIViewController *)presenter config:(StashNativeCodeLinkConfig *)config {
+- (void)openScannerFromViewController:(UIViewController *)presenter config:(StashNativeScannerConfig *)config {
     if (!NSThread.isMainThread) {
-        StashNativeCodeLinkConfig *snapshot = [config copy];
-        dispatch_async(dispatch_get_main_queue(), ^{ [self codeLinkFromViewController:presenter config:snapshot]; });
+        StashNativeScannerConfig *snapshot = [config copy];
+        dispatch_async(dispatch_get_main_queue(), ^{ [self openScannerFromViewController:presenter config:snapshot]; });
 #if !__has_feature(objc_arc)
         [snapshot release];
 #endif
         return;
     }
     if (self.session || !presenter.viewIfLoaded.window || presenter.isBeingDismissed) return;
+    if (!StashScannerContentClass()) {
+        // No module: nothing is presented and no dismissal follows; the error is still asynchronous.
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+                if ([delegate respondsToSelector:@selector(stashNativeScannerDidEncounterError:)])
+                    [delegate stashNativeScannerDidEncounterError:[NSError errorWithDomain:StashNativeScannerErrorDomain
+                        code:StashNativeScannerErrorScannerUnavailable
+                        userInfo:@{NSLocalizedDescriptionKey:@"The StashNativeCodeLink module is not linked."}]];
+            }];
+        });
+        return;
+    }
     while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed)
         presenter = presenter.presentedViewController;
-    StashCheckoutSession *session = [[StashCheckoutSession alloc] init];
+    StashCardSession *session = [[StashCardSession alloc] init];
     session.owner = self;
     session.presenter = presenter;
     session.config = StashNormalizedConfig(nil);
     session.config.orientationPreference = StashNativeOrientationPreferenceFollowHost;
-    session.codeLink = YES;
-    session.codeLinkConfig = config;
+    session.scanner = YES;
+    session.scannerConfig = config;
     self.session = session;
     [session presentCheckout];
 #if !__has_feature(objc_arc)
@@ -85,7 +115,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed) {
         presenter = presenter.presentedViewController;
     }
-    StashCheckoutSession *session = [[StashCheckoutSession alloc] init];
+    StashCardSession *session = [[StashCardSession alloc] init];
     session.owner = self;
     session.presenter = presenter;
     session.config = snapshot;
@@ -103,7 +133,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
 }
 - (void)resetPresentationState {
     if (!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(), ^{ [self resetPresentationState]; }); return; }
-    StashCheckoutSession *session = self.session;
+    StashCardSession *session = self.session;
 #if !__has_feature(objc_arc)
     [session retain];
 #endif
@@ -125,7 +155,7 @@ NSErrorDomain const StashNativeCodeLinkErrorDomain = @"gg.stash.native.CodeLink"
     [self.session paymentSucceeded:success order:nil];
 }
 - (void)dealloc {
-    StashCheckoutSession *session = _session;
+    StashCardSession *session = _session;
     // Detach before MRC frees the assign owner; UIKit retirement stays on main.
     session.owner = nil;
     if (NSThread.isMainThread) [session retire];

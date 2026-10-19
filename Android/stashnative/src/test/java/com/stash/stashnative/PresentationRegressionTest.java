@@ -67,8 +67,8 @@ public class PresentationRegressionTest {
 
   @Test public void processingQueryUsesActiveActivityAndClearsOnReset() {
     plugin.openCard(host, "https://example.invalid", null);
-    StashCheckoutActivity checkout = Robolectric.buildActivity(
-        StashCheckoutActivity.class, Shadows.shadowOf(host).getNextStartedActivity()).get();
+    StashCardActivity checkout = Robolectric.buildActivity(
+        StashCardActivity.class, Shadows.shadowOf(host).getNextStartedActivity()).get();
     plugin.setCheckoutActivity(checkout);
     checkout.isPurchaseProcessing = true;
     assertTrue(StashNative.getInstance().isPurchaseProcessing());
@@ -87,8 +87,8 @@ public class PresentationRegressionTest {
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     Bundle saved = new Bundle();
     saved.putBoolean("stash.callbackSent", false);
-    org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create(saved);
+    org.robolectric.android.controller.ActivityController<StashCardActivity> controller =
+        Robolectric.buildActivity(StashCardActivity.class, intent).create(saved);
     assertTrue(controller.get().isFinishing());
     assertNull(controller.get().webView);
     controller.destroy();
@@ -101,8 +101,8 @@ public class PresentationRegressionTest {
     plugin.openCard(host, "https://example.invalid", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     plugin.resetPresentationState();
-    org.robolectric.android.controller.ActivityController<StashCheckoutActivity> controller =
-        Robolectric.buildActivity(StashCheckoutActivity.class, intent).create();
+    org.robolectric.android.controller.ActivityController<StashCardActivity> controller =
+        Robolectric.buildActivity(StashCardActivity.class, intent).create();
     assertTrue(controller.get().isFinishing());
     assertNull(controller.get().webView);
     controller.destroy();

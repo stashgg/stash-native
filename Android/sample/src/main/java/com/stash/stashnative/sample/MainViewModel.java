@@ -63,7 +63,7 @@ public class MainViewModel extends AndroidViewModel {
     API,
     CARD_OPTIONS,
     BROWSER_OPTIONS,
-    CODE_LINK_OPTIONS,
+    SCANNER_OPTIONS,
     INSTANCE_DETAILS,
     CHECKOUT_PAYLOAD,
     WEBSHOP_PAYLOAD
@@ -98,8 +98,8 @@ public class MainViewModel extends AndroidViewModel {
   private final StashNative.CardConfig cardConfig = new StashNative.CardConfig();
   private BackdropSource backdropSource = BackdropSource.NONE;
   private SampleBackdropImage backdropImage;
-  private final StashNative.CodeLinkConfig codeLinkConfig =
-      new StashNative.CodeLinkConfig();
+  private final StashNative.ScannerConfig scannerConfig =
+      new StashNative.ScannerConfig();
 
   /** Restores saved keys and payloads from prefs. */
   public MainViewModel(Application application) {
@@ -678,33 +678,33 @@ public class MainViewModel extends AndroidViewModel {
     super.onCleared();
   }
 
-  public StashNative.CodeLinkConfig getCodeLinkConfig() {
-    return codeLinkConfig;
+  public StashNative.ScannerConfig getScannerConfig() {
+    return scannerConfig;
   }
 
   /** Updates scanner copy without rebinding the active editor. */
-  public void setCodeLinkText(int title, String text) {
+  public void setScannerText(int title, String text) {
     if (title == R.string.code_link_header) {
-      codeLinkConfig.headerText = text;
+      scannerConfig.headerText = text;
     } else if (title == R.string.code_link_callout_title) {
-      codeLinkConfig.calloutTitle = text;
+      scannerConfig.calloutTitle = text;
     } else if (title == R.string.code_link_callout_subtitle) {
-      codeLinkConfig.calloutSubtitle = text;
+      scannerConfig.calloutSubtitle = text;
     } else if (title == R.string.code_link_camera_unavailable) {
-      codeLinkConfig.cameraUnavailableText = text;
+      scannerConfig.cameraUnavailableText = text;
     } else if (title == R.string.code_link_connected) {
-      codeLinkConfig.connectedText = text;
+      scannerConfig.connectedText = text;
     }
   }
 
   /** Restores the scanner's default text and callout visibility. */
-  public void resetCodeLinkConfig() {
-    codeLinkConfig.headerText = null;
-    codeLinkConfig.calloutTitle = null;
-    codeLinkConfig.calloutSubtitle = null;
-    codeLinkConfig.cameraUnavailableText = null;
-    codeLinkConfig.connectedText = null;
-    codeLinkConfig.showCallout = true;
+  public void resetScannerConfig() {
+    scannerConfig.headerText = null;
+    scannerConfig.calloutTitle = null;
+    scannerConfig.calloutSubtitle = null;
+    scannerConfig.cameraUnavailableText = null;
+    scannerConfig.connectedText = null;
+    scannerConfig.showCallout = true;
     refreshList();
   }
 
@@ -749,8 +749,8 @@ public class MainViewModel extends AndroidViewModel {
       case BROWSER_OPTIONS:
         items.setValue(buildBrowserOptionsList());
         return;
-      case CODE_LINK_OPTIONS:
-        items.setValue(buildCodeLinkOptionsList());
+      case SCANNER_OPTIONS:
+        items.setValue(buildScannerOptionsList());
         return;
       case INSTANCE_DETAILS:
         items.setValue(buildInstanceDetailsList());
@@ -824,23 +824,23 @@ public class MainViewModel extends AndroidViewModel {
     return list;
   }
 
-  private List<SettingsItem> buildCodeLinkOptionsList() {
+  private List<SettingsItem> buildScannerOptionsList() {
     List<SettingsItem> list = new ArrayList<>();
     list.add(SettingsItem.sectionHeader(R.string.section_code_link_header, true, false));
-    list.add(SettingsItem.urlPreference(R.string.code_link_header, codeLinkConfig.headerText,
+    list.add(SettingsItem.urlPreference(R.string.code_link_header, scannerConfig.headerText,
         0, false, true));
     list.add(SettingsItem.sectionHeader(R.string.code_link_callout, true, false));
     list.add(SettingsItem.switchPreference(R.string.code_link_show_callout, 0,
-        codeLinkConfig.showCallout, false, false));
+        scannerConfig.showCallout, false, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_callout_title,
-        codeLinkConfig.calloutTitle, 0, false, false));
+        scannerConfig.calloutTitle, 0, false, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_callout_subtitle,
-        codeLinkConfig.calloutSubtitle, 0, false, true));
+        scannerConfig.calloutSubtitle, 0, false, true));
     list.add(SettingsItem.sectionHeader(R.string.code_link_status, true, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_camera_unavailable,
-        codeLinkConfig.cameraUnavailableText, 0, false, false));
+        scannerConfig.cameraUnavailableText, 0, false, false));
     list.add(SettingsItem.urlPreference(R.string.code_link_connected,
-        codeLinkConfig.connectedText, 0, false, true));
+        scannerConfig.connectedText, 0, false, true));
     list.add(SettingsItem.sectionFooter(R.string.code_link_text_help));
     list.add(SettingsItem.actionPreference(R.string.code_link_reset, true, true));
     return list;

@@ -6,12 +6,14 @@ FOUNDATION_EXPORT const unsigned char StashNativeVersionString[];
 
 NS_ASSUME_NONNULL_BEGIN
 
-FOUNDATION_EXPORT NSErrorDomain const StashNativeCodeLinkErrorDomain;
-typedef NS_ERROR_ENUM(StashNativeCodeLinkErrorDomain, StashNativeCodeLinkError) {
-    StashNativeCodeLinkErrorCameraPermissionDenied = 1,
-    StashNativeCodeLinkErrorCameraUnavailable,
-    StashNativeCodeLinkErrorCameraConfigurationFailed,
-    StashNativeCodeLinkErrorMissingCameraUsageDescription
+FOUNDATION_EXPORT NSErrorDomain const StashNativeScannerErrorDomain;
+typedef NS_ERROR_ENUM(StashNativeScannerErrorDomain, StashNativeScannerError) {
+    StashNativeScannerErrorCameraPermissionDenied = 1,
+    StashNativeScannerErrorCameraUnavailable,
+    StashNativeScannerErrorCameraConfigurationFailed,
+    StashNativeScannerErrorMissingCameraUsageDescription,
+    /** The optional StashNativeCodeLink module is not linked; nothing was presented. */
+    StashNativeScannerErrorScannerUnavailable
 };
 
 typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
@@ -42,8 +44,8 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @property (nonatomic) StashNativeOrientationPreference orientationPreference;
 @end
 
-/** Scanner copy. Nil or empty text uses the built-in wording. Copied when CodeLink opens. */
-@interface StashNativeCodeLinkConfig : NSObject <NSCopying>
+/** Scanner copy. Nil or empty text uses the built-in wording. Copied when the scanner opens. */
+@interface StashNativeScannerConfig : NSObject <NSCopying>
 /** Default: "Scan QR code". */
 @property (nonatomic, copy, nullable) NSString *headerText;
 /** Default: "Scan the webshop code". */
@@ -82,8 +84,8 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  */
 - (void)stashNativeDidDismissCard;
 
-/** Called after CodeLink is dismissed without a scan result. */
-- (void)stashNativeDidDismissScan;
+/** Called after the scanner is dismissed without a scan result. */
+- (void)stashNativeDidDismissScanner;
 
 /**
  * Called when the checkout page finishes loading.
@@ -115,21 +117,23 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  */
 - (void)stashNativeDidDismissBrowser;
 
-/** CodeLink returns the unmodified QR payload once, after the scanner card has closed.
+/** The scanner returns the unmodified QR payload once, after the scanner card has closed.
  * No URL is opened and no payment callback or user-dismiss callback is emitted on success.
  */
 - (void)stashNativeDidScanQRCode:(NSString *)content
     NS_SWIFT_NAME(stashNativeDidScanQRCode(_:));
 
-/** CodeLink cannot use the camera. Delivered once per scanner session; the card stays
+/** The scanner cannot use the camera. Delivered once per scanner session; the card stays
  * open so the user can close it or grant access in Settings and return to scanning.
+ * \c StashNativeScannerErrorScannerUnavailable is different: the StashNativeCodeLink module is
+ * not linked, nothing is presented, \c isCurrentlyPresented stays NO, and no dismissal follows.
  */
-- (void)stashNativeCodeLinkDidEncounterError:(NSError *)error
-    NS_SWIFT_NAME(stashNativeCodeLinkDidEncounterError(_:));
+- (void)stashNativeScannerDidEncounterError:(NSError *)error
+    NS_SWIFT_NAME(stashNativeScannerDidEncounterError(_:));
 
 @end
 
-/** One active checkout, CodeLink scanner, or browser per instance. Callbacks use the main thread.
+/** One active checkout, scanner, or browser per instance. Callbacks use the main thread.
  * Opening calls may run on any thread and are marshaled to main.
  */
 @interface StashNative : NSObject
@@ -158,14 +162,16 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 - (void)openBrowserWithURL:(NSString *)url fromViewController:(UIViewController *)presenter
                   config:(nullable StashNativeBrowserConfig *)config NS_SWIFT_NAME(openBrowser(withURL:from:config:));
 /** Opens a QR camera in the responsive native card, following the host app's orientation.
+ * Requires the StashNativeCodeLink module; without it the delegate receives
+ * \c StashNativeScannerErrorScannerUnavailable asynchronously and nothing is presented.
  * The host must provide NSCameraUsageDescription. Requests camera access when opened;
  * uses no microphone and saves no images. The first framed QR code shows a brief Connected
  * confirmation, then closes the card before delivering the scan callback.
  */
-- (void)codeLinkFromViewController:(UIViewController *)presenter NS_SWIFT_NAME(codeLink(from:));
-/** Opens CodeLink with optional custom scanner copy and callout visibility. */
-- (void)codeLinkFromViewController:(UIViewController *)presenter config:(nullable StashNativeCodeLinkConfig *)config
-    NS_SWIFT_NAME(codeLink(from:config:));
+- (void)openScannerFromViewController:(UIViewController *)presenter NS_SWIFT_NAME(openScanner(from:));
+/** Opens the scanner with optional custom copy and callout visibility. */
+- (void)openScannerFromViewController:(UIViewController *)presenter config:(nullable StashNativeScannerConfig *)config
+    NS_SWIFT_NAME(openScanner(from:config:));
 /** Programmatic dismissal remains available while purchase processing prevents user dismissal. */
 - (void)dismiss;
 /** Immediately tears down the session without delegate callbacks; keeps the delegate registration. */
@@ -175,3 +181,6 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @end
 
 NS_ASSUME_NONNULL_END
+
+// Scanner module contract; keeps the umbrella complete for framework module builds.
+#import "StashNativeScannerSupport.h"

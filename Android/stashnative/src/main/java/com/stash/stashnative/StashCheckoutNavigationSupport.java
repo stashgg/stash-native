@@ -18,7 +18,7 @@ final class StashCheckoutNavigationSupport {
    * flows (success/failure/close); any other deeplink is handed to the OS with the card left
    * open. Returns true when the navigation was consumed.
    */
-  static boolean handleDeeplinkNavigation(StashCheckoutActivity activity, String url) {
+  static boolean handleDeeplinkNavigation(StashCardActivity activity, String url) {
     if (url == null || StashWebViewUtils.isWebScheme(url)) {
       return false;
     }

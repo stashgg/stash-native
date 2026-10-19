@@ -17,14 +17,14 @@ NSDictionary *StashNativePresentationProbe(void) {
         @{@"name":@"wideTablet", @"width":@1000, @"height":@1200},
         @{@"name":@"narrowPane", @"width":@320, @"height":@900},
         @{@"name":@"compactHeight", @"width":@700, @"height":@320, @"compact":@YES}]) {
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         session.config = [StashNativeCardConfig new];
         UIViewController *presenter = [UIViewController new];
         StashPresentationProbeView *view = [[StashPresentationProbeView alloc] initWithFrame:
             CGRectMake(0, 0, [input[@"width"] doubleValue], [input[@"height"] doubleValue])];
         view.verticalClass = [input[@"compact"] boolValue] ? UIUserInterfaceSizeClassCompact : UIUserInterfaceSizeClassRegular;
         presenter.view = view; session.presenter = presenter;
-        StashCheckoutViewController *controller = [StashCheckoutViewController new];
+        StashCardViewController *controller = [StashCardViewController new];
         session.controller = controller; controller.session = session; [controller configurePresentation];
         UISheetPresentationController *sheet = controller.sheetPresentationController;
         BOOL native = sheet && sheet.delegate == session &&
@@ -64,16 +64,16 @@ NSDictionary *StashPresentationLifetimeProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     for (NSString *name in @[@"closed", @"replacement", @"detached", @"occupied", @"dismissing"]) {
         StashNative *owner = [StashNative new];
-        StashCheckoutSession *session = [StashCheckoutSession new];
+        StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
         session.url = @"about:blank";
         StashOccupiedPresentationHost *presenter = [StashOccupiedPresentationHost new];
         UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 700)];
         window.rootViewController = presenter; [window addSubview:presenter.view]; session.presenter = presenter;
-        StashCheckoutSession *replacement = nil;
+        StashCardSession *replacement = nil;
         if ([name isEqualToString:@"closed"]) session.closing = YES;
         if ([name isEqualToString:@"replacement"]) {
-            replacement = [StashCheckoutSession new]; replacement.owner = owner; owner.session = replacement;
+            replacement = [StashCardSession new]; replacement.owner = owner; owner.session = replacement;
         }
         if ([name isEqualToString:@"detached"]) [presenter.view removeFromSuperview];
         if ([name isEqualToString:@"occupied"]) presenter.otherPresentation = [UIViewController new];

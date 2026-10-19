@@ -20,7 +20,7 @@ extension ViewController {
         switch sectionType {
         case .card: return 2
         case .browser: return 3
-        case .codeLink: return 1
+        case .scanner: return 1
         case .presentationOptions: return 3
         case .other: return 1
         case .about: return 1
@@ -34,7 +34,7 @@ extension ViewController {
         switch sectionType {
         case .card: title = "CHECKOUT CARD"
         case .browser: title = "BROWSER"
-        case .codeLink: title = "LINK WEBSHOP"
+        case .scanner: title = "LINK WEBSHOP"
         case .presentationOptions: title = "PRESENTATION OPTIONS"
         case .other: title = "OTHER"
         case .about: title = "ABOUT"
@@ -58,9 +58,9 @@ extension ViewController {
             return cardSectionCell(for: indexPath)
         case .browser:
             return browserSectionCell(for: indexPath)
-        case .codeLink:
+        case .scanner:
             let cell = actionCell("Scan QR Code")
-            cell.accessibilityIdentifier = "code-link-open"
+            cell.accessibilityIdentifier = "scanner-open"
             return cell
         case .presentationOptions:
             return presentationOptionCell(for: indexPath)
@@ -83,8 +83,8 @@ extension ViewController {
             generateCheckoutForBrowserTapped()
         case .browser where indexPath.row == 2:
             openWebshopForBrowserTapped()
-        case .codeLink:
-            codeLinkTapped()
+        case .scanner:
+            openScannerTapped()
         case .presentationOptions:
             handlePresentationOptionsSelection(at: indexPath)
         case .checkoutGenerationSettings:

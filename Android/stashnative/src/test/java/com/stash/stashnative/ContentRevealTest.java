@@ -26,14 +26,14 @@ import org.robolectric.annotation.LooperMode;
 @Config(sdk = 28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class ContentRevealTest {
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private RecordingWebView web;
   private StashContentRevealSupport support;
 
   /** Creates an uncommitted navigation with controlled WebView callbacks. */
   @Before
   public void prepare() {
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class).get();
     web = new RecordingWebView(activity);
     activity.webView = web;
     web.setAlpha(0);

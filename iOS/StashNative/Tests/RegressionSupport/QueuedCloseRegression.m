@@ -21,8 +21,8 @@
 }
 @end
 
-static StashCheckoutSession *newSession(StashNative *owner) {
-    StashCheckoutSession *session = [StashCheckoutSession new];
+static StashCardSession *newSession(StashNative *owner) {
+    StashCardSession *session = [StashCardSession new];
     session.owner = owner;
     session.config = [StashNativeCardConfig new];
     owner.session = session;
@@ -32,7 +32,7 @@ NSDictionary *StashCallbackProbe(void) {
     StashNative *owner = [StashNative new];
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     delegate.owner = owner; owner.delegate = delegate;
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     session.config.allowDismiss = NO;
     session.config.autoClose = NO;
     [session paymentSucceeded:NO order:nil];
@@ -42,13 +42,13 @@ NSDictionary *StashCallbackProbe(void) {
     [session paymentSucceeded:YES order:@"order"];
     [session paymentSucceeded:YES order:@"duplicate"];
     BOOL closedAfterSuccess = !owner.isCurrentlyPresented;
-    StashCheckoutSession *failed = newSession(owner);
+    StashCardSession *failed = newSession(owner);
     failed.config.allowDismiss = NO;
     failed.processing = YES;
     [failed handleMessage:@"stashNativementFailure" body:@{}];
     [failed handleMessage:@"stashNativementFailure" body:@{}];
     BOOL closedAfterFailure = !owner.isCurrentlyPresented;
-    StashCheckoutSession *network = newSession(owner);
+    StashCardSession *network = newSession(owner);
     network.config.allowDismiss = NO;
     [network networkFailed];
     return @{@"successes":@(delegate.successes), @"failures":@(delegate.failures), @"dismissals":@(delegate.dismissals),
@@ -60,7 +60,7 @@ void StashQueuedCloseProbe(NSString *source, BOOL replace, BOOL processing, BOOL
     StashNative *owner = [StashNative new];
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     owner.delegate = delegate;
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     session.config.allowDismiss = allowDismiss;
     for (NSInteger attempt = 0; attempt < 2; attempt++) {
         if ([source isEqualToString:@"window"]) [session webViewDidClose:session.webView];
@@ -81,7 +81,7 @@ NSDictionary *StashLifecycleProbe(void) {
     StashProbeDelegate *delegate = [StashProbeDelegate new];
     delegate.owner = owner; owner.delegate = delegate;
     delegate.events = [NSMutableArray array];
-    StashCheckoutSession *dismissed = newSession(owner);
+    StashCardSession *dismissed = newSession(owner);
     dismissed.config.allowDismiss = NO;
     dismissed.processing = YES;
     __block NSInteger dialogCompletions = 0;
@@ -90,23 +90,23 @@ NSDictionary *StashLifecycleProbe(void) {
     [dismissed completeDialog:@YES];
     [owner dismiss];
     BOOL once = delegate.dismissals == 1 && dialogCompletions == 1;
-    StashCheckoutSession *reset = newSession(owner);
+    StashCardSession *reset = newSession(owner);
     reset.dialogCompletion = ^(id value) { dialogCompletions++; };
     [owner resetPresentationState];
     BOOL silent = delegate.dismissals == 1 && !owner.isCurrentlyPresented && dialogCompletions == 2;
     [delegate.events removeAllObjects];
-    StashCheckoutSession *browser = newSession(owner);
+    StashCardSession *browser = newSession(owner);
     [browser browserClosed];
     [browser browserClosed];
     BOOL browserOrder = [delegate.events isEqualToArray:@[@"browser"]];
     [delegate.events removeAllObjects];
-    StashCheckoutSession *userBrowser = newSession(owner);
+    StashCardSession *userBrowser = newSession(owner);
     userBrowser.browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:@"https://example.invalid"]];
     [userBrowser safariViewControllerDidFinish:userBrowser.browser];
     BOOL userBrowserOrder = [delegate.events isEqualToArray:@[@"browser"]];
-    StashCheckoutSession *retired = newSession(owner);
+    StashCardSession *retired = newSession(owner);
     [owner resetPresentationState];
-    StashCheckoutSession *replacement = newSession(owner);
+    StashCardSession *replacement = newSession(owner);
     [retired networkFailed];
     [retired paymentSucceeded:YES order:nil];
     BOOL replacementSurvived = owner.session == replacement && delegate.networkErrors == 0 && delegate.successes == 0;
@@ -118,7 +118,7 @@ NSDictionary *StashLifecycleProbe(void) {
         @"userBrowserOrder":@(userBrowserOrder), @"replacementSurvived":@(replacementSurvived),
         @"webResultIgnored":@(webResultIgnored), @"appResultHandled":@(appResultHandled)};
 }
-@interface StashCheckoutViewController (GestureTest)
+@interface StashCardViewController (GestureTest)
 - (void)nativePanChanged:(UIPanGestureRecognizer *)gesture;
 @end
 @interface StashCancelledPan : UIPanGestureRecognizer
@@ -130,11 +130,11 @@ NSDictionary *StashLifecycleProbe(void) {
 @end
 NSDictionary *StashPresentationStateProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 300);
     session.presenter = presenter;
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [controller configurePresentation];
     BOOL shortSingle;
@@ -163,7 +163,7 @@ NSDictionary *StashPresentationStateProbe(void) {
     return @{@"shortSingle":@(shortSingle), @"semantic":@(semantic), @"restoredExpanded":@(restoredExpanded),
         @"keyboardOverride":@(keyboardOverride), @"restoredResting":@(restoredResting), @"deferred":@(deferred), @"cancelledPreservesResting":@(cancelledPreservesResting)};
 }
-@interface StashCheckoutSession (ScrollTest)
+@interface StashCardSession (ScrollTest)
 - (void)rootScrollPanChanged:(UIPanGestureRecognizer *)gesture;
 @end
 @interface StashScrollProbePan : UIPanGestureRecognizer
@@ -185,12 +185,12 @@ NSDictionary *StashPresentationStateProbe(void) {
 
 NSDictionary *StashContentPanPolicyProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
     session.presenter = presenter;
     session.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 390, 560)];
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [controller configurePresentation];
     StashScrollProbePan *pan = [StashScrollProbePan new];
@@ -243,12 +243,12 @@ NSDictionary *StashContentPanPolicyProbe(void) {
 
 NSDictionary *StashContentExpansionProbe(void) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
     session.presenter = presenter;
     session.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 390, 560)];
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [controller configurePresentation]; [controller loadViewIfNeeded];
     StashScrollProbePan *pan = [StashScrollProbePan new];
@@ -310,12 +310,12 @@ NSDictionary *StashContentExpansionProbe(void) {
 
 void StashScrollInteractionProbe(void (^completion)(NSDictionary *)) {
     StashNative *owner = [StashNative new];
-    StashCheckoutSession *session = newSession(owner);
+    StashCardSession *session = newSession(owner);
     UIViewController *presenter = [UIViewController new];
     presenter.view.frame = CGRectMake(0, 0, 390, 1000);
     session.presenter = presenter;
     session.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, 390, 560)];
-    StashCheckoutViewController *controller = [StashCheckoutViewController new];
+    StashCardViewController *controller = [StashCardViewController new];
     session.controller = controller; controller.session = session;
     [controller configurePresentation];
     controller.touchOriginObserver = [UITapGestureRecognizer new];

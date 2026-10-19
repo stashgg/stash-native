@@ -42,7 +42,7 @@ static BOOL StashKeyboardGuideIsInsetDocked(CGRect frame, UIWindow *window, UIVi
         bottom >= windowBottom - window.safeAreaInsets.bottom - 0.5 && bottom < windowBottom - 0.5;
 }
 
-@implementation StashCheckoutViewController (Keyboard)
+@implementation StashCardViewController (Keyboard)
 - (void)keyboardChanged:(NSNotification *)note {
     if (![self.session isActive] || !self.view.window) return;
     BOOL ownsResponder = StashContainsFirstResponder(self.session.webView);

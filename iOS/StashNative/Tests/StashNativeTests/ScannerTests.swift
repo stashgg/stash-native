@@ -2,10 +2,10 @@ import XCTest
 import RegressionSupport
 import StashNative
 
-final class CodeLinkTests: XCTestCase {
+final class ScannerTests: XCTestCase {
     @MainActor func testPreviewDetachesAfterQueuedCaptureStops() async throws {
         let value = await withCheckedContinuation { continuation in
-            StashCodeLinkCaptureOrderingProbe { continuation.resume(returning: $0) }
+            StashScannerCaptureOrderingProbe { continuation.resume(returning: $0) }
         }
         let result = try XCTUnwrap(value as? [String: Bool])
         for key in ["stopEntered", "disposalDeferred", "stoppedBeforeDetach", "finalStopOnly", "detachedOnMain"] {
@@ -14,7 +14,7 @@ final class CodeLinkTests: XCTestCase {
     }
 
     @MainActor func testDefaultAndEmptyTextKeepExistingCopy() throws {
-        let config = StashNativeCodeLinkConfig()
+        let config = StashNativeScannerConfig()
         XCTAssertTrue(config.showCallout)
         config.headerText = ""
         config.calloutTitle = ""
@@ -22,7 +22,7 @@ final class CodeLinkTests: XCTestCase {
         config.cameraUnavailableText = ""
         config.connectedText = ""
         for options in [nil, config] {
-            let result = try XCTUnwrap(StashCodeLinkConfiguredLayoutProbe(
+            let result = try XCTUnwrap(StashScannerConfiguredLayoutProbe(
                 CGSize(width: 400, height: 560), options) as? [String: Any])
             XCTAssertEqual(result["headerText"] as? String, "Scan QR code")
             XCTAssertEqual(result["calloutTitle"] as? String, "Scan the webshop code")
@@ -36,13 +36,13 @@ final class CodeLinkTests: XCTestCase {
     }
 
     @MainActor func testCustomCopyWrapsAndHiddenCalloutReclaimsSpace() throws {
-        let config = StashNativeCodeLinkConfig()
+        let config = StashNativeScannerConfig()
         config.headerText = "Propojte svůj účet"
         config.calloutTitle = "Naskenujte kód obchodu"
         config.calloutSubtitle = "Umístěte QR kód doprostřed rámečku.\nاستخدم رمز المتجر"
         config.cameraUnavailableText = "Kamera není dostupná"
         config.connectedText = "Připojeno"
-        let copy = try XCTUnwrap(config.copy() as? StashNativeCodeLinkConfig)
+        let copy = try XCTUnwrap(config.copy() as? StashNativeScannerConfig)
         config.headerText = "changed"
         config.cameraUnavailableText = nil
         config.connectedText = nil
@@ -52,7 +52,7 @@ final class CodeLinkTests: XCTestCase {
         for size in [CGSize(width: 320, height: 480), CGSize(width: 400, height: 330),
                      CGSize(width: 400, height: 560), CGSize(width: 660, height: 330)] {
             copy.showCallout = true
-            let shown = try XCTUnwrap(StashCodeLinkConfiguredLayoutProbe(size, copy) as? [String: Any])
+            let shown = try XCTUnwrap(StashScannerConfiguredLayoutProbe(size, copy) as? [String: Any])
             XCTAssertEqual(shown["headerText"] as? String, copy.headerText)
             XCTAssertEqual(shown["calloutTitle"] as? String, copy.calloutTitle)
             XCTAssertEqual(shown["calloutSubtitle"] as? String, copy.calloutSubtitle)
@@ -63,7 +63,7 @@ final class CodeLinkTests: XCTestCase {
             XCTAssertEqual(shown["bounded"] as? Bool, true, "\(size)")
             XCTAssertEqual(shown["snapshot"] as? Bool, true)
             copy.showCallout = false
-            let hidden = try XCTUnwrap(StashCodeLinkConfiguredLayoutProbe(size, copy) as? [String: Any])
+            let hidden = try XCTUnwrap(StashScannerConfiguredLayoutProbe(size, copy) as? [String: Any])
             XCTAssertEqual(hidden["showCallout"] as? Bool, false)
             XCTAssertEqual(hidden["controlsSeparate"] as? Bool, true)
             XCTAssertEqual(hidden["bounded"] as? Bool, true)
@@ -75,7 +75,7 @@ final class CodeLinkTests: XCTestCase {
 
     @MainActor func testDetectionDismissalCancellationAndErrorCallbacks() async throws {
         let value = await withCheckedContinuation { continuation in
-            StashCodeLinkLifecycleProbe { continuation.resume(returning: $0) }
+            StashScannerLifecycleProbe { continuation.resume(returning: $0) }
         }
         let result = try XCTUnwrap(value as? [String: Bool])
         for key in ["errorKeepsCard", "emptyIgnored", "waitsForConfirmation", "waitsForDismissal", "scannedOnce",
@@ -87,7 +87,7 @@ final class CodeLinkTests: XCTestCase {
     @MainActor func testDismissAndResetDuringConfirmationCancelPendingScan() async throws {
         for reset in [false, true] {
             let value = await withCheckedContinuation { continuation in
-                StashCodeLinkInterruptedConfirmationProbe(reset) { continuation.resume(returning: $0) }
+                StashScannerInterruptedConfirmationProbe(reset) { continuation.resume(returning: $0) }
             }
             let result = try XCTUnwrap(value as? [String: Bool])
             for key in ["noScanCallback", "dismissalsCorrect", "stopped", "replacementUntouched"] {
@@ -96,11 +96,22 @@ final class CodeLinkTests: XCTestCase {
         }
     }
 
+    @MainActor func testMissingScannerModuleReportsUnavailableWithoutPresenting() async throws {
+        let value = await withCheckedContinuation { continuation in
+            StashScannerUnavailableProbe { continuation.resume(returning: $0) }
+        }
+        let result = try XCTUnwrap(value as? [String: Bool])
+        XCTAssertEqual(result.count, 6)
+        for key in ["resolvesNil", "nothingPresented", "asynchronous", "reported", "stillIdle", "restored"] {
+            XCTAssertEqual(result[key], true, key)
+        }
+    }
+
     @MainActor func testScannerFrameStaysCenteredAndSeparateFromControls() throws {
         for size in [CGSize(width: 320, height: 400), CGSize(width: 375, height: 560),
                      CGSize(width: 402, height: 720), CGSize(width: 400, height: 560),
                      CGSize(width: 400, height: 330)] {
-            let result = try XCTUnwrap(StashCodeLinkLayoutProbe(size) as? [String: Any])
+            let result = try XCTUnwrap(StashScannerLayoutProbe(size) as? [String: Any])
             XCTAssertEqual(result["bounded"] as? Bool, true, "\(size)")
             XCTAssertEqual(result["controlsSeparate"] as? Bool, true, "\(size)")
             let width = try XCTUnwrap(result["frameWidth"] as? Double)

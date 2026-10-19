@@ -164,25 +164,28 @@ jobs:
 
       - name: Build Android AAR
         working-directory: Android
-        run: ./gradlew :stashnative:assembleRelease
+        run: ./gradlew :stashnative:assembleRelease :stashnative-codelink:assembleRelease
 
-      - name: Find AAR file
+      - name: Find AAR files
         id: find-aar
         run: |
-          AAR_PATH=$(find Android/stashnative/build/outputs/aar -name "*.aar" -type f | head -1)
-          if [ -z "$AAR_PATH" ]; then
+          mkdir -p aar-artifacts
+          AAR_PATH=$(find Android/stashnative/build/outputs/aar -name "*-release.aar" -type f | head -1)
+          CODELINK_PATH=$(find Android/stashnative-codelink/build/outputs/aar -name "*-release.aar" -type f | head -1)
+          if [ -z "$AAR_PATH" ] || [ -z "$CODELINK_PATH" ]; then
             echo "AAR not found!"
-            find Android/stashnative/build/outputs -name "*.aar" || true
+            find Android/stashnative/build/outputs Android/stashnative-codelink/build/outputs -name "*.aar" || true
             exit 1
           fi
-          echo "Found AAR at: $AAR_PATH"
-          echo "aar_path=$AAR_PATH" >> "$GITHUB_OUTPUT"
+          cp "$AAR_PATH" aar-artifacts/StashNative.aar
+          cp "$CODELINK_PATH" aar-artifacts/StashNativeCodeLink.aar
+          ls -la aar-artifacts
 
-      - name: Upload AAR artifact
+      - name: Upload AAR artifacts
         uses: actions/upload-artifact@v4
         with:
           name: stashnative-android-aar
-          path: ${{ steps.find-aar.outputs.aar_path }}
+          path: aar-artifacts/*.aar
           retention-days: 7
 
   build-ios:
@@ -205,56 +208,50 @@ jobs:
           xcodebuild -version
           test "$(xcrun --sdk iphoneos --show-sdk-version)" = "27.1"
 
-      - name: Build XCFramework
+      - name: Build XCFrameworks
         run: |
           cd iOS/StashNative
-
-          # Create build directory
           mkdir -p build
-
-          # Archive for iOS device
-          echo "Building for iOS device..."
-          xcodebuild archive \
-            -project StashNative.xcodeproj \
-            -scheme StashNative \
-            -destination 'generic/platform=iOS' \
-            -archivePath build/StashNative-iOS.xcarchive \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
-
-          # Archive for iOS Simulator
-          echo "Building for iOS Simulator..."
-          xcodebuild archive \
-            -project StashNative.xcodeproj \
-            -scheme StashNative \
-            -destination 'generic/platform=iOS Simulator' \
-            -archivePath build/StashNative-Sim.xcarchive \
-            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
-            SKIP_INSTALL=NO \
-            BUILD_LIBRARY_FOR_DISTRIBUTION=YES
-
-          # Create XCFramework
-          echo "Creating XCFramework..."
-          xcodebuild -create-xcframework \
-            -framework "build/StashNative-iOS.xcarchive/Products/Library/Frameworks/StashNative.framework" \
-            -framework "build/StashNative-Sim.xcarchive/Products/Library/Frameworks/StashNative.framework" \
-            -output build/StashNative.xcframework
-
-          # Verify XCFramework was created
-          if [ ! -d "build/StashNative.xcframework" ]; then
-            echo "Failed to create XCFramework"
+          # One XCFramework per module: the core, and the optional scanner that links AVFoundation.
+          for SCHEME in StashNative StashNativeCodeLink; do
+            echo "Archiving $SCHEME for iOS device..."
+            xcodebuild archive \
+              -project StashNative.xcodeproj \
+              -scheme "$SCHEME" \
+              -destination 'generic/platform=iOS' \
+              -archivePath "build/$SCHEME-iOS.xcarchive" \
+              IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+              SKIP_INSTALL=NO \
+              BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+            echo "Archiving $SCHEME for iOS Simulator..."
+            xcodebuild archive \
+              -project StashNative.xcodeproj \
+              -scheme "$SCHEME" \
+              -destination 'generic/platform=iOS Simulator' \
+              -archivePath "build/$SCHEME-Sim.xcarchive" \
+              IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+              SKIP_INSTALL=NO \
+              BUILD_LIBRARY_FOR_DISTRIBUTION=YES
+            xcodebuild -create-xcframework \
+              -framework "build/$SCHEME-iOS.xcarchive/Products/Library/Frameworks/$SCHEME.framework" \
+              -framework "build/$SCHEME-Sim.xcarchive/Products/Library/Frameworks/$SCHEME.framework" \
+              -output "build/$SCHEME.xcframework"
+            test -d "build/$SCHEME.xcframework"
+          done
+          # The core must not reference the camera; the scanner module must.
+          if otool -L build/StashNative-iOS.xcarchive/Products/Library/Frameworks/StashNative.framework/StashNative | grep -q AVFoundation; then
+            echo "StashNative.framework links AVFoundation; the scanner must stay in StashNativeCodeLink"
             exit 1
           fi
-
-          echo "XCFramework created successfully"
-          ls -la build/StashNative.xcframework
+          otool -L build/StashNativeCodeLink-iOS.xcarchive/Products/Library/Frameworks/StashNativeCodeLink.framework/StashNativeCodeLink | grep -q AVFoundation
+          ls -la build/*.xcframework
 
       - name: Verify packaged framework versions
         env:
           EXPECTED_SDK_VERSION: ${{ needs.parse-changelog.outputs.version }}
         run: |
-          for framework_plist in iOS/StashNative/build/StashNative.xcframework/*/StashNative.framework/Info.plist; do
+          for framework_plist in iOS/StashNative/build/StashNative.xcframework/*/StashNative.framework/Info.plist \
+                                 iOS/StashNative/build/StashNativeCodeLink.xcframework/*/StashNativeCodeLink.framework/Info.plist; do
             minimum=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$framework_plist")
             test "$minimum" = "15.0"
             actual_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$framework_plist")
@@ -264,18 +261,18 @@ jobs:
             fi
           done
 
-      - name: Zip XCFramework
+      - name: Zip XCFrameworks
         run: |
           cd iOS/StashNative/build
           zip -r StashNative.xcframework.zip StashNative.xcframework
-          echo "Created StashNative.xcframework.zip"
-          ls -la StashNative.xcframework.zip
+          zip -r StashNativeCodeLink.xcframework.zip StashNativeCodeLink.xcframework
+          ls -la *.xcframework.zip
 
-      - name: Upload XCFramework artifact
+      - name: Upload XCFramework artifacts
         uses: actions/upload-artifact@v4
         with:
           name: stashnative-ios-xcframework
-          path: iOS/StashNative/build/StashNative.xcframework.zip
+          path: iOS/StashNative/build/*.xcframework.zip
           retention-days: 7
 
   create-release:
@@ -315,16 +312,13 @@ jobs:
         run: |
           cd release-artifacts
 
-          # Rename AAR
-          AAR_FILE=$(find . -name "*.aar" | head -1)
-          if [ -n "$AAR_FILE" ]; then
-            mv "$AAR_FILE" "StashNative-${VERSION}.aar"
-          fi
-
-          # Rename XCFramework zip
-          if [ -f "StashNative.xcframework.zip" ]; then
-            mv "StashNative.xcframework.zip" "StashNative-${VERSION}.xcframework.zip"
-          fi
+          for NAME in StashNative StashNativeCodeLink; do
+            test -f "$NAME.aar" && mv "$NAME.aar" "$NAME-${VERSION}.aar"
+            test -f "$NAME.xcframework.zip" && mv "$NAME.xcframework.zip" "$NAME-${VERSION}.xcframework.zip"
+          done
+          for f in StashNative-${VERSION}.aar StashNativeCodeLink-${VERSION}.aar StashNative-${VERSION}.xcframework.zip StashNativeCodeLink-${VERSION}.xcframework.zip; do
+            test -f "$f" || { echo "Missing release artifact $f"; exit 1; }
+          done
 
           echo "Renamed artifacts:"
           ls -la
@@ -339,7 +333,7 @@ jobs:
             echo "---"
             echo ""
             echo "### Android"
-            echo "Download \`StashNative-${VERSION}.aar\` and add to your project's \`libs\` folder."
+            echo "Download \`StashNative-${VERSION}.aar\` and add to your project's \`libs\` folder. Add \`StashNativeCodeLink-${VERSION}.aar\` only for QR Code Linking."
             echo ""
             echo "\`\`\`groovy"
             echo "dependencies {"
@@ -348,7 +342,8 @@ jobs:
             echo "    implementation 'androidx.webkit:webkit:1.11.0'"
             echo "    implementation 'androidx.window:window:1.4.0'"
             echo "    implementation 'androidx.window:window-java:1.4.0'"
-            echo "    // Only for CodeLink QR scanning (include all four):"
+            echo "    // Only for QR Code Linking (the scanner module and all four libraries):"
+            echo "    // implementation files('libs/StashNativeCodeLink-${VERSION}.aar')"
             echo "    // implementation 'androidx.camera:camera-camera2:1.4.2'"
             echo "    // implementation 'androidx.camera:camera-lifecycle:1.4.2'"
             echo "    // implementation 'androidx.camera:camera-view:1.4.2'"
@@ -358,10 +353,10 @@ jobs:
             echo "}"
             echo "\`\`\`"
             echo ""
-            echo "Base dependencies are required. Add the optional groups only for CodeLink or Custom Tabs. Source-module consumers also add these groups explicitly."
+            echo "Base dependencies are required. Add the optional groups only for QR Code Linking or Custom Tabs. Source-module consumers also add these groups explicitly."
             echo ""
             echo "### iOS"
-            echo "Download \`StashNative-${VERSION}.xcframework.zip\`, unzip, and add \`StashNative.xcframework\` to your Xcode project."
+            echo "Download \`StashNative-${VERSION}.xcframework.zip\`, unzip, and add \`StashNative.xcframework\` to your Xcode project. For QR Code Linking also add \`StashNativeCodeLink.xcframework\` from \`StashNativeCodeLink-${VERSION}.xcframework.zip\` and an \`NSCameraUsageDescription\`."
             echo ""
             echo "Alternatively, use Swift Package Manager with this repository URL."
           } > release_body.md
@@ -388,6 +383,8 @@ jobs:
           body_path: release_body.md
           files: |
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.aar
+            release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.aar
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
+            release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
           draft: false
           prerelease: false

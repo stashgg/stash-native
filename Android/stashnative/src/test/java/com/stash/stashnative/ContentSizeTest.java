@@ -20,14 +20,14 @@ import org.robolectric.annotation.Config;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class ContentSizeTest {
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private TestWebView web;
   private StashContentSizeSupport support;
   private String token;
 
   @Before
   public void prepare() throws Exception {
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class).get();
     activity.presentation =
         new StashPresentationController(activity, StashPresentationOptions.card(null));
     web = new TestWebView(activity);
@@ -160,7 +160,7 @@ public class ContentSizeTest {
   private static final class TestWebView extends WebView {
     ValueCallback<String> pending;
 
-    TestWebView(StashCheckoutActivity context) {
+    TestWebView(StashCardActivity context) {
       super(context);
     }
 

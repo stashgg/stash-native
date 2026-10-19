@@ -25,15 +25,15 @@ public class MainActivity extends Activity {
         status.setText("Card dismissed");
       }
 
-      @Override public void onScanDismissed() {
-        status.setText("Scan dismissed");
+      @Override public void onScannerDismissed() {
+        status.setText("Scanner dismissed");
       }
 
       @Override public void onBrowserDismissed() {
         status.setText("Browser dismissed");
       }
 
-      @Override public void onCodeLinkError(StashNative.CodeLinkError error) {
+      @Override public void onScannerError(StashNative.ScannerError error) {
         status.setText(error.name());
       }
 
@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
     layout.addView(browser);
     Button scanner = new Button(this);
     scanner.setText("Scan QR code");
-    scanner.setOnClickListener(view -> sdk.codeLink(this));
+    scanner.setOnClickListener(view -> sdk.openScanner(this));
     layout.addView(scanner);
     layout.addView(status);
     setContentView(layout);

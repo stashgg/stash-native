@@ -1,6 +1,6 @@
 #import "StashNativePrivate.h"
 
-@implementation StashCheckoutSession (Navigation)
+@implementation StashCardSession (Navigation)
 - (BOOL)handlePaymentResultURL:(NSURL *)url {
     NSString *scheme = url.scheme.lowercaseString;
     if (!scheme.length || [@[@"http", @"https", @"about", @"blob", @"data", @"file", @"javascript"] containsObject:scheme]) return NO;
@@ -138,7 +138,7 @@
     initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(void))completion {
     if (![self isActive] || self.controller.presentedViewController) { completion(); return; }
     self.dialogCompletion = ^(id result) { completion(); };
-    StashCheckoutSession *session = self;
+    StashCardSession *session = self;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [session completeDialog:nil]; }]];
     [self.controller presentViewController:alert animated:YES completion:nil];
@@ -147,7 +147,7 @@
     initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completion {
     if (![self isActive] || self.controller.presentedViewController) { completion(NO); return; }
     self.dialogCompletion = ^(id result) { completion([result boolValue]); };
-    StashCheckoutSession *session = self;
+    StashCardSession *session = self;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:message preferredStyle:UIAlertControllerStyleAlert];
     [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action) { [session completeDialog:@NO]; }]];
     [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) { [session completeDialog:@YES]; }]];
@@ -157,7 +157,7 @@
     initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString *))completion {
     if (![self isActive] || self.controller.presentedViewController) { completion(nil); return; }
     self.dialogCompletion = ^(id result) { completion(result); };
-    StashCheckoutSession *session = self;
+    StashCardSession *session = self;
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:prompt preferredStyle:UIAlertControllerStyleAlert];
     [alert addTextFieldWithConfigurationHandler:^(UITextField *field) { field.text = defaultText; }];
     STASH_WEAK_REF UIAlertController *weakAlert = alert;

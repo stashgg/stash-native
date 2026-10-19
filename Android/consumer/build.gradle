@@ -37,21 +37,26 @@ android {
 }
 
 dependencies {
-    // Use the built AAR, so sample or project dependencies cannot hide missing installation steps.
+    // Use the built AARs, so sample or project dependencies cannot hide missing installation steps.
     implementation files(project(':stashnative').layout.buildDirectory.file('outputs/aar/stashnative-release.aar'))
         .builtBy(':stashnative:assembleRelease')
+    def codeLinkAar = files(project(':stashnative-codelink').layout.buildDirectory
+        .file('outputs/aar/stashnative-codelink-release.aar'))
+        .builtBy(':stashnative-codelink:assembleRelease')
+    currentImplementation codeLinkAar
+    cameraOnlyImplementation codeLinkAar
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'
     implementation 'androidx.window:window-java:1.4.0'
     currentImplementation 'androidx.browser:browser:1.7.0'
     legacyImplementation 'androidx.browser:browser:1.3.0'
-    // Current covers the full SDK; legacy/absent omit the scanner entirely.
+    // Current covers core + codelink with its four libraries; legacy/absent omit the scanner.
     currentImplementation 'androidx.camera:camera-camera2:1.4.2'
     currentImplementation 'androidx.camera:camera-lifecycle:1.4.2'
     currentImplementation 'androidx.camera:camera-view:1.4.2'
     currentImplementation 'com.google.zxing:core:3.5.3'
-    // Also verify a partial installation: CameraX present, ZXing absent.
+    // Also verify a partial installation: codelink and CameraX present, ZXing absent.
     cameraOnlyImplementation 'androidx.camera:camera-camera2:1.4.2'
     cameraOnlyImplementation 'androidx.camera:camera-lifecycle:1.4.2'
     cameraOnlyImplementation 'androidx.camera:camera-view:1.4.2'

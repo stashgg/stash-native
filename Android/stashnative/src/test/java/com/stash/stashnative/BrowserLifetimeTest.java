@@ -28,7 +28,7 @@ public class BrowserLifetimeTest {
   private final StashNative sdk = StashNative.getInstance();
   private final StashNativePlugin plugin = StashNativePlugin.getInstance();
   private Activity host;
-  private StashCheckoutActivity checkout;
+  private StashCardActivity checkout;
   private int externalPayments;
   private int browserClosed;
   private String token;
@@ -48,11 +48,11 @@ public class BrowserLifetimeTest {
     sdk.setListener(null);
   }
 
-  private StashCheckoutActivity openCheckout() {
+  private StashCardActivity openCheckout() {
     sdk.openCard(host, "https://example.invalid/checkout", null);
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
-    StashCheckoutActivity result = Robolectric.buildActivity(StashCheckoutActivity.class, intent).get();
+    StashCardActivity result = Robolectric.buildActivity(StashCardActivity.class, intent).get();
     result.options = StashPresentationOptions.card(null);
     result.cardContainer = new StashSheetLayout(result, 24f);
     plugin.setCheckoutActivity(result);
@@ -69,7 +69,7 @@ public class BrowserLifetimeTest {
     js.start();
     js.join();
     sdk.resetPresentationState();
-    StashCheckoutActivity replacement = openCheckout();
+    StashCardActivity replacement = openCheckout();
     ShadowLooper.idleMainLooper();
     assertEquals(0, externalPayments);
     assertTrue(sdk.isCurrentlyPresented());
@@ -143,7 +143,7 @@ public class BrowserLifetimeTest {
     js.join();
     sdk.resetPresentationState();
     assertTrue(checkout.isFinishing());
-    StashCheckoutActivity replacement = openCheckout();
+    StashCardActivity replacement = openCheckout();
     ShadowLooper.idleMainLooper();
     assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
     assertFalse(replacement.isFinishing());

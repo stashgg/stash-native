@@ -27,13 +27,13 @@ import org.robolectric.shadows.ShadowSystemClock;
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 public class TelemetryTest {
-  private StashCheckoutActivity activity;
+  private StashCardActivity activity;
   private RecordingWebView web;
   private StashTelemetrySupport telemetry;
 
   @Before
   public void prepare() {
-    activity = Robolectric.buildActivity(StashCheckoutActivity.class).get();
+    activity = Robolectric.buildActivity(StashCardActivity.class).get();
     web = new RecordingWebView(activity);
     activity.webView = web;
     activity.rootLayout = new FrameLayout(activity);

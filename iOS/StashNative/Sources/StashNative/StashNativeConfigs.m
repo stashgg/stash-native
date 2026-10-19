@@ -34,13 +34,13 @@
 }
 @end
 
-@implementation StashNativeCodeLinkConfig
+@implementation StashNativeScannerConfig
 - (instancetype)init {
     if ((self = [super init])) _showCallout = YES;
     return self;
 }
 - (id)copyWithZone:(NSZone *)zone {
-    StashNativeCodeLinkConfig *copy = [[[self class] allocWithZone:zone] init];
+    StashNativeScannerConfig *copy = [[[self class] allocWithZone:zone] init];
     copy.headerText = self.headerText;
     copy.calloutTitle = self.calloutTitle;
     copy.calloutSubtitle = self.calloutSubtitle;

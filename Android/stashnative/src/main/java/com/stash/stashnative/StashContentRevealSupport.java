@@ -29,7 +29,7 @@ final class StashContentRevealSupport {
           + "visible=false;break;}}if(visible)return false;}return true;"
           + "}catch(e){return null;}})()";
 
-  private final StashCheckoutActivity activity;
+  private final StashCardActivity activity;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final Runnable poll = this::check;
   private long elapsed;
@@ -41,7 +41,7 @@ final class StashContentRevealSupport {
   private boolean done;
   private boolean disposed;
 
-  StashContentRevealSupport(StashCheckoutActivity activity) {
+  StashContentRevealSupport(StashCardActivity activity) {
     this.activity = activity;
   }
 
