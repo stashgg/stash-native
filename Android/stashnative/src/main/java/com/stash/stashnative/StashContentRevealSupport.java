@@ -11,17 +11,9 @@ import android.webkit.WebView;
 final class StashContentRevealSupport {
   private static final long WAIT_MS = 15000;
   private static final long POLL_MS = 100;
-  private static final String READY_SCRIPT =
-      "(function(){try{"
-          + "var u=new URL(document.URL);"
-          + "if(u.username||u.password||"
-          + "(u.origin!=='https://checkout.stash.gg'&&"
-          + "u.origin!=='https://checkout.stashstaging.com'))return true;"
-          + "var themes=u.searchParams.getAll('theme');"
-          + "if(themes.length===1&&(themes[0]==='light'||themes[0]==='dark')&&"
-          + "document.documentElement.getAttribute('data-color-scheme')!==themes[0])return false;"
-          + "return true;"
-          + "}catch(e){return null;}})()";
+  // No readiness gate beyond document load and paint. Reveal is not blocked on the page theme,
+  // because a checkout may render a fixed theme that never matches the requested one.
+  private static final String READY_SCRIPT = "true";
 
   private final StashCardActivity activity;
   private final Handler handler = new Handler(Looper.getMainLooper());

@@ -53,15 +53,8 @@ NSString *StashInitialContentReadinessScript(void) {
         @"  }\n"
         @"  return true;\n"
         @"};\n"
-        @"const checkoutPresentationReady = () => {\n"
-        @"  const url = new URL(document.URL);\n"
-        @"  if (url.username || url.password) return true;\n"
-        @"  if (!['https://checkout.stash.gg', 'https://checkout.stashstaging.com'].includes(url.origin)) return true;\n"
-        @"  const themes = url.searchParams.getAll('theme');\n"
-        @"  if (themes.length !== 1 || !['light', 'dark'].includes(themes[0])) return true;\n"
-        @"  return document.documentElement?.getAttribute('data-color-scheme') === themes[0];\n"
-        @"};\n"
-        @"if (!checkoutPresentationReady()) return false;\n"
+        // Reveal is driven only by drawn content. No theme gate: a checkout may render a fixed theme
+        // that never matches the requested one, which would keep the card covered until the timeout.
         @"if (!finished) {\n"
         @"  const body = document.body;\n"
         @"  if (!body) return false;\n"
@@ -90,7 +83,7 @@ NSString *StashInitialContentReadinessScript(void) {
         @"  const timer = setTimeout(finish, 250);\n"
         @"  first = requestAnimationFrame(() => { second = requestAnimationFrame(finish); });\n"
         @"});\n"
-        @"return checkoutPresentationReady();";
+        @"return true;";
 }
 
 NSString *StashNormalizeExternalPaymentURL(NSString *raw) {

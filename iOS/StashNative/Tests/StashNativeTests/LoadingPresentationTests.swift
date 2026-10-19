@@ -43,72 +43,31 @@ final class LoadingPresentationTests: XCTestCase {
         XCTAssertEqual(generic as? Bool, true)
     }
 
-    @MainActor func testCheckoutThemeReadinessUsesOnlyCurrentExactOriginAndOneValidTheme() async throws {
+    @MainActor func testReadinessIgnoresThemeSoFixedThemeCheckoutsReveal() async throws {
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 560))
         let (window, previous) = host(web)
         defer { web.stopLoading(); window.isHidden = true; previous?.makeKey() }
-        let scoped = ["https://checkout.stash.gg/pay?theme=dark", "https://checkout.stashstaging.com/pay?theme=light"]
-        for address in scoped {
-            let expected = address.hasSuffix("dark") ? "dark" : "light"
-            let opposite = expected == "dark" ? "light" : "dark"
-            guard await load(web, address) else { return }
-            let actualURL = try await evaluate(web, "return document.URL", [:])
-            XCTAssertEqual(actualURL as? String, address)
-            for finished in [false, true] {
-                for marker in ["", opposite] {
-                    let value = try await evaluate(web,
-                        "document.documentElement.dataset.colorScheme = marker;\n" + StashInitialContentReadinessSource(),
-                        ["marker": marker, "finished": finished])
-                    XCTAssertEqual(value as? Bool, false, "\(address) marker=\(marker) finished=\(finished)")
-                }
-                let value = try await evaluate(web,
-                    "document.documentElement.dataset.colorScheme = marker;\n" + StashInitialContentReadinessSource(),
-                    ["marker": expected, "finished": finished])
-                XCTAssertEqual(value as? Bool, true, "\(address) matching theme")
-            }
-        }
-        let generic = [
-            "https://custom.invalid/pay?theme=dark", "https://checkout.stash.gg.example.com/pay?theme=dark",
-            "https://checkout.stashstaging.com.example.com/pay?theme=dark", "http://checkout.stash.gg/pay?theme=dark",
-            "https://checkout.stash.gg@custom.invalid/pay?theme=dark", "https://user@checkout.stash.gg/pay?theme=dark",
-            "https://checkout.stash.gg:444/pay?theme=dark", "https://checkout.stash.gg/pay",
-            "https://checkout.stash.gg/pay?theme=", "https://checkout.stash.gg/pay?theme=system",
-            "https://checkout.stash.gg/pay?theme=DARK", "https://checkout.stash.gg/pay?theme=dark&theme=light",
-            "https://checkout.stash.gg/pay?theme=dark&theme=dark"
-        ]
-        for address in generic {
-            guard await load(web, address) else { return }
-            for finished in [false, true] {
-                let value = try await evaluate(web, StashInitialContentReadinessSource(), ["finished": finished])
-                XCTAssertEqual(value as? Bool, true, "\(address) retains generic readiness")
-            }
-        }
-    }
-
-    @MainActor func testCheckoutThemeReadinessRechecksAfterPaintAndUsesLiveDocument() async throws {
-        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 560))
-        let (window, previous) = host(web)
-        defer { web.stopLoading(); window.isHidden = true; previous?.makeKey() }
-        guard await load(web, "https://checkout.stash.gg/pay?theme=dark") else { return }
+        web.alpha = 0
         let source = try XCTUnwrap(StashInitialContentReadinessSource())
-        let late = try await evaluate(web,
-            "document.documentElement.dataset.colorScheme = 'light';\n" + source, ["finished": true])
-        XCTAssertEqual(late as? Bool, false)
-        let applied = try await evaluate(web,
-            "document.documentElement.dataset.colorScheme = 'dark';\n" + source, ["finished": true])
-        XCTAssertEqual(applied as? Bool, true)
-        let changed = "document.documentElement.dataset.colorScheme = 'dark';\n" +
-            "window.__readinessFrames = 0;\n" +
-            "const original = requestAnimationFrame; window.requestAnimationFrame = callback => original(time => {\n" +
-            " window.__readinessFrames++; document.documentElement.dataset.colorScheme = 'light'; callback(time); });\n" +
-            "try {\n" + source + "\n} finally { window.requestAnimationFrame = original; }"
-        let changedResult = try await evaluate(web, changed, ["finished": true])
-        XCTAssertEqual(changedResult as? Bool, false)
-        let frames = try await evaluate(web, "return window.__readinessFrames", [:])
-        XCTAssertEqual((frames as? NSNumber)?.intValue, 2)
-        guard await load(web, "https://custom.invalid/redirected?theme=dark") else { return }
-        let redirected = try await evaluate(web, source, ["finished": true])
-        XCTAssertEqual(redirected as? Bool, true)
+        // A Stash checkout that renders a fixed theme, or none, must still reveal: the requested theme never gates it.
+        for address in ["https://checkout.stash.gg/pay?theme=dark", "https://checkout.stashstaging.com/pay?theme=light"] {
+            guard await load(web, address) else { return }
+            for marker in ["light", "dark", "", "system"] {
+                for finished in [false, true] {
+                    let withContent = try await evaluate(web,
+                        "document.documentElement.dataset.colorScheme = marker;\n" +
+                        "document.body.innerHTML = '<button>Pay</button>';\n" + source,
+                        ["marker": marker, "finished": finished])
+                    XCTAssertEqual(withContent as? Bool, true, "\(address) scheme=\(marker) finished=\(finished)")
+                }
+                // Before the document finishes, an empty body still waits for drawn content, theme aside.
+                let empty = try await evaluate(web,
+                    "document.documentElement.dataset.colorScheme = marker;\n" +
+                    "document.body.replaceChildren();\n" + source,
+                    ["marker": marker, "finished": false])
+                XCTAssertEqual(empty as? Bool, false, "\(address) scheme=\(marker) empty")
+            }
+        }
     }
 
     @MainActor private func host(_ web: WKWebView) -> (UIWindow, UIWindow?) {

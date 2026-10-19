@@ -55,7 +55,7 @@ Strings reach the game unchanged; other values arrive as JSON. With `autoClose` 
 - The URL carries `theme=light` or `theme=dark`.
 - The viewport is fixed at device width, without zoom.
 - The WebView draws behind the home indicator and navigation bar; pad the bottom with `env(safe-area-inset-bottom)`.
-- On Stash checkout hosts, the loading cover stays until the page's `data-color-scheme` matches `theme`, for at most 15 seconds. Loading placeholders count as content and show as soon as they are drawn.
+- On Stash checkout hosts, the loading cover stays until the page paints content, for at most 15 seconds. The requested `theme` does not gate the reveal.
 
 ## Telemetry
 

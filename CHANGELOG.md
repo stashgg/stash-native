@@ -30,7 +30,7 @@ A redesigned SDK with one entry point, a responsive native checkout card, and op
 - Checkout keeps its state, WebView, and focused fields through rotation, keyboard, and window changes.
 - A lost connection ends checkout with a network error event instead of a dismissal.
 - On iOS, dismissing the presenting view controller ends the session with its dismissal event.
-- The checkout card shows the page as soon as it draws content, including its loading placeholders, instead of waiting for the placeholders to clear.
+- The checkout card reveals as soon as the page draws content, instead of waiting for loading placeholders to clear or for the page theme to settle.
 - The Android JavaScript bridge accepts calls only from the checkout document.
 
 ## [2.3.1] - 2026-09-03
