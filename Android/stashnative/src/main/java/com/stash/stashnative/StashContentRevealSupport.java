@@ -7,7 +7,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.webkit.WebView;
 
-/** Keeps the initial cover until checkout has applied its theme and painted real content. */
+/** Keeps the initial cover until checkout has applied its theme and painted the loaded document. */
 final class StashContentRevealSupport {
   private static final long WAIT_MS = 15000;
   private static final long POLL_MS = 100;
@@ -20,13 +20,7 @@ final class StashContentRevealSupport {
           + "var themes=u.searchParams.getAll('theme');"
           + "if(themes.length===1&&(themes[0]==='light'||themes[0]==='dark')&&"
           + "document.documentElement.getAttribute('data-color-scheme')!==themes[0])return false;"
-          + "var nodes=document.querySelectorAll('.animate-skeletonOpacityFluctuation');"
-          + "for(var i=0;i<nodes.length;i++){var e=nodes[i],r=e.getBoundingClientRect();"
-          + "if(r.width<=0||r.height<=0||r.bottom<=0||r.right<=0||"
-          + "r.top>=innerHeight||r.left>=innerWidth)continue;"
-          + "var visible=true;for(var p=e;p;p=p.parentElement){var s=getComputedStyle(p);"
-          + "if(s.display==='none'||s.visibility!=='visible'||Number(s.opacity)===0){"
-          + "visible=false;break;}}if(visible)return false;}return true;"
+          + "return true;"
           + "}catch(e){return null;}})()";
 
   private final StashCardActivity activity;

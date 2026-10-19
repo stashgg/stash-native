@@ -9,7 +9,7 @@ final class LoadingPresentationTests: XCTestCase {
         for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
     }
 
-    @MainActor func testCheckoutReadinessWaitsForVisiblePlaceholdersWhileWebViewIsTransparent() async throws {
+    @MainActor func testCheckoutReadinessTreatsPlaceholdersAsDrawnContentWhileWebViewIsTransparent() async throws {
         let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 560))
         let (window, previous) = host(web)
         defer { web.stopLoading(); window.isHidden = true; previous?.makeKey() }
@@ -19,25 +19,27 @@ final class LoadingPresentationTests: XCTestCase {
         for address in ["https://checkout.stash.gg/pay", "https://checkout.stashstaging.com/pay"] {
             guard await load(web, address) else { return }
             for finished in [false, true] {
-                for (style, expected) in [("", false), ("display:none", true), ("opacity:0", true),
-                                           ("position:absolute;top:10000px", true)] {
-                    let value = try await evaluate(web,
-                        "document.body.innerHTML = '<section style=\"' + style + '\">' + skeleton + '</section><button>Pay</button>';\n" + source,
-                        ["style": style, "skeleton": skeleton, "finished": finished])
-                    XCTAssertEqual(value as? Bool, expected, "\(address) \(style) finished=\(finished)")
-                }
+                let beside = try await evaluate(web,
+                    "document.body.innerHTML = skeleton + '<button>Pay</button>';\n" + source,
+                    ["skeleton": skeleton, "finished": finished])
+                XCTAssertEqual(beside as? Bool, true, "\(address) visible placeholder finished=\(finished)")
+            }
+            // Before the load event, a visible placeholder alone is drawn content; a hidden one is not.
+            for (style, expected) in [("", true), ("display:none", false), ("opacity:0", false),
+                                       ("position:absolute;top:10000px", false)] {
+                let value = try await evaluate(web,
+                    "document.body.innerHTML = '<section style=\"' + style + '\">' + skeleton + '</section>';\n" + source,
+                    ["style": style, "skeleton": skeleton, "finished": false])
+                XCTAssertEqual(value as? Bool, expected, "\(address) placeholder only, \(style)")
             }
             let latePlaceholder = "document.body.innerHTML = '<button>Pay</button>';\n" +
                 "requestAnimationFrame(() => document.body.insertAdjacentHTML('afterbegin', skeleton));\n" + source
             let late = try await evaluate(web, latePlaceholder, ["skeleton": skeleton, "finished": true])
-            XCTAssertEqual(late as? Bool, false)
-            let ready = try await evaluate(web, "document.body.innerHTML = '<button>Pay</button>';\n" + source,
-                                           ["finished": true])
-            XCTAssertEqual(ready as? Bool, true)
+            XCTAssertEqual(late as? Bool, true)
         }
         guard await load(web, "https://custom.invalid/pay") else { return }
         let generic = try await evaluate(web, "document.body.innerHTML = skeleton;\n" + source,
-                                         ["skeleton": skeleton, "finished": true])
+                                         ["skeleton": skeleton, "finished": false])
         XCTAssertEqual(generic as? Bool, true)
     }
 

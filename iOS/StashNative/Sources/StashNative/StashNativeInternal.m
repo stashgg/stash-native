@@ -255,7 +255,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)startInitialContentWait {
     if (!self.contentRevealTimer) {
-        self.contentRevealTimer = [NSTimer scheduledTimerWithTimeInterval:0.25 target:self
+        self.contentRevealTimer = [NSTimer scheduledTimerWithTimeInterval:0.1 target:self
             selector:@selector(initialContentTimerFired:) userInfo:nil repeats:YES];
         [NSRunLoop.mainRunLoop addTimer:self.contentRevealTimer forMode:NSRunLoopCommonModes];
     }

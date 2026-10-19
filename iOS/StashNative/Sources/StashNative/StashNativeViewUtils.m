@@ -57,8 +57,6 @@ NSString *StashInitialContentReadinessScript(void) {
         @"  const url = new URL(document.URL);\n"
         @"  if (url.username || url.password) return true;\n"
         @"  if (!['https://checkout.stash.gg', 'https://checkout.stashstaging.com'].includes(url.origin)) return true;\n"
-        // Stash checkout can finish navigation while its initial placeholders are still visible.
-        @"  if (Array.from(document.querySelectorAll('.animate-skeletonOpacityFluctuation')).some(visible)) return false;\n"
         @"  const themes = url.searchParams.getAll('theme');\n"
         @"  if (themes.length !== 1 || !['light', 'dark'].includes(themes[0])) return true;\n"
         @"  return document.documentElement?.getAttribute('data-color-scheme') === themes[0];\n"
@@ -75,7 +73,8 @@ NSString *StashInitialContentReadinessScript(void) {
         @"    if (Array.from(range.getClientRects()).some(intersects)) { usable = true; break; }\n"
         @"  }\n"
         @"  if (!usable) {\n"
-        @"    const elements = body.querySelectorAll('button,input:not([type=hidden]),select,textarea,iframe,video,canvas,svg,img');\n"
+        // Stash checkout's loading placeholders are drawn content; the cover must not outlast them.
+        @"    const elements = body.querySelectorAll('button,input:not([type=hidden]),select,textarea,iframe,video,canvas,svg,img,.animate-skeletonOpacityFluctuation');\n"
         @"    for (let n = 0; n < Math.min(elements.length, 100); n++) {\n"
         @"      const e = elements[n];\n"
         @"      if (e.tagName === 'IMG' && !(e.complete && e.naturalWidth > 0)) continue;\n"
