@@ -32,28 +32,13 @@ Browser payments come back through a deep link, not callbacks. Set your URL sche
 | `mygame://stash-pay/success` | The purchase completed |
 | `mygame://stash-pay/failure` | The purchase failed |
 
-On iOS, register the scheme in `CFBundleURLTypes`. On Android, add an intent filter for the `stash-pay` host to an activity with `android:launchMode="singleTask"`:
+Register the scheme with the system, as described by [Apple](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) and [Android](https://developer.android.com/training/app-links/create-deeplinks).
 
-```xml
-<intent-filter>
-    <action android:name="android.intent.action.VIEW" />
-    <category android:name="android.intent.category.DEFAULT" />
-    <category android:name="android.intent.category.BROWSABLE" />
-    <data android:scheme="mygame" android:host="stash-pay" />
-</intent-filter>
-```
-
-On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` also sends the payment [callback](callbacks.md#in-game-browser):
+On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` closes it and sends the payment [callback](callbacks.md#in-game-browser):
 
 ```swift
-func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
-    guard let url = contexts.first?.url, url.scheme == "mygame", url.host == "stash-pay" else { return }
-    switch url.path {
-    case "/success": StashNative.sharedInstance().dismissSafariViewController(withResult: true)
-    case "/failure": StashNative.sharedInstance().dismissSafariViewController(withResult: false)
-    default: StashNative.sharedInstance().closeBrowser()
-    }
-}
+StashNative.sharedInstance().dismissSafariViewController(withResult: true)  // mygame://stash-pay/success
+StashNative.sharedInstance().dismissSafariViewController(withResult: false) // mygame://stash-pay/failure
 ```
 
 [Confirm every purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) on your backend before granting items.
