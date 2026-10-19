@@ -8,7 +8,7 @@ description: Link a player's Stash webshop account by scanning the webshop's QR 
 # QR Code Linking
 
 {: .warning }
-QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in Package Installation for [iOS](installation.md#qr-code-linking-opt-in) and [Android](installation.md#qr-code-linking-opt-in-1). Without the module, `openScanner` reports `scannerUnavailable` (iOS) or `SCANNER_UNAVAILABLE` (Android) and presents nothing.
+QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](installation.md#qr-code-linking). Without the module, `openScanner` reports `scannerUnavailable` (iOS) or `SCANNER_UNAVAILABLE` (Android) and presents nothing.
 
 QR code linking lets players link their Stash webshop account to the game by scanning the QR code that the webshop shows. The scanner opens in the native card. When it reads a code, it shows a confirmation, closes, and returns the code's content to the game.
 
@@ -19,7 +19,7 @@ QR code linking lets players link their Stash webshop account to the game by sca
 | Platform | Requirement |
 |---|---|
 | iOS | The `StashNativeCodeLink` library or XCFramework, plus `NSCameraUsageDescription` in Info.plist. iOS shows this text when the scanner asks for the camera. |
-| Android | The `StashNativeCodeLink` AAR or `:stashnative-codelink` module with CameraX and ZXing, from [Package Installation](installation.md#android). Its manifest declares the camera permission. |
+| Android | The `StashNativeCodeLink` AAR or `:stashnative-codelink` module with CameraX and ZXing, from [Package Installation](installation.md#qr-code-linking). Its manifest declares the camera permission. |
 
 The scanner asks for camera access the first time it opens. Decoding runs on the device, and no images are saved.
 

@@ -7,7 +7,12 @@ description: Download Stash Native and add it to an iOS or Android app.
 
 # Package Installation
 
-Prebuilt packages are on [GitHub Releases](https://github.com/stashgg/stash-native/releases): `StashNative-<tag>.xcframework.zip` for iOS and `StashNative-<tag>.aar` for Android. The QR scanner ships separately as `StashNativeCodeLink-<tag>.xcframework.zip` and `StashNativeCodeLink-<tag>.aar`; add it only if your game uses [QR Code Linking](codelink.md). iOS apps can also use Swift Package Manager.
+| Package | Adds | Install |
+|---|---|---|
+| `StashNative` | Checkout Card, In-Game Browser, callbacks | Always |
+| `StashNativeCodeLink` | QR scanner | Only for [QR Code Linking](codelink.md) |
+
+Download prebuilt packages from [GitHub Releases](https://github.com/stashgg/stash-native/releases), or add the iOS packages with Swift Package Manager. The core package has no camera code, so games without QR Code Linking need no camera permission or Info.plist entry.
 
 ## iOS
 
@@ -15,19 +20,17 @@ Requires iOS 15 or later and Xcode 27.1.
 
 ### Swift Package Manager
 
-In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library to your app target. Add the `StashNativeCodeLink` library as well only if you use QR Code Linking. In `Package.swift`:
+In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library to your app target. In `Package.swift`:
 
 ```swift
 .package(url: "https://github.com/stashgg/stash-native.git", from: "3.0.0"),
+// In your target's dependencies:
+.product(name: "StashNative", package: "stash-native"),
 ```
 
 ### XCFramework
 
-Unzip `StashNative-<tag>.xcframework.zip`, add `StashNative.xcframework` to your app target, and set it to **Embed & Sign**. For QR Code Linking, do the same with `StashNativeCodeLink.xcframework`.
-
-### QR Code Linking (opt in)
-
-`StashNative` contains no camera code and no AVFoundation references, so apps that do not scan need no camera purpose string. Apps that link `StashNativeCodeLink` add `NSCameraUsageDescription` to their Info.plist; no Swift import is needed, the core finds the module at runtime. Calling `openScanner` without the module reports `StashNativeScannerError.scannerUnavailable` and presents nothing. Xcode's package integration and the XCFramework keep the scanner class automatically; a custom pipeline that links the SDK as plain static archives must pass `-ObjC` so the linker keeps it.
+Unzip `StashNative-<tag>.xcframework.zip`, add `StashNative.xcframework` to your app target, and set it to **Embed & Sign**.
 
 ### Import
 
@@ -37,7 +40,7 @@ import StashNative
 
 ## Android
 
-Requires API 21 or later. Copy the AAR into `app/libs/` and declare it with its dependencies:
+Requires API 21 or later. Copy the AAR into `app/libs/` and add it with its dependencies:
 
 ```groovy
 dependencies {
@@ -52,7 +55,7 @@ dependencies {
     // Optional: In-Game Browser in Chrome Custom Tabs
     implementation 'androidx.browser:browser:1.7.0'
 
-    // Optional: QR Code Linking, the scanner module and its four libraries
+    // Optional: QR Code Linking
     implementation files('libs/StashNativeCodeLink-<tag>.aar')
     implementation 'androidx.camera:camera-camera2:1.4.2'
     implementation 'androidx.camera:camera-lifecycle:1.4.2'
@@ -63,14 +66,17 @@ dependencies {
 
 The AAR brings its own manifest entries and R8 rules.
 
-### Import
-
 ```java
 import com.stash.stashnative.StashNative;
 ```
 
-### QR Code Linking (opt in)
+## QR Code Linking
 
-`StashNative` declares no camera permission and contains no camera code. If your game uses [QR Code Linking](codelink.md), add `StashNativeCodeLink` and its four libraries as shown above; its manifest declares `android.permission.CAMERA` and the optional camera features for you. Source-module integrations depend on `:stashnative-codelink` instead of the AAR.
+Add `StashNativeCodeLink` next to the core package. The SDK finds it at runtime, so no extra import is needed.
 
-Without the module, `openScanner` reports `ScannerError.SCANNER_UNAVAILABLE` and closes; if a host removes the permission with `tools:node="remove"`, the scanner stays open with `CAMERA_PERMISSION_NOT_DECLARED`. Games that do not use QR Code Linking add nothing.
+| Platform | Add |
+|---|---|
+| iOS | The `StashNativeCodeLink` library, or `StashNativeCodeLink.xcframework` set to **Embed & Sign**, and `NSCameraUsageDescription` in Info.plist |
+| Android | `StashNativeCodeLink-<tag>.aar` with CameraX and ZXing, as in the Gradle block above. Its manifest adds the camera permission. Source-module builds depend on `:stashnative-codelink`. |
+
+Custom iOS builds that link the SDK as plain static archives must pass `-ObjC`, so the linker keeps the scanner.
