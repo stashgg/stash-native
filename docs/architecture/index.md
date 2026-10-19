@@ -1,6 +1,6 @@
 ---
 title: Package Architecture
-nav_order: 6
+nav_order: 7
 has_children: true
 description: How the Stash Native packages are built, independent of any single feature.
 ---

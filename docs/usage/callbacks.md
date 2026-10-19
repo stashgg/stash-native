@@ -1,6 +1,6 @@
 ---
 title: Setting Callbacks
-nav_order: 5
+nav_order: 6
 description: How the shared Stash Native callback receiver works, and why.
 ---
 

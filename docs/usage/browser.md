@@ -1,6 +1,6 @@
 ---
 title: In-Game Browser
-nav_order: 3
+nav_order: 4
 description: Open Stash Pay checkout or webshop links in Safari View Controller or Chrome Custom Tabs without leaving the game.
 ---
 

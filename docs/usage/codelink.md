@@ -1,6 +1,6 @@
 ---
 title: QR Code Linking
-nav_order: 4
+nav_order: 5
 description: Link a player's Stash webshop account by scanning the webshop's QR code in the game.
 ---
 

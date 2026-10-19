@@ -1,6 +1,6 @@
 ---
 title: Checkout Card
-nav_order: 2
+nav_order: 3
 description: Show Stash Pay checkout in a native card over the game.
 ---
 

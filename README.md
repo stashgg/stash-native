@@ -93,7 +93,7 @@ Docs: [QR Code Linking](https://stashgg.github.io/stash-native/usage/codelink.ht
 
 ## Sample Apps
 
-Open the [iOS sample](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode, or run `./gradlew :sample:installDebug` from [`Android/`](Android/). To try the card without a checkout link, open `https://test.stashpreview.com`.
+Open the [iOS sample](iOS/Sample/StashNativeSample/StashNativeSample.xcodeproj) in Xcode, or run `./gradlew :sample:installDebug` from [`Android/`](Android/). To try the card without a checkout link, open `https://test.stashpreview.com`. Docs: [Sample Apps](https://stashgg.github.io/stash-native/usage/sample-apps.html)
 
 ## Versioning and Support
 
