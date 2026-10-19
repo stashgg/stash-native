@@ -535,14 +535,25 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     if (self.config.autoClose) self.paymentHandled = YES;
     self.processing = NO;
     [self.controller updateDismissalPolicy];
-    [self.owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
-        if (success && [delegate respondsToSelector:@selector(stashNativeDidCompletePaymentWithOrder:)])
-            [delegate stashNativeDidCompletePaymentWithOrder:order.length ? order : nil];
-        else if (!success && [delegate respondsToSelector:@selector(stashNativeDidFailPayment)])
-            [delegate stashNativeDidFailPayment];
-    }];
-    if (self.browser) [self browserClosed];
-    else if (self.config.autoClose) [self finishWithUserDismiss:NO completion:nil];
+    StashNative *owner = self.owner;
+    NSString *payload = order.length ? [order copy] : nil;
+    void (^deliver)(void) = ^{
+        [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+            if (success && [delegate respondsToSelector:@selector(stashNativeDidCompletePaymentWithOrder:)])
+                [delegate stashNativeDidCompletePaymentWithOrder:payload];
+            else if (!success && [delegate respondsToSelector:@selector(stashNativeDidFailPayment)])
+                [delegate stashNativeDidFailPayment];
+        }];
+    };
+    // A result that closes the card is final: deliver it after teardown so the game can open again.
+    if (self.config.autoClose && !self.browser) [self finishWithUserDismiss:NO completion:deliver];
+    else {
+        deliver();
+        if (self.browser) [self browserClosed];
+    }
+#if !__has_feature(objc_arc)
+    [payload release];
+#endif
 }
 - (void)networkFailed {
     if (![self isActive]) return;
@@ -568,6 +579,16 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
     if (controller == self.browser) [self browserClosed];
+}
+- (void)presentedSurfaceDidDisappear:(UIViewController *)surface {
+    if (![self isActive] || self.browserHandoff || (surface != self.controller && surface != self.browser)) return;
+    // Dismissing the host's presenter chain removes the card or Safari without a UIKit delegate callback.
+    BOOL dismissed = surface.isBeingDismissed;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (![self isActive] || self.browserHandoff || (!dismissed && surface.presentingViewController)) return;
+        if (surface == self.browser) [self browserClosed];
+        else if (surface == self.controller) [self finishWithUserDismiss:YES completion:nil];
+    });
 }
 - (BOOL)presentationControllerShouldDismiss:(UIPresentationController *)presentationController {
     if (presentationController.presentedViewController == self.controller && self.controller.touchBeganInWebContent) return NO;

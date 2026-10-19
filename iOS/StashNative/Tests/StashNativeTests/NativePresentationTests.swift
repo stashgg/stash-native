@@ -46,6 +46,21 @@ final class NativePresentationTests: XCTestCase {
         for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
     }
 
+    func testHostDismissalEndsSessionWithDismissalEvent() {
+        for mode in ["card", "chain", "browser", "covered"] {
+            let done = expectation(description: "host dismissal: \(mode)")
+            DispatchQueue.main.async {
+                StashHostDismissalProbe(mode) { result in
+                    guard let result else { XCTFail("Missing \(mode) results"); done.fulfill(); return }
+                    XCTAssertEqual(result.count, mode == "covered" ? 3 : 4, mode)
+                    for (key, value) in result { XCTAssertEqual(value as? Bool, true, "\(mode): \(key)") }
+                    done.fulfill()
+                }
+            }
+            wait(for: [done], timeout: 15)
+        }
+    }
+
     @MainActor func testInvalidPresentersAndRetiredSessionsCannotCreateCheckout() throws {
         let result = try XCTUnwrap(StashPresentationLifetimeProbe())
         XCTAssertEqual(result.count, 5)

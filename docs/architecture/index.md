@@ -1,65 +1,74 @@
 ---
 title: Package Architecture
-nav_order: 3
+nav_order: 6
 has_children: true
-description: How the Stash Native iOS and Android packages work, at a glance.
+description: How the Stash Native packages are built, independent of any single feature.
 ---
 
 # Package Architecture
 
-iOS and Android share one design. The `StashNative` singleton runs one presentation at a time: a native card (checkout or QR scanner) or the in-game browser. Checkout pages talk to the SDK through the internal [JavaScript Bridge](../stash-sdk-js.md), and the SDK sends [callbacks](../usage/callbacks.md) to the game.
+iOS and Android share one design: a small core plus optional modules. The `StashNative` facade runs one presentation at a time and sends its events to the game's shared [callback receiver](../usage/callbacks.md). Every feature is a presentation built from the parts below.
 
 ## Components
 
 ```mermaid
 flowchart TB
-    Game[Game] -->|open| SDK[StashNative]
-    SDK -->|callbacks| Game
-    SDK --> Browser[In-game browser]
-    SDK --> Card[Native card]
-    Card --> Scanner[QR scanner]
-    Card --> Web[Checkout WebView]
-    Web -->|bridge events| SDK
+    Game[Game] -->|open| SDK[StashNative facade]
+    SDK -->|events| Game
+    SDK --> Session[Session]
+    Session --> Card[Native card]
+    Session --> Browser[System browser]
+    Card --> Web[Web content]
+    Card --> Module[Module content]
+    Web -->|JavaScript bridge| Session
 ```
 
-| Part | iOS | Android |
-|---|---|---|
-| Facade | `StashNative` | `StashNative` and `StashNativePlugin` |
-| Native card | Sheet from `UISheetPresentationController` | `StashCardActivity` |
-| Checkout | `WKWebView` | `WebView` |
-| In-game browser | `SFSafariViewController` | Chrome Custom Tabs |
-| QR scanner | Optional `StashNativeCodeLink` module (AVFoundation) | Optional `stashnative-codelink` module (CameraX and ZXing) |
+| Part | Role | iOS | Android |
+|---|---|---|---|
+| Facade | Public API; one presentation at a time | `StashNative` | `StashNative`, `StashNativePlugin` |
+| Session | State and events of the open presentation | `StashCardSession` | Session ID in `StashNativePlugin` |
+| Native card | Responsive container over the game | `UISheetPresentationController` sheet | `StashCardActivity` |
+| Web content | Stash pages, connected through the [JavaScript Bridge](../stash-sdk-js.md) | `WKWebView` | `WebView` |
+| Module content | Native content from an optional module | Separate product, found at runtime | Separate AAR, loaded by reflection |
+| System browser | Pages that need a full browser | `SFSafariViewController` | Chrome Custom Tabs |
 
-## Session lifecycle
+## Presentation lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Checkout: open
-    Checkout --> Processing: payment starts
-    Processing --> Closed: payment result
-    Checkout --> Browser: external payment
+    [*] --> Open: open call accepted
+    Open --> Locked: page blocks closing
+    Locked --> Open: page releases the block
+    Open --> Closed: final event
+    Locked --> Closed: final event
+    Open --> Browser: handoff to the system browser
     Browser --> Closed: browser closed
-    Checkout --> Closed: dismissed or network error
     Closed --> [*]
 ```
 
-- Opening a card or scanner while one is active does nothing.
-- Players cannot close the card while a payment is processing.
-- `resetPresentationState()` ends a session in any state without callbacks.
+- An open call while a presentation is active does nothing.
+- While locked, players cannot close the card.
+- Every presentation ends with one final event. `resetPresentationState()` ends it without events.
 
-## Sizing
+## Native card
 
 - The card sizes itself from the current window, not the device type.
-- In regions narrower than 600 points or dp, the card uses the full width. Wider regions use up to `preferredContentWidth`.
-- The card opens at `preferredContentHeight`, or shorter for short pages, and expands up to `maximumContentHeight`.
-- Rotation, folding, window resizing, and the keyboard keep the same WebView and page state.
+- Regions narrower than 600 points or dp get a full-width card; wider regions use up to the configured width.
+- The card opens at the configured height, or shorter for short content, and expands up to the configured maximum.
+- Rotation, folding, window resizing, and the keyboard keep the same content and state.
 
-## Loading
+## Web content loading
 
-- Checkout reloads once if it has not responded after 10 seconds.
-- After 15 seconds of foreground time without a response, the card closes with a network error.
+- A page reloads once if it has not responded after 10 seconds.
+- After 15 seconds of foreground time without a response, the presentation closes with a network error.
 - A lost connection after the page loaded is also a network error.
-- If the system stops the WebView's renderer, checkout reloads once. A second loss is a network error.
+- If the system stops the WebView's renderer, the page reloads once. A second loss is a network error.
+
+## Modules
+
+- Optional modules ship as separate packages, so games add only what they use.
+- The core finds a module at runtime through a content contract; games import nothing extra.
+- An open call for a missing module reports an unavailable error and presents nothing.
 
 ## Threading
 

@@ -153,6 +153,8 @@ void StashSetScannerContentClassName(NSString *name);
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated;
 - (void)acceptContentHeight:(NSDictionary *)payload;
 - (void)browserClosed;
+// Ends the session when a host dismissal removes the card or Safari outside the SDK.
+- (void)presentedSurfaceDidDisappear:(UIViewController *)surface;
 - (void)completeDialog:(id)result;
 - (void)updateLoadBudget;
 - (void)beginLoadBudget;

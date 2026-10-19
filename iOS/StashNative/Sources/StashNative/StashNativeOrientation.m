@@ -174,6 +174,11 @@ static UIInterfaceOrientationMask StashHostOrientations(UIWindow *window) {
 - (UIInterfaceOrientation)preferredInterfaceOrientationForPresentation {
     return self.prefersPortrait ? UIInterfaceOrientationPortrait : super.preferredInterfaceOrientationForPresentation;
 }
+- (void)viewDidDisappear:(BOOL)animated {
+    [super viewDidDisappear:animated];
+    id delegate = self.delegate;
+    if ([delegate isKindOfClass:StashCardSession.class]) [delegate presentedSurfaceDidDisappear:self];
+}
 @end
 
 @implementation StashPortraitRootViewController

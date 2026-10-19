@@ -93,6 +93,10 @@ final class InstanceLifetimeTests: XCTestCase {
         checkCallbacks { StashCallbackReentrantProbe() }
     }
 
+    func testClosingPaymentResultArrivesAfterTeardownAndAllowsReopening() {
+        checkCallbacks { StashCallbackReopenProbe() }
+    }
+
     func testDelayedScannerAndBrowserEventsUseLiveReceiverAndRejectStaleSession() {
         checkCallbacks { StashCallbackDelayedProbe() }
     }

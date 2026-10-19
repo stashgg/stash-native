@@ -2,12 +2,12 @@
 title: JavaScript Bridge
 parent: Package Architecture
 nav_order: 3
-description: Internal window.stash_sdk contract between the SDK and Stash checkout pages.
+description: Internal window.stash_sdk contract between the SDK and Stash web content.
 ---
 
 # JavaScript Bridge
 
-`window.stash_sdk` is the internal contract between the SDK and Stash checkout pages. The checkout card injects it into the top-level page; the in-game browser and QR scanner do not. Integrators never call it. Calls from other frames are ignored.
+`window.stash_sdk` is the internal contract between the SDK and Stash web content in the native card. The SDK injects it into the top-level page of card web content only; system browser and module presentations do not get it. Integrators never call it. Calls from other frames are ignored.
 
 Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
 
@@ -21,7 +21,7 @@ Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/
 | `onProcessingCompleted()` | Removes the block |
 | `expand()`, `collapse()` | Selects the expanded or resting card height |
 | `setContentHeight(px)` | Reports the content height in CSS pixels, so the resting card can shrink |
-| `openExternalBrowser(url)` | External payment callback, then closes the card and opens the in-game browser |
+| `openExternalBrowser(url)` | External payment callback, then closes the card and opens the system browser |
 | `openLink(url)` | Opens a URL outside the app without callbacks; the card stays open |
 | `triggerHaptic()` | Plays a success haptic |
 | `getTelemetry()` | Resolves to device, app, card, and timing data |

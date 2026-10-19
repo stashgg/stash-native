@@ -1,13 +1,12 @@
 ---
 title: Checkout Card
-parent: Usage
 nav_order: 2
 description: Show Stash Pay checkout in a native card over the game.
 ---
 
 # Checkout Card
 
-The checkout card shows Stash Pay checkout in a native card over the game. Results arrive through [callbacks](callbacks.md#checkout-card).
+The checkout card shows Stash Pay checkout in a native card over the game. Results arrive through [callbacks](#callbacks).
 
 ![Checkout card on iPhone, unfolded iPhone Duo, and iPad](../assets/images/opencard-devices-dark.png)
 
@@ -25,7 +24,7 @@ StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: 
 StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
-`dismiss()` closes the card, even during a payment. Check `isPurchaseProcessing` first.
+`dismiss()` closes the card, even during a payment. Check `isPurchaseProcessing` first. `isCurrentlyPresented` reports whether a card, scanner, or Safari (iOS) is open.
 
 ## Configuration
 
@@ -39,7 +38,7 @@ Pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `ni
 | `edgeMargin` | `16` | Space between the card and the screen edges |
 | `allowDismiss` | `true` | Players can close the card by swiping down, tapping outside, or pressing Back |
 | `autoClose` | `true` | The card closes after a payment succeeds or fails |
-| `orientationPreference` | Follow host | Portrait on phones. See [Portrait checkout](#portrait-checkout). |
+| `orientationPreference` | Follow host | Portrait on phones. See [Forcing portrait checkout](#forcing-portrait-checkout). |
 
 ```swift
 let config = StashNativeCardConfig()
@@ -53,7 +52,7 @@ config.allowDismiss = false;
 StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
 
-## Portrait checkout
+## Forcing portrait checkout
 
 ![Portrait checkout card on iPhone, over an app locked to landscape](../assets/images/portrait-checkout-dark.png){: .single-device }
 
@@ -98,4 +97,52 @@ Inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android)
 
 ## Callbacks
 
-See [Checkout Card callbacks](callbacks.md#checkout-card).
+These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
+
+| Callback (iOS / Android) | Fires when |
+|---|---|
+| `stashNativeDidCompletePayment(withOrder:)`<br>`onPaymentSuccess(order)` | The player completes a payment |
+| `stashNativeDidFailPayment()`<br>`onPaymentFailure()` | The payment fails |
+| `stashNativeDidDismissCard()`<br>`onCardDismissed()` | The player or checkout closes the card, or you call `dismiss()` |
+| `stashNativeDidLoadPage(_:)`<br>`onPageLoaded(loadTimeMs)` | Checkout finished loading. Reports the load time in milliseconds. |
+| `stashNativeDidEncounterNetworkError()`<br>`onNetworkError()` | Checkout failed to load or lost its connection. The card closes. |
+| `stashNativeDidRequestExternalPayment(with:)`<br>`onExternalPayment(url)` | Checkout moves the payment to the in-game browser. The card closes. |
+
+`order` holds the order details from checkout, as a string or JSON, or `nil`/`null`. Grant items only after your backend [confirms the purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase).
+
+The card ends with payment success or failure, card dismissed, or network error. After an external payment, the [in-game browser](browser.md#callbacks) takes over and ends with browser dismissed. With `autoClose` off, payment events can repeat and the card stays open until dismissed.
+
+```swift
+extension StoreViewController: StashNativeDelegate {
+    func stashNativeDidCompletePayment(withOrder order: String?) {
+        // Confirm the purchase on your backend, then grant items.
+    }
+
+    func stashNativeDidFailPayment() {
+        // Update the store UI.
+    }
+
+    func stashNativeDidDismissCard() {
+        // Resume the game.
+    }
+}
+```
+
+```java
+StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter() {
+    @Override
+    public void onPaymentSuccess(String order) {
+        // Confirm the purchase on your backend, then grant items.
+    }
+
+    @Override
+    public void onPaymentFailure() {
+        // Update the store UI.
+    }
+
+    @Override
+    public void onCardDismissed() {
+        // Resume the game.
+    }
+});
+```

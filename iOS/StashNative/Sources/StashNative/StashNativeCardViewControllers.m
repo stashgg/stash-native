@@ -154,6 +154,7 @@
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     [self stopNativeEntrance];
+    [self.session presentedSurfaceDidDisappear:self];
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];

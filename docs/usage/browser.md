@@ -1,6 +1,5 @@
 ---
 title: In-Game Browser
-parent: Usage
 nav_order: 3
 description: Open Stash Pay checkout or webshop links in Safari View Controller or Chrome Custom Tabs without leaving the game.
 ---
@@ -21,11 +20,14 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self)
 StashNative.getInstance().openBrowser(activity, url);
 ```
 
-On Android, Custom Tabs need `androidx.browser` ([Package Installation](installation.md#android)). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari.
+On Android, Custom Tabs need `androidx.browser` ([Package Installation](../index.md#android)). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari; on Android it has no effect. While a card is open, `openBrowser` is ignored on iOS and opens on Android. `isCurrentlyPresented` is `true` while Safari is open, and `false` while Custom Tabs are open.
 
-## Return to the game
+## Handling Results
 
-Browser payments come back through a deep link, not callbacks. Set your URL scheme in [Stash Studio](https://docs.stash.gg/guides/get-started/stash-studio/getting-started) under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
+{: .warning }
+Unlike the Checkout Card, the in-game browser sends no direct payment callbacks, because the browser is isolated from the game. Checkout reports results to the game through a deep link instead.
+
+Set your URL scheme in [Stash Studio](https://docs.stash.gg/guides/get-started/stash-studio/getting-started) under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
 
 | Deep link | Sent when |
 |---|---|
@@ -34,7 +36,7 @@ Browser payments come back through a deep link, not callbacks. Set your URL sche
 
 Register the scheme with the system, as described by [Apple](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) and [Android](https://developer.android.com/training/app-links/create-deeplinks).
 
-On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` closes it and sends the payment [callback](callbacks.md#in-game-browser):
+On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` closes it and sends the payment [callback](#callbacks):
 
 ```swift
 StashNative.sharedInstance().dismissSafariViewController(withResult: true)  // mygame://stash-pay/success
@@ -43,9 +45,9 @@ StashNative.sharedInstance().dismissSafariViewController(withResult: false) // m
 
 [Confirm every purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) on your backend before granting items.
 
-## Portrait Safari (iOS)
+## Forcing Portrait Browser (iOS)
 
-On iPhone, Safari can open in portrait in a landscape game. iPad ignores this setting.
+On iPhone, Safari can open in portrait in a landscape game. iPad ignores this setting. On Android, the orientation of Chrome Custom Tabs cannot be forced.
 
 ```swift
 let config = StashNativeBrowserConfig()
@@ -78,4 +80,10 @@ On Android 13 and later, the notification appears only if the game has the `POST
 
 ## Callbacks
 
-See [In-Game Browser callbacks](callbacks.md#in-game-browser).
+These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
+
+| Callback (iOS / Android) | Fires when |
+|---|---|
+| `stashNativeDidDismissBrowser()`<br>`onBrowserDismissed()` | The browser closes, after `openBrowser` or an external payment |
+
+The browser ends with browser dismissed. On iOS, `dismissSafariViewController(withResult:)` first sends payment success or failure; see [Checkout Card callbacks](checkout-card.md#callbacks).

@@ -2,12 +2,12 @@
 title: Android
 parent: Package Architecture
 nav_order: 2
-description: How the Android package works. Plugin and activity, layout, WebView, browser, and QR scanner.
+description: How the Android package works. Plugin and activity, layout, WebView, system browser, and modules.
 ---
 
 # Android
 
-A Java library for API 21 and later, package `com.stash.stashnative`. Source: [`Android/stashnative`](https://github.com/stashgg/stash-native/tree/main/Android/stashnative).
+A Java library for API 21 and later, package `com.stash.stashnative`. Source: [`Android`](https://github.com/stashgg/stash-native/tree/main/Android).
 
 ## Structure
 
@@ -19,18 +19,17 @@ flowchart TB
     Plugin -->|listener| Game
 ```
 
-`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCardActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID. Events from an old session are dropped.
+`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Every card presentation runs in `StashCardActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID. Events from an old session are dropped.
 
 | Class | Responsibility |
 |---|---|
 | `StashNative` | Public API |
-| `StashNativePlugin` | Session, listener, browser, keep-alive, backdrop |
-| `StashCardActivity` | Hosts one card or scanner |
+| `StashNativePlugin` | Session, listener, system browser, presentation options |
+| `StashCardActivity` | Hosts one card presentation |
 | `StashPresentationController` | Layout, insets, keyboard, folds, gestures |
 | `StashCheckoutWebViewSupport` | WebView setup, loading, errors |
 | `StashCheckoutJsInterface` | `StashAndroid` bridge |
 | `StashNativeBrowserProxyActivity` | Custom Tabs launch and close detection |
-| `StashScannerContent`, `StashScannerHost` | Scanner contract; the implementation lives in the `stashnative-codelink` module |
 
 ## Layout
 
@@ -45,15 +44,13 @@ flowchart TB
 - File access, zoom, and algorithmic darkening are off.
 - The first load waits for the final card size, so older WebViews render at the right scale.
 
-## Browser
+## System browser
 
 - Custom Tabs open through an internal proxy activity that detects when the tab closes. The game does not forward `onActivityResult`.
-- Without `androidx.browser`, links open with `ACTION_VIEW`, and browser dismissed fires when the launching activity resumes.
-- The optional keep-alive service is a short foreground service that stops when the game resumes.
+- Without `androidx.browser`, links open with `ACTION_VIEW`, and the close event fires when the launching activity resumes.
 
-## QR scanner
+## Modules
 
-- Runs in the same activity and card as checkout.
-- Lives in the optional `stashnative-codelink` module, with CameraX, ZXing, and the camera permission. The core loads it by reflection through `StashScannerContent` and `StashScannerHost`.
-- Without the module, `openScanner` reports `SCANNER_UNAVAILABLE`.
-- Decoding runs on the device.
+- Each optional module is a separate AAR or Gradle module with its own dependencies and permissions.
+- Module content runs in the same activity and card. The core loads it by reflection through a content contract.
+- An open call for a missing module reports an unavailable error.

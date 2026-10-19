@@ -65,7 +65,8 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @optional
 
 /**
- * Called when a payment completes successfully.
+ * Called when a payment completes successfully. With autoClose on, the card closes before this
+ * callback is invoked, so a new presentation can open from it.
  *
  * @param order Optional string from \c window.stash_sdk.onPaymentSuccess(order) (plain or JSON
  *     string). \c nil when the page omits the argument or passes an empty string.
@@ -74,13 +75,14 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
     NS_SWIFT_NAME(stashNativeDidCompletePayment(withOrder:));
 
 /**
- * Called when a payment fails.
+ * Called when a payment fails. With autoClose on, the card closes before this callback is invoked.
  */
 - (void)stashNativeDidFailPayment;
 
 /**
  * Called after checkout card dismissal by the user, page window.close() outside processing,
- * or programmatic dismiss. Payment auto-close, network error, and browser handoff do not emit it.
+ * dismiss, or the host dismissing the presenting view controller. Payment auto-close, network
+ * error, and browser handoff do not emit it.
  */
 - (void)stashNativeDidDismissCard;
 

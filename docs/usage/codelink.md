@@ -1,6 +1,5 @@
 ---
 title: QR Code Linking
-parent: Usage
 nav_order: 4
 description: Link a player's Stash webshop account by scanning the webshop's QR code in the game.
 ---
@@ -8,7 +7,7 @@ description: Link a player's Stash webshop account by scanning the webshop's QR 
 # QR Code Linking
 
 {: .warning }
-QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](installation.md#qr-code-linking).
+QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](../index.md#qr-code-linking-module).
 
 Players link their Stash webshop account by scanning the QR code the webshop shows. The scanner opens in the native card, confirms the scan, closes, and returns the code's content to the game. Use that content to link the account, as described in [Account Linking](https://docs.stash.gg/guides/stash-webshop/player-authentication/account-linking#integrate-account-linking).
 
@@ -64,4 +63,25 @@ StashNative.getInstance().openScanner(activity, config);
 
 ## Callbacks
 
-See [QR Code Linking callbacks](callbacks.md#qr-code-linking).
+These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
+
+| Callback (iOS / Android) | Fires when |
+|---|---|
+| `stashNativeDidScanQRCode(_:)`<br>`onQrCodeScanned(content)` | The scanner reads a QR code and closes |
+| `stashNativeDidDismissScanner()`<br>`onScannerDismissed()` | The scanner closes without a result |
+| `stashNativeScannerDidEncounterError(_:)`<br>`onScannerError(error)` | The scanner cannot start or use the camera. See [Errors](#errors). |
+
+The scanner ends with code scanned, scanner dismissed, or the scanner-unavailable error.
+
+### Errors
+
+Errors are `StashNativeScannerError.Code` values on iOS and `ScannerError` values on Android. Most errors leave the scanner open. A missing `StashNativeCodeLink` module presents nothing and sends no dismissal event.
+
+| Cause | Error (iOS / Android) | Fix |
+|---|---|---|
+| Camera access denied | `.cameraPermissionDenied`<br>`CAMERA_PERMISSION_DENIED` | None. The scanner offers a Settings button. |
+| No camera | `.cameraUnavailable`<br>`CAMERA_UNAVAILABLE` | Offer another way to link |
+| Camera setup failed | `.cameraConfigurationFailed`<br>`CAMERA_CONFIGURATION_FAILED` | Retry later |
+| Scanner module missing | `.scannerUnavailable`<br>`SCANNER_UNAVAILABLE` | Add `StashNativeCodeLink` (with CameraX and ZXing on Android) |
+| Camera usage description missing (iOS) | `.missingCameraUsageDescription` | Add `NSCameraUsageDescription` |
+| Camera permission removed from the manifest (Android) | `CAMERA_PERMISSION_NOT_DECLARED` | Keep the module's `CAMERA` permission in the merged manifest |

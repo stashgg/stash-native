@@ -78,6 +78,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void);
 
 NSDictionary *StashNativePresentationProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);
+void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *));
 NSDictionary *StashNativeEntranceProbe(void);
 
 NSDictionary *StashPageBackingLifecycleProbe(void);
@@ -100,5 +101,6 @@ NSDictionary *StashInstanceClosingOwnerReleaseProbe(void);
 NSDictionary * _Nonnull StashCallbackDismissalProbe(void);
 NSDictionary * _Nonnull StashCallbackLiveReceiverProbe(BOOL clear);
 NSDictionary * _Nonnull StashCallbackReentrantProbe(void);
+NSDictionary * _Nonnull StashCallbackReopenProbe(void);
 NSDictionary * _Nonnull StashCallbackDelayedProbe(void);
 NSDictionary * _Nonnull StashCallbackIsolationProbe(void);

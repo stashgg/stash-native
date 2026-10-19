@@ -327,6 +327,43 @@ NSDictionary *StashCallbackReentrantProbe(void) {
         @"clearSuppressesNext":@(clearSuppressesNext)};
 }
 
+NSDictionary *StashCallbackReopenProbe(void) {
+    UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
+    StashInstancePresenter *host = StashInstanceHost(window, UIUserInterfaceStyleLight);
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    for (NSNumber *success in @[@YES, @NO]) {
+        StashNative *owner = [StashNative new];
+        StashCallbackReceiver *receiver = [StashCallbackReceiver new];
+        owner.delegate = receiver;
+        StashCardSession *session = StashCallbackSession(owner);
+        __block BOOL closedFirst = NO;
+        __block StashCardSession *reopened = nil;
+        receiver.onEvent = ^(NSString *event) {
+            closedFirst = !owner.isCurrentlyPresented && session.closing;
+            [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
+            reopened = owner.session;
+        };
+        [session paymentSucceeded:success.boolValue order:@"order"];
+        NSString *name = success.boolValue ? @"success" : @"failure";
+        result[[name stringByAppendingString:@"ClosedBeforeEvent"]] = @(closedFirst);
+        result[[name stringByAppendingString:@"Reopened"]] = @(reopened && reopened != session && owner.session == reopened);
+        result[[name stringByAppendingString:@"Once"]] = @(receiver.events.count == 1);
+        [owner resetPresentationState];
+    }
+    // With autoClose off the card stays open, so the event arrives while it is presented.
+    StashNative *owner = [StashNative new];
+    StashCallbackReceiver *receiver = [StashCallbackReceiver new];
+    owner.delegate = receiver;
+    StashCardSession *open = StashCallbackSession(owner);
+    open.config.autoClose = NO;
+    __block BOOL presentedDuringEvent = NO;
+    receiver.onEvent = ^(NSString *event) { presentedDuringEvent = owner.isCurrentlyPresented; };
+    [open paymentSucceeded:YES order:nil];
+    result[@"repeatableEventWhilePresented"] = @(presentedDuringEvent && owner.session == open);
+    [owner resetPresentationState];
+    return result;
+}
+
 NSDictionary *StashCallbackDelayedProbe(void) {
     StashNative *owner = [StashNative new];
     StashCallbackReceiver *first = [StashCallbackReceiver new], *second = [StashCallbackReceiver new];

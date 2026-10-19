@@ -1,44 +1,75 @@
 ---
 title: Overview
 nav_order: 1
-description: Stash Pay checkout and Stash webshop pages in native iOS and Android apps.
+description: Install the Stash Native SDK and its optional modules on iOS and Android.
 ---
 
 # Stash Native
 
-Stash Native shows Stash Pay checkout and webshop pages in iOS and Android games, reports payment events, and scans webshop QR codes for account linking.
+## Package Installation
 
-For backend setup, webhooks, and Stash Studio, see the [Stash integration guides](https://docs.stash.gg/guides).
+The SDK is a core package plus optional modules. Prebuilt packages are on [GitHub Releases](https://github.com/stashgg/stash-native/releases). Unity and Unreal Engine games use [stash-unity](https://github.com/stashgg/stash-unity) or [stash-unreal](https://github.com/stashgg/stash-unreal) instead; for other engines, see [Engine Wrappers](architecture/engine-wrappers.md).
 
-| Feature | API | Surface |
+| Package | Adds | Install |
 |---|---|---|
-| [Checkout Card](usage/checkout-card.md) | `openCard` | Checkout in a native card |
-| [In-Game Browser](usage/browser.md) | `openBrowser` | Safari View Controller or Chrome Custom Tabs |
-| [QR Code Linking](usage/codelink.md) | `openScanner` | QR scanner in a native card (optional module) |
+| `StashNative` (core) | Checkout Card, In-Game Browser, callbacks | Always |
+| `StashNativeCodeLink` (module) | QR scanner | Only for [QR Code Linking](usage/codelink.md) |
 
-## Requirements
+### iOS
 
-| Platform | Minimum | Build | Distribution |
-|---|---|---|---|
-| iOS | iOS 15 | Xcode 27.1 | Swift Package Manager, XCFramework |
-| Android | API 21 | JDK 17, compile SDK 34 | AAR |
+Requires iOS 15 or later and Xcode 27.1. In Xcode, choose **File > Add Package Dependencies**, enter `https://github.com/stashgg/stash-native.git`, and add the `StashNative` library. In `Package.swift`:
 
-See [Package Installation](usage/installation.md).
+```swift
+.package(url: "https://github.com/stashgg/stash-native.git", from: "3.0.0"),
+// Target dependencies:
+.product(name: "StashNative", package: "stash-native"),
+```
 
-## Quick start
-
-Set the receiver on the main thread, then open checkout:
+Without Swift Package Manager, add `StashNative.xcframework` from `StashNative-<tag>.xcframework.zip` and set it to **Embed & Sign**.
 
 ```swift
 import StashNative
+```
 
-StashNative.sharedInstance().delegate = self
-StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
+### Android
+
+Requires API 21 or later. Copy the AAR into `app/libs/` and add it with its dependencies. The AAR includes its manifest entries and R8 rules.
+
+```groovy
+dependencies {
+    implementation files('libs/StashNative-<tag>.aar')
+
+    // Required
+    implementation 'androidx.core:core:1.12.0'
+    implementation 'androidx.webkit:webkit:1.11.0'
+    implementation 'androidx.window:window:1.4.0'
+    implementation 'androidx.window:window-java:1.4.0'
+
+    // Optional: In-Game Browser in Chrome Custom Tabs
+    implementation 'androidx.browser:browser:1.7.0'
+
+    // Optional: QR Code Linking
+    implementation files('libs/StashNativeCodeLink-<tag>.aar')
+    implementation 'androidx.camera:camera-camera2:1.4.2'
+    implementation 'androidx.camera:camera-lifecycle:1.4.2'
+    implementation 'androidx.camera:camera-view:1.4.2'
+    implementation 'com.google.zxing:core:3.5.3'
+}
 ```
 
 ```java
-StashNative.getInstance().setListener(listener);
-StashNative.getInstance().openCard(activity, checkoutUrl, null);
+import com.stash.stashnative.StashNative;
 ```
 
-Your backend [creates the checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) and [confirms each purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) before the game grants items.
+### QR Code Linking module
+
+| Platform | Add |
+|---|---|
+| iOS | The `StashNativeCodeLink` library or `StashNativeCodeLink.xcframework` (**Embed & Sign**), and `NSCameraUsageDescription` in Info.plist |
+| Android | `StashNativeCodeLink-<tag>.aar`, CameraX, and ZXing, as in the Gradle block above. Its manifest adds the camera permission. Source-module builds use `:stashnative-codelink`. |
+
+No import is needed. Games without the module need no camera permission or usage description. Custom iOS builds that link static archives directly must pass `-ObjC` to keep the scanner.
+
+### SDK version
+
+Check the installed version with `StashNative.sdkVersion()` (iOS) or `StashNative.getVersion()` (Android). Include it when you contact [developers@stash.gg](mailto:developers@stash.gg).

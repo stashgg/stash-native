@@ -204,3 +204,38 @@ p.warning {
   border-radius: 12px;
   box-shadow: none;
 }
+
+// Identifiers in table cells stay on one line; stacked iOS / Android names use <br>
+td code {
+  white-space: nowrap;
+}
+
+// Section dividers: a thin rule in the space above each second-level heading
+.main-content h2 {
+  margin-top: 3rem;
+
+  &::before {
+    position: absolute;
+    top: -1.5rem;
+    right: 0;
+    left: 0;
+    content: "";
+    border-top: $border $border-color;
+  }
+}
+
+.main-content h1 + h2 {
+  margin-top: 1.5em;
+
+  &::before {
+    content: none;
+  }
+}
+
+// Package icon before the site title in the header
+.site-title .site-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-right: $sp-3;
+}

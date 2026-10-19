@@ -14,8 +14,8 @@ sequenceDiagram
     participant Game as Game thread
     participant Glue as Native glue
     participant SDK as Stash Native
-    Game->>Glue: Open checkout
-    Glue->>SDK: openCard on the main thread
+    Game->>Glue: Open a presentation
+    Glue->>SDK: Open call on the main thread
     SDK-->>Glue: Callback on the main thread
     Glue-->>Game: Queue the event
 ```
@@ -62,7 +62,7 @@ public final class StashWrapper extends StashNative.StashNativeListenerAdapter {
 | Unity | `UnityPlayer.currentActivity` | `UnityPlayer.UnitySendMessage(gameObject, method, payload)` |
 | Unreal Engine | `FJavaWrapper::GameActivityThis` | JNI method that calls `AsyncTask(ENamedThreads::GameThread, ...)` |
 
-Declare the AAR's [dependencies](../usage/installation.md#android) in an External Dependency Manager file (Unity) or in UPL `<buildGradleAdditions>` (Unreal).
+Declare the AAR's [dependencies](../index.md#android) in an External Dependency Manager file (Unity) or in UPL `<buildGradleAdditions>` (Unreal).
 
 ## iOS
 
@@ -97,9 +97,9 @@ extern "C" void StashWrapperInitialize(StashEventCallback callback) {
 }
 
 extern "C" void StashWrapperOpenCard(const char *url) {
-    NSString *checkoutURL = url ? [NSString stringWithUTF8String:url] : nil;
+    NSString *pageURL = url ? [NSString stringWithUTF8String:url] : nil;
     dispatch_async(dispatch_get_main_queue(), ^{
-        [[StashNative sharedInstance] openCardWithURL:checkoutURL
+        [[StashNative sharedInstance] openCardWithURL:pageURL
                                    fromViewController:StashEnginePresenter()
                                                config:nil];
     });
@@ -113,13 +113,3 @@ extern "C" void StashWrapperOpenCard(const char *url) {
 
 - `StashNative.framework` is dynamic. Embed and sign it.
 - The example uses ARC. Unreal compiles Objective-C without ARC unless the module sets `bEnableObjCAutomaticReferenceCounting = true`; the SDK supports both.
-
-## Platform differences
-
-| Behavior | iOS | Android |
-|---|---|---|
-| `isCurrentlyPresented` while the browser is open | `true` | `false` |
-| `openBrowser` while a card is open | Ignored | Opens |
-| `closeBrowser()` | Closes Safari | No effect |
-| Portrait backdrop, keep-alive service | Not available | Available |
-| Portrait Safari, closing Safari with a result | Available | Not available |

@@ -64,7 +64,7 @@ dependencies {
 }
 ```
 
-The scanner module's manifest declares `android.permission.CAMERA`; the core SDK contains no camera code or permission. AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [installation guide](https://stashgg.github.io/stash-native/usage/installation.html#android) for details.
+The scanner module's manifest declares `android.permission.CAMERA`; the core SDK contains no camera code or permission. AAR integrations must declare the base dependencies and any optional groups they use. Source-module integrations inherit the base dependencies. See the [installation guide](https://stashgg.github.io/stash-native/#android) for details.
 
 ### iOS
 
@@ -244,7 +244,7 @@ A successful scan shows **Connected** before closing and does not emit a dismiss
 | Camera or Setup Error | `onScannerError(error)` | `stashNativeScannerDidEncounterError(_:)` | Camera or startup failure; most errors leave the scanner open. |
 | Scanner Dismissed | `onScannerDismissed()` | `stashNativeDidDismissScanner()` | The user or app dismissed the scanner without a result. |
 
-A missing `StashNativeCodeLink` module reports `SCANNER_UNAVAILABLE` / `.scannerUnavailable` without presenting anything and without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/callbacks.html#errors).
+A missing `StashNativeCodeLink` module reports `SCANNER_UNAVAILABLE` / `.scannerUnavailable` without presenting anything and without a dismissal callback; see [scanner errors](https://stashgg.github.io/stash-native/usage/codelink.html#errors).
 
 ### Register callbacks
 
@@ -284,7 +284,7 @@ extension YourViewController: StashNativeDelegate {
 
 For more detailed information, see the [Stash Native documentation](https://stashgg.github.io/stash-native/):
 
-- [Usage](https://stashgg.github.io/stash-native/usage/): installation, API, configuration, and callbacks
+- [Overview](https://stashgg.github.io/stash-native/): package installation and optional modules
 - [Engine wrappers](https://stashgg.github.io/stash-native/architecture/engine-wrappers.html): Unity, Unreal, and custom engine bindings
 - [Package Architecture](https://stashgg.github.io/stash-native/architecture/): iOS and Android internals, lifecycle, and sizing
 - [Compatibility](https://stashgg.github.io/stash-native/architecture/compatibility.html): supported versions, version-specific behavior, and runtime techniques for app review
