@@ -107,6 +107,17 @@ $stash-card: #0a0a0a;
   }
 }
 
+// Single-device screenshots: centered, narrower than the multi-device images
+.main-content img.single-device {
+  display: block;
+  margin-right: auto;
+  margin-left: auto;
+
+  @include mq(md) {
+    width: 80%;
+  }
+}
+
 // Inline code
 :not(pre, figure) > code {
   padding: 0.15em 0.35em;

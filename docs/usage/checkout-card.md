@@ -55,6 +55,8 @@ StashNative.getInstance().openCard(activity, checkoutUrl, config);
 
 ## Portrait checkout
 
+![Portrait checkout card on iPhone, over an app locked to landscape](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/portrait-checkout-dark.png){: .single-device }
+
 Checkout is laid out for portrait. On phones, a landscape game can show the card in portrait, even if the game supports only landscape. The game returns to its orientation when the card closes.
 
 ```swift
@@ -68,6 +70,8 @@ config.orientationPreference = StashNative.CardConfig.ORIENTATION_PORTRAIT;
 Tablets, unfolded foldables, and split screen keep the game's orientation.
 
 ## Portrait backdrop (Android)
+
+![Portrait checkout card on Android, over a backdrop image](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/portrait-backdrop-dark.png){: .single-device }
 
 On Android, the game rotates behind a portrait card, and some games show glitches while it does. To hide them, pass a screenshot of the game right before opening the card:
 
