@@ -8,6 +8,8 @@ description: Stash Pay checkout and Stash webshop pages in native iOS and Androi
 
 Stash Native shows Stash Pay checkout and webshop pages in iOS and Android games, reports payment events, and scans webshop QR codes for account linking.
 
+For backend setup, webhooks, and Stash Studio, see the [Stash integration guides](https://docs.stash.gg/guides).
+
 | Feature | API | Surface |
 |---|---|---|
 | [Checkout Card](usage/checkout-card.md) | `openCard` | Checkout in a native card |
@@ -39,4 +41,4 @@ StashNative.getInstance().setListener(listener);
 StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
-Your backend creates the checkout link and confirms each purchase before the game grants items.
+Your backend [creates the checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) and [confirms each purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) before the game grants items.

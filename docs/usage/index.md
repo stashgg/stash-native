@@ -9,8 +9,8 @@ description: Add Stash Pay checkout, the in-game browser, and QR code linking to
 
 1. [Install the package](installation.md).
 2. [Set a callback receiver](callbacks.md#set-the-receiver).
-3. Open an `https://` checkout link from your backend in the [Checkout Card](checkout-card.md) or the [In-Game Browser](browser.md).
-4. Grant items after your backend confirms the purchase.
+3. [Create a checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) on your backend and open it in the [Checkout Card](checkout-card.md) or the [In-Game Browser](browser.md).
+4. Grant items after your backend [confirms the purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase).
 
 Unity and Unreal Engine games use [stash-unity](https://github.com/stashgg/stash-unity) and [stash-unreal](https://github.com/stashgg/stash-unreal). For other engines, see [Engine Wrappers](../architecture/engine-wrappers.md).
 

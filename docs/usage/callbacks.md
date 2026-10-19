@@ -35,7 +35,7 @@ StashNative.getInstance().setListener(listener);
 | Network error | `stashNativeDidEncounterNetworkError()` | `onNetworkError()` | Checkout failed to load or lost its connection. The card closes. |
 | External payment | `stashNativeDidRequestExternalPayment(with:)` | `onExternalPayment(url)` | Checkout moves the payment to the in-game browser. The card closes. |
 
-`order` holds the order details from checkout, as a string or JSON, or `nil`/`null`. Grant items only after your backend confirms the purchase.
+`order` holds the order details from checkout, as a string or JSON, or `nil`/`null`. Grant items only after your backend [confirms the purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase).
 
 ```swift
 extension StoreViewController: StashNativeDelegate {

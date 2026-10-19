@@ -10,7 +10,7 @@ description: Link a player's Stash webshop account by scanning the webshop's QR 
 {: .warning }
 QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](installation.md#qr-code-linking).
 
-Players link their Stash webshop account by scanning the QR code the webshop shows. The scanner opens in the native card, confirms the scan, closes, and returns the code's content to the game.
+Players link their Stash webshop account by scanning the QR code the webshop shows. The scanner opens in the native card, confirms the scan, closes, and returns the code's content to the game. Use that content to link the account, as described in [Account Linking](https://docs.stash.gg/guides/stash-webshop/player-authentication/account-linking#integrate-account-linking).
 
 ![QR code scanners on iPhone and Android](../assets/images/codelink-devices-dark.png)
 

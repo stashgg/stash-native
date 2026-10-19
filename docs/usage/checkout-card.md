@@ -15,7 +15,7 @@ The card fits phones, tablets, foldables, and split screen, and follows light or
 
 ## Open the card
 
-Pass the checkout link from your backend and the view controller or activity showing the game:
+Pass the [checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) from your backend and the view controller or activity showing the game:
 
 ```swift
 StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)

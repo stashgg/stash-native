@@ -7,7 +7,7 @@ description: Open Stash Pay checkout or webshop links in Safari View Controller 
 
 # In-Game Browser
 
-The in-game browser opens checkout or webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android) without leaving the game.
+The in-game browser opens [checkout](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) or [webshop](https://docs.stash.gg/guides/stash-webshop/about) links in Safari View Controller (iOS) or Chrome Custom Tabs (Android) without leaving the game.
 
 ![Checkout in Safari View Controller on iPhone and Chrome Custom Tabs on Android](../assets/images/openbrowser-devices-dark.png)
 
@@ -25,13 +25,12 @@ On Android, Custom Tabs need `androidx.browser` ([Package Installation](installa
 
 ## Return to the game
 
-Browser payments come back through a deep link, not callbacks. Set your URL scheme in Stash Studio under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
+Browser payments come back through a deep link, not callbacks. Set your URL scheme in [Stash Studio](https://docs.stash.gg/guides/get-started/stash-studio/getting-started) under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
 
 | Deep link | Sent when |
 |---|---|
 | `mygame://stash-pay/success` | The purchase completed |
 | `mygame://stash-pay/failure` | The purchase failed |
-| `mygame://stash-pay/cancel` | The player left without paying. Not every checkout sends it. |
 
 On iOS, register the scheme in `CFBundleURLTypes`. On Android, add an intent filter for the `stash-pay` host to an activity with `android:launchMode="singleTask"`:
 
@@ -57,7 +56,7 @@ func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
 }
 ```
 
-Confirm every purchase on your backend before granting items.
+[Confirm every purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) on your backend before granting items.
 
 ## Portrait Safari (iOS)
 
