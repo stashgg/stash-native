@@ -2,72 +2,35 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [3.0.0] - Unreleased
+## [3.0.0] - 2026-10-19 (Preview)
 
-Initial iOS loading now uses one 10-second stall retry within a 15-second foreground response budget, matching Android's cadence. Successful main-frame responses cancel the deadline.
+A redesigned SDK with one entry point, a responsive native checkout card, and optional modules. Unity and Unreal wrapper updates ship separately. Documentation: [stashgg.github.io/stash-native](https://stashgg.github.io/stash-native/).
+
+### Highlights
+
+- A responsive checkout card for phones, tablets, foldables, iPhone Duo, and split screen, built on the native iOS sheet.
+- Portrait checkout in landscape games, with the game's orientation restored afterwards.
+- QR Code Linking for webshop accounts, in the optional `StashNativeCodeLink` module.
+- Card content sizing through `setContentHeight(...)` or a `[data-stash-content]` wrapper.
+- A native loading cover, with Liquid Glass on iOS 26 and later.
 
 ### Breaking changes
 
-- Rename the iOS and Android entry point from `StashNativeCard` to `StashNative`. On iOS, use `StashNativeDelegate`, `stashNative...` callbacks, and the `StashNative.h` header. On Android, use `StashNative.StashNativeListener` or `StashNative.StashNativeListenerAdapter`.
-- Replace generic dismissal and browser-close callbacks with named events: Android `onCardDismissed`, `onScanDismissed`, and `onBrowserDismissed`; iOS `stashNativeDidDismissCard`, `stashNativeDidDismissScan`, and `stashNativeDidDismissBrowser`. Each takes no arguments; one shared receiver handles all events. Browser dismissal covers both `openBrowser` and checkout's payment handoff.
-- Require receiver registration, reads, replacement, and clearing on the platform main thread. Open calls still accept any thread. Each event uses the current receiver, including events from already-open flows; reset stays silent and preserves registration.
-- Remove the no-argument iOS payment-success callback. Implement only `stashNativeDidCompletePaymentWithOrder:` (`stashNativeDidCompletePayment(withOrder:)` in Swift), whose order remains optional.
-- Safari Done, `closeBrowser()`, and `dismiss()` send only browser dismissed, without a card or scan dismissal event.
-- On iOS, a payment success or failure that closes the card now arrives after the card closes, so the game can open the next card from the callback, as it already can on Android. With `autoClose` off, payment events still arrive while the card stays open.
-- Move the QR scanner into the optional `StashNativeCodeLink` module on both platforms: the `StashNativeCodeLink` Swift package product and XCFramework (the only code that links AVFoundation, so apps without it need no `NSCameraUsageDescription`) and the `stashnative-codelink` AAR (CameraX, ZXing and the camera permission). The core SDK ships no camera code; the scanner's string resources moved to the module as `stash_scanner_*`. Calling the scanner without the module reports terminal `scannerUnavailable` / `SCANNER_UNAVAILABLE` without presenting anything. `CAMERA_CONFIGURATION_FAILED` remains nonterminal.
-- Adopt scanner vocabulary for the QR entry point and its types, aligning `openCard`, `openBrowser` and `openScanner`: iOS `openScanner(from:config:)`, `StashNativeScannerConfig`, `StashNativeScannerError`, `stashNativeDidDismissScanner`, `stashNativeScannerDidEncounterError`; Android `openScanner(activity, config)`, `ScannerConfig`, `ScannerError`, `onScannerDismissed`, `onScannerError`. The scan result callbacks keep their QR names. Internally the card host is `StashCardSession` / `StashCardActivity`.
-- Replace phone/tablet and orientation ratios with preferred content dimensions, a height cap, and edge margins.
-- Require the presenting activity or view controller for card and browser calls.
-- Remove `openModal` and modal configuration on iOS and Android. Embedded checkout uses `openCard`; browser checkout uses `openBrowser`.
-- Remove configurable background colors from both SDKs and samples. Native page-background matching remains automatic.
-- Replace `forcePortrait` with `orientationPreference`. Remove popup sizing APIs and iOS screenshot-backdrop workarounds; Android backdrop APIs remain available.
-- Raise the iOS minimum to 15. Android API 21 remains supported; fold information uses WindowManager 1.4.0.
-- Make camera access opt in on Android: the core AAR no longer declares `android.permission.CAMERA` or the camera `uses-feature` entries; the `stashnative-codelink` AAR declares them. Games without QR Code Linking add nothing and no longer need a `tools:node="remove"` override.
+- The entry point is now `StashNative` on iOS and Android (was `StashNativeCard`). One delegate or listener receives every event; set it on the main thread.
+- Named events replace the generic callbacks: card dismissed, scanner dismissed, and browser dismissed. On iOS, payment success is only `stashNativeDidCompletePayment(withOrder:)`.
+- On iOS, a payment result that closes the card arrives after the card closes, as on Android, so the game can open the next card from the callback.
+- Card and browser calls take the presenting view controller or activity.
+- The QR scanner moved to `StashNativeCodeLink`, with `openScanner`, `ScannerConfig`, and `ScannerError`. The core SDK has no camera code or camera permission.
+- Card sizing uses preferred content dimensions, a height cap, and edge margins. `forcePortrait` is now `orientationPreference`.
+- Removed `openModal`, background color settings, and popup sizing.
+- iOS 15 or later is required. Android still supports API 21.
 
-### Presentation
+### Fixes
 
-- Add CodeLink on iOS and Android: a QR camera inside the existing responsive card, host-following orientation, a neutral Connected confirmation, and a raw-payload callback after dismissal. Both samples expose Link Webshop. Android uses CameraX and on-device ZXing decoding and requests camera permission only for CodeLink.
-
-- Restore portrait checkout for landscape-only iPhone games using an SDK-owned UIKit window and the shared native card. Preserve game controller restrictions, keep portrait through Safari payment handoff, and restore orientation before returning focus. Support the iOS 15 rotation path; ignore the portrait flag on iPad.
-- Use card defaults of 400 × 560 points/dp with a 720-point/dp expansion cap on iOS and Android. Explicit zero still removes the height cap.
-- Fade from a native initial loading cover into rendered iOS checkout content, with bounded foreground readiness and Reduced Motion support.
-- Expose the native sheet's Liquid Glass while checkout loads on iOS 26+, then fade in the WebView and matching page background together. Wait for visible Stash checkout placeholders to clear before revealing content.
-
-- Keep checkout state and the WebView through window, inset, keyboard, and fold changes.
-- Expand cards temporarily for keyboard entry and restore the selected state when the keyboard closes.
-- Restore iOS keyboard accessory-toolbar removal and keep focused fields visible after the final rotation layout.
-- Use one native UIKit card sheet implementation across iPhone, Duo, and iPad. Regular width and height use centered form-sheet sizing with one system large detent and semantic preferred-size changes. Compact layouts use custom detents on iOS 16+ and system detents on iOS 15.
-- Add optional card content sizing through `setContentHeight(...)` and an intrinsic `[data-stash-content]` wrapper.
-- Keep checkout at native scale through pinch, double-tap, input focus, and viewport changes. Suppress browser menus on noneditable content while preserving field selection, clipboard actions, and autofill.
-- Keep resting iOS cards below active status occlusions. Resolve expanded detents independently for dragging, `expand()`, and keyboard entry, keeping checkout controls beside the status region. Place content within a usable fold pane.
-- Let checkout own its page colors and match the iOS sheet background to the page instead of injecting dark-mode overrides.
-- Fill the iOS card's usable surface with the WebView beneath UIKit's grabber, and request centered placement before opening.
-- Keep compact iPhone card entrances centered while preserving UIKit's vertical spring, glass surface, and native gestures.
-- Expand iPhone cards on upward checkout swipes; reserve collapse and drag dismissal for the native header. Keep page scrolling inside WebKit at scroll limits, preventing card jumps, and fill the card with an unscaled WebView throughout resizing.
-- Keep the WebView full-height behind floating and split iPad keyboards while bringing focused fields into view.
-- Prevent blank space below checkout when WebKit adds keyboard padding after the native viewport already ends above the docked keyboard.
-- Cancel Android sheet drags when a second finger touches or payment processing begins.
-- Expand Android bottom cards once on upward content swipes; keep downward scrolling and direction reversals inside the page. Reserve collapse and drag dismissal for the handle, with a 48 dp touch target and native ripple feedback.
-- Use native Android outline clipping and elevation, including a hardware-layer compatibility fix for rounded WebView corners on API 21–22. Keep the WebView flush with the card through animation and window resizing.
-- Extend bottom-attached Android cards and their WebViews behind the navigation bar to the app window's bottom edge. Preserve usable content height, keyboard clearance, centered placement, and separating-fold boundaries; forward only the remaining bottom inset to WebView.
-- Apply Android portrait preference only in compact fullscreen windows, releasing and restoring it across tablet, fold, and multi-window changes.
-- Wait for resolved Android card bounds before initial navigation to prevent magnified checkout on older WebView providers. Cancel loading crossfades during dismissal and teardown.
-- Keep Android's initial loading cover until the requested Stash checkout theme and visible content are ready, then recheck after paint and crossfade. Bound the wait by foreground time and discard callbacks from abandoned loads.
-- Preserve the optional Custom Tabs fallback in minified Android apps and declare service visibility for browser discovery on Android 11+.
-- Add responsive test content and an Android host fixture targeting API 36 and 37.
-
-### Reliability and security
-
-- End checkout as a network error, not a card dismissal, when the main frame loses its connection after the page loaded, including during purchase processing. `stashNativeDidEncounterNetworkError` / `onNetworkError` now cover no connection, a failed initial response, the 15-second deadline, and post-load connection failures; the card is dismissed before the callback on both platforms.
-- Complete Android checkout browser handoff on the `ACTION_VIEW` fallback used when `androidx.browser` is absent: browser dismissal now tracks the checkout Activity, which is the one that resumes when the browser closes.
-- Bind the Android `window.stash_sdk` bridge to a per-document token so scripts in cross-origin frames cannot drive checkout through the injected `StashAndroid` object. Page-facing method names and signatures are unchanged.
-- Keep Android presentation state consistent when a payment-result broadcast fails: cap the order payload and fall back to a network error instead of stranding `isCurrentlyPresented`.
-- End the iOS session with its card, scanner, or browser dismissal event when the game dismisses the view controller that presented it. Previously the session stayed open and later open calls were ignored.
-- Prefix the remaining iOS C helper symbols so source-embedded and statically linked builds cannot collide on generic names.
-- Gate sample uploads to BrowserStack and Appetize to trusted refs, check their HTTP status, and build the repository-root Swift package in CI.
-- Samples: debug-only inspectable WebViews, accessible names for instance and URL controls, Dynamic Type on iOS, sensitive clipboard export, no autofill capture of the ingress secret, base64 validation of secrets with a specific error, a shared HMAC signing vector test, a 240 dp slider floor, and persistence on screen exit instead of per keystroke.
-
-Engine wrapper migrations and desktop changes are separate releases.
+- Checkout keeps its state, WebView, and focused fields through rotation, keyboard, and window changes.
+- A lost connection ends checkout with a network error event instead of a dismissal.
+- On iOS, dismissing the presenting view controller ends the session with its dismissal event.
+- The Android JavaScript bridge accepts calls only from the checkout document.
 
 ## [2.3.1] - 2026-09-03
 

@@ -14,7 +14,7 @@ jobs:
     if: needs.parse-changelog.outputs.skip != 'true'
     uses: ./.github/workflows/lint.yml
     with:
-      ios-runner: ${{ vars.STASH_IOS_RELEASE_RUNNER || 'macos-26' }}
+      ios-runner: ${{ vars.STASH_IOS_RELEASE_RUNNER || 'xcode-27' }}
       xcode-version: '27.1'
 
   parse-changelog:
@@ -24,6 +24,7 @@ jobs:
       version: ${{ steps.parse.outputs.version }}
       body: ${{ steps.parse.outputs.body }}
       skip: ${{ steps.check-tag.outputs.skip }}
+      preview: ${{ steps.parse.outputs.preview }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,6 +72,10 @@ jobs:
 
           if [[ "$HEADER" == *Unreleased* ]]; then
             echo "unreleased=true" >> "$GITHUB_OUTPUT"
+          fi
+          # A "(Preview)" header publishes a pre-release titled "Stash Native <version> (Preview)".
+          if [[ "$HEADER" == *"(Preview)"* ]]; then
+            echo "preview=true" >> "$GITHUB_OUTPUT"
           fi
           echo "Parsed version: $VERSION"
 
@@ -192,7 +197,7 @@ jobs:
     name: Build iOS XCFramework
     needs: parse-changelog
     if: needs.parse-changelog.outputs.skip != 'true'
-    runs-on: ${{ vars.STASH_IOS_RELEASE_RUNNER || 'macos-26' }}
+    runs-on: ${{ vars.STASH_IOS_RELEASE_RUNNER || 'xcode-27' }}
 
     steps:
       - name: Checkout code
@@ -379,7 +384,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.parse-changelog.outputs.version }}
-          name: Stash Native ${{ needs.parse-changelog.outputs.version }}
+          name: Stash Native ${{ needs.parse-changelog.outputs.version }}${{ needs.parse-changelog.outputs.preview == 'true' && ' (Preview)' || '' }}
           body_path: release_body.md
           files: |
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.aar
@@ -387,4 +392,4 @@ jobs:
             release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
             release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.parse-changelog.outputs.preview == 'true' }}
