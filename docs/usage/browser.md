@@ -9,7 +9,7 @@ description: Open Stash Pay checkout or webshop links in Safari View Controller 
 
 The in-game browser opens Stash Pay checkout or webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android). Players stay in the game, and checkout brings them back with a deep link.
 
-![Checkout in Safari View Controller on iPhone and Chrome Custom Tabs on Android](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/openbrowser-devices-dark.png)
+![Checkout in Safari View Controller on iPhone and Chrome Custom Tabs on Android](../assets/images/openbrowser-devices-dark.png)
 
 ## Open the browser
 
@@ -71,6 +71,8 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: confi
 
 ## Keep-alive service (Android)
 
+![Keep-alive notification on Android, reading Payment in progress and Tap to return to the game](../assets/images/keep-alive-notification-dark.png){: .close-up }
+
 On low-memory devices, Android can stop the game while the player pays in the browser. The keep-alive service shows a notification while the browser is open, which makes this less likely. It is off by default; we recommend enabling it.
 
 ```java
@@ -83,6 +85,12 @@ StashNative.getInstance().setKeepAliveEnabled(true);
 ```
 
 Write the notification text in the player's language.
+
+On Android 13 and later, players see the notification only if the game has the `POST_NOTIFICATIONS` permission. The SDK does not declare or request it, so add it to your manifest and request it at runtime. Without it, the service still runs, but the notification stays hidden.
+
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
 
 ## Callbacks
 

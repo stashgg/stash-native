@@ -2,7 +2,7 @@
 
 
 <p align="left">
-  <img src=".github/assets/stash_native_rounded.png" width="128" height="128" alt="Stash Native blueprint logo"/>
+  <img src="docs/assets/images/stash_native_rounded.png" width="128" height="128" alt="Stash Native blueprint logo"/>
 </p>
 
 The stash-native package adds Stash Pay in-app purchases (IAPs) and Stash webshop authentication to native games and apps. It presents checkout in a responsive native card or the platform browser and sends payment and lifecycle callbacks to your app. The CodeLink feature scans webshop QR codes inside your app to link accounts. To integrate Stash into web pages or web applications, use [stash-web](https://github.com/stashgg/stash-web) instead.
@@ -13,8 +13,8 @@ Unity and Unreal bindings for this library live in separate repositories. Use th
 
 |                                                                                         | Engine        | Repository                                          |
 | --------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------- |
-| <img src=".github/assets/stash_unity_rounded.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   |
-| <img src=".github/assets/stash_unreal_rounded.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) |
+| <img src="docs/assets/images/stash_unity_rounded.png" alt="Unity Icon" width="64" height="64">          | Unity         | [stash-unity](https://github.com/stashgg/stash-unity)   |
+| <img src="docs/assets/images/stash_unreal_rounded.png" alt="Unreal Engine Icon" width="64" height="64"> | Unreal Engine | [stash-unreal](https://github.com/stashgg/stash-unreal) |
 
 ### Downloads
 
@@ -85,7 +85,7 @@ Minimum iOS: 15.0. Build with Xcode 27.1 for iPhone Duo APIs and compatibility. 
 
 Pass a generated Stash Pay link to `openCard` to display a responsive card that adapts to phones, tablets, foldables, and multitasking. Pass the activity or view controller that belongs to the initiating app window, and set callbacks before opening.
 
-![Stash Pay checkout card in dark mode on iPhone, unfolded iPhone Duo, and iPad](.github/assets/opencard-devices-dark.png)
+![Stash Pay checkout card in dark mode on iPhone, unfolded iPhone Duo, and iPad](docs/assets/images/opencard-devices-dark.png)
 
 **Android**
 
@@ -143,7 +143,7 @@ StashNative.setInspectableWebViewsEnabled(true);
 
 Alternatively, use `openBrowser` to open Stash Pay and pre-authenticated webshop links in an in-game browser: Chrome Custom Tabs on Android and Safari View Controller on iOS. Browser checkouts can't report purchase lifecycle callbacks directly, so they use deep links instead.
 
-![Stash Pay checkout in dark mode in Safari View Controller on iPhone and Chrome Custom Tabs on Android](.github/assets/openbrowser-devices-dark.png)
+![Stash Pay checkout in dark mode in Safari View Controller on iPhone and Chrome Custom Tabs on Android](docs/assets/images/openbrowser-devices-dark.png)
 
 **Android**
 
@@ -188,7 +188,7 @@ The library manifest includes the service and its foreground-service permissions
 
 Scan webshop QR codes in a responsive native card and use the returned content to link the account.
 
-![CodeLink scanners on iPhone and Android with simulated camera previews](.github/assets/codelink-devices-dark.png)
+![CodeLink scanners on iPhone and Android with simulated camera previews](docs/assets/images/codelink-devices-dark.png)
 
 The scanner ships as the separate `StashNativeCodeLink` module, so camera access is opt in. On iOS, link it and add `NSCameraUsageDescription` to your app's `Info.plist`. On Android, add the [scanner module and its libraries](#android); the module declares the `CAMERA` permission. The SDK requests camera permission when the scanner opens.
 

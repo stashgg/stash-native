@@ -14,12 +14,21 @@ relative_links:
   enabled: true
   collections: false
 
+# Icon provenance notes for GitHub readers; not a docs page.
+exclude:
+  - assets/images/README.md
+
 markdown: kramdown
 kramdown:
   input: GFM
   hard_wrap: false
 
 color_scheme: stash
+callouts_level: loud
+callouts:
+  warning:
+    title: Warning
+    color: yellow
 search_enabled: true
 heading_anchors: true
 back_to_top: true

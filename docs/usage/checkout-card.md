@@ -9,7 +9,7 @@ description: Show Stash Pay checkout in a native card over the game.
 
 The checkout card shows Stash Pay checkout in a native card over the game. Players pay without leaving the game, and the game receives the result through [callbacks](callbacks.md#checkout-card).
 
-![Checkout card on iPhone, unfolded iPhone Duo, and iPad](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/opencard-devices-dark.png)
+![Checkout card on iPhone, unfolded iPhone Duo, and iPad](../assets/images/opencard-devices-dark.png)
 
 The card adapts to phones, tablets, foldables, and split screen, and follows the device's light or dark appearance.
 
@@ -55,7 +55,7 @@ StashNative.getInstance().openCard(activity, checkoutUrl, config);
 
 ## Portrait checkout
 
-![Portrait checkout card on iPhone, over an app locked to landscape](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/portrait-checkout-dark.png){: .single-device }
+![Portrait checkout card on iPhone, over an app locked to landscape](../assets/images/portrait-checkout-dark.png){: .single-device }
 
 Checkout is laid out for portrait. On phones, a landscape game can show the card in portrait, even if the game supports only landscape. The game returns to its orientation when the card closes.
 
@@ -71,7 +71,7 @@ Tablets, unfolded foldables, and split screen keep the game's orientation.
 
 ## Portrait backdrop (Android)
 
-![Portrait checkout card on Android, over a backdrop image](https://raw.githubusercontent.com/stashgg/stash-native/main/.github/assets/portrait-backdrop-dark.png){: .single-device }
+![Portrait checkout card on Android, over a backdrop image](../assets/images/portrait-backdrop-dark.png){: .single-device }
 
 On Android, the game rotates behind a portrait card, and some games show glitches while it does. To hide them, pass a screenshot of the game right before opening the card:
 

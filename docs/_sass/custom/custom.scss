@@ -107,14 +107,21 @@ $stash-card: #0a0a0a;
   }
 }
 
-// Single-device screenshots: centered, narrower than the multi-device images
-.main-content img.single-device {
+// Single-device screenshots and close-ups: centered, narrower than the multi-device images
+.main-content img.single-device,
+.main-content img.close-up {
   display: block;
   margin-right: auto;
   margin-left: auto;
+}
 
-  @include mq(md) {
+@include mq(md) {
+  .main-content img.single-device {
     width: 80%;
+  }
+
+  .main-content img.close-up {
+    width: 55%;
   }
 }
 
@@ -187,4 +194,13 @@ td {
 thead th {
   color: $body-heading-color;
   background-color: $stash-surface;
+}
+
+// Callouts: tinted card with an amber accent, like the code and table cards
+p.warning {
+  background-color: rgba($yellow-300, 0.08);
+  border-color: rgba($yellow-300, 0.35);
+  border-left-color: $yellow-300;
+  border-radius: 12px;
+  box-shadow: none;
 }
