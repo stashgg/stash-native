@@ -63,4 +63,9 @@ Strings reach the game unchanged; other values arrive as JSON. With `autoClose` 
 
 ## Content sizing
 
-The resting card can shrink to short content. Mark the content wrapper with `data-stash-content`, or report its height with `setContentHeight(px)`. The SDK measures the wrapper only when its height does not depend on the viewport: no fixed, sticky, or absolute positioning, no flex growth, no `%`, viewport-unit, or `var()` heights on it or its ancestors, and only readable stylesheets.
+The resting card can shrink to short content. Mark the content wrapper with `data-stash-content`, or report its height with `setContentHeight(px)`. The SDK measures the wrapper only if:
+
+- neither it nor an ancestor is fixed, sticky, or absolutely positioned
+- it does not grow as a flex item
+- no height on it or an ancestor uses `%`, viewport units, or `var()`
+- every stylesheet on the page is readable

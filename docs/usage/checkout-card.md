@@ -7,15 +7,15 @@ description: Show Stash Pay checkout in a native card over the game.
 
 # Checkout Card
 
-The checkout card shows Stash Pay checkout in a native card over the game. Players pay without leaving the game, and the game receives the result through [callbacks](callbacks.md#checkout-card).
+The checkout card shows Stash Pay checkout in a native card over the game. Results arrive through [callbacks](callbacks.md#checkout-card).
 
 ![Checkout card on iPhone, unfolded iPhone Duo, and iPad](../assets/images/opencard-devices-dark.png)
 
-The card adapts to phones, tablets, foldables, and split screen, and follows the device's light or dark appearance.
+The card fits phones, tablets, foldables, and split screen, and follows light or dark mode.
 
 ## Open the card
 
-Pass the checkout link from your backend and the view controller or activity that shows the game:
+Pass the checkout link from your backend and the view controller or activity showing the game:
 
 ```swift
 StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
@@ -25,21 +25,21 @@ StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: 
 StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
-`dismiss()` closes the card from code, even while a payment is processing. Check `isPurchaseProcessing` before you call it.
+`dismiss()` closes the card, even during a payment. Check `isPurchaseProcessing` first.
 
 ## Configuration
 
-Pass a `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `nil`/`null` for the defaults. Sizes are in points on iOS and dp on Android. The card never grows past the screen.
+Pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `nil`/`null` for the defaults. Sizes are in points (iOS) or dp (Android). The card never exceeds the screen.
 
 | Property | Default | Description |
 |---|---|---|
-| `preferredContentWidth` | `400` | Card width on wide screens. Phones in portrait use the full width. |
-| `preferredContentHeight` | `560` | Card height when it opens. Short checkout pages open shorter. |
-| `maximumContentHeight` | `720` | Card height when it expands, for example for the keyboard. `0` removes the limit. |
+| `preferredContentWidth` | `400` | Card width on wide screens. Portrait phones use the full width. |
+| `preferredContentHeight` | `560` | Height when the card opens. Short pages open shorter. |
+| `maximumContentHeight` | `720` | Height when expanded, for example for the keyboard. `0` removes the limit. |
 | `edgeMargin` | `16` | Space between the card and the screen edges |
-| `allowDismiss` | `true` | Players can close the card by swiping down, tapping outside it, or pressing Back |
-| `autoClose` | `true` | The card closes when a payment succeeds or fails |
-| `orientationPreference` | Follow host | Shows checkout in portrait on phones. See [Portrait checkout](#portrait-checkout). |
+| `allowDismiss` | `true` | Players can close the card by swiping down, tapping outside, or pressing Back |
+| `autoClose` | `true` | The card closes after a payment succeeds or fails |
+| `orientationPreference` | Follow host | Portrait on phones. See [Portrait checkout](#portrait-checkout). |
 
 ```swift
 let config = StashNativeCardConfig()
@@ -57,7 +57,7 @@ StashNative.getInstance().openCard(activity, checkoutUrl, config);
 
 ![Portrait checkout card on iPhone, over an app locked to landscape](../assets/images/portrait-checkout-dark.png){: .single-device }
 
-Checkout is laid out for portrait. On phones, a landscape game can show the card in portrait, even if the game supports only landscape. The game returns to its orientation when the card closes.
+On phones, the card can open in portrait in a landscape game, including a landscape-only one. The game's orientation returns when the card closes.
 
 ```swift
 config.orientationPreference = .portrait
@@ -73,14 +73,14 @@ Tablets, unfolded foldables, and split screen keep the game's orientation.
 
 ![Portrait checkout card on Android, over a backdrop image](../assets/images/portrait-backdrop-dark.png){: .single-device }
 
-On Android, the game rotates behind a portrait card, and some games show glitches while it does. To hide them, pass a screenshot of the game right before opening the card:
+On Android, the game rotates behind a portrait card, which can cause glitches. To hide them, pass a screenshot of the game before opening the card:
 
 ```java
 StashNative.setBackdropBitmap(screenshot); // or setBackdropBytes(pngOrJpegBytes)
 StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
 
-The SDK takes ownership of the bitmap, so do not reuse or recycle it. iOS needs no backdrop.
+The SDK takes ownership of the bitmap; do not reuse or recycle it. iOS needs no backdrop.
 
 ## WebView debugging
 
@@ -94,8 +94,8 @@ StashNative.setInspectableWebViewsEnabled(true)
 StashNative.setInspectableWebViewsEnabled(true);
 ```
 
-Then inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Leave it off in release builds.
+Inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Keep it off in release builds.
 
 ## Callbacks
 
-See [Checkout Card callbacks](callbacks.md#checkout-card) for payment results, dismissal, and loading events.
+See [Checkout Card callbacks](callbacks.md#checkout-card).

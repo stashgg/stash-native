@@ -19,7 +19,7 @@ flowchart TB
     Plugin -->|listener| Game
 ```
 
-`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCardActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID, so events from an old session are dropped.
+`StashNative` forwards to `StashNativePlugin`, which tracks the session and calls the listener. Each card or scanner runs in `StashCardActivity`, a non-exported activity in the game's process. The activity reports events through package-local broadcasts tagged with the session ID. Events from an old session are dropped.
 
 | Class | Responsibility |
 |---|---|
@@ -53,4 +53,7 @@ flowchart TB
 
 ## QR scanner
 
-The scanner runs in the same activity and card as checkout, but its code lives in the optional `stashnative-codelink` module, which carries CameraX, ZXing and the camera permission. The core resolves the module's `StashScannerSupport` by reflection through the `StashScannerContent` and `StashScannerHost` contracts. Without the module, `openScanner` closes with `SCANNER_UNAVAILABLE`; if a host strips the permission, the scanner stays open with `CAMERA_PERMISSION_NOT_DECLARED`. Decoding runs on the device.
+- Runs in the same activity and card as checkout.
+- Lives in the optional `stashnative-codelink` module, with CameraX, ZXing, and the camera permission. The core loads it by reflection through `StashScannerContent` and `StashScannerHost`.
+- Without the module, `openScanner` reports `SCANNER_UNAVAILABLE`.
+- Decoding runs on the device.

@@ -7,7 +7,7 @@ description: Open Stash Pay checkout or webshop links in Safari View Controller 
 
 # In-Game Browser
 
-The in-game browser opens Stash Pay checkout or webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android). Players stay in the game, and checkout brings them back with a deep link.
+The in-game browser opens checkout or webshop links in Safari View Controller (iOS) or Chrome Custom Tabs (Android) without leaving the game.
 
 ![Checkout in Safari View Controller on iPhone and Chrome Custom Tabs on Android](../assets/images/openbrowser-devices-dark.png)
 
@@ -21,19 +21,19 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self)
 StashNative.getInstance().openBrowser(activity, url);
 ```
 
-On Android, Custom Tabs need `androidx.browser` from [Package Installation](installation.md#android). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari from code.
+On Android, Custom Tabs need `androidx.browser` ([Package Installation](installation.md#android)). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari.
 
 ## Return to the game
 
-The browser does not report payments through callbacks. Checkout opens your app with a deep link instead. Set your app's URL scheme in Stash Studio under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
+Browser payments come back through a deep link, not callbacks. Set your URL scheme in Stash Studio under **Project Settings > General > App Deeplink Protocol**, without `://`, for example `mygame`.
 
 | Deep link | Sent when |
 |---|---|
 | `mygame://stash-pay/success` | The purchase completed |
 | `mygame://stash-pay/failure` | The purchase failed |
-| `mygame://stash-pay/cancel` | The player left checkout without paying. Not every checkout sends it. |
+| `mygame://stash-pay/cancel` | The player left without paying. Not every checkout sends it. |
 
-Register the scheme in your app. On iOS, add it to `CFBundleURLTypes`. On Android, add an intent filter with the `stash-pay` host, and give its activity `android:launchMode="singleTask"` so the deep link returns to the running game:
+On iOS, register the scheme in `CFBundleURLTypes`. On Android, add an intent filter for the `stash-pay` host to an activity with `android:launchMode="singleTask"`:
 
 ```xml
 <intent-filter>
@@ -44,7 +44,7 @@ Register the scheme in your app. On iOS, add it to `CFBundleURLTypes`. On Androi
 </intent-filter>
 ```
 
-On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` also sends the payment result to your [callbacks](callbacks.md#in-game-browser):
+On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` also sends the payment [callback](callbacks.md#in-game-browser):
 
 ```swift
 func scene(_ scene: UIScene, openURLContexts contexts: Set<UIOpenURLContext>) {
@@ -61,7 +61,7 @@ Confirm every purchase on your backend before granting items.
 
 ## Portrait Safari (iOS)
 
-On iPhone, a landscape game can show Safari in portrait. The game returns to its orientation when Safari closes. iPad ignores this setting.
+On iPhone, Safari can open in portrait in a landscape game. iPad ignores this setting.
 
 ```swift
 let config = StashNativeBrowserConfig()
@@ -73,7 +73,7 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self, config: confi
 
 ![Keep-alive notification on Android, reading Payment in progress and Tap to return to the game](../assets/images/keep-alive-notification-dark.png){: .close-up }
 
-On low-memory devices, Android can stop the game while the player pays in the browser. The keep-alive service shows a notification while the browser is open, which makes this less likely. It is off by default; we recommend enabling it.
+On low-memory devices, Android can stop the game while the player pays in the browser. The keep-alive service lowers that risk by showing a foreground notification while the browser is open. It is off by default; we recommend enabling it.
 
 ```java
 StashNative.KeepAliveConfig config = new StashNative.KeepAliveConfig();
@@ -86,7 +86,7 @@ StashNative.getInstance().setKeepAliveEnabled(true);
 
 Write the notification text in the player's language.
 
-On Android 13 and later, players see the notification only if the game has the `POST_NOTIFICATIONS` permission. The SDK does not declare or request it, so add it to your manifest and request it at runtime. Without it, the service still runs, but the notification stays hidden.
+On Android 13 and later, the notification appears only if the game has the `POST_NOTIFICATIONS` permission. The SDK does not declare or request it: add it to your manifest and request it at runtime. Without it, the service still runs, but the notification is hidden.
 
 ```xml
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -94,4 +94,4 @@ On Android 13 and later, players see the notification only if the game has the `
 
 ## Callbacks
 
-See [In-Game Browser callbacks](callbacks.md#in-game-browser) for the browser-dismissed event.
+See [In-Game Browser callbacks](callbacks.md#in-game-browser).

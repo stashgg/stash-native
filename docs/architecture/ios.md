@@ -40,7 +40,9 @@ The facade owns the active session. The session owns checkout state, the WebView
 
 ## Portrait checkout
 
-On iPhone, portrait checkout runs in an SDK-owned window in the game's scene. The SDK rotates that window, presents the card in it, and restores the game's orientation before returning control and sending callbacks. On first use it adds an orientation method to the app delegate, and on iOS 27+ to the scene delegate. The game's own orientation settings stay unchanged. iPad ignores portrait.
+- iPhone only. The card opens in an SDK-owned window in the game's scene.
+- The SDK rotates that window and restores the game's orientation before returning control and sending callbacks.
+- On first use, the SDK adds an orientation method to the app delegate, and on iOS 27+ to the scene delegate. The game's orientation settings stay unchanged.
 
 ## WebView
 

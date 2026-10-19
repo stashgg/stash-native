@@ -8,9 +8,9 @@ description: Link a player's Stash webshop account by scanning the webshop's QR 
 # QR Code Linking
 
 {: .warning }
-QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](installation.md#qr-code-linking). Without the module, `openScanner` reports `scannerUnavailable` (iOS) or `SCANNER_UNAVAILABLE` (Android) and presents nothing.
+QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](installation.md#qr-code-linking).
 
-QR code linking lets players link their Stash webshop account to the game by scanning the QR code that the webshop shows. The scanner opens in the native card. When it reads a code, it shows a confirmation, closes, and returns the code's content to the game.
+Players link their Stash webshop account by scanning the QR code the webshop shows. The scanner opens in the native card, confirms the scan, closes, and returns the code's content to the game.
 
 ![QR code scanners on iPhone and Android](../assets/images/codelink-devices-dark.png)
 
@@ -18,10 +18,10 @@ QR code linking lets players link their Stash webshop account to the game by sca
 
 | Platform | Requirement |
 |---|---|
-| iOS | The `StashNativeCodeLink` library or XCFramework, plus `NSCameraUsageDescription` in Info.plist. iOS shows this text when the scanner asks for the camera. |
-| Android | The `StashNativeCodeLink` AAR or `:stashnative-codelink` module with CameraX and ZXing, from [Package Installation](installation.md#qr-code-linking). Its manifest declares the camera permission. |
+| iOS | `StashNativeCodeLink` (library or XCFramework) and `NSCameraUsageDescription` in Info.plist |
+| Android | `StashNativeCodeLink` (AAR or `:stashnative-codelink`) with CameraX and ZXing. Its manifest adds the camera permission. |
 
-The scanner asks for camera access the first time it opens. Decoding runs on the device, and no images are saved.
+The scanner asks for camera access the first time it opens. Decoding runs on the device; no images are saved.
 
 ## Open the scanner
 
@@ -33,11 +33,11 @@ StashNative.sharedInstance().openScanner(from: self, config: nil)
 StashNative.getInstance().openScanner(activity, null);
 ```
 
-The scanner follows the game's orientation. `dismiss()` closes it from code.
+The scanner follows the game's orientation. `dismiss()` closes it.
 
 ## Configuration
 
-Pass a `StashNativeScannerConfig` (iOS) or `StashNative.ScannerConfig` (Android) to translate the scanner text or hide the info callout. `nil` or empty values keep the defaults.
+Pass `StashNativeScannerConfig` (iOS) or `StashNative.ScannerConfig` (Android) to translate the text or hide the info callout. Empty values keep the defaults.
 
 | Property | Default |
 |---|---|
@@ -64,4 +64,4 @@ StashNative.getInstance().openScanner(activity, config);
 
 ## Callbacks
 
-See [QR Code Linking callbacks](callbacks.md#qr-code-linking) for the scanned content, dismissal, and camera errors.
+See [QR Code Linking callbacks](callbacks.md#qr-code-linking).

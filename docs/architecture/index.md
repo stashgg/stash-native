@@ -7,7 +7,7 @@ description: How the Stash Native iOS and Android packages work, at a glance.
 
 # Package Architecture
 
-Both packages share one design. The `StashNative` singleton runs one presentation at a time: checkout or the QR scanner in a native card, or a page in the in-game browser. Checkout pages talk to the SDK through the internal [JavaScript Bridge](../stash-sdk-js.md), and the SDK reports events to the game as [callbacks](../usage/callbacks.md).
+iOS and Android share one design. The `StashNative` singleton runs one presentation at a time: a native card (checkout or QR scanner) or the in-game browser. Checkout pages talk to the SDK through the internal [JavaScript Bridge](../stash-sdk-js.md), and the SDK sends [callbacks](../usage/callbacks.md) to the game.
 
 ## Components
 

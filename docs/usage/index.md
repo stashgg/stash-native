@@ -7,26 +7,24 @@ description: Add Stash Pay checkout, the in-game browser, and QR code linking to
 
 # Usage
 
-Integrate Stash Native in four steps:
-
 1. [Install the package](installation.md).
 2. [Set a callback receiver](callbacks.md#set-the-receiver).
 3. Open an `https://` checkout link from your backend in the [Checkout Card](checkout-card.md) or the [In-Game Browser](browser.md).
 4. Grant items after your backend confirms the purchase.
 
-Unity and Unreal Engine games use the official [stash-unity](https://github.com/stashgg/stash-unity) and [stash-unreal](https://github.com/stashgg/stash-unreal) wrappers. For other engines, see [Engine Wrappers](../architecture/engine-wrappers.md).
+Unity and Unreal Engine games use [stash-unity](https://github.com/stashgg/stash-unity) and [stash-unreal](https://github.com/stashgg/stash-unreal). For other engines, see [Engine Wrappers](../architecture/engine-wrappers.md).
 
 ## Features
 
-| Feature | Use it for | Results arrive through |
+| Feature | For | Results |
 |---|---|---|
-| [Checkout Card](checkout-card.md) | Stash Pay checkout in a native card over the game | Callbacks |
-| [In-Game Browser](browser.md) | Webshop links and browser checkout | Your app's deep link |
-| [QR Code Linking](codelink.md) | Linking a player's webshop account | A callback with the scanned content |
+| [Checkout Card](checkout-card.md) | Stash Pay checkout over the game | Callbacks |
+| [In-Game Browser](browser.md) | Webshop links and browser checkout | Deep link |
+| [QR Code Linking](codelink.md) | Linking a webshop account | Callback with the scanned content |
 
 ## API
 
-Both platforms expose one singleton, `StashNative`. Open calls work from any thread.
+`StashNative` is a singleton on both platforms. Open calls work from any thread.
 
 | Task | iOS (Swift) | Android (Java) |
 |---|---|---|
@@ -37,7 +35,7 @@ Both platforms expose one singleton, `StashNative`. Open calls work from any thr
 | Open the QR scanner | `openScanner(from:config:)` | `openScanner(activity, config)` |
 | Close the card or scanner | `dismiss()` | `dismiss()` |
 | Close the browser | `closeBrowser()` | `closeBrowser()`, no effect |
-| Reset silently, for example on logout | `resetPresentationState()` | `resetPresentationState()` |
+| Reset without callbacks, for example on logout | `resetPresentationState()` | `resetPresentationState()` |
 | Check what is open | `isCurrentlyPresented`, `isPurchaseProcessing` | `isCurrentlyPresented()`, `isPurchaseProcessing()` |
 | Get the SDK version | `StashNative.sdkVersion()` | `StashNative.getVersion()` |
 
