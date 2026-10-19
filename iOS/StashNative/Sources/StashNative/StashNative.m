@@ -158,10 +158,26 @@ Class StashScannerContentClass(void) {
     StashCardSession *session = _session;
     // Detach before MRC frees the assign owner; UIKit retirement stays on main.
     session.owner = nil;
+    // Off main, hand this thread's references to the main queue so the session's last release happens there.
+#if __has_feature(objc_arc)
     if (NSThread.isMainThread) [session retire];
-    else dispatch_async(dispatch_get_main_queue(), ^{ [session retire]; });
-#if !__has_feature(objc_arc)
-    [_session release];
+    else if (session) {
+        void *retiring = (__bridge_retained void *)session;
+        session = nil;
+        _session = nil;
+        dispatch_async(dispatch_get_main_queue(), ^{ [(__bridge_transfer StashCardSession *)retiring retire]; });
+    }
+#else
+    _session = nil;
+    if (NSThread.isMainThread) {
+        [session retire];
+        [session release];
+    } else if (session) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [session retire];
+            [session release];
+        });
+    }
     [super dealloc];
 #endif
 }

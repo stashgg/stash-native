@@ -155,7 +155,8 @@ void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^compl
         else owner = nil;
     }
     dispatch_async(dispatch_get_main_queue(), ^{
-        StashAwaitInstanceRelease(observation, CFAbsoluteTimeGetCurrent() + 2, ^(NSDictionary *result) {
+        // Loaded CI runners can delay the background release; a leak never completes, so the deadline only bounds the wait.
+        StashAwaitInstanceRelease(observation, CFAbsoluteTimeGetCurrent() + 4, ^(NSDictionary *result) {
             completion(result);
             window.rootViewController = nil;
         });
