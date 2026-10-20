@@ -70,6 +70,8 @@ import com.stash.stashnative.StashNative;
 
 No import is needed. Games without the module need no camera permission or usage description. Custom iOS builds that link static archives directly must pass `-ObjC` to keep the scanner.
 
+CameraX 1.4.2 needs Android Gradle Plugin 8.x. On AGP 7.x, such as Unity 2022.3 LTS, use CameraX **1.3.4** for the three `androidx.camera` libraries instead; AGP 7.4's dexer fails on 1.4.x. The module uses no CameraX API newer than 1.3.0, so 1.3.4 works.
+
 ### SDK version
 
 Check the installed version with `StashNative.sdkVersion()` (iOS) or `StashNative.getVersion()` (Android). Include it when you contact [developers@stash.gg](mailto:developers@stash.gg).

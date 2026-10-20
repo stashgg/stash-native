@@ -21,6 +21,7 @@ android {
         legacy { dimension 'dependencies' }
         absent { dimension 'dependencies' }
         cameraOnly { dimension 'dependencies' }
+        legacyCamera { dimension 'dependencies' }
     }
 
     buildTypes {
@@ -45,6 +46,7 @@ dependencies {
         .builtBy(':stashnative-codelink:assembleRelease')
     currentImplementation codeLinkAar
     cameraOnlyImplementation codeLinkAar
+    legacyCameraImplementation codeLinkAar
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'
@@ -60,4 +62,10 @@ dependencies {
     cameraOnlyImplementation 'androidx.camera:camera-camera2:1.4.2'
     cameraOnlyImplementation 'androidx.camera:camera-lifecycle:1.4.2'
     cameraOnlyImplementation 'androidx.camera:camera-view:1.4.2'
+    // AGP 7.x hosts (e.g. Unity 2022.3 LTS) resolve CameraX 1.3.4; the module AAR built against 1.4.2
+    // must still link and minify, since it uses no CameraX API newer than 1.3.0.
+    legacyCameraImplementation 'androidx.camera:camera-camera2:1.3.4'
+    legacyCameraImplementation 'androidx.camera:camera-lifecycle:1.3.4'
+    legacyCameraImplementation 'androidx.camera:camera-view:1.3.4'
+    legacyCameraImplementation 'com.google.zxing:core:3.5.3'
 }

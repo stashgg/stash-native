@@ -90,7 +90,7 @@ jobs:
         run: cd Android && ./gradlew :stashnative:lintRelease :stashnative-codelink:lintRelease :sample:lintDebug
 
       - name: Build minimal Java AAR consumers with R8
-        run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease
+        run: cd Android && ./gradlew :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease :consumer:assembleLegacyCameraRelease
 
       - name: Upload Android test results
         if: failure()
