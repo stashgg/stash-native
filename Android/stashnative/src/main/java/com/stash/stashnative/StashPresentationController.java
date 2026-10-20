@@ -51,7 +51,7 @@ final class StashPresentationController implements View.OnTouchListener {
   private boolean disposed;
   private StashCheckoutSizing.Layout layout;
   private StashCheckoutSizing.Box shownFrame;
-  private int appliedBottomInset = -1;
+  private Boolean cardBehindNavigationBar;
   private float touchX;
   private float touchY;
   private boolean dragging;
@@ -214,14 +214,30 @@ final class StashPresentationController implements View.OnTouchListener {
   }
 
   private WindowInsetsCompat contentInsets(WindowInsetsCompat insets) {
-    // Native bounds already avoid the status bar, caption, cutouts, and keyboard.
-    // Forward only the bottom area that the WebView actually paints through.
-    int bottom = layout == null ? 0 : layout.bottomInset;
+    // Native bounds avoid the status bar, caption, cutouts, and keyboard, and the WebView ends
+    // above the navigation bar, so the page never needs to pad for any of them.
     return new WindowInsetsCompat.Builder(insets)
         .setInsets(WindowInsetsCompat.Type.systemBars()
             | WindowInsetsCompat.Type.displayCutout() | WindowInsetsCompat.Type.ime(), Insets.NONE)
-        .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, bottom))
         .build();
+  }
+
+  /**
+   * Keeps checkout content above the navigation bar. The card still extends to the window bottom
+   * and its background fills the bar area, because Android WebView reports
+   * env(safe-area-inset-bottom) as 0 and pages cannot pad for the bar themselves.
+   */
+  void applyWebViewBottomInset() {
+    if (activity.webView == null
+        || !(activity.webView.getLayoutParams() instanceof FrameLayout.LayoutParams)) {
+      return;
+    }
+    int bottom = layout == null ? 0 : layout.bottomInset;
+    FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) activity.webView.getLayoutParams();
+    if (params.bottomMargin != bottom) {
+      params.bottomMargin = bottom;
+      activity.webView.setLayoutParams(params);
+    }
   }
 
   void environmentChanged() {
@@ -275,9 +291,11 @@ final class StashPresentationController implements View.OnTouchListener {
   }
 
   boolean contentHasResolvedSize(View content) {
+    // The WebView ends above the navigation bar, so its resolved height excludes that strip.
+    int bottom = layout == null ? 0 : layout.bottomInset;
     return shownFrame != null
         && content.getWidth() == shownFrame.width()
-        && content.getHeight() == shownFrame.height();
+        && content.getHeight() == shownFrame.height() - bottom;
   }
 
   void contentChanged(double height, int width) {
@@ -339,17 +357,17 @@ final class StashPresentationController implements View.OnTouchListener {
     activity.cardContainer.setLayoutParams(p);
     activity.cardContainer.setBottomAttached(layout != null && layout.bottomAttached);
     int bottomInset = layout == null ? 0 : layout.bottomInset;
-    if (activity.scannerContent != null) {
-      activity.scannerContent.setBottomInset(bottomInset);
-    }
-    if (appliedBottomInset != bottomInset) {
-      appliedBottomInset = bottomInset;
-      ViewCompat.requestApplyInsets(activity.cardContainer);
+    activity.setScannerBottomInset(bottomInset);
+    applyWebViewBottomInset();
+    // Content insets do not depend on the card inset; only the bar icons follow the card.
+    boolean behindNavigationBar = bottomInset > 0;
+    if (!Boolean.valueOf(behindNavigationBar).equals(cardBehindNavigationBar)) {
+      cardBehindNavigationBar = behindNavigationBar;
       androidx.core.view.WindowInsetsControllerCompat controller =
           StashWindowCompat.getInsetsController(activity.getWindow(), activity.rootLayout);
       if (controller != null) {
         controller.setAppearanceLightNavigationBars(
-            bottomInset > 0 && !activity.effectiveIsDarkForContent);
+            behindNavigationBar && !activity.effectiveIsDarkForContent);
       }
     }
   }

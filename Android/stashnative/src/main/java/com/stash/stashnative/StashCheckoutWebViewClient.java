@@ -38,6 +38,8 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     try {
       super.onPageStarted(view, url, favicon);
       if (view == activity.webView) {
+        // The retry has started, so the first attempt can no longer report events.
+        activity.supersededInitialLoadUrl = null;
         // A new main-frame document gets a new bridge token; earlier wrappers stop working.
         activity.issueBridgeDocumentToken();
         if (activity.telemetrySupport != null) {
@@ -62,7 +64,8 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     try {
       super.onPageFinished(view, url);
 
-      if (activity.networkErrorHandled || activity.mainFrameErrorReceived) {
+      if (activity.networkErrorHandled || activity.mainFrameErrorReceived
+          || StashCheckoutLoadingSupport.isSupersededAttempt(activity, url)) {
         return;
       }
 
@@ -89,7 +92,7 @@ final class StashCheckoutWebViewClient extends WebViewClient {
   public void onReceivedError(
       WebView view, int errorCode, String description, String failingUrl) {
     // This overload reports main-resource errors, including on API 21 and 22.
-    handleMainFrameError(activity, view, errorCode);
+    handleMainFrameError(activity, view, errorCode, failingUrl);
   }
 
   @RequiresApi(Build.VERSION_CODES.M)
@@ -100,7 +103,8 @@ final class StashCheckoutWebViewClient extends WebViewClient {
       // Do not call super: it forwards main-resource errors to the legacy overload.
       if (request != null && request.isForMainFrame()) {
         handleMainFrameError(activity, view,
-            error != null ? error.getErrorCode() : WebViewClient.ERROR_UNKNOWN);
+            error != null ? error.getErrorCode() : WebViewClient.ERROR_UNKNOWN,
+            request.getUrl() != null ? request.getUrl().toString() : null);
       }
     } catch (Exception e) {
       Log.w(TAG, "Error in onReceivedError");
@@ -113,7 +117,9 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     try {
       super.onReceivedHttpError(view, request, errorResponse);
 
-      if (request != null && request.isForMainFrame() && !activity.initialPageLoadComplete) {
+      if (request != null && request.isForMainFrame() && !activity.initialPageLoadComplete
+          && !StashCheckoutLoadingSupport.isSupersededAttempt(activity,
+              request.getUrl() != null ? request.getUrl().toString() : null)) {
         int statusCode = errorResponse != null ? errorResponse.getStatusCode() : 0;
         Log.e(TAG, "HTTP error on main frame during initial load: " + statusCode);
         activity.mainFrameErrorReceived = true;
@@ -182,9 +188,11 @@ final class StashCheckoutWebViewClient extends WebViewClient {
     return true;
   }
 
-  private static void handleMainFrameError(StashCardActivity activity, WebView view, int code) {
+  private static void handleMainFrameError(
+      StashCardActivity activity, WebView view, int code, String url) {
     if (view != activity.webView || activity.isDismissing || activity.networkErrorHandled
-        || activity.mainFrameErrorReceived) {
+        || activity.mainFrameErrorReceived
+        || StashCheckoutLoadingSupport.isSupersededAttempt(activity, url)) {
       return;
     }
     if (!activity.initialPageLoadComplete) {

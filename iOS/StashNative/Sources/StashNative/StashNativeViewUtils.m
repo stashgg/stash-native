@@ -90,9 +90,19 @@ NSString *StashNormalizeExternalPaymentURL(NSString *raw) {
     if (![raw isKindOfClass:[NSString class]]) return nil;
     NSString *value = [raw stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     if (!value.length) return nil;
+    // Android's rule: a scheme-less value, including host:port, gets https://; any other scheme is rejected.
+    NSString *lower = value.lowercaseString;
+    if (![lower hasPrefix:@"http://"] && ![lower hasPrefix:@"https://"]) {
+        BOOL hasScheme = [value rangeOfString:@"^[A-Za-z][A-Za-z0-9+.-]*:" options:NSRegularExpressionSearch].location != NSNotFound;
+        BOOL hostAndPort = [value rangeOfString:@"^[^/?#:@]+:[0-9]+([/?#].*)?$"
+                                        options:NSRegularExpressionSearch].location != NSNotFound;
+        if (hasScheme && !hostAndPort) return nil;
+        value = [@"https://" stringByAppendingString:value];
+    }
     NSURLComponents *components = [NSURLComponents componentsWithString:value];
-    if (!components.scheme.length) components = [NSURLComponents componentsWithString:[@"https://" stringByAppendingString:value]];
-    if (![@[@"http", @"https"] containsObject:components.scheme.lowercaseString] || !components.host.length) return nil;
+    NSString *scheme = components.scheme.lowercaseString;
+    if (![@[@"http", @"https"] containsObject:scheme ?: @""] || !components.host.length) return nil;
+    components.scheme = scheme;
     return components.URL.absoluteString;
 }
 
@@ -125,7 +135,8 @@ NSString *StashBridgeScript(void) {
     "var s=window.stash_sdk=window.stash_sdk||{};"
     "function send(n,b){window.webkit.messageHandlers[n].postMessage(b);}"
     "s.getTelemetry=function(){return new Promise(function(resolve,reject){"
-    "try{resolve(window.webkit.messageHandlers.stashTelemetry.postMessage({}));}catch(e){reject(e);}});};"
+    "try{window.webkit.messageHandlers.stashTelemetry.postMessage({})"
+    ".then(function(v){return JSON.parse(v);}).then(resolve,reject);}catch(e){reject(e);}});};"
     "s.triggerHaptic=function(){send('stashTriggerHaptic',{});};"
     "s.onPaymentSuccess=function(o){send('stashNativementSuccess',o==null?'':typeof o==='string'?o:JSON.stringify(o));};"
     "s.onPaymentFailure=function(){send('stashNativementFailure',{});};"
@@ -382,7 +393,7 @@ NSString *StashContentMeasurementScript(NSString *documentID) {
         @"  if (window !== window.top) return;\n"
         @"  if (window.__stashMeasureCleanup) window.__stashMeasureCleanup();\n"
         @"  var id = '__STASH_DOCUMENT_ID__', sdk = window.stash_sdk = window.stash_sdk || {};\n"
-        @"  var observed = null, ro = null, mo = null, pending = false, disposed = false, last = '', lastSource = '';\n"
+        @"  var observed = null, ro = null, mo = null, sheetCache = null, pending = false, disposed = false, last = '', lastSource = '';\n"
         @"  window.__stashContentDocumentId = id;\n"
         @"  function send(height, source) {\n"
         @"    var width = window.innerWidth, scale = window.visualViewport ? window.visualViewport.scale : 1;\n"
@@ -406,32 +417,52 @@ NSString *StashContentMeasurementScript(NSString *documentID) {
         @"  function viewportRule(style) {\n"
         @"    return /(?:^|[;{])\\s*(?:min-|max-)?(?:height|block-size)\\s*:[^;}]*(?:%|(?:d|s|l)?vh|vmin|vmax|cqh|cqb|var\\s*\\()/i.test(style || '');\n"
         @"  }\n"
+        // Sheets are rescanned only when the sheet list, a rule-list length, or a STYLE/LINK node changes. An in-place
+        // CSSOM edit that changes none of them, such as rule.style.height = '50vh', applies at the next change.
+        @"  function scanSheets() {\n"
+        @"    var sheets = [], lists = [], selectors = [];\n"
+        @"    for (var sheet = 0; sheet < document.styleSheets.length; sheet++) sheets.push(document.styleSheets[sheet]);\n"
+        @"    function rules(list) {\n"
+        @"      lists.push(list, list.length);\n"
+        @"      for (var index = 0; index < list.length; index++) {\n"
+        @"        var rule = list[index];\n"
+        @"        if (rule.cssRules && (rule.cssRules.length || !rule.selectorText)) rules(rule.cssRules);\n"
+        @"        if (rule.selectorText && viewportRule(rule.style && rule.style.cssText)) selectors.push(rule.selectorText);\n"
+        @"      }\n"
+        @"    }\n"
+        @"    try {\n"
+        @"      for (sheet = 0; sheet < sheets.length; sheet++) rules(sheets[sheet].cssRules);\n"
+        @"    } catch (error) { selectors = null; }\n"
+        @"    return {sheets: sheets, lists: lists, selector: selectors && selectors.join(', ')};\n"
+        @"  }\n"
+        @"  function sheetsChanged() {\n"
+        @"    if (!sheetCache || sheetCache.sheets.length !== document.styleSheets.length) return true;\n"
+        @"    for (var sheet = 0; sheet < sheetCache.sheets.length; sheet++) {\n"
+        @"      if (sheetCache.sheets[sheet] !== document.styleSheets[sheet]) return true;\n"
+        @"    }\n"
+        @"    for (var list = 0; list < sheetCache.lists.length; list += 2) {\n"
+        @"      if (sheetCache.lists[list].length !== sheetCache.lists[list + 1]) return true;\n"
+        @"    }\n"
+        @"    return false;\n"
+        @"  }\n"
+        @"  function styleNode(node) { return !!node && /^(?:style|link)$/i.test(node.nodeName); }\n"
+        @"  function sheetMutation(records) {\n"
+        @"    for (var index = 0; index < records.length; index++) {\n"
+        @"      if (styleNode(records[index].target) || styleNode(records[index].target.parentNode)) return true;\n"
+        @"    }\n"
+        @"    return false;\n"
+        @"  }\n"
         @"  function eligible(root) {\n"
-        @"    var ancestors = [];\n"
         @"    for (var element = root; element; element = element.parentElement) {\n"
         @"      var style = getComputedStyle(element);\n"
         @"      if (style.position === 'fixed' || style.position === 'sticky' || style.position === 'absolute' ||\n"
         @"          (element === root && parseFloat(style.flexGrow) > 0) || viewportRule(element.getAttribute('style'))) return false;\n"
-        @"      ancestors.push(element);\n"
         @"    }\n"
-        @"    function rules(list) {\n"
-        @"      for (var index = 0; index < list.length; index++) {\n"
-        @"        var rule = list[index];\n"
-        @"        if (rule.cssRules && !rules(rule.cssRules)) return false;\n"
-        @"        if (rule.selectorText && viewportRule(rule.style && rule.style.cssText)) {\n"
-        @"          for (var ancestor = 0; ancestor < ancestors.length; ancestor++) {\n"
-        @"            if (ancestors[ancestor].matches(rule.selectorText)) return false;\n"
-        @"          }\n"
-        @"        }\n"
-        @"      }\n"
-        @"      return true;\n"
-        @"    }\n"
+        @"    if (sheetsChanged()) sheetCache = scanSheets();\n"
+        @"    if (sheetCache.selector === null) return false;\n"
         @"    try {\n"
-        @"      for (var sheet = 0; sheet < document.styleSheets.length; sheet++) {\n"
-        @"        if (!rules(document.styleSheets[sheet].cssRules)) return false;\n"
-        @"      }\n"
+        @"      return !sheetCache.selector || root.closest(sheetCache.selector) === null;\n"
         @"    } catch (error) { return false; }\n"
-        @"    return true;\n"
         @"  }\n"
         @"  function measure() {\n"
         @"    pending = false;\n"
@@ -454,7 +485,10 @@ NSString *StashContentMeasurementScript(NSString *documentID) {
         @"  }\n"
         @"  window.__stashMeasureContent = function () { last = ''; schedule(); };\n"
         @"  if (window.MutationObserver && document.documentElement) {\n"
-        @"    mo = new MutationObserver(schedule);\n"
+        @"    mo = new MutationObserver(function (records) {\n"
+        @"      if (sheetCache && sheetMutation(records)) sheetCache = null;\n"
+        @"      schedule();\n"
+        @"    });\n"
         @"    mo.observe(document.documentElement, {subtree: true, childList: true, attributes: true, characterData: true});\n"
         @"  }\n"
         @"  window.addEventListener('resize', schedule);\n"
@@ -462,6 +496,7 @@ NSString *StashContentMeasurementScript(NSString *documentID) {
         @"  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);\n"
         @"  window.__stashMeasureCleanup = function () {\n"
         @"    disposed = true;\n"
+        @"    sheetCache = null;\n"
         @"    if (ro) ro.disconnect();\n"
         @"    if (mo) mo.disconnect();\n"
         @"    window.removeEventListener('resize', schedule);\n"

@@ -58,5 +58,6 @@ The facade owns the active session. The session owns presentation state, the Web
 ## Threading and memory
 
 - Open calls copy their arguments and continue on the main thread.
+- `isCurrentlyPresented` and `isPurchaseProcessing` read main-thread state, so query them on the main thread.
 - The delegate is `weak` under ARC and `assign` without ARC, so the game keeps it alive.
 - Events that end a presentation run after teardown, so the game can open again from the callback. Payment events with `autoClose` off run while the card stays open.

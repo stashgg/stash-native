@@ -53,7 +53,8 @@ final class ViewController: ProbeViewController {
     var alerts: [String] = []
     func isActiveKeyProduction() -> Bool { false }
     func activePayload(_ kind: PayloadKind) -> String { "{}" }
-    func activeAppId() -> String { "fixture" }
+    var appId = "fixture"
+    func activeAppId() -> String { appId }
     func activeApiKey() -> String { "fixture" }
     func showAlert(title: String, message: String) { alerts.append(message) }
     // INSERT_METHODS
@@ -148,6 +149,18 @@ check("invalid new request cancels the prior request") {
     drainMainQueue()
     precondition(first.cancelled && host.opened.isEmpty && host.alerts.count == 1)
 }
+check("blank app ID alerts without a request and still supersedes the prior one") {
+    let host = ViewController()
+    let first = host.start()
+    let taskCount = ProbeSession.shared.tasks.count
+    host.appId = ""
+    _ = host.start()
+    precondition(ProbeSession.shared.tasks.count == taskCount && first.cancelled && host.generateRequest == nil)
+    precondition(host.alerts == ["App ID and ingress secret are both required"])
+    first.respond("old")
+    drainMainQueue()
+    precondition(host.opened.isEmpty && host.alerts.count == 1)
+}
 check("completion does not retain a departed controller") {
     var host: ViewController? = ViewController()
     let isReleased = { [weak host] in host == nil }
@@ -157,4 +170,4 @@ check("completion does not retain a departed controller") {
     task.respond("departed")
     drainMainQueue()
 }
-print("PASS: 8 request lifetime cases")
+print("PASS: 9 request lifetime cases")

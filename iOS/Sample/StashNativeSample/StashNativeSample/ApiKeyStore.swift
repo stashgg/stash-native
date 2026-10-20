@@ -51,13 +51,18 @@ enum ApiKeyStore {
         return data
     }
 
+    /// Device-local, like the Android sample's backup exclusion: secrets never migrate to another
+    /// device through a backup or transfer. Updates also move items saved with the old class.
+    private static let accessibility = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+
     private static func write(_ data: Data) throws {
         var status = SecItemUpdate(
-            baseQuery() as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+            baseQuery() as CFDictionary,
+            [kSecValueData as String: data, kSecAttrAccessible as String: accessibility] as CFDictionary)
         if status == errSecItemNotFound {
             var add = baseQuery()
             add[kSecValueData as String] = data
-            add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            add[kSecAttrAccessible as String] = accessibility
             status = SecItemAdd(add as CFDictionary, nil)
         }
         guard status == errSecSuccess else { throw StoreError.keychain(status) }

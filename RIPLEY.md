@@ -18,7 +18,7 @@ When changing decoded checkout responses, persisted sample credentials, or impor
 
 ## 2. checkout-result-once (A3)
 
-Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. Trace Android's `StashCheckoutJsInterface` into `StashCheckoutActivity` and iOS's `StashCheckoutSession` in `StashNativeInternal.m`. Preserve terminal state before host callbacks and the deliberate exception for `autoClose = false`, where a live page may retry from failure to success.
+Keep auto-closing checkout result handling idempotent across every page-message and deeplink route. Trace Android's `StashCheckoutJsInterface` into `StashCardActivity` and iOS's `StashCardSession` in `StashNativeInternal.m`. Preserve terminal state before host callbacks and the deliberate exception for `autoClose = false`, where a live page may retry from failure to success.
 
 **Failure:** Duplicate payment signals during an auto-closing presentation deliver more than one terminal host callback or dismissal.
 
@@ -36,7 +36,7 @@ Normalize and copy card content dimensions, maximum height, and edge margin befo
 
 ## 5. ios-session-ownership (B3)
 
-Keep the active session owned by its `StashNative` instance. `StashCheckoutSession` owns callbacks, timers, WebView, and presentation lifetime; controllers own layout. Declare cross-file interfaces in `StashNativePrivate.h` and keep file-local constants `static`. Do not use the singleton's state to decide behavior for another instance.
+Keep the active session owned by its `StashNative` instance. `StashCardSession` owns callbacks, timers, WebView, and presentation lifetime; controllers own layout. Declare cross-file interfaces in `StashNativePrivate.h` and keep file-local constants `static`. Do not use the singleton's state to decide behavior for another instance.
 
 **Failure:** A session reads another instance's state or outlives its owner without teardown.
 

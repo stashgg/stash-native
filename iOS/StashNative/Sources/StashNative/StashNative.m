@@ -24,6 +24,14 @@ Class StashScannerContentClass(void) {
 }
 
 @implementation StashNative
+- (void)deliverScannerUnavailable {
+    [self deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeScannerDidEncounterError:)])
+            [delegate stashNativeScannerDidEncounterError:[NSError errorWithDomain:StashNativeScannerErrorDomain
+                code:StashNativeScannerErrorScannerUnavailable
+                userInfo:@{NSLocalizedDescriptionKey:@"The StashNativeCodeLink module is not linked."}]];
+    }];
+}
 - (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery {
     id<StashNativeDelegate> delegate = self.delegate;
 #if !__has_feature(objc_arc)
@@ -78,14 +86,7 @@ Class StashScannerContentClass(void) {
     if (self.session || !presenter.viewIfLoaded.window || presenter.isBeingDismissed) return;
     if (!StashScannerContentClass()) {
         // No module: nothing is presented and no dismissal follows; the error is still asynchronous.
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self deliverToDelegate:^(id<StashNativeDelegate> delegate) {
-                if ([delegate respondsToSelector:@selector(stashNativeScannerDidEncounterError:)])
-                    [delegate stashNativeScannerDidEncounterError:[NSError errorWithDomain:StashNativeScannerErrorDomain
-                        code:StashNativeScannerErrorScannerUnavailable
-                        userInfo:@{NSLocalizedDescriptionKey:@"The StashNativeCodeLink module is not linked."}]];
-            }];
-        });
+        dispatch_async(dispatch_get_main_queue(), ^{ [self deliverScannerUnavailable]; });
         return;
     }
     while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed)

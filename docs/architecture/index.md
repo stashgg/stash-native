@@ -76,4 +76,5 @@ stateDiagram-v2
 |---|---|---|
 | Open calls | Any thread | Any thread |
 | Receiver setup and callbacks | Main thread | Main thread |
+| `isCurrentlyPresented`, `isPurchaseProcessing` | Main thread | Any thread |
 | Receiver reference | Weak (`assign` without ARC) | Strong |

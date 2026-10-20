@@ -274,7 +274,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       } else if (t == R.string.instance_name) {
         inputType = InputType.TYPE_CLASS_TEXT;
       } else {
-        // Hex colors, app ID, ingress secret: plain text, no autosuggest/autocaps.
+        // App ID, ingress secret: plain text, no autosuggest/autocaps.
         inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
       }
       binding.urlEditText.setInputType(inputType);

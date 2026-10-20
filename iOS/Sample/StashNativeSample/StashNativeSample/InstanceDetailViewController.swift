@@ -184,7 +184,7 @@ final class InstanceDetailViewController: UITableViewController, UITextFieldDele
 
     // MARK: - Cells
 
-    /// Icon + label + right-aligned editable value, matching the app's URL/background rows.
+    /// Icon + label + right-aligned editable value, matching the app's URL rows.
     private func fieldCell(label: String, icon: String, field: UITextField) -> UITableViewCell {
         let cell = UITableViewCell(style: .default, reuseIdentifier: nil)
         cell.selectionStyle = .none

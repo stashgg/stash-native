@@ -66,9 +66,9 @@ public class StashNative {
     default void onQrCodeScanned(String content) {}
 
     /**
-     * Reports an error once per scanner session. {@link ScannerError#SCANNER_UNAVAILABLE}
-     * closes the card without a dismissal callback when the optional {@code stashnative-codelink}
-     * module or its camera libraries are missing. Other camera errors leave the card open.
+     * Reports an error once per scanner session. {@link ScannerError#SCANNER_UNAVAILABLE} means
+     * the optional {@code stashnative-codelink} module or one of its libraries is missing; no card
+     * stays open and no dismissal callback follows. Other camera errors leave the card open.
      */
     default void onScannerError(ScannerError error) {}
 
@@ -316,8 +316,8 @@ public class StashNative {
    * the host adds the {@code stashnative-codelink} module, which declares {@code
    * android.permission.CAMERA} and uses the CameraX and ZXing libraries. A missing permission
    * declaration reports {@link ScannerError#CAMERA_PERMISSION_NOT_DECLARED}; a missing module
-   * or library reports {@link ScannerError#SCANNER_UNAVAILABLE} and closes without a dismissal
-   * callback.
+   * or library reports {@link ScannerError#SCANNER_UNAVAILABLE} asynchronously, presents nothing,
+   * and sends no dismissal callback.
    */
   public void openScanner(Activity activity, ScannerConfig config) {
     plugin.openScanner(activity, config);
@@ -331,7 +331,7 @@ public class StashNative {
     CAMERA_CONFIGURATION_FAILED,
     /** The host manifest does not declare android.permission.CAMERA; the card stays open. */
     CAMERA_PERMISSION_NOT_DECLARED,
-    /** The stashnative-codelink module or its libraries are missing; the card closes. */
+    /** The stashnative-codelink module or one of its libraries is missing; nothing stays open. */
     SCANNER_UNAVAILABLE
   }
 

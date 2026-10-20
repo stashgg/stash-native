@@ -141,21 +141,19 @@ NSDictionary *StashRootScrollOffsetProbe(void) {
 @end
 @implementation StashKeyboardGuideProbeView
 - (UIKeyboardLayoutGuide *)keyboardLayoutGuide { return self.probeGuide ?: [super keyboardLayoutGuide]; }
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
+- (NSArray<UIViewReservedRegion *> *)reservedRegionsOfKind:(UIViewReservedRegionKind *)kind API_AVAILABLE(ios(27.1)) {
+    return @[];
+}
+#endif
 @end
 
 static UIWindow *StashKeyboardProbeWindow(Class windowClass, CGRect frame) {
-    UIWindow *window = [[windowClass alloc] initWithFrame:frame];
     // Screen-coordinate conversion requires a scene; retain the captured probe geometry.
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-        if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
-        window.windowScene = (UIWindowScene *)scene;
-        window.frame = frame;
-        break;
-    }
-    return window;
+    return StashSceneFixtureWindow(windowClass, frame);
 }
 
-@interface StashKeyboardHostWindow : UIWindow
+@interface StashKeyboardHostWindow : StashFixtureWindow
 @end
 @implementation StashKeyboardHostWindow
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsMake(0, 0, 20, 0); }
@@ -264,7 +262,7 @@ NSDictionary *StashFloatingKeyboardGuideProbe(void) {
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
     web.focusForKeyboardProbe = YES; session.webView = web;
-    UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 744, 1133));
+    UIWindow *window = StashKeyboardProbeWindow(StashFixtureWindow.class, CGRectMake(0, 0, 744, 1133));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
     StashCardViewController *controller = [StashCardViewController new];
@@ -342,7 +340,7 @@ NSDictionary *StashFloatingKeyboardNotificationProbe(void) {
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectZero];
     web.focusForKeyboardProbe = YES; session.webView = web;
-    UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 744, 1133));
+    UIWindow *window = StashKeyboardProbeWindow(StashFixtureWindow.class, CGRectMake(0, 0, 744, 1133));
     UIViewController *presenter = [UIViewController new]; window.rootViewController = presenter;
     session.presenter = presenter; window.hidden = NO;
     StashCardViewController *controller = [StashCardViewController new];
@@ -465,7 +463,7 @@ NSDictionary *StashFloatingKeyboardCoordinateProbe(void) {
     session.config = [StashNativeCardConfig new];
     session.initialContentRevealed = YES; session.keyboardVisible = YES;
     session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
-    UIWindow *window = StashKeyboardProbeWindow(UIWindow.class, CGRectMake(0, 0, 640, 700));
+    UIWindow *window = StashKeyboardProbeWindow(StashFixtureWindow.class, CGRectMake(0, 0, 640, 700));
     UIViewController *presenter = [UIViewController new];
     window.rootViewController = presenter; session.presenter = presenter; window.hidden = NO;
     StashCardViewController *controller = [StashCardViewController new];
@@ -492,7 +490,7 @@ NSDictionary *StashFloatingKeyboardCoordinateProbe(void) {
         @"hiddenExcluded":@(hiddenExcluded), @"detachedExcluded":@(detachedExcluded)};
 }
 
-@interface StashChromeProbeWindow : UIWindow
+@interface StashChromeProbeWindow : StashFixtureWindow
 @end
 @implementation StashChromeProbeWindow
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
@@ -501,6 +499,11 @@ NSDictionary *StashFloatingKeyboardCoordinateProbe(void) {
 @end
 @implementation StashChromeProbeView
 - (UIEdgeInsets)safeAreaInsets { return UIEdgeInsetsZero; }
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
+- (NSArray<UIViewReservedRegion *> *)reservedRegionsOfKind:(UIViewReservedRegionKind *)kind API_AVAILABLE(ios(27.1)) {
+    return @[];
+}
+#endif
 @end
 @interface StashChromeProbeController : StashCardViewController
 @end

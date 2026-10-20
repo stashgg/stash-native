@@ -20,13 +20,22 @@ check("unpadded secret signs identically to the padded one") {
     let signature = StashHmac.signature(appId: "app_test", ingressSecretB64: "c2VjcmV0LWtleQ", body: body,
                                         unixMillis: millis)
     precondition(signature == expected)
-    precondition(StashHmac.isValidIngressSecret(" c2VjcmV0LWtleQ\n"))
 }
-check("invalid base64 is rejected before signing") {
-    precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: "not base64!", body: body,
-                                     unixMillis: millis) == nil)
-    precondition(!StashHmac.isValidIngressSecret("abcde"))
-    precondition(!StashHmac.isValidIngressSecret(""))
+// Shared with the Android StashHmacTest: both samples accept and reject exactly these secrets.
+let acceptedSecrets = ["c2VjcmV0LWtleQ==", "c2VjcmV0LWtleQ", " c2VjcmV0LWtleQ\n", "abc", "abc=", "aQ==", "Pz8/Pj4+"]
+let rejectedSecrets = ["", " \n", "a", "abcde", "abcd=", "c2VjcmV0LWtleQ=", "ab=c", "====", "not base64!",
+                       "c2Vj cmV0LWtleQ"]
+check("shared secret vectors match the Android rule, and only accepted secrets sign") {
+    for secret in acceptedSecrets {
+        precondition(StashHmac.isValidIngressSecret(secret), secret)
+        precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
+                                         unixMillis: millis) != nil, secret)
+    }
+    for secret in rejectedSecrets {
+        precondition(!StashHmac.isValidIngressSecret(secret), secret)
+        precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
+                                         unixMillis: millis) == nil, secret)
+    }
 }
 check("the body bytes and timestamp both change the signature") {
     let otherBody = StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: Data("{ }".utf8),

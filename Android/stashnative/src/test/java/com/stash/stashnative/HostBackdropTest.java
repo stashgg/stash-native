@@ -30,7 +30,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 28)
+@Config(sdk = 28, shadows = ResolvedScannerModuleShadow.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class HostBackdropTest {
   private Activity host;

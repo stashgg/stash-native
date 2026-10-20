@@ -24,22 +24,35 @@ From `$AUDIT_SOURCE/Android`:
 JAVA_HOME="$AUDIT_JDK17" GRADLE_USER_HOME="$AUDIT_RUN/gradle-home" ./gradlew \
   --project-cache-dir "$AUDIT_RUN/gradle-cache" \
   :stashnative:assembleRelease :stashnative:testDebugUnitTest \
-  :sample:assembleDebug :sample:assembleRelease \
-  :stashnative:lintRelease :sample:lintDebug
+  :stashnative-codelink:assembleRelease :stashnative-codelink:testDebugUnitTest \
+  :sample:testDebugUnitTest :sample:assembleDebug :sample:assembleRelease \
+  :stashnative:lintRelease :stashnative-codelink:lintRelease :sample:lintDebug
+```
+
+The `:consumer` module builds minimal Java hosts against the release AARs with R8, one flavor per dependency set: current libraries, legacy `androidx.browser`, no optional libraries, CodeLink without ZXing, and CodeLink with CameraX 1.3.4:
+
+```sh
+JAVA_HOME="$AUDIT_JDK17" GRADLE_USER_HOME="$AUDIT_RUN/gradle-home" ./gradlew \
+  --project-cache-dir "$AUDIT_RUN/gradle-cache" \
+  :consumer:assembleCurrentRelease :consumer:assembleLegacyRelease \
+  :consumer:assembleAbsentRelease :consumer:assembleCameraOnlyRelease \
+  :consumer:assembleLegacyCameraRelease :consumer:assembleNoCamera2Release \
+  :consumer:assembleNoLifecycleRelease
 ```
 
 Read JUnit XML and lint reports, including warnings and suppressed findings. Confirm the Robolectric tests execute the expected paths and the JVM suite discovers tests. Lint may return zero despite findings because its configuration is non-blocking.
 
-Run Checkstyle against both source roots using the version and configuration in the source snapshot's lint workflow. Put a downloaded JAR under `AUDIT_RUN` and set `AUDIT_CHECKSTYLE_JAR` to it:
+Run Checkstyle against the library, CodeLink, and sample source roots using the version and configuration in the source snapshot's lint workflow. Put a downloaded JAR under `AUDIT_RUN` and set `AUDIT_CHECKSTYLE_JAR` to it:
 
 ```sh
 "$AUDIT_JDK17/bin/java" -jar "$AUDIT_CHECKSTYLE_JAR" \
   -c "$AUDIT_SOURCE/Android/checkstyle.xml" -f plain \
   "$AUDIT_SOURCE/Android/stashnative/src/main/java" \
+  "$AUDIT_SOURCE/Android/stashnative-codelink/src/main/java" \
   "$AUDIT_SOURCE/Android/sample/src/main/java"
 ```
 
-For dependency/shrinking findings, use a temporary consumer to check the actual AAR with minification and the optional browser library present/absent or an older supported dependency. An unminified sample does not cover that contract. Keep such probes targeted and record their dependency versions.
+For dependency/shrinking findings beyond that matrix, use a temporary consumer to check the actual AAR with minification and the optional browser library present/absent or an older supported dependency. An unminified sample does not cover that contract. Keep such probes targeted and record their dependency versions.
 
 Device/emulator checks cover real WebView/Custom Tabs, IME/insets, back/dismiss, host recreation, browser absence, supported old/new APIs, and representative engine lifecycle. Record available coverage without claiming every vendor/runtime was tested.
 
@@ -47,20 +60,44 @@ Device/emulator checks cover real WebView/Custom Tabs, IME/insets, back/dismiss,
 
 Discover `xcodebuild -version`, `xcode-select -p`, and available devices with `xcrun simctl list devices available -j`. Choose an available iOS Simulator and record its UDID as `AUDIT_SIMULATOR_ID`; do not hardcode a model name.
 
-Library device build and simulator analysis from the temporary source copy:
+Library device build, simulator analysis, and non-ARC build from the temporary source copy, for the core and the CodeLink module:
 
 ```sh
-xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
-  -scheme StashNative -configuration Release -sdk iphoneos \
-  -destination 'generic/platform=iOS' \
-  -derivedDataPath "$AUDIT_RUN/ios-device" CODE_SIGNING_ALLOWED=NO build
+for SCHEME in StashNative StashNativeCodeLink; do
+  xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
+    -scheme "$SCHEME" -configuration Release -sdk iphoneos \
+    -destination 'generic/platform=iOS' \
+    -derivedDataPath "$AUDIT_RUN/ios-device" CODE_SIGNING_ALLOWED=NO build
 
-xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
-  -scheme StashNative -sdk iphonesimulator \
-  -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath "$AUDIT_RUN/ios-analyze" \
-  CLANG_ANALYZER_OUTPUT=plist-html \
-  CLANG_ANALYZER_OUTPUT_DIR="$AUDIT_RUN/ios-analyzer-results" analyze
+  xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
+    -scheme "$SCHEME" -sdk iphonesimulator \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$AUDIT_RUN/ios-analyze" \
+    GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+    CLANG_ANALYZER_OUTPUT=plist-html \
+    CLANG_ANALYZER_OUTPUT_DIR="$AUDIT_RUN/ios-analyzer-results" analyze
+
+  xcodebuild -project "$AUDIT_SOURCE/iOS/StashNative/StashNative.xcodeproj" \
+    -scheme "$SCHEME" -sdk iphonesimulator \
+    -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$AUDIT_RUN/ios-non-arc" \
+    CLANG_ENABLE_OBJC_ARC=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+    CODE_SIGNING_ALLOWED=NO build
+done
+```
+
+Remote SPM consumers resolve the repository-root `Package.swift`. Build both products from a copy holding that manifest and `iOS/`:
+
+```sh
+mkdir -p "$AUDIT_RUN/root-package"
+cp "$AUDIT_SOURCE/Package.swift" "$AUDIT_RUN/root-package/"
+cp -R "$AUDIT_SOURCE/iOS" "$AUDIT_RUN/root-package/"
+cd "$AUDIT_RUN/root-package"
+for SCHEME in StashNative StashNativeCodeLink; do
+  xcodebuild -scheme "$SCHEME" -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$AUDIT_RUN/root-package-derived" \
+    -clonedSourcePackagesDirPath "$AUDIT_RUN/root-package-clones" build
+done
 ```
 
 For XCTest, copy the sources, tests, and Xcode project. The `StashNativeTests` scheme runs the suite inside a UIKit app with an active window scene; hostless SPM tests do not supply the lifecycle required by WebKit fixtures.

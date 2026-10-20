@@ -82,6 +82,6 @@ Errors are `StashNativeScannerError.Code` values on iOS and `ScannerError` value
 | Camera access denied | `.cameraPermissionDenied`<br>`CAMERA_PERMISSION_DENIED` | None. The scanner offers a Settings button. |
 | No camera | `.cameraUnavailable`<br>`CAMERA_UNAVAILABLE` | Offer another way to link |
 | Camera setup failed | `.cameraConfigurationFailed`<br>`CAMERA_CONFIGURATION_FAILED` | Retry later |
-| Scanner module missing | `.scannerUnavailable`<br>`SCANNER_UNAVAILABLE` | Add `StashNativeCodeLink` (with CameraX and ZXing on Android) |
+| Scanner module missing, or on Android a CameraX or ZXing library missing | `.scannerUnavailable`<br>`SCANNER_UNAVAILABLE` | Add `StashNativeCodeLink` (with CameraX and ZXing on Android) |
 | Camera usage description missing (iOS) | `.missingCameraUsageDescription` | Add `NSCameraUsageDescription` |
 | Camera permission removed from the manifest (Android) | `CAMERA_PERMISSION_NOT_DECLARED` | Keep the module's `CAMERA` permission in the merged manifest |

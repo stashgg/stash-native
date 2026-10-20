@@ -131,16 +131,15 @@ extension ViewController {
         return (0, true)
     }
 
-    /// Credential the API calls sign with: the selected entry, or the bundled demo one if the
-    /// entry cannot sign (e.g. saved before HMAC signing, so it has no app ID). Secret, app ID
-    /// and environment all come from one entry so they can never be mixed across credentials.
+    /// Credential the API calls sign with: always the selected entry, so secret, app ID and
+    /// environment can never be mixed across credentials. A blank app ID or secret (for example an
+    /// entry saved before HMAC signing) is reported at generate time, never replaced by the bundled
+    /// credential.
     private func activeEntry() -> ApiKeyEntry {
-        guard let entry = selectedApiKey,
-              !entry.appId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !entry.key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return ViewController.bundledEntry()
-        }
-        return entry
+        selectedApiKey ?? ApiKeyEntry(
+            id: "", name: "", appId: "", key: "", production: false,
+            checkoutPayload: ViewController.defaultCheckoutPayload,
+            webshopPayload: ViewController.defaultWebshopPayload)
     }
 
     /// Active ingress secret used to sign requests.

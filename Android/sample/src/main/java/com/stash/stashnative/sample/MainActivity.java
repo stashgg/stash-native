@@ -1,12 +1,15 @@
 package com.stash.stashnative.sample;
 
+import android.Manifest;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -76,6 +79,18 @@ public class MainActivity extends AppCompatActivity {
         }
       });
 
+  /** Browser open waiting on the notification permission answer; runs whatever the answer. */
+  private Runnable afterNotificationPermission;
+  private boolean notificationPermissionRequested;
+  private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
+      new ActivityResultContracts.RequestPermission(), granted -> {
+        Runnable action = afterNotificationPermission;
+        afterNotificationPermission = null;
+        if (action != null && !isFinishing() && !isDestroyed()) {
+          action.run();
+        }
+      });
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -110,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
     adapter = new SettingsAdapter(viewModel, new SettingsAdapter.Callbacks() {
       @Override
       public void onOpenScanner() {
+        cancelPendingRequest();
         StashNative.getInstance().openScanner(MainActivity.this, viewModel.getScannerConfig());
       }
 
@@ -120,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onOpenBrowser() {
-        openBrowser();
+        withNotificationPermission(() -> openBrowser());
       }
 
       @Override
@@ -130,12 +146,12 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onGenerateCheckoutForBrowser() {
-        generateCheckoutForBrowser();
+        withNotificationPermission(() -> generateCheckoutForBrowser());
       }
 
       @Override
       public void onOpenWebshopForBrowser() {
-        openWebshopForBrowser();
+        withNotificationPermission(() -> openWebshopForBrowser());
       }
 
       @Override
@@ -163,7 +179,9 @@ public class MainActivity extends AppCompatActivity {
     binding.recyclerView.setLayoutManager(new LinearLayoutManager(this));
     binding.recyclerView.setAdapter(adapter);
 
+    // Leaving a screen supersedes a pending generate request, like the iOS sample.
     binding.toolbar.setNavigationOnClickListener(v -> {
+      cancelPendingRequest();
       MainViewModel.Screen parent = parentOf(viewModel.getCurrentScreen());
       if (parent != null) {
         viewModel.navigateTo(parent);
@@ -191,6 +209,7 @@ public class MainActivity extends AppCompatActivity {
     });
 
     binding.bottomNav.setOnItemSelectedListener(item -> {
+      cancelPendingRequest();
       int id = item.getItemId();
       if (id == R.id.tab_test) {
         viewModel.navigateTo(MainViewModel.Screen.TEST);
@@ -205,6 +224,7 @@ public class MainActivity extends AppCompatActivity {
     getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
       @Override
       public void handleOnBackPressed() {
+        cancelPendingRequest();
         MainViewModel.Screen parent = parentOf(viewModel.getCurrentScreen());
         if (parent != null) {
           viewModel.navigateTo(parent);
@@ -438,6 +458,9 @@ public class MainActivity extends AppCompatActivity {
     row.setAlpha(0f);
     row.setTranslationY(-dp(8));
     row.animate().alpha(1f).translationY(0f).setDuration(200).start();
+
+    // Chips expire, so speak each one as it arrives for TalkBack users.
+    container.announceForAccessibility(label);
 
     final View expiring = row;
     row.postDelayed(() -> removeCallbackChip(container, expiring), CALLBACK_CHIP_LIFETIME_MS);
@@ -715,6 +738,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void openCard() {
+    cancelPendingRequest();
     String url = viewModel.getCheckoutUrl();
     if (url == null || url.trim().isEmpty()) {
       showOutcomeDialog("Error", getString(R.string.error_checkout_url));
@@ -754,6 +778,7 @@ public class MainActivity extends AppCompatActivity {
   }
 
   private void openBrowser() {
+    cancelPendingRequest();
     String url = viewModel.getBrowserUrl();
     if (url == null || url.trim().isEmpty()) {
       showOutcomeDialog("Error", getString(R.string.error_browser_url));
@@ -761,6 +786,39 @@ public class MainActivity extends AppCompatActivity {
     }
     syncKeepAlive();
     StashNative.getInstance().openBrowser(MainActivity.this, url.trim());
+  }
+
+  /**
+   * Keep-alive shows a notification, which needs POST_NOTIFICATIONS on Android 13+. Ask once
+   * before the first browser open, then continue with the open whether or not it is granted.
+   */
+  private void withNotificationPermission(Runnable action) {
+    if (Build.VERSION.SDK_INT < 33
+        || !viewModel.isKeepAliveEnabled()
+        || notificationPermissionRequested
+        || ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            == PackageManager.PERMISSION_GRANTED) {
+      action.run();
+      return;
+    }
+    // The browser action supersedes a pending request even while the prompt is up.
+    cancelPendingRequest();
+    notificationPermissionRequested = true;
+    afterNotificationPermission = action;
+    notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS);
+  }
+
+  /** Supersedes the pending generate request; its completion can no longer reach the UI. */
+  private void cancelPendingRequest() {
+    requestGeneration++;
+    if (pendingRequest != null) {
+      pendingRequest.cancel(true);
+      pendingRequest = null;
+    }
+    HttpURLConnection connection = activeConnection;
+    if (connection != null) {
+      connection.disconnect();
+    }
   }
 
   private void generateCheckout() {
@@ -784,18 +842,21 @@ public class MainActivity extends AppCompatActivity {
    */
   private void generateAndOpen(String path, final String payload, final boolean openInBrowser,
       final int errorRes, final String label) {
+    cancelPendingRequest();
     final String urlString = viewModel.getApiBaseUrl() + path;
     final String appId = viewModel.getActiveAppId();
     final String ingressSecret = viewModel.getActiveApiKey();
+    // The selected instance signs or nothing does; never substitute the bundled credential.
+    if (appId.isEmpty() || ingressSecret.isEmpty()) {
+      showOutcomeDialog("Error", getString(R.string.add_api_key_incomplete));
+      return;
+    }
+    if (!MainViewModel.isValidBase64(ingressSecret)) {
+      showOutcomeDialog("Error", getString(R.string.error_secret_base64));
+      return;
+    }
 
-    final int generation = ++requestGeneration;
-    if (pendingRequest != null) {
-      pendingRequest.cancel(true);
-    }
-    HttpURLConnection previous = activeConnection;
-    if (previous != null) {
-      previous.disconnect();
-    }
+    final int generation = requestGeneration;
     pendingRequest = networkExecutor.submit(() -> {
       // Sign the exact bytes that go on the wire, then send them unchanged.
       byte[] bytes = payload.getBytes(StandardCharsets.UTF_8);
@@ -888,6 +949,13 @@ public class MainActivity extends AppCompatActivity {
   }
 
   @Override
+  protected void onStop() {
+    // A response that lands after the host leaves the screen must not open checkout later.
+    cancelPendingRequest();
+    super.onStop();
+  }
+
+  @Override
   protected void onPause() {
     // Credential edits persist on screen exit; also write them before a background kill.
     viewModel.flushPendingEdits();
@@ -903,14 +971,7 @@ public class MainActivity extends AppCompatActivity {
     destroyed = true;
     cancelBackdropLoad();
     backdropExecutor.shutdownNow();
-    requestGeneration++;
-    if (pendingRequest != null) {
-      pendingRequest.cancel(true);
-    }
-    HttpURLConnection connection = activeConnection;
-    if (connection != null) {
-      connection.disconnect();
-    }
+    cancelPendingRequest();
     networkExecutor.shutdownNow();
     if (activeDialog != null) {
       if (activeDialog.isShowing()) {

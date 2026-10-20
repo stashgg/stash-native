@@ -27,7 +27,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ### Bridge and callbacks
 
-Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
+Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Content measurement scripts live in `StashContentSizeSupport` on Android and `StashContentMeasurementScript()` in `StashNativeViewUtils.m` on iOS; Android's `getTelemetry` script lives in `StashTelemetrySupport`. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
 
 Desktop callback ordering, once-guards, processing locks, navigation decisions, and dismissal semantics belong in the shared `Session`. Hosts own platform plumbing. Preserve documented differences: macOS marshals operations to the main queue; Windows operations use the host window's message-loop thread, with explicitly documented atomic queries treated separately. Desktop browser handoff does not promise a browser-closed callback.
 
@@ -47,7 +47,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 - Keep sample UI and test dependencies out of the SDK runtime graph. Check source/resource usage and resolved transitive dependencies before adding libraries or version-alignment platforms; retain only what the SDK's supported behavior needs.
 - Runtime reflection around optional/older dependencies must catch `Throwable` and degrade gracefully. Missing optional libraries must not crash the SDK. Follow `StashWindowCompat` and `StashUrlLauncher`; test reflection used to inspect internals is a different context.
 - Keep consumer shrinking rules narrow and sufficient for the public API and reflection/bridge contracts. Do not add blanket keep rules or assume internal classes are already obfuscated in an unminified AAR.
-- The portrait activity communicates with the plugin through package-local broadcasts in the same process, with a non-exported receiver on API 33+ and a host-specific signature permission on API 21–32.
+- `StashCardActivity` communicates with the plugin through `StashCheckoutBridge` package-local broadcasts in the same process, with a non-exported receiver on API 33+ and a host-specific signature permission on API 21–32.
 - `StashNativeBrowserProxyActivity` consumes Custom Tabs results internally. Hosts do not forward `onActivityResult`; `StashCustomTabsEngagement` supplies the browser-close fallback.
 
 ### iOS state and file membership
@@ -62,8 +62,8 @@ Discover installed toolchains and simulator IDs. Use temporary source copies or 
 
 | Target | Validation |
 |---|---|
-| Android SDK and sample | JDK 17; Gradle `:stashnative:assembleRelease`, `:stashnative:testDebugUnitTest`, `:sample:assembleDebug`, `:sample:assembleRelease`; Android Lint and repository Checkstyle configuration. |
-| iOS SDK | `xcodebuild` build/analyze; run the `StashNativeTests` Xcode scheme on an available iOS Simulator for its UIKit app host. Do not use macOS `swift test` for the iOS package. |
+| Android SDK and sample | JDK 17; Gradle `assembleRelease` and `testDebugUnitTest` for `:stashnative` and `:stashnative-codelink`, `:sample:testDebugUnitTest`, `:sample:assembleDebug`, `:sample:assembleRelease`; the `:consumer` R8 flavor matrix (`assembleCurrentRelease`, `assembleLegacyRelease`, `assembleAbsentRelease`, `assembleCameraOnlyRelease`, `assembleLegacyCameraRelease`, `assembleNoCamera2Release`, `assembleNoLifecycleRelease`); Android Lint and repository Checkstyle configuration over the library, CodeLink, and sample sources. |
+| iOS SDK | `xcodebuild` build, analyze, and non-ARC build of the `StashNative` and `StashNativeCodeLink` schemes, and both schemes from the root `Package.swift`; run the `StashNativeTests` Xcode scheme on an available iOS Simulator for its UIKit app host. Do not use macOS `swift test` for the iOS package. |
 | iOS sample | Simulator build and SwiftLint using `.swiftlint.yml`; device testing for platform behavior. |
 | Desktop shared contract | CMake/CTest against `Desktop/shared`, independently of either UI host. |
 | macOS SDK and sample | `swift build`/`swift test` from `Desktop`, bundle export/architecture checks, SwiftLint, Clang analysis, and sample `-stash-auto local`/`secure` proof runs. |

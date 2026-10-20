@@ -33,17 +33,26 @@ enum StashHmac {
         return "v1;\(appId);\(unixMillis);\(Data(mac).base64EncodedString())"
     }
 
-    /// True when the secret decodes as base64 (after padding), the same acceptance as the Android sample.
+    /// True when the secret decodes under `secretData`'s rule.
     static func isValidIngressSecret(_ ingressSecretB64: String) -> Bool {
         secretData(ingressSecretB64) != nil
     }
 
-    /// Decodes the secret, tolerating missing `=` padding like Android's Base64.DEFAULT.
+    private static let base64Alphabet = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+
+    /// Decodes a trimmed, standard base64 secret with complete or missing `=` padding; a 4n+1
+    /// length never decodes. The Android sample's MainViewModel.isValidBase64 applies the same rule,
+    /// so a secret works on both samples or on neither.
     static func secretData(_ ingressSecretB64: String) -> Data? {
         let trimmed = ingressSecretB64.trimmingCharacters(in: .whitespacesAndNewlines)
-        let remainder = trimmed.count % 4
-        guard !trimmed.isEmpty, remainder != 1 else { return nil }
-        let padded = remainder == 0 ? trimmed : trimmed + String(repeating: "=", count: 4 - remainder)
-        return Data(base64Encoded: padded)
+        var unpadded = Substring(trimmed)
+        while unpadded.hasSuffix("=") { unpadded = unpadded.dropLast() }
+        let padding = trimmed.count - unpadded.count
+        let remainder = unpadded.count % 4
+        guard !unpadded.isEmpty, remainder != 1,
+              unpadded.unicodeScalars.allSatisfy({ base64Alphabet.contains($0) }),
+              padding == 0 || remainder + padding == 4 else { return nil }
+        return Data(base64Encoded: String(unpadded) + String(repeating: "=", count: (4 - remainder) % 4))
     }
 }

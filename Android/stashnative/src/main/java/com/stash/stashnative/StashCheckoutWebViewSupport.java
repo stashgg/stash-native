@@ -77,6 +77,9 @@ final class StashCheckoutWebViewSupport {
       activity.webView.setAlpha(0f);
       // Renderer replacements must stay beneath the native controls.
       activity.cardContainer.addView(activity.webView, 0);
+      if (activity.presentation != null) {
+        activity.presentation.applyWebViewBottomInset();
+      }
 
       // Cover the card before navigation starts to avoid an empty first frame.
       activity.loadingView = StashWebViewUtils.createAndShowLoadingView(
@@ -99,6 +102,7 @@ final class StashCheckoutWebViewSupport {
       activity.webViewCommittedReloadUrl = urlWithTheme;
       activity.issueBridgeDocumentToken();
       activity.webViewRetryCount = 0;
+      activity.supersededInitialLoadUrl = null;
       activity.pageLoadStartTime = 0;
       activity.pageLoadedCallbackSent = false;
       activity.mainFrameNavigationCommitted = false;

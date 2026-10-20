@@ -11,6 +11,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.os.Parcel;
+import android.view.View;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,7 +50,9 @@ public class ScannerTest {
     plugin.resetPresentationState();
   }
 
-  @Test public void admissionFollowsHostAndRefusesOverlappingPresentations() {
+  @Test
+  @Config(shadows = ResolvedScannerModuleShadow.class)
+  public void admissionFollowsHostAndRefusesOverlappingPresentations() {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
     host.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     plugin.openScanner(host);
@@ -66,10 +69,81 @@ public class ScannerTest {
 
   @Test public void missingModuleResolvesToNullWithoutThrowing() {
     StashCardActivity card = Robolectric.buildActivity(StashCardActivity.class).get();
+    assertFalse(StashScannerContent.isAvailable());
     assertNull(StashScannerContent.create(card));
   }
 
-  @Test public void unavailableScannerReportsOnceAndAllowsCheckoutFromCallback() {
+  @Test public void missingModulePresentsNothingAndReportsAsynchronouslyOnce() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    long session = plugin.presentationSessionId;
+    List<String> events = new ArrayList<>();
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onScannerError(StashNative.ScannerError error) {
+        assertFalse(plugin.isCurrentlyPresented());
+        events.add(error.name());
+      }
+
+      @Override public void onScannerDismissed() {
+        events.add("scanner-dismissed");
+      }
+    });
+    plugin.openScanner(host);
+    assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertFalse(plugin.isCurrentlyPresented());
+    assertEquals(session, plugin.presentationSessionId);
+    assertTrue(events.isEmpty());
+    idle(0);
+    assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+    idle(1000);
+    assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+    assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertFalse(plugin.isCurrentlyPresented());
+  }
+
+  @Test
+  @Config(shadows = LibraryMissingAtFirstUseShadow.class)
+  public void libraryMissingAtFirstUseClosesCardAsUnavailableWithoutCrashing() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    Shadows.shadowOf(host.getApplication()).grantPermissions(
+        host.getPackageName() + ".permission.STASH_NATIVE_INTERNAL");
+    List<String> events = new ArrayList<>();
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onScannerError(StashNative.ScannerError error) {
+        events.add(error.name());
+      }
+
+      @Override public void onScannerDismissed() {
+        events.add("scanner-dismissed");
+      }
+    });
+    plugin.openScanner(host);
+    Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(intent);
+    ActivityController<StashCardActivity> scanner =
+        Robolectric.buildActivity(StashCardActivity.class, intent);
+    try {
+      scanner.create().start().resume();
+      StashCardActivity card = scanner.get();
+      assertTrue(card.isFinishing());
+      assertNull(card.scannerContent);
+      assertEquals(1, LibraryMissingAtFirstUseShadow.content.disposals);
+      assertFalse(plugin.isCurrentlyPresented());
+      assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+      scanner.pause().stop().destroy();
+      idle(1000);
+      assertEquals(Collections.singletonList("SCANNER_UNAVAILABLE"), events);
+    } finally {
+      if (!scanner.get().isDestroyed()) {
+        scanner.destroy();
+      }
+      host.finish();
+      idle(0);
+    }
+  }
+
+  @Test
+  @Config(shadows = ResolvedScannerModuleShadow.class)
+  public void unavailableScannerReportsOnceAndAllowsCheckoutFromCallback() {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
     plugin.openScanner(host);
     StashCardActivity unavailable = Robolectric.buildActivity(StashCardActivity.class).get();
@@ -152,7 +226,9 @@ public class ScannerTest {
     }
   }
 
-  @Test public void configurationIsSnapshottedBeforeMainDispatchAndSurvivesIntentTransport()
+  @Test
+  @Config(shadows = ResolvedScannerModuleShadow.class)
+  public void configurationIsSnapshottedBeforeMainDispatchAndSurvivesIntentTransport()
       throws Exception {
     Activity host = Robolectric.buildActivity(Activity.class).setup().get();
     StashNative.ScannerConfig config = new StashNative.ScannerConfig();
@@ -233,12 +309,65 @@ public class ScannerTest {
     Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(milliseconds));
   }
 
-  /** Pins the module-absent path even if a future test classpath adds the module. */
+  /** The module resolves for admission, but its constructor fails in the card. */
   @Implements(StashScannerContent.class)
   public static class UnavailableScannerShadow {
+    @Implementation
+    protected static boolean isAvailable() {
+      return true;
+    }
+
     @Implementation
     protected static StashScannerContent create(StashScannerHost host) {
       return null;
     }
+  }
+
+  /** A partial installation whose missing library is first touched when the camera starts. */
+  @Implements(StashScannerContent.class)
+  public static class LibraryMissingAtFirstUseShadow {
+    static FailingContent content;
+
+    @Implementation
+    protected static boolean isAvailable() {
+      return true;
+    }
+
+    @Implementation
+    protected static StashScannerContent create(StashScannerHost host) {
+      content = new FailingContent(host.getActivity());
+      return content;
+    }
+  }
+
+  static final class FailingContent extends StashScannerContent {
+    private final View view;
+    int disposals;
+
+    FailingContent(Activity activity) {
+      view = new View(activity);
+    }
+
+    @Override public View getView() {
+      return view;
+    }
+
+    @Override public void setBottomInset(int inset) {}
+
+    @Override public void resume() {
+      throw new NoClassDefFoundError("androidx/camera/lifecycle/ProcessCameraProvider");
+    }
+
+    @Override public void pause() {}
+
+    @Override public void dispose() {
+      disposals++;
+    }
+
+    @Override public void geometryChanged() {}
+
+    @Override public void permissionResult() {}
+
+    @Override public void showConnected(Runnable completion) {}
   }
 }

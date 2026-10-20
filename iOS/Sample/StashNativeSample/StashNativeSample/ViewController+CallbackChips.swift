@@ -67,6 +67,8 @@ extension ViewController {
             callbackChipStack.arrangedSubviews.last?.removeFromSuperview()
         }
 
+        ViewController.announceCallback(text)
+
         row.alpha = 0
         row.transform = CGAffineTransform(translationX: 0, y: -12)
         UIView.animate(withDuration: 0.22) {
@@ -79,6 +81,12 @@ extension ViewController {
             guard let self = self, let row = row, row.superview != nil else { return }
             self.removeChip(row)
         }
+    }
+
+    /// Chips expire, so each one is spoken for VoiceOver users; queued so bursts are not cut off.
+    private static func announceCallback(_ text: String) {
+        UIAccessibility.post(notification: .announcement, argument: NSAttributedString(
+            string: text, attributes: [.accessibilitySpeechQueueAnnouncement: true]))
     }
 
     @objc private func dismissChip(_ gesture: UITapGestureRecognizer) {

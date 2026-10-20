@@ -22,6 +22,8 @@ android {
         absent { dimension 'dependencies' }
         cameraOnly { dimension 'dependencies' }
         legacyCamera { dimension 'dependencies' }
+        noCamera2 { dimension 'dependencies' }
+        noLifecycle { dimension 'dependencies' }
     }
 
     buildTypes {
@@ -47,6 +49,8 @@ dependencies {
     currentImplementation codeLinkAar
     cameraOnlyImplementation codeLinkAar
     legacyCameraImplementation codeLinkAar
+    noCamera2Implementation codeLinkAar
+    noLifecycleImplementation codeLinkAar
     implementation 'androidx.core:core:1.12.0'
     implementation 'androidx.webkit:webkit:1.11.0'
     implementation 'androidx.window:window:1.4.0'
@@ -68,4 +72,13 @@ dependencies {
     legacyCameraImplementation 'androidx.camera:camera-lifecycle:1.3.4'
     legacyCameraImplementation 'androidx.camera:camera-view:1.3.4'
     legacyCameraImplementation 'com.google.zxing:core:3.5.3'
+    // Partial CameraX sets must link and minify; at runtime the scanner reports SCANNER_UNAVAILABLE.
+    // camera-view brings camera-core and camera-lifecycle but not the camera2 backend.
+    noCamera2Implementation 'androidx.camera:camera-view:1.4.2'
+    noCamera2Implementation 'com.google.zxing:core:3.5.3'
+    noLifecycleImplementation 'androidx.camera:camera-camera2:1.4.2'
+    noLifecycleImplementation('androidx.camera:camera-view:1.4.2') {
+        exclude group: 'androidx.camera', module: 'camera-lifecycle'
+    }
+    noLifecycleImplementation 'com.google.zxing:core:3.5.3'
 }

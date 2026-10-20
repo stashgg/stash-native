@@ -42,7 +42,9 @@ final class PayloadEditorViewController: UIViewController {
         navigationItem.rightBarButtonItems = [save, reset]
 
         textView.text = host?.instancePayload(instanceId, kind) ?? ""
-        textView.font = .monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.font = UIFontMetrics(forTextStyle: .body)
+            .scaledFont(for: .monospacedSystemFont(ofSize: 13, weight: .regular))
+        textView.adjustsFontForContentSizeCategory = true
         textView.autocapitalizationType = .none
         textView.autocorrectionType = .no
         textView.smartQuotesType = .no

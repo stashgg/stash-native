@@ -42,8 +42,10 @@ public class RequestLifetimeTest {
     assertNull(sdk.getListener());
   }
 
-  /** When the host is destroyed relative to the generate response. */
-  private enum Host { ALIVE, DESTROYED_BEFORE_RESPONSE, DESTROYED_AFTER_RESPONSE }
+  /** What happens to the host relative to the generate response. */
+  private enum Host {
+    ALIVE, DESTROYED_BEFORE_RESPONSE, DESTROYED_AFTER_RESPONSE, MANUAL_OPEN_BEFORE_RESPONSE
+  }
 
   /** A completion that arrives while the host is alive reaches the UI branch and opens a card. */
   @Test public void responseWhileHostIsAliveOpensCheckoutOnce() throws Exception {
@@ -63,15 +65,52 @@ public class RequestLifetimeTest {
 
   /**
    * Discriminating form of the A-010 guard test: the response is parsed and posted to the main
-   * thread before the host is destroyed, so only the UI-thread lifetime guard and presentCard's
-   * guard stand between the stale completion and the counters. Removing either guard fails this
-   * test independently of the SDK's own rejection of destroyed hosts.
+   * thread before the host stops and is destroyed, so only the onStop supersession, the UI-thread
+   * lifetime guard and presentCard's guard stand between the stale completion and the counters.
    */
   @Test public void responseAfterDestroyCannotOpenCheckoutOnReplacementHost() throws Exception {
     MainActivity activity = generateWithLocalServer(Host.DESTROYED_AFTER_RESPONSE);
     assertEquals(0, activity.acceptedCompletions);
     assertEquals(0, activity.cardOpenRequests);
     assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+  }
+
+  /**
+   * A-096: opening the URL row's card while a generate request is pending supersedes it, so the
+   * late response cannot open a second, unrequested checkout.
+   */
+  @Test public void manualOpenSupersedesPendingGenerate() throws Exception {
+    MainActivity activity = generateWithLocalServer(Host.MANUAL_OPEN_BEFORE_RESPONSE);
+    assertEquals(0, activity.acceptedCompletions);
+    assertEquals(1, activity.cardOpenRequests);
+    assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+  }
+
+  /** A-102: a selected instance without an app ID reports it instead of signing as the demo. */
+  @Test public void blankSelectedAppIdShowsRequiredFieldsWithoutRequest() throws Exception {
+    ActivityController<MainActivity> controller =
+        Robolectric.buildActivity(MainActivity.class).setup();
+    try {
+      MainActivity activity = controller.get();
+      MainViewModel model = org.robolectric.util.ReflectionHelpers.getField(activity, "viewModel");
+      model.openInstanceDetails(model.getSelectedApiKey().id);
+      model.setEditingAppId(" ");
+      model.navigateTo(MainViewModel.Screen.TEST);
+      assertEquals("", model.getActiveAppId());
+      Method request = MainActivity.class.getDeclaredMethod("generateAndOpen", String.class,
+          String.class, boolean.class, int.class, String.class);
+      request.setAccessible(true);
+      request.invoke(activity, "/fixture", "{}", false, R.string.error_generate_checkout_url,
+          "fixture");
+      assertNull(pendingRequest(activity));
+      android.app.AlertDialog dialog =
+          org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+      assertNotNull(dialog);
+      assertEquals(activity.getString(R.string.add_api_key_incomplete),
+          Shadows.shadowOf(dialog).getMessage().toString());
+    } finally {
+      controller.pause().stop().destroy();
+    }
   }
 
   /**
@@ -147,11 +186,20 @@ public class RequestLifetimeTest {
         controller.pause().stop().destroy();
         destroyed = true;
         replacement = Robolectric.buildActivity(Activity.class).setup();
+      } else if (hostLifetime == Host.MANUAL_OPEN_BEFORE_RESPONSE) {
+        Method openCard = MainActivity.class.getDeclaredMethod("openCard");
+        openCard.setAccessible(true);
+        openCard.invoke(activity);
+        assertNotNull("manual open starts checkout",
+            Shadows.shadowOf(activity).getNextStartedActivity());
       }
       respond.countDown();
       response.get(5, TimeUnit.SECONDS);
       if (hostLifetime == Host.DESTROYED_BEFORE_RESPONSE) {
         assertTerminated(networkExecutor, requestWorker, "destroyed host request terminated");
+      } else if (hostLifetime == Host.MANUAL_OPEN_BEFORE_RESPONSE) {
+        // The superseded worker finishes before this marker runs on the single-thread executor.
+        networkExecutor.submit(() -> null).get(5, TimeUnit.SECONDS);
       } else {
         // The worker has parsed the response and posted the completion; the looper is paused.
         pendingRequest(activity).get(5, TimeUnit.SECONDS);

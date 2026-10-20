@@ -40,6 +40,7 @@ import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.lifecycle.LifecycleRegistry;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.zxing.qrcode.decoder.Decoder;
 import com.stash.stashnative.StashNative;
 import com.stash.stashnative.StashScannerContent;
 import com.stash.stashnative.StashScannerHost;
@@ -53,6 +54,28 @@ import java.util.concurrent.Executors;
 @OptIn(markerClass = TransformExperimental.class)
 public final class StashScannerSupport extends StashScannerContent
     implements LifecycleOwner, DisplayManager.DisplayListener {
+  /** CameraX loads its camera2 backend by this name from camera-camera2's manifest metadata. */
+  static final String CAMERA2_PROVIDER = "androidx.camera.camera2.Camera2Config$DefaultProvider";
+
+  // A partial installation fails class initialization here. The core reports that as
+  // SCANNER_UNAVAILABLE before any card opens, instead of the card failing on first camera use.
+  private static final Class<?>[] LIBRARIES = {
+    CameraSelector.class, // camera-core
+    ProcessCameraProvider.class, // camera-lifecycle
+    PreviewView.class, // camera-view
+    LifecycleRegistry.class, // lifecycle-runtime
+    ListenableFuture.class, // listenablefuture
+    Decoder.class, // ZXing core
+  };
+
+  static {
+    try {
+      Class.forName(CAMERA2_PROVIDER, false, StashScannerSupport.class.getClassLoader());
+    } catch (ClassNotFoundException missing) {
+      throw new NoClassDefFoundError(CAMERA2_PROVIDER);
+    }
+  }
+
   final StashScannerView view;
   private final StashScannerHost host;
   private final Activity activity;

@@ -644,6 +644,10 @@ public class StashNativePlugin {
     }
     isCurrentlyPresented = false;
     checkoutActivityRef = null;
+    reportScannerUnavailable();
+  }
+
+  private void reportScannerUnavailable() {
     StashNative.StashNativeListener current = getListener();
     if (current != null) {
       try {
@@ -661,6 +665,11 @@ public class StashNativePlugin {
       return;
     }
     if (isCurrentlyPresented || host == null || host.isFinishing() || host.isDestroyed()) {
+      return;
+    }
+    if (scanner != null && !StashScannerContent.isAvailable()) {
+      // Present nothing, so no dismissal follows; the error still arrives asynchronously.
+      mainHandler.post(this::reportScannerUnavailable);
       return;
     }
     setActivity(host);

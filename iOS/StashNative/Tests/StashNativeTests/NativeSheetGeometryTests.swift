@@ -142,8 +142,11 @@ final class NativeSheetGeometryTests: XCTestCase {
         let result = StashNativePaneProbe() as! [String: NSNumber]
         XCTAssertEqual(result["width"]?.doubleValue, 400)
         XCTAssertEqual(result["anchored"]?.boolValue, false)
+        // UIKit ignores the width of a zero-height preferred size, so the wide pane reports a height;
+        // the detents asserted below still set the card's actual height.
+        // It stays constant: it is assigned outside the sheet animation, so a changing value would jump the card.
         for key in ["initialHeight", "restingPreferredHeight", "expandedPreferredHeight"] {
-            XCTAssertEqual(result[key]?.doubleValue, 0, key)
+            XCTAssertEqual(result[key]?.doubleValue, 300, key)
         }
         XCTAssertEqual(result["restingDetent"]?.doubleValue, 300)
         XCTAssertEqual(result["intrinsicDetent"]?.doubleValue, 120)

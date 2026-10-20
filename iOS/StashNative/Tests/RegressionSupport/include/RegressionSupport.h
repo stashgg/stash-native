@@ -1,5 +1,12 @@
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
+#import <UIKit/UIKit.h>
+
+// Fixtures declare their own reserved regions; the host scene's (such as iPhone Duo's camera) must not leak in.
+@interface StashFixtureWindow : UIWindow
+@end
+// A fixture window in the foreground scene, for screen-coordinate conversion, keeping the given frame.
+UIWindow * _Nonnull StashSceneFixtureWindow(Class _Nonnull windowClass, CGRect frame);
 
 void StashScannerLifecycleProbe(void (^completion)(NSDictionary *));
 void StashScannerInterruptedConfirmationProbe(BOOL reset, void (^completion)(NSDictionary *));
@@ -44,6 +51,7 @@ NSDictionary *StashInputAccessoryProbe(void);
 NSDictionary *StashNativeGrabberContentProbe(void);
 void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *));
 NSDictionary *StashURLProbe(void);
+NSString * _Nullable StashNormalizedURLProbe(NSString * _Nullable raw);
 NSDictionary *StashLifecycleProbe(void);
 NSDictionary *StashPresentationStateProbe(void);
 void StashScrollInteractionProbe(void (^completion)(NSDictionary *));
@@ -79,6 +87,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void);
 NSDictionary *StashNativePresentationProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);
 void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *));
+void StashLandscapeCardWidthProbe(CGFloat preferredWidth, void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 NSDictionary *StashNativeEntranceProbe(void);
 
 NSDictionary *StashPageBackingLifecycleProbe(void);
@@ -99,6 +108,7 @@ void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^compl
 NSDictionary *StashInstanceThemeProbe(void);
 NSDictionary *StashInstanceClosingOwnerReleaseProbe(void);
 NSDictionary * _Nonnull StashCallbackDismissalProbe(void);
+void StashLatePresentationFailureProbe(void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 NSDictionary * _Nonnull StashCallbackLiveReceiverProbe(BOOL clear);
 NSDictionary * _Nonnull StashCallbackReentrantProbe(void);
 NSDictionary * _Nonnull StashCallbackReopenProbe(void);

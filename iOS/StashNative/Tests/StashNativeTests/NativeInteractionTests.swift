@@ -2,7 +2,7 @@ import XCTest
 import WebKit
 import RegressionSupport
 
-private final class InteractionFixtureWindow: UIWindow {
+private final class InteractionFixtureWindow: StashFixtureWindow {
     override var safeAreaInsets: UIEdgeInsets { .zero }
 }
 

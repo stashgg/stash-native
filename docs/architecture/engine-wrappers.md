@@ -27,6 +27,7 @@ sequenceDiagram
 3. Copy each callback payload and queue it for the game thread.
 4. Forward every callback, in order.
 5. Leave orientation to the SDK.
+6. On iOS, read `isCurrentlyPresented` and `isPurchaseProcessing` on the main thread. On Android, they work from any thread.
 
 ## Android
 

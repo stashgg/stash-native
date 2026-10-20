@@ -81,6 +81,22 @@ final class InstanceLifetimeTests: XCTestCase {
         wait(for: [done], timeout: 5)
     }
 
+    func testPresentationFailingAfterAcceptedOpenEndsWithItsFinalEvent() {
+        let done = expectation(description: "late presentation failure")
+        DispatchQueue.main.async {
+            StashLatePresentationFailureProbe { result in
+                XCTAssertEqual(result["handoffEvents"] as? [String], ["handoff", "browser-dismissed"])
+                XCTAssertEqual(result["cardEvents"] as? [String], ["card-dismissed"])
+                XCTAssertEqual(result["resetEvents"] as? [String], [])
+                for name in ["handoffClosed", "cardAdmitted", "cardClosed", "resetClosed"] {
+                    XCTAssertEqual((result[name] as? NSNumber)?.boolValue, true, name)
+                }
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 5)
+    }
+
     func testReplacingReceiverDuringSelectorCheckUsesOneLiveSnapshot() {
         checkCallbacks { StashCallbackLiveReceiverProbe(false) }
     }

@@ -10,9 +10,13 @@ import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -117,6 +121,48 @@ public class TelemetryTest {
     assertEquals("expanded", changed.getString("state"));
     assertTrue(changed.getBoolean("keyboardVisible"));
     assertEquals("resting", presentation.getString("state"));
+  }
+
+  private static void paths(JSONObject value, String prefix, List<String> out) throws JSONException {
+    Iterator<String> keys = value.keys();
+    while (keys.hasNext()) {
+      String key = keys.next();
+      String path = prefix.isEmpty() ? key : prefix + "." + key;
+      out.add(path);
+      Object child = value.get(key);
+      if (child instanceof JSONObject) {
+        paths((JSONObject) child, path, out);
+      }
+    }
+  }
+
+  @Test
+  public void snapshotKeysKeepTheOrderSharedWithIos() throws Exception {
+    // iOS TelemetryTests asserts the same paths; pages see one key order on both platforms.
+    List<String> actual = new ArrayList<>();
+    paths(telemetry.snapshot(), "", actual);
+    assertEquals(
+        Arrays.asList(
+            "schemaVersion", "platform",
+            "hardware", "hardware.manufacturer", "hardware.model", "hardware.memoryBytes",
+            "os", "os.version", "os.apiLevel",
+            "app", "app.id", "app.version", "app.build", "app.targetSdkVersion",
+            "runtime", "runtime.sdkVersion", "runtime.webViewEngine", "runtime.webViewPackage",
+            "runtime.webViewVersion",
+            "presentation", "presentation.state", "presentation.keyboardVisible",
+            "presentation.window", "presentation.window.width", "presentation.window.height",
+            "presentation.card", "presentation.card.width", "presentation.card.height",
+            "presentation.safeAreaInsets", "presentation.safeAreaInsets.top",
+            "presentation.safeAreaInsets.right", "presentation.safeAreaInsets.bottom",
+            "presentation.safeAreaInsets.left",
+            "presentation.fold", "presentation.fold.state", "presentation.fold.orientation",
+            "presentation.fold.separating",
+            "presentation.orientationPreference", "presentation.portraitApplied",
+            "presentation.multiWindow",
+            "power", "power.lowPowerMode", "power.thermalState",
+            "timing", "timing.firstCallAt", "timing.pageLoadStartedAt", "timing.pageLoadedAt",
+            "timing.pageLoadTimeMs"),
+        actual);
   }
 
   @Test

@@ -1,0 +1,21 @@
+{
+  "version" : 2,
+  "instances" : [
+    {
+      "name" : "Fixture Production",
+      "appId" : "fixture-app-production",
+      "ingressSecret" : "Pz8/Pj4+c2VjcmV0LWtleQ==",
+      "production" : true,
+      "checkoutPayload" : "{\n  \"currency\" : \"EUR\",\n  \"item\" : {\n    \"id\" : \"fixture/gems\",\n    \"imageUrl\" : \"https://example.invalid/gems.png\"\n  }\n}",
+      "webshopPayload" : "{\"target\":\"STORE\",\"user\":{\"id\":\"fixture-user\"}}"
+    },
+    {
+      "name" : "Fixture Test",
+      "appId" : "fixture-app-test",
+      "ingressSecret" : "c2VjcmV0LWtleQ",
+      "production" : false,
+      "checkoutPayload" : "{\"currency\":\"USD\",\"item\":{\"id\":\"fixture-coins\"}}",
+      "webshopPayload" : "{\"target\":\"DEFAULT\"}"
+    }
+  ]
+}

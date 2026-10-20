@@ -81,7 +81,7 @@ public final class SettingsItem {
     this.production = production;
   }
 
-  /** API key row: name + production/test toggle + selected indicator. */
+  /** Instance row: name, production/test label and selection radio. */
   public static SettingsItem apiKey(
       String id,
       String name,

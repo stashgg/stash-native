@@ -33,6 +33,7 @@ void StashInstallPortraitOrientationHooks(id applicationDelegate, UIWindowScene 
 @interface StashNative ()
 @property (nonatomic, strong) StashCardSession *session;
 - (void)deliverToDelegate:(void (^)(id<StashNativeDelegate> delegate))delivery;
+- (void)deliverScannerUnavailable;
 @end
 
 typedef struct {

@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+: lets the browser keep-alive notification show; requested at runtime. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- android.permission.CAMERA merges in from the stashnative-codelink module. -->
 
     <application

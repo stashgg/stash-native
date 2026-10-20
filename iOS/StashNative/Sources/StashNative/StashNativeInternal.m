@@ -62,14 +62,21 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)presentCheckoutContent {
     if (![self isActive] || self.controller) return;
     UIViewController *presenter = self.presentationPresenter;
+    // presentCheckout rejected these states synchronously; reaching them here means they changed after the open
+    // was accepted, so the presentation still ends with its dismissal.
     if (!presenter.view.window || presenter.isBeingDismissed || presenter.presentedViewController ||
         !self.presenter.viewIfLoaded.window || self.presenter.isBeingDismissed) {
-        [self finishWithUserDismiss:NO completion:nil];
+        [self finishWithUserDismiss:YES completion:nil];
         return;
     }
     if (self.scanner) {
         Class contentClass = StashScannerContentClass();
-        if (!contentClass) { [self finishWithUserDismiss:NO completion:nil]; return; }
+        if (!contentClass) {
+            // Same contract as Android's late module check: the unavailable error, without a dismissal.
+            StashNative *owner = self.owner;
+            [self finishWithUserDismiss:NO completion:^{ [owner deliverScannerUnavailable]; }];
+            return;
+        }
         UIViewController<StashNativeScannerContent> *scanner = [[contentClass alloc] init];
         scanner.scannerHost = self;
         self.scannerController = scanner;
@@ -360,10 +367,16 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }
 }
 - (void)presentBrowser {
+    [self presentBrowserAfterHandoff:NO];
+}
+// An open rejected synchronously is ignored. After a handoff, or once preparation has gone asynchronous,
+// the host was told a browser is coming, so a failure ends with the browser-closed event.
+- (void)presentBrowserAfterHandoff:(BOOL)handoff {
     if (![self isActive] || self.browser) return;
     UIViewController *presenter = self.presentationPresenter;
     if (!presenter.viewIfLoaded.window || presenter.isBeingDismissed || presenter.presentedViewController) {
-        [self finishWithUserDismiss:NO completion:nil];
+        if (handoff) [self browserClosed];
+        else [self finishWithUserDismiss:NO completion:nil];
         return;
     }
     StashSafariViewController *browser = [[StashSafariViewController alloc] initWithURL:[NSURL URLWithString:self.url]];
@@ -374,7 +387,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         UIViewController *readyPresenter = self.presentationPresenter;
         if (!readyPresenter.viewIfLoaded.window || readyPresenter.isBeingDismissed ||
             readyPresenter.presentedViewController || !self.presenter.viewIfLoaded.window || self.presenter.isBeingDismissed) {
-            [self finishWithUserDismiss:NO completion:nil];
+            [self browserClosed];
             return;
         }
         browser.prefersPortrait = self.portraitPresentation.presenter != nil;
@@ -524,7 +537,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         self.config = StashNormalizedConfig(nil);
         self.url = url;
         self.browserHandoff = NO;
-        [self presentBrowser];
+        [self presentBrowserAfterHandoff:YES];
     }];
 }
 - (void)paymentSucceeded:(BOOL)success order:(NSString *)order {

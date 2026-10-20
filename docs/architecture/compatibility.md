@@ -32,8 +32,6 @@ iPhone Duo layouts need the app itself to link against the iOS 27.1 SDK. Mac Cat
 | 30 | `CONFIRM` haptic |
 | 34 | Foreground services use the `shortService` type with a timeout |
 
-Web content gets CSS safe-area insets from Android WebView 144.
-
 ## Runtime techniques
 
 | Platform | Technique | Used for |

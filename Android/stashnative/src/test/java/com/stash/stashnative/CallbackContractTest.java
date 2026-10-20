@@ -33,7 +33,7 @@ import org.robolectric.util.ReflectionHelpers;
 
 /** Live listener delivery routes named callbacks through the existing session guards. */
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 28)
+@Config(sdk = 28, shadows = ResolvedScannerModuleShadow.class)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class CallbackContractTest {
   private final StashNative sdk = StashNative.getInstance();

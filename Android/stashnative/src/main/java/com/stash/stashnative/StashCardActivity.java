@@ -83,6 +83,9 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   /** 0 = first load; 1 = one stall retry issued (no further automatic retries). */
   int webViewRetryCount;
 
+  /** First attempt's URL from the stall retry until the retry starts; its late events are stale. */
+  String supersededInitialLoadUrl;
+
   /** True once the main frame has committed visible content (or progress fallback on older API). */
   boolean mainFrameNavigationCommitted;
 
@@ -196,11 +199,19 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     presentation = new StashPresentationController(this, options);
     cardContainer.controller = presentation;
     if (scanner) {
+      View scannerView = null;
       scannerContent = StashScannerContent.create(this);
-      if (scannerContent == null) {
+      try {
+        scannerView = scannerContent != null ? scannerContent.getView() : null;
+      } catch (Throwable error) {
+        Log.w(TAG, "QR Code Linking is missing a library it needs", error);
+      }
+      if (scannerView == null) {
+        disposeScanner();
+        scannerContent = null;
         return false;
       }
-      cardContainer.addView(scannerContent.getView(), new FrameLayout.LayoutParams(-1, -1));
+      cardContainer.addView(scannerView, new FrameLayout.LayoutParams(-1, -1));
     } else {
       contentSizeSupport = new StashContentSizeSupport(this);
       telemetrySupport = new StashTelemetrySupport(this);
@@ -435,7 +446,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     scanCompleted = true;
     presentation.processingStarted();
     applyDragHandlePurchaseProcessingFade(true);
-    scannerContent.showConnected(() -> {
+    callScanner(() -> scannerContent.showConnected(() -> {
       if (scanCancelled || isDismissing) {
         return;
       }
@@ -447,14 +458,52 @@ public class StashCardActivity extends Activity implements StashScannerHost {
         }
         finishActivityWithNoAnimation();
       });
-    });
+    }));
   }
 
   private void cancelScan() {
     scanCancelled = true;
     scanResult = null;
-    if (scannerContent != null) {
+    disposeScanner();
+  }
+
+  /**
+   * Calls into the optional scanner module. A library that fails only on first use (a partial
+   * installation the module's initialization did not catch) closes the card as
+   * SCANNER_UNAVAILABLE, without a dismissal callback, instead of crashing the host process.
+   */
+  private void callScanner(Runnable call) {
+    if (scannerContent == null) {
+      return;
+    }
+    try {
+      call.run();
+    } catch (Throwable error) {
+      Log.w(TAG, "QR Code Linking is missing a library it needs", error);
+      disposeScanner();
+      scannerContent = null;
+      if (isDismissing) {
+        return;
+      }
+      callbackSent = true;
+      isDismissing = true;
+      finishActivityWithNoAnimation();
+      StashNativePlugin.getInstance().scannerUnavailable(this);
+    }
+  }
+
+  void setScannerBottomInset(int inset) {
+    callScanner(() -> scannerContent.setBottomInset(inset));
+  }
+
+  private void disposeScanner() {
+    if (scannerContent == null) {
+      return;
+    }
+    try {
       scannerContent.dispose();
+    } catch (Throwable error) {
+      Log.w(TAG, "Scanner cleanup failed", error);
     }
   }
 
@@ -517,9 +566,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   protected void onPause() {
     super.onPause();
     isActivityPaused = true;
-    if (scannerContent != null) {
-      scannerContent.pause();
-    }
+    callScanner(() -> scannerContent.pause());
     if (contentRevealSupport != null) {
       contentRevealSupport.pause();
     }
@@ -542,8 +589,8 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   protected void onResume() {
     super.onResume();
     isActivityPaused = false;
-    if (scannerContent != null && !isDismissing) {
-      scannerContent.resume();
+    if (!isDismissing) {
+      callScanner(() -> scannerContent.resume());
     }
     StashNativePlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {
@@ -583,9 +630,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     if (hostBackdrop != null) {
       hostBackdrop.geometryChanged();
     }
-    if (scannerContent != null) {
-      scannerContent.geometryChanged();
-    }
+    callScanner(() -> scannerContent.geometryChanged());
     if (presentation != null) {
       rootLayout.post(presentation::environmentChanged);
     }
@@ -624,8 +669,8 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
     super.onRequestPermissionsResult(requestCode, permissions, results);
-    if (requestCode == StashScannerContent.CAMERA_PERMISSION_REQUEST && scannerContent != null) {
-      scannerContent.permissionResult();
+    if (requestCode == StashScannerContent.CAMERA_PERMISSION_REQUEST) {
+      callScanner(() -> scannerContent.permissionResult());
     }
   }
 
@@ -635,9 +680,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
       hostBackdrop.dispose();
       hostBackdrop = null;
     }
-    if (scannerContent != null) {
-      scannerContent.dispose();
-    }
+    disposeScanner();
     if (presentation != null) {
       presentation.dispose();
     }

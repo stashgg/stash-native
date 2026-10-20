@@ -27,6 +27,7 @@ import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.util.ReflectionHelpers.ClassParameter;
 
 /** Exercises races between motion, queued bridge events, and renderer loss. */
 @RunWith(RobolectricTestRunner.class)
@@ -617,9 +618,12 @@ public class PresentationSafetyTest {
     assertTrue(frame.topMargin > 320);
   }
 
-  @Test public void webReceivesOnlyInsetsNotAlreadyHandledByNativeBounds() throws Exception {
+  @Test public void webEndsAboveNavigationBarAndReceivesNoInsets() throws Exception {
     activity.rootLayout.setRight(390);
     activity.rootLayout.setBottom(900);
+    activity.webView = new WebView(activity);
+    activity.cardContainer.addView(activity.webView, new FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
     java.lang.reflect.Method contentInsets = StashPresentationController.class.getDeclaredMethod(
         "contentInsets", WindowInsetsCompat.class);
     contentInsets.setAccessible(true);
@@ -633,8 +637,10 @@ public class PresentationSafetyTest {
           (WindowInsetsCompat) contentInsets.invoke(activity.presentation, supplied);
       assertEquals(Insets.NONE, content.getInsets(WindowInsetsCompat.Type.ime()));
       assertEquals(Insets.NONE, content.getInsets(WindowInsetsCompat.Type.statusBars()));
-      assertEquals(Insets.of(0, 0, 0, keyboard == 0 ? 24 : 0),
-          content.getInsets(WindowInsetsCompat.Type.navigationBars()));
+      // Android WebView reports env(safe-area-inset-bottom) as 0, so pages cannot pad for the bar.
+      assertEquals(Insets.NONE, content.getInsets(WindowInsetsCompat.Type.navigationBars()));
+      FrameLayout.LayoutParams web = (FrameLayout.LayoutParams) activity.webView.getLayoutParams();
+      assertEquals(keyboard == 0 ? 24 : 0, web.bottomMargin);
     }
   }
 
@@ -647,6 +653,80 @@ public class PresentationSafetyTest {
         .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, bottom))
         .setVisible(WindowInsetsCompat.Type.ime(), bottom > 0)
         .build());
+  }
+
+  @Test
+  @Config(shadows = LoadRecordingWebView.class)
+  public void initialLoadStartsOnceWhenWebViewEndsAboveNavigationBar() throws Exception {
+    LoadRecordingWebView.loads.clear();
+    activity.url = "https://example.invalid/checkout";
+    activity.rootLayout.addView(activity.cardContainer);
+    // As in onCreate, the WebView exists before the first insets resolve the card.
+    StashCheckoutWebViewSupport.addWebView(activity);
+    String themed = activity.webViewCommittedReloadUrl;
+    WebView original = activity.webView;
+    layoutWindow(390, 900);
+    ShadowLooper.idleMainLooper(20000, java.util.concurrent.TimeUnit.MILLISECONDS);
+    assertEquals(0, LoadRecordingWebView.loads.size());
+    assertEquals(0, activity.networkErrors);
+
+    applyKeyboardInsets(0);
+    layoutWindow(390, 900);
+    assertEquals(24, ((FrameLayout.LayoutParams) original.getLayoutParams()).bottomMargin);
+    assertEquals(584 - 24, original.getHeight());
+    assertEquals(java.util.Collections.singletonList(original + " " + themed),
+        LoadRecordingWebView.loads);
+    long deadline = activity.networkDeadlineTargetUptime - android.os.SystemClock.uptimeMillis();
+    assertTrue(deadline > CardConstants.WEBVIEW_NETWORK_DEADLINE_MS - 1000
+        && deadline <= CardConstants.WEBVIEW_NETWORK_DEADLINE_MS);
+    layoutWindow(390, 900);
+    assertEquals(1, LoadRecordingWebView.loads.size());
+
+    LoadRecordingWebView.loads.clear();
+    Shadows.shadowOf(original).getWebViewClient().onRenderProcessGone(original,
+        new RenderProcessGoneDetail() {
+          @Override public boolean didCrash() { return false; }
+          @Override public int rendererPriorityAtExit() { return 0; }
+        });
+    WebView replacement = activity.webView;
+    assertTrue(replacement != original);
+    assertEquals(0, LoadRecordingWebView.loads.size());
+    layoutWindow(390, 900);
+    assertEquals(java.util.Collections.singletonList(replacement + " " + themed),
+        LoadRecordingWebView.loads);
+    ShadowLooper.idleMainLooper(CardConstants.WEBVIEW_NETWORK_DEADLINE_MS,
+        java.util.concurrent.TimeUnit.MILLISECONDS);
+    assertEquals(1, activity.networkErrors);
+  }
+
+  private void layoutWindow(int width, int height) {
+    activity.rootLayout.measure(
+        View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+    activity.rootLayout.layout(0, 0, width, height);
+    ShadowLooper.idleMainLooper();
+  }
+
+  /** Records each navigation with its WebView, and lays the WebView out like a plain view. */
+  @org.robolectric.annotation.Implements(WebView.class)
+  public static class LoadRecordingWebView extends org.robolectric.shadows.ShadowWebView {
+    static final List<String> loads = new java.util.ArrayList<>();
+
+    @org.robolectric.annotation.Implementation
+    @Override
+    protected void loadUrl(String url) {
+      loads.add(realView + " " + url);
+      super.loadUrl(url);
+    }
+
+    @org.robolectric.annotation.Implementation
+    @SuppressWarnings("deprecation")
+    protected boolean setFrame(int left, int top, int right, int bottom) {
+      // On devices the WebView provider applies the frame; Robolectric's provider ignores it.
+      return org.robolectric.shadow.api.Shadow.directlyOn(realView, View.class, "setFrame",
+          ClassParameter.from(int.class, left), ClassParameter.from(int.class, top),
+          ClassParameter.from(int.class, right), ClassParameter.from(int.class, bottom));
+    }
   }
 
   @Test public void rendererRecoveryKeepsGrabberAboveReplacementWebView() throws Exception {

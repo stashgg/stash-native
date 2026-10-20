@@ -45,7 +45,11 @@ NSDictionary *StashNativePresentationProbe(void) {
         BOOL locked = controller.modalInPresentation && !sheet.prefersGrabberVisible;
         session.processing = NO; [controller updateDismissalPolicy];
         BOOL restored = !controller.modalInPresentation && sheet.prefersGrabberVisible;
-        result[input[@"name"]] = @(native && selected && stops && locked && restored);
+        // UIKit ignores the width of a zero-height preferred size, which locked phone-landscape cards to 540 points.
+        BOOL wide = [input[@"width"] doubleValue] >= 600;
+        BOOL widthHonored = !wide || (controller.preferredContentSize.height > 0 &&
+            controller.preferredContentSize.width == session.config.preferredContentWidth);
+        result[input[@"name"]] = @(native && selected && stops && locked && restored && widthHonored);
         [session cleanup];
     }
     return result;
@@ -170,4 +174,66 @@ void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *))
             });
         });
     }];
+}
+
+static void StashRequestSceneOrientation(UIWindowScene *scene, UIInterfaceOrientationMask mask) API_AVAILABLE(ios(16.0)) {
+    for (UIWindow *window in scene.windows) [window.rootViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+    UIWindowSceneGeometryPreferencesIOS *preferences = [[UIWindowSceneGeometryPreferencesIOS alloc]
+        initWithInterfaceOrientations:mask];
+    [scene requestGeometryUpdateWithPreferences:preferences errorHandler:nil];
+}
+
+static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(NSDictionary *)) API_AVAILABLE(ios(16.0)) {
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    UIWindowScene *scene = previous.windowScene;
+    if (!scene || !previous) { completion(@{@"rotated":@NO}); return; }
+    // Rotate the host scene itself: the card must follow a real compact-height phone window.
+    StashRequestSceneOrientation(scene, UIInterfaceOrientationMaskLandscapeRight);
+    StashAwaitHostCondition(^BOOL {
+        return previous.bounds.size.width > previous.bounds.size.height &&
+            previous.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
+    }, CFAbsoluteTimeGetCurrent() + 5, ^(BOOL rotated) {
+        UIWindow *window = [[UIWindow alloc] initWithWindowScene:scene];
+        UIViewController *root = [UIViewController new];
+        window.rootViewController = root; [window makeKeyAndVisible];
+        StashNative *owner = [StashNative new];
+        void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+            [owner resetPresentationState];
+            window.hidden = YES; [previous makeKeyWindow];
+            StashRequestSceneOrientation(scene, UIInterfaceOrientationMaskPortrait);
+            StashAwaitHostCondition(^BOOL { return previous.bounds.size.width < previous.bounds.size.height; },
+                CFAbsoluteTimeGetCurrent() + 5, ^(BOOL restored) {
+                NSMutableDictionary *final = [result mutableCopy];
+                final[@"restoredPortrait"] = @(restored);
+                completion(final);
+            });
+        };
+        if (!rotated) { finish(@{@"rotated":@NO}); return; }
+        StashNativeCardConfig *config = [StashNativeCardConfig new];
+        config.preferredContentWidth = preferredWidth;
+        [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:config];
+        StashCardSession *session = owner.session;
+        // A failed load would end the session before the measurement.
+        [session.webView stopLoading];
+        UIViewController *card = session.controller;
+        StashAwaitHostCondition(^BOOL { return card.presentingViewController == root && !card.isBeingPresented; },
+            CFAbsoluteTimeGetCurrent() + 5, ^(BOOL presented) {
+            if (!presented) { finish(@{@"rotated":@YES, @"presented":@NO}); return; }
+            // Let any post-presentation size update settle before measuring.
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                CGRect frame = [card.view convertRect:card.view.bounds toView:window];
+                finish(@{@"rotated":@YES, @"presented":@YES, @"windowWidth":@(window.bounds.size.width),
+                    @"windowHeight":@(window.bounds.size.height), @"cardWidth":@(frame.size.width),
+                    @"cardHeight":@(frame.size.height), @"active":@([session isActive])});
+            });
+        });
+    });
+}
+
+void StashLandscapeCardWidthProbe(CGFloat preferredWidth, void (^completion)(NSDictionary *)) {
+    if (@available(iOS 16.0, *)) StashLandscapeCardWidth(preferredWidth, completion);
+    else completion(@{@"rotated":@NO});
 }

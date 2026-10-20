@@ -274,7 +274,8 @@
             gap: 0.5rem;
         }
 
-        button.btn {
+        button.btn,
+        a.btn {
             box-sizing: border-box;
             width: 100%;
             min-height: 2.5rem;
@@ -299,32 +300,38 @@
             gap: 0.5rem;
             appearance: none;
             -webkit-appearance: none;
+            text-decoration: none;
         }
 
-        button.btn > svg {
+        button.btn > svg,
+        a.btn > svg {
             display: block;
             width: 1.125rem;
             height: 1.125rem;
             flex-shrink: 0;
         }
 
-        button.btn .btn-label {
+        button.btn .btn-label,
+        a.btn .btn-label {
             display: block;
             line-height: 1;
             text-align: start;
         }
 
-        button.btn:active {
+        button.btn:active,
+        a.btn:active {
             transform: scale(0.99);
         }
 
-        button.btn-primary {
+        button.btn-primary,
+        a.btn-primary {
             background: var(--pay-ui-theme-neutral-button-bg);
             color: var(--pay-ui-theme-fg-primary-color);
             box-shadow: inset 0 0 0 1px var(--pay-ui-theme-neutral-button-border);
         }
 
-        button.btn-primary:hover {
+        button.btn-primary:hover,
+        a.btn-primary:hover {
             background: var(--pay-ui-theme-neutral-button-bg-hover);
         }
 
@@ -1045,6 +1052,31 @@
                 <hr class="divider" />
 
                 <div class="stack-gap-md">
+                    <span class="section-title-sm">New window</span>
+                    <p class="meta-hint" style="text-align: left;">https opens outside the app and the card stays. iOS treats stash-pay URLs here as payment results; Android hands them to the OS.</p>
+                    <div class="btn-stack">
+                        <a class="btn btn-primary" href="https://example.com/new-window" target="_blank">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">target=_blank: https</span>
+                        </a>
+                        <a class="btn btn-primary" href="stashdemo://stash-pay/success" target="_blank">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">target=_blank: stash-pay/success</span>
+                        </a>
+                        <button type="button" class="btn btn-primary" onclick="triggerWindowOpen('https://example.com/window-open')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">window.open: https</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerWindowOpen('stashdemo://stash-pay/success')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">window.open: stash-pay/success</span>
+                        </button>
+                    </div>
+                </div>
+
+                <hr class="divider" />
+
+                <div class="stack-gap-md">
                     <span class="section-title-sm">External payment</span>
                     <div class="input-wrap">
                         <label class="field-label" for="externalUrl">URL</label>
@@ -1535,6 +1567,15 @@
                 window.location.href = url;
             } catch (e) {
                 updateStatus('Deeplink error: ' + (e && e.message ? e.message : e));
+            }
+        }
+
+        function triggerWindowOpen(url) {
+            updateStatus('window.open: ' + url);
+            try {
+                window.open(url, '_blank');
+            } catch (e) {
+                updateStatus('window.open error: ' + (e && e.message ? e.message : e));
             }
         }
 

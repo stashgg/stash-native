@@ -2,6 +2,25 @@
 #import "../../Sources/StashNative/StashNativePrivate.h"
 #import <math.h>
 
+@implementation StashFixtureWindow
+#if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
+- (NSArray<UIViewReservedRegion *> *)reservedRegionsOfKind:(UIViewReservedRegionKind *)kind API_AVAILABLE(ios(27.1)) {
+    return @[];
+}
+#endif
+@end
+
+UIWindow *StashSceneFixtureWindow(Class windowClass, CGRect frame) {
+    UIWindow *window = [[windowClass alloc] initWithFrame:frame];
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+        if (![scene isKindOfClass:UIWindowScene.class] || scene.activationState != UISceneActivationStateForegroundActive) continue;
+        window.windowScene = (UIWindowScene *)scene;
+        window.frame = frame;
+        break;
+    }
+    return window;
+}
+
 NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
                                 double preferredWidth, double preferredHeight, double maximumHeight, double margin) {
     StashNativeCardConfig *config = [StashNativeCardConfig new];
@@ -44,6 +63,7 @@ NSDictionary *StashURLProbe(void) {
         @"javascript":StashNormalizeExternalPaymentURL(@"javascript:alert(1)") ?: @"",
         @"themed":StashAppendThemeQueryParameter(@"https://example.invalid/?token=a%2Bb%26c&theme=light#section", nil)};
 }
+NSString *StashNormalizedURLProbe(NSString *raw) { return StashNormalizeExternalPaymentURL(raw); }
 NSDictionary *StashNativeSurfaceProbe(void) {
     CGRect safe = CGRectMake(0, 0, 466, 644);
     NSArray *regions = @[[NSValue valueWithCGRect:CGRectMake(382, 0, 84, 170)]];
@@ -178,7 +198,7 @@ NSDictionary *StashNativeKeyboardProbe(void) {
 - (void)viewDidLoad {}
 - (UIView *)layoutContainer { return self.probeContainer; }
 @end
-@interface StashSafeProbeWindow : UIWindow
+@interface StashSafeProbeWindow : StashFixtureWindow
 @property (nonatomic) UIEdgeInsets probeInsets;
 @end
 @implementation StashSafeProbeWindow
@@ -311,7 +331,9 @@ NSDictionary *StashNativeBottomPaintProbe(void) {
     StashCardSession *session = [StashCardSession new];
     session.config = [StashNativeCardConfig new];
     session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
-    StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, 951, 669)];
+    // The keyboard frame below is in screen coordinates, which a window converts only within a scene.
+    StashSafeProbeWindow *window = (StashSafeProbeWindow *)StashSceneFixtureWindow(StashSafeProbeWindow.class,
+        CGRectMake(0, 0, 951, 669));
     window.probeInsets = UIEdgeInsetsMake(0, 0, 34, 84);
     UIViewController *presenter = [UIViewController new];
     window.rootViewController = presenter; session.presenter = presenter;
@@ -366,11 +388,11 @@ NSDictionary *StashNativeBottomPaintProbe(void) {
     controller.keyboardEpisodeOwned = YES;
     controller.keyboardNotificationVisible = YES;
     StashSetKeyboardNotificationContext(controller, window);
-    controller.keyboardFrame = CGRectMake(100, 300, 200, 160);
+    controller.keyboardFrame = [window convertRect:CGRectMake(100, 300, 200, 160) toCoordinateSpace:window.screen.coordinateSpace];
     [controller viewDidLayoutSubviews];
     CGFloat floatingHeight = session.webView.frame.size.height;
     CGFloat floatingInset = session.webView.scrollView.verticalScrollIndicatorInsets.bottom;
-    controller.keyboardFrame = CGRectMake(0, 389, 466, 289);
+    controller.keyboardFrame = [window convertRect:CGRectMake(0, 389, 466, 289) toCoordinateSpace:window.screen.coordinateSpace];
     session.webView.scrollView.contentInset = UIEdgeInsetsMake(0, 0, 26, 0);
     [controller viewDidLayoutSubviews];
     BOOL keyboardContentInsetCleared = UIEdgeInsetsEqualToEdgeInsets(session.webView.scrollView.contentInset, UIEdgeInsetsZero);

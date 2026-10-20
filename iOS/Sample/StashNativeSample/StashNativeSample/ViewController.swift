@@ -98,7 +98,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     let scannerConfig = StashNativeScannerConfig()
     let browserConfig = StashNativeBrowserConfig()
 
-    // API keys: named, each production or test; Keychain-persisted (survives reinstall).
+    // API keys: named, each production or test; kept in this device's Keychain (survives
+    // reinstall, never migrates to another device).
     var apiKeys: [ApiKeyEntry] = []
     var selectedApiKeyId: String?
     var canSaveApiKeys = false

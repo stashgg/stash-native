@@ -16,19 +16,43 @@ public abstract class StashScannerContent {
 
   static final String MODULE_CLASS = "com.stash.stashnative.codelink.StashScannerSupport";
 
+  /**
+   * True when the module and every library it needs resolve. Loading the module class
+   * initializes it, and the module fails initialization when one of its libraries is missing.
+   */
+  static boolean isAvailable() {
+    return moduleConstructor() != null;
+  }
+
   static StashScannerContent create(StashScannerHost host) {
+    Constructor<?> constructor = moduleConstructor();
+    if (constructor == null) {
+      return null;
+    }
+    try {
+      return (StashScannerContent) constructor.newInstance(host);
+    } catch (Throwable error) {
+      logUnavailable(error);
+      return null;
+    }
+  }
+
+  private static Constructor<?> moduleConstructor() {
     try {
       Class<?> type = Class.forName(MODULE_CLASS);
       if (!StashScannerContent.class.isAssignableFrom(type)) {
         throw new ClassCastException(MODULE_CLASS + " is not a StashScannerContent");
       }
-      Constructor<?> constructor = type.getConstructor(StashScannerHost.class);
-      return (StashScannerContent) constructor.newInstance(host);
+      return type.getConstructor(StashScannerHost.class);
     } catch (Throwable error) {
-      Log.w("StashNative", "QR Code Linking requires the stashnative-codelink module with "
-          + "CameraX camera2, lifecycle, view, and ZXing core", error);
+      logUnavailable(error);
       return null;
     }
+  }
+
+  private static void logUnavailable(Throwable error) {
+    Log.w("StashNative", "QR Code Linking requires the stashnative-codelink module with "
+        + "CameraX camera2, lifecycle, view, and ZXing core", error);
   }
 
   /** The scanner chrome the card adds as its content. */

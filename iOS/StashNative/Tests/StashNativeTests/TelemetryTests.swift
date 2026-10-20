@@ -55,6 +55,13 @@ final class TelemetryTests: XCTestCase {
         XCTAssertEqual(first["firstCallAt"] as? Int, second["firstCallAt"] as? Int)
         XCTAssertNotNil(first["pageLoadedAt"] as? Int)
         XCTAssertNotNil(first["pageLoadTimeMs"] as? Int)
+        // NSNumber 1 would satisfy `as? Bool`; the page must see JSON booleans as on Android.
+        let types = try await evaluate(web, """
+            const value = await stash_sdk.getTelemetry();
+            return [typeof value.presentation.keyboardVisible, typeof value.presentation.portraitApplied,
+                    typeof value.power.lowPowerMode];
+            """) as? [String]
+        XCTAssertEqual(types, ["boolean", "boolean", "boolean"])
         let blocked = try await evaluate(web, """
             try {
               await document.querySelector('iframe').contentWindow.webkit.messageHandlers.stashTelemetry.postMessage({});
@@ -69,6 +76,43 @@ final class TelemetryTests: XCTestCase {
         XCTAssertEqual(nextTiming["firstCallAt"] as? Int, first["firstCallAt"] as? Int)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(nextTiming["pageLoadStartedAt"] as? Int),
                                    try XCTUnwrap(first["pageLoadedAt"] as? Int))
+    }
+
+    // Android's TelemetryTest asserts the same paths; pages see one key order on both platforms.
+    private static let sharedKeyOrder = [
+        "schemaVersion", "platform",
+        "hardware", "hardware.manufacturer", "hardware.model", "hardware.memoryBytes",
+        "os", "os.version", "os.apiLevel",
+        "app", "app.id", "app.version", "app.build", "app.targetSdkVersion",
+        "runtime", "runtime.sdkVersion", "runtime.webViewEngine", "runtime.webViewPackage", "runtime.webViewVersion",
+        "presentation", "presentation.state", "presentation.keyboardVisible",
+        "presentation.window", "presentation.window.width", "presentation.window.height",
+        "presentation.card", "presentation.card.width", "presentation.card.height",
+        "presentation.safeAreaInsets", "presentation.safeAreaInsets.top", "presentation.safeAreaInsets.right",
+        "presentation.safeAreaInsets.bottom", "presentation.safeAreaInsets.left",
+        "presentation.fold", "presentation.fold.state", "presentation.fold.orientation",
+        "presentation.fold.separating",
+        "presentation.orientationPreference", "presentation.portraitApplied", "presentation.multiWindow",
+        "power", "power.lowPowerMode", "power.thermalState",
+        "timing", "timing.firstCallAt", "timing.pageLoadStartedAt", "timing.pageLoadedAt", "timing.pageLoadTimeMs"
+    ]
+
+    @MainActor func testEveryCallReturnsKeysInTheOrderSharedWithAndroid() async throws {
+        let fixture = try XCTUnwrap(StashTelemetryFixture())
+        defer { StashEndTelemetryFixture(fixture) }
+        let web = try XCTUnwrap(fixture["web"] as? WKWebView)
+        web.loadHTMLString("<html><body>Telemetry order</body></html>", baseURL: URL(string: "https://checkout.invalid"))
+        guard await waitForPage(web) else { return }
+        let calls = try await evaluate(web, """
+            const paths = (value, prefix) => Object.keys(value).flatMap(key => {
+              const child = value[key], path = prefix ? prefix + '.' + key : key;
+              return child && typeof child === 'object' ? [path, ...paths(child, path)] : [path];
+            });
+            const values = await Promise.all([1, 2, 3, 4, 5].map(() => stash_sdk.getTelemetry()));
+            return values.map(value => paths(value, ''));
+            """) as! [[String]]
+        XCTAssertEqual(calls.count, 5)
+        for paths in calls { XCTAssertEqual(paths, Self.sharedKeyOrder) }
     }
 
     @MainActor private func evaluate(_ web: WKWebView, _ script: String) async throws -> Any? {

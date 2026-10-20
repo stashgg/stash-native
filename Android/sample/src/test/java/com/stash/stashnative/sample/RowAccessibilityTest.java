@@ -4,7 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
@@ -14,8 +17,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
 import org.robolectric.RobolectricTestRunner;
+import org.robolectric.Shadows;
 import org.robolectric.android.controller.ActivityController;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowAccessibilityManager;
 import org.robolectric.util.ReflectionHelpers;
 
 /** URL and instance rows announce their purpose; test ids stay in view tags. */
@@ -85,8 +90,49 @@ public class RowAccessibilityTest {
             AccessibilityNodeInfoCompat.wrap(node).getStateDescription().toString());
         node.recycle();
       }
+      // A-118: a 48 dp target around the unchanged 24 dp glyph.
+      View radio = holder.itemView.findViewById(R.id.apiKeySelected);
+      int width = View.MeasureSpec.makeMeasureSpec(dp(activity, 360), View.MeasureSpec.EXACTLY);
+      int height = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+      holder.itemView.measure(width, height);
+      assertEquals(dp(activity, 48), radio.getMeasuredWidth());
+      assertEquals(dp(activity, 48), radio.getMeasuredHeight());
+      assertEquals(dp(activity, 24),
+          radio.getMeasuredWidth() - radio.getPaddingLeft() - radio.getPaddingRight());
+      assertEquals(dp(activity, 24),
+          radio.getMeasuredHeight() - radio.getPaddingTop() - radio.getPaddingBottom());
     } finally {
       controller.pause().stop().destroy();
     }
+  }
+
+  /** A-117: callback chips expire, so each one is announced as it arrives. */
+  @Test public void callbackChipsAreAnnounced() throws Exception {
+    ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup();
+    try {
+      MainActivity activity = controller.get();
+      AccessibilityManager manager =
+          (AccessibilityManager) activity.getSystemService(Context.ACCESSIBILITY_SERVICE);
+      ShadowAccessibilityManager shadow = Shadows.shadowOf(manager);
+      shadow.setEnabled(true);
+      java.lang.reflect.Method addChip =
+          MainActivity.class.getDeclaredMethod("addCallbackChip", String.class);
+      addChip.setAccessible(true);
+      addChip.invoke(activity, "Card Dismissed");
+      boolean announced = false;
+      for (AccessibilityEvent event : shadow.getSentAccessibilityEvents()) {
+        if (event.getEventType() == AccessibilityEvent.TYPE_ANNOUNCEMENT
+            && event.getText().toString().contains("Card Dismissed")) {
+          announced = true;
+        }
+      }
+      assertTrue(announced);
+    } finally {
+      controller.pause().stop().destroy();
+    }
+  }
+
+  private static int dp(Context context, int value) {
+    return Math.round(value * context.getResources().getDisplayMetrics().density);
   }
 }

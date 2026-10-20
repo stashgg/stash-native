@@ -9,7 +9,7 @@ description: Internal window.stash_sdk contract between the SDK and Stash web co
 
 `window.stash_sdk` is the internal contract between the SDK and Stash web content in the native card. The SDK injects it into the top-level page of card web content only; system browser and module presentations do not get it. Integrators never call it. Calls from other frames are ignored.
 
-Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html).
+Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Content measurement comes from `StashContentMeasurementScript()` in the same iOS file and [`StashContentSizeSupport.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashContentSizeSupport.java) on Android; Android telemetry comes from [`StashTelemetrySupport.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashTelemetrySupport.java). Test pages: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html) for methods and navigation, [`.github/test/responsive.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/responsive.html) for content sizing.
 
 ## Methods
 
@@ -54,12 +54,12 @@ Strings reach the game unchanged; other values arrive as JSON. With `autoClose` 
 
 - The URL carries `theme=light` or `theme=dark`.
 - The viewport is fixed at device width, without zoom.
-- The WebView draws behind the home indicator and navigation bar; pad the bottom with `env(safe-area-inset-bottom)`.
-- On Stash checkout hosts, the loading cover stays until the page paints content, for at most 15 seconds. The requested `theme` does not gate the reveal.
+- On iOS, the WebView draws behind the home indicator; pad the bottom with `env(safe-area-inset-bottom)`. On Android, the SDK keeps the WebView clear of the system bars and supplies no safe-area insets, so `env(safe-area-inset-*)` is 0.
+- The loading cover stays until the page paints content, for at most 15 seconds. The requested `theme` does not gate the reveal.
 
 ## Telemetry
 
-`getTelemetry()` resolves to an object with `schemaVersion`, `platform`, `hardware`, `os`, `app`, `runtime`, `presentation`, `power`, and `timing`. Every key is present, and values a platform cannot provide are `null`. Sizes are in points or dp; timestamps are Unix milliseconds. Telemetry needs no permissions, holds no device identifiers, and is never uploaded.
+`getTelemetry()` resolves to an object with `schemaVersion`, `platform`, `hardware`, `os`, `app`, `runtime`, `presentation`, `power`, and `timing`. Every key is present, keys arrive in the same order on iOS and Android, and values a platform cannot provide are `null`. Sizes are in points or dp; timestamps are Unix milliseconds. Telemetry needs no permissions, holds no device identifiers, and is never uploaded.
 
 ## Content sizing
 
@@ -69,3 +69,5 @@ The resting card can shrink to short content. Mark the content wrapper with `dat
 - it does not grow as a flex item
 - no height on it or an ancestor uses `%`, viewport units, or `var()`
 - every stylesheet on the page is readable
+
+The SDK rechecks stylesheets when one is added, removed, or edited. A rule changed in place through the CSSOM counts from the next stylesheet change.

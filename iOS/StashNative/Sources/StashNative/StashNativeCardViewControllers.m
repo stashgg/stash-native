@@ -273,6 +273,8 @@
         self.spinner.alpha = 1;
         web.userInteractionEnabled = YES;
         web.accessibilityElementsHidden = NO;
+        // VoiceOver focus was on the loading cover; move it to the checkout content.
+        if (web.window) UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, web);
     };
     if (animated && cover.window && !UIAccessibilityIsReduceMotionEnabled()) {
         [UIView animateWithDuration:glass ? 0.25 : 0.18 delay:0 options:UIViewAnimationOptionBeginFromCurrentState |

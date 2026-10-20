@@ -21,8 +21,9 @@
     self.hasRequestedNativeSelection = NO;
 }
 - (void)configurePresentation {
+    BOOL wide = [self layoutContainer].bounds.size.width >= 600;
     self.preferredContentSize = CGSizeMake(self.session.config.preferredContentWidth,
-        [self usesFloatingNativeSizing] ? self.session.config.preferredContentHeight : 0);
+        [self usesFloatingNativeSizing] || wide ? self.session.config.preferredContentHeight : 0);
     self.modalPresentationStyle = UIModalPresentationFormSheet;
     UISheetPresentationController *sheet = self.sheetPresentationController;
     sheet.delegate = self.session;
@@ -182,8 +183,12 @@
     BOOL floating = container.bounds.size.width >= 600;
     if (floating) {
         CGFloat margin = MIN(self.session.config.edgeMargin, MIN(bounds.size.width, bounds.size.height) / 4);
+        // UIKit ignores the width of a zero-height preferred size and falls back to its 540-point form sheet,
+        // which locked phone-landscape cards to 540. Detents still set the compact-height card's height, so this
+        // height stays the configured constant and the assignment outside the sheet animation changes only width.
         preferredSize = CGSizeMake(MIN(self.session.config.preferredContentWidth,
-            MAX(0, bounds.size.width - 2 * margin)), preferredHeight);
+            MAX(0, bounds.size.width - 2 * margin)),
+            floatingSizing ? preferredHeight : self.session.config.preferredContentHeight);
     }
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
     if (@available(iOS 27.0, *)) sheet.preferredPlacement = UISheetPresentationControllerPlacementCenter;

@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
+import android.net.Uri;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,6 +32,7 @@ final class StashCheckoutLoadingSupport {
         return;
       }
       activity.webViewRetryCount = 1;
+      activity.supersededInitialLoadUrl = activity.webViewCommittedReloadUrl;
       // A cancelled crossfade must not remove the retry's loading overlay.
       cancelLoadingRevealAnimation(activity);
       activity.webViewLoadingRevealComplete = false;
@@ -91,6 +93,42 @@ final class StashCheckoutLoadingSupport {
     if (activity.contentRevealSupport != null) {
       activity.contentRevealSupport.check();
     }
+  }
+
+  /**
+   * True for a main-frame error or finish of the first attempt after the stall retry replaced
+   * it. Cancelling that attempt must neither fail nor complete the retry. Events after the retry
+   * starts, including a redirect back to the original URL, count again.
+   */
+  static boolean isSupersededAttempt(StashCardActivity activity, String url) {
+    return activity.supersededInitialLoadUrl != null && !activity.initialPageLoadComplete
+        && sameDocument(activity.supersededInitialLoadUrl, url);
+  }
+
+  private static boolean sameDocument(String expected, String actual) {
+    if (actual == null) {
+      return false;
+    }
+    if (expected.equals(actual)) {
+      return true;
+    }
+    // WebView reports normalized URLs, for example with an empty path as "/".
+    Uri a = Uri.parse(expected);
+    Uri b = Uri.parse(actual);
+    return equalsIgnoreCase(a.getScheme(), b.getScheme())
+        && equalsIgnoreCase(a.getHost(), b.getHost())
+        && a.getPort() == b.getPort()
+        && pathOf(a).equals(pathOf(b))
+        && String.valueOf(a.getEncodedQuery()).equals(String.valueOf(b.getEncodedQuery()));
+  }
+
+  private static boolean equalsIgnoreCase(String a, String b) {
+    return a == null ? b == null : a.equalsIgnoreCase(b);
+  }
+
+  private static String pathOf(Uri uri) {
+    String path = uri.getEncodedPath();
+    return path == null || path.isEmpty() ? "/" : path;
   }
 
   static String appendCacheBuster(String url) {

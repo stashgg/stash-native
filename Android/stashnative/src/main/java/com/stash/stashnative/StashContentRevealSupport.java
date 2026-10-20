@@ -7,13 +7,14 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.webkit.WebView;
 
-/** Keeps the initial cover until checkout has applied its theme and painted the loaded document. */
+/**
+ * Keeps the initial cover until the loaded document has committed and painted. There is no page
+ * readiness check; a committed document that never reports a paint is revealed after 15 seconds
+ * of foreground time.
+ */
 final class StashContentRevealSupport {
   private static final long WAIT_MS = 15000;
   private static final long POLL_MS = 100;
-  // No readiness gate beyond document load and paint. Reveal is not blocked on the page theme,
-  // because a checkout may render a fixed theme that never matches the requested one.
-  private static final String READY_SCRIPT = "true";
 
   private final StashCardActivity activity;
   private final Handler handler = new Handler(Looper.getMainLooper());
@@ -69,7 +70,7 @@ final class StashContentRevealSupport {
       return;
     }
     pending = true;
-    probe(activity.webView, generation, true);
+    afterPaint(activity.webView, generation);
   }
 
   private boolean active() {
@@ -82,33 +83,12 @@ final class StashContentRevealSupport {
     return active() && !activity.isActivityPaused && web == activity.webView && token == generation;
   }
 
-  private void probe(WebView web, int token, boolean waitForPaint) {
-    try {
-      web.evaluateJavascript(READY_SCRIPT, result -> {
-        if (!current(web, token)) {
-          return;
-        }
-        if ("false".equals(result)) {
-          pending = false;
-        } else if (waitForPaint) {
-          afterPaint(web, token);
-        } else {
-          reveal();
-        }
-      });
-    } catch (RuntimeException ignored) {
-      if (current(web, token)) {
-        reveal();
-      }
-    }
-  }
-
   // Keep the older-provider fallback usable by AAR-only hosts without AndroidX WebKit.
   @SuppressLint("WebViewApiAvailability")
   private void afterPaint(WebView web, int token) {
-    Runnable verify = () -> {
+    Runnable revealIfCurrent = () -> {
       if (current(web, token)) {
-        probe(web, token, false);
+        reveal();
       }
     };
     if (Build.VERSION.SDK_INT >= 23) {
@@ -116,7 +96,7 @@ final class StashContentRevealSupport {
         web.postVisualStateCallback(token, new WebView.VisualStateCallback() {
           @Override
           public void onComplete(long requestId) {
-            verify.run();
+            revealIfCurrent.run();
           }
         });
         return;
@@ -124,7 +104,7 @@ final class StashContentRevealSupport {
         // Older providers may not implement the platform's paint callback.
       }
     }
-    handler.postDelayed(verify, 50);
+    handler.postDelayed(revealIfCurrent, 50);
   }
 
   private void reveal() {

@@ -21,7 +21,7 @@ import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 
-/** Covers initial-paint readiness, stale callbacks, and foreground timeout accounting. */
+/** Covers paint-gated reveal, stale paint callbacks, and foreground timeout accounting. */
 @RunWith(RobolectricTestRunner.class)
 @Config(sdk = 28)
 @LooperMode(LooperMode.Mode.PAUSED)
@@ -57,62 +57,54 @@ public class ContentRevealTest {
   }
 
   @Test
-  public void readinessIsCheckedAgainAfterPaintBeforeRevealing() {
+  public void paintIsAwaitedBeforeRevealing() {
     finishDocument();
-    web.answer("false");
-    assertNull(web.paint);
-    assertEquals(0, web.getAlpha(), 0);
-    advance(100);
-    web.answer("true");
     assertNotNull(web.paint);
-    assertFalse(activity.webViewLoadingRevealComplete);
-    web.paint.onComplete(0);
-    web.answer("false");
-    assertFalse(activity.webViewLoadingRevealComplete);
     advance(100);
-    web.answer("true");
+    assertFalse(activity.webViewLoadingRevealComplete);
+    assertEquals(0, web.getAlpha(), 0);
     web.paint.onComplete(0);
-    web.answer("true");
     assertTrue(activity.webViewLoadingRevealComplete);
     assertEquals(1, web.getAlpha(), 0);
+    assertEquals(0, web.scripts);
   }
 
   @Test
-  public void readinessRequiresBothDocumentFinishAndCommit() {
+  public void revealRequiresBothDocumentFinishAndCommit() {
     support.documentFinished();
-    assertNull(web.answer);
+    assertNull(web.paint);
     activity.mainFrameNavigationCommitted = true;
     support.check();
-    assertNotNull(web.answer);
+    assertNotNull(web.paint);
   }
 
   @Test
   public void navigationInvalidatesPendingPaintFromPreviousDocument() {
     finishDocument();
-    web.answer("true");
-    final WebView.VisualStateCallback stalePaint = web.paint;
+    final WebView.VisualStateCallback stalePaint = web.takePaint();
     support.navigationStarted();
     stalePaint.onComplete(0);
-    assertNull(web.answer);
     assertFalse(activity.webViewLoadingRevealComplete);
+    assertNull(web.paint);
     finishDocument();
-    web.answer("false");
     assertFalse(activity.webViewLoadingRevealComplete);
+    web.takePaint().onComplete(0);
+    assertTrue(activity.webViewLoadingRevealComplete);
   }
 
   @Test
-  public void pauseInvalidatesProbeAndDoesNotConsumeForegroundBudget() {
+  public void pauseInvalidatesPaintAndDoesNotConsumeForegroundBudget() {
     finishDocument();
-    final ValueCallback<String> staleProbe = web.answer;
+    final WebView.VisualStateCallback stalePaint = web.takePaint();
     advance(1000);
     activity.isActivityPaused = true;
     support.pause();
     advance(60000);
-    staleProbe.onReceiveValue("true");
-    assertNull(web.paint);
+    stalePaint.onComplete(0);
     assertFalse(activity.webViewLoadingRevealComplete);
     activity.isActivityPaused = false;
     support.check();
+    assertNotNull(web.paint);
     advance(13900);
     assertFalse(activity.webViewLoadingRevealComplete);
     advance(100);
@@ -136,10 +128,10 @@ public class ContentRevealTest {
   }
 
   @Test
-  public void dismissalAndDisposalInvalidatePendingReadiness() {
+  public void dismissalAndDisposalInvalidatePendingPaint() {
     finishDocument();
     activity.isDismissing = true;
-    web.answer("true");
+    web.paint.onComplete(0);
     assertFalse(activity.webViewLoadingRevealComplete);
     activity.isDismissing = false;
     support.dispose();
@@ -150,28 +142,25 @@ public class ContentRevealTest {
   @Test
   public void laterNavigationLeavesRevealedContentVisible() {
     finishDocument();
-    web.answer("true");
-    web.paint.onComplete(0);
-    web.answer("true");
+    web.takePaint().onComplete(0);
     support.navigationStarted();
     support.documentFinished();
-    assertNull(web.answer);
+    assertNull(web.paint);
     assertEquals(1, web.getAlpha(), 0);
   }
 
   @Test
   @Config(sdk = 21)
-  public void minimumApiVerifiesReadinessWithoutVisualStateCallback() {
+  public void minimumApiRevealsShortlyAfterLoadWithoutVisualStateCallback() {
     finishDocument();
-    web.answer("null");
     assertNull(web.paint);
+    assertFalse(activity.webViewLoadingRevealComplete);
     advance(50);
-    web.answer("null");
     assertTrue(activity.webViewLoadingRevealComplete);
   }
 
   private static final class RecordingWebView extends WebView {
-    ValueCallback<String> answer;
+    int scripts;
     VisualStateCallback paint;
 
     RecordingWebView(Context context) {
@@ -180,7 +169,7 @@ public class ContentRevealTest {
 
     @Override
     public void evaluateJavascript(String script, ValueCallback<String> callback) {
-      answer = callback;
+      scripts++;
     }
 
     @Override
@@ -188,11 +177,11 @@ public class ContentRevealTest {
       paint = callback;
     }
 
-    void answer(String value) {
-      ValueCallback<String> callback = answer;
-      answer = null;
+    VisualStateCallback takePaint() {
+      VisualStateCallback callback = paint;
+      paint = null;
       assertNotNull(callback);
-      callback.onReceiveValue(value);
+      return callback;
     }
   }
 }

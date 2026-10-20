@@ -310,7 +310,8 @@ NSDictionary *StashBrowserPreparationProbe(void) {
     void (^ready)(void) = session.preparation; session.preparation = nil;
     [presenter.view removeFromSuperview];
     ready();
-    BOOL detached = !owner.isCurrentlyPresented && presenter.presentations == 0;
+    // The open was accepted before preparation went asynchronous, so it still ends with the browser-closed event.
+    BOOL detached = !owner.isCurrentlyPresented && presenter.presentations == 0 && delegate.browserCloses == 3;
     [window addSubview:presenter.view];
     session = open();
     ready = session.preparation; session.preparation = nil;

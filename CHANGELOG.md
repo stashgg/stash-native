@@ -20,9 +20,12 @@ A redesigned SDK with one entry point, a responsive native checkout card, and op
 - Named events replace the generic callbacks: card dismissed, scanner dismissed, and browser dismissed. On iOS, payment success is only `stashNativeDidCompletePayment(withOrder:)`.
 - On iOS, a payment result that closes the card arrives after the card closes, as on Android, so the game can open the next card from the callback.
 - Card and browser calls take the presenting view controller or activity.
-- The QR scanner moved to `StashNativeCodeLink`, with `openScanner`, `ScannerConfig`, and `ScannerError`. The core SDK has no camera code or camera permission.
+- The QR scanner implementation moved to the optional `StashNativeCodeLink` module (`stashnative-codelink` on Android). `openScanner`, `ScannerConfig`, and `ScannerError` stay on `StashNative`. The core SDK has no camera code or camera permission.
 - Card sizing uses preferred content dimensions, a height cap, and edge margins. `forcePortrait` is now `orientationPreference`.
-- Removed `openModal`, background color settings, and popup sizing.
+- Removed `openModal`, `openPopup`, `PopupSizeConfig`, and background color settings.
+- Removed the opt-in event (`stashNativeCardDidReceiveOptIn:` on iOS, `onOptInResponse` on Android) and the page's `stash_sdk.setPaymentChannel` method.
+- Removed Android `setActivity`. Pass the activity to each open call.
+- Removed iOS `disableAutoOrientationUnlock` and `+supportedInterfaceOrientationsForWindow:`. The SDK adds its own orientation hook for portrait checkout.
 - iOS 15 or later is required. Android still supports API 21.
 
 ### Fixes
@@ -31,7 +34,16 @@ A redesigned SDK with one entry point, a responsive native checkout card, and op
 - A lost connection ends checkout with a network error event instead of a dismissal.
 - On iOS, dismissing the presenting view controller ends the session with its dismissal event.
 - The checkout card reveals as soon as the page draws content, instead of waiting for loading placeholders to clear or for the page theme to settle.
+- On iPhone in landscape, the card follows `preferredContentWidth` instead of UIKit's fixed 540-point sheet width.
+- On Android, checkout content stays above the navigation bar; the card still extends to the bottom edge.
+- On iOS, `getTelemetry()` returns keys in the same order on every call and reports `keyboardVisible` as a boolean, matching Android.
 - The Android JavaScript bridge accepts calls only from the checkout document.
+- On iOS, a card, scanner, or Safari handoff that cannot be shown after the open was accepted ends with its dismissal event instead of ending silently.
+- On Android, opening the scanner without the CodeLink module or one of its CameraX or ZXing libraries reports `SCANNER_UNAVAILABLE` without opening a card. A missing library no longer crashes the app.
+- On Android, when a stalled first load is retried, a failing retry ends with a network error instead of showing the server's error page.
+- On iOS, URLs such as `localhost:8080/path` open as `https://`, as on Android.
+- On iOS, VoiceOver is notified when checkout content replaces the loading indicator.
+- Content measurement no longer rescans every stylesheet rule on each page change, which removed 5 to 20 ms of work per frame on pages with large stylesheets.
 
 ## [2.3.1] - 2026-09-03
 

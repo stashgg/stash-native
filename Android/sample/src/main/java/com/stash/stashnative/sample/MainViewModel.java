@@ -43,9 +43,12 @@ public class MainViewModel extends AndroidViewModel {
   /** Smallest card width or height the sample offers; matches the iOS sample's slider floor. */
   public static final int MIN_CONTENT_DIMENSION_DP = 240;
 
-  /** Padded standard base64, the form both samples accept as an ingress secret. */
+  /**
+   * Standard base64 with complete or missing '=' padding; a 4n+1 length never decodes. The iOS
+   * sample's StashHmac.secretData applies the same rule.
+   */
   private static final java.util.regex.Pattern BASE64 = java.util.regex.Pattern.compile(
-      "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$");
+      "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$");
 
   /** Secrets previously shipped as the bundled credential. */
   private static final String[] SUPERSEDED_BUNDLED_SECRETS = {
@@ -101,7 +104,7 @@ public class MainViewModel extends AndroidViewModel {
   private final StashNative.ScannerConfig scannerConfig =
       new StashNative.ScannerConfig();
 
-  /** Restores saved keys and payloads from prefs. */
+  /** Restores saved instances from the credential store, or legacy prefs on first launch. */
   public MainViewModel(Application application) {
     super(application);
     prefs = application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE);
@@ -440,7 +443,7 @@ public class MainViewModel extends AndroidViewModel {
     }
   }
 
-  /** True for padded standard base64, the only secret form that signs on both samples. */
+  /** True for a trimmed secret matching {@link #BASE64}, the rule both samples share. */
   public static boolean isValidBase64(String secret) {
     if (secret == null) {
       return false;
@@ -588,21 +591,14 @@ public class MainViewModel extends AndroidViewModel {
   }
 
   /**
-   * Credential the API calls sign with: the selected entry, or the bundled demo one if the entry
-   * cannot sign (e.g. saved before HMAC signing, so it has no app ID). Secret, app ID and
-   * environment all come from one entry so they can never be mixed across credentials.
+   * Credential the API calls sign with: always the selected entry, so secret, app ID and
+   * environment can never be mixed across credentials. A blank app ID or secret (for example an
+   * entry saved before HMAC signing) is reported at generate time, never replaced by the bundled
+   * credential.
    */
   private ApiKeyEntry activeEntry() {
     ApiKeyEntry entry = getSelectedApiKey();
-    if (entry == null
-        || entry.appId == null
-        || entry.appId.trim().isEmpty()
-        || entry.key == null
-        || entry.key.trim().isEmpty()) {
-      return newInstance(
-          DEFAULT_STASH_KEY_NAME, DEFAULT_STASH_APP_ID, DEFAULT_STASH_API_KEY, false);
-    }
-    return entry;
+    return entry != null ? entry : newInstance("", "", "", false);
   }
 
   /** Active ingress secret used to sign requests. */
@@ -846,7 +842,7 @@ public class MainViewModel extends AndroidViewModel {
     return list;
   }
 
-  /** API tab: named API keys (each production/test), selectable, plus an Add row. */
+  /** Instances tab: named instances, each production or test, selectable by their radio. */
   private List<SettingsItem> buildApiList() {
     List<SettingsItem> list = new ArrayList<>();
     list.add(SettingsItem.sectionHeader(R.string.section_api_keys, true, false));

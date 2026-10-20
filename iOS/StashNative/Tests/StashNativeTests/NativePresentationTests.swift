@@ -61,6 +61,24 @@ final class NativePresentationTests: XCTestCase {
         }
     }
 
+    // UIKit ignores the width of a zero-height preferred size and draws a 540-point sheet in phone landscape.
+    func testLandscapePhoneCardDrawsConfiguredWidth() throws {
+        guard UIDevice.current.userInterfaceIdiom == .phone else { throw XCTSkip("Compact-height phone window") }
+        let done = expectation(description: "landscape card width")
+        DispatchQueue.main.async {
+            StashLandscapeCardWidthProbe(400) { result in
+                for key in ["rotated", "presented", "active", "restoredPortrait"] {
+                    XCTAssertEqual((result[key] as? NSNumber)?.boolValue, true, key)
+                }
+                let window = (result["windowWidth"] as? NSNumber)?.doubleValue ?? 0
+                XCTAssertGreaterThanOrEqual(window, 600, "The landscape window must take the wide-container path")
+                XCTAssertEqual((result["cardWidth"] as? NSNumber)?.doubleValue ?? 0, 400, accuracy: 1)
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 20)
+    }
+
     @MainActor func testInvalidPresentersAndRetiredSessionsCannotCreateCheckout() throws {
         let result = try XCTUnwrap(StashPresentationLifetimeProbe())
         XCTAssertEqual(result.count, 5)

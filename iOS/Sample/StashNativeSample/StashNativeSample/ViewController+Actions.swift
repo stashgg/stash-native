@@ -143,6 +143,13 @@ extension ViewController {
         let failureMessage = kind == .checkout
             ? "Failed to generate checkout URL"
             : "Failed to generate webshop URL"
+        let appId = activeAppId()
+        let secret = activeApiKey()
+        // The selected instance signs or nothing does; never substitute the bundled credential.
+        guard !appId.isEmpty, !secret.isEmpty else {
+            showAlert(title: "Error", message: "App ID and ingress secret are both required")
+            return
+        }
         let baseUrl = isActiveKeyProduction() ? "https://api.stash.gg" : "https://test-api.stash.gg"
         guard let url = URL(string: baseUrl + path) else {
             showAlert(title: "Error", message: failureMessage)
@@ -156,7 +163,7 @@ extension ViewController {
         let bodyData = Data(activePayload(kind).utf8)
         // Signing fails only when the secret is not base64; say so instead of blaming the network.
         guard let signature = StashHmac.signature(
-                appId: activeAppId(), ingressSecretB64: activeApiKey(), body: bodyData) else {
+                appId: appId, ingressSecretB64: secret, body: bodyData) else {
             showAlert(title: "Error", message: "Ingress secret is not valid base64")
             return
         }

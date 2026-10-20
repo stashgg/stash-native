@@ -15,6 +15,62 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
              @"height":available ? @(size.height) : NSNull.null};
 }
 
+// WebKit converts an NSDictionary reply in arbitrary key order. Android inserts keys in this order, and one
+// list serves every object because each object's keys keep the same relative order here.
+static NSArray<NSString *> *StashTelemetryKeyOrder(void) {
+    static NSArray<NSString *> *order;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        order = @[@"schemaVersion", @"platform", @"hardware", @"os", @"app", @"runtime", @"presentation", @"power",
+            @"timing", @"manufacturer", @"model", @"memoryBytes", @"id", @"version", @"apiLevel", @"build",
+            @"targetSdkVersion", @"sdkVersion", @"webViewEngine", @"webViewPackage", @"webViewVersion", @"state",
+            @"keyboardVisible", @"window", @"card", @"safeAreaInsets", @"fold", @"orientationPreference",
+            @"portraitApplied", @"multiWindow", @"width", @"height", @"top", @"right", @"bottom", @"left",
+            @"orientation", @"separating", @"lowPowerMode", @"thermalState", @"firstCallAt", @"pageLoadStartedAt",
+            @"pageLoadedAt", @"pageLoadTimeMs"];
+#if !__has_feature(objc_arc)
+        [order retain];
+#endif
+    });
+    return order;
+}
+
+static void StashTelemetryAppendJSON(NSMutableString *json, id value) {
+    if ([value isKindOfClass:NSDictionary.class]) {
+        NSDictionary *object = value;
+        NSArray<NSString *> *order = StashTelemetryKeyOrder();
+        NSArray<NSString *> *keys = [object.allKeys sortedArrayUsingComparator:^NSComparisonResult(NSString *a, NSString *b) {
+            NSUInteger left = [order indexOfObject:a], right = [order indexOfObject:b];
+            if (left != right) return left < right ? NSOrderedAscending : NSOrderedDescending;
+            return [a compare:b];
+        }];
+        [json appendString:@"{"];
+        for (NSUInteger i = 0; i < keys.count; i++) {
+            if (i) [json appendString:@","];
+            StashTelemetryAppendJSON(json, keys[i]);
+            [json appendString:@":"];
+            StashTelemetryAppendJSON(json, object[keys[i]]);
+        }
+        [json appendString:@"}"];
+        return;
+    }
+    NSArray *wrapped = @[value ?: NSNull.null];
+    NSData *data = [NSJSONSerialization isValidJSONObject:wrapped]
+        ? [NSJSONSerialization dataWithJSONObject:wrapped options:NSJSONWritingWithoutEscapingSlashes error:NULL] : nil;
+    NSString *text = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+    [json appendString:text.length > 2 ? [text substringWithRange:NSMakeRange(1, text.length - 2)] : @"null"];
+#if !__has_feature(objc_arc)
+    [text release];
+#endif
+}
+
+// JSON text in Android's key order; WebKit would reorder an NSDictionary reply.
+static NSString *StashTelemetryJSON(NSDictionary *snapshot) {
+    NSMutableString *json = [NSMutableString string];
+    StashTelemetryAppendJSON(json, snapshot);
+    return json;
+}
+
 @implementation StashCardSession (Telemetry)
 - (void)beginTelemetryNavigation:(WKNavigation *)navigation {
     self.telemetryNavigation = navigation;
@@ -51,6 +107,7 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
     UIWindow *window = card.window ?: self.presentationPresenter.viewIfLoaded.window;
     UIEdgeInsets insets = window.safeAreaInsets;
     CGRect keyboard = window ? [self.controller resolvedKeyboardFrameInView:window dockedOnly:NO] : CGRectNull;
+    BOOL keyboardVisible = self.keyboardVisible || (!CGRectIsNull(keyboard) && !CGRectIsEmpty(keyboard));
     BOOL portraitRequested = self.config.orientationPreference == StashNativeOrientationPreferencePortrait;
     BOOL portraitApplied = portraitRequested && self.portraitPresentation != nil &&
         UIInterfaceOrientationIsPortrait(window.windowScene.interfaceOrientation);
@@ -68,7 +125,7 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
             @"webViewPackage":NSNull.null, @"webViewVersion":NSNull.null},
         @"presentation":@{
             @"state":self.expanded ? @"expanded" : @"resting",
-            @"keyboardVisible":@(self.keyboardVisible || (!CGRectIsNull(keyboard) && !CGRectIsEmpty(keyboard))),
+            @"keyboardVisible":@(keyboardVisible),
             @"orientationPreference":portraitRequested ? @"portrait" : @"followHost",
             @"portraitApplied":@(portraitApplied),
             @"window":StashTelemetrySize(window.bounds.size, window != nil),
@@ -94,6 +151,6 @@ static NSDictionary *StashTelemetrySize(CGSize size, BOOL available) {
         replyHandler(nil, @"Stash telemetry is unavailable");
         return;
     }
-    replyHandler([self telemetrySnapshot], nil);
+    replyHandler(StashTelemetryJSON([self telemetrySnapshot]), nil);
 }
 @end

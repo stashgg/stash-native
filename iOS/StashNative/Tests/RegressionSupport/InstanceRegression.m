@@ -272,6 +272,47 @@ NSDictionary *StashCallbackDismissalProbe(void) {
         @"handoffUsesReplacement":@(handoffUsesReplacement), @"closed":@(!owner.isCurrentlyPresented)};
 }
 
+// Each accepted open whose presentation fails later still ends with its final event; reset stays silent.
+void StashLatePresentationFailureProbe(void (^completion)(NSDictionary *)) {
+    StashNative *handoffOwner = [StashNative new];
+    StashCallbackReceiver *handoffEvents = [StashCallbackReceiver new];
+    handoffOwner.delegate = handoffEvents;
+    UIWindow *handoffWindow = [[StashInstanceWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
+    StashInstancePresenter *handoffHost = StashInstanceHost(handoffWindow, UIUserInterfaceStyleLight);
+    [handoffOwner openCardWithURL:@"https://example.invalid" fromViewController:handoffHost config:nil];
+    // The host leaves the window while the card closes for the handoff, so Safari cannot be presented.
+    handoffEvents.onEvent = ^(NSString *event) {
+        if ([event isEqualToString:@"handoff"]) [handoffHost.view removeFromSuperview];
+    };
+    [handoffOwner.session handleMessage:@"stashExternalPayment" body:@"https://example.invalid/pay"];
+    NSArray *handoff = [handoffEvents.events copy];
+    BOOL handoffClosed = !handoffOwner.isCurrentlyPresented;
+
+    StashNativeCardConfig *portrait = [StashNativeCardConfig new];
+    portrait.orientationPreference = StashNativeOrientationPreferencePortrait;
+    NSMutableArray *owners = [NSMutableArray array], *receivers = [NSMutableArray array], *windows = [NSMutableArray array];
+    for (NSInteger reset = 0; reset < 2; reset++) {
+        StashNative *owner = [StashNative new];
+        StashCallbackReceiver *receiver = [StashCallbackReceiver new];
+        owner.delegate = receiver;
+        UIWindow *window = [[StashInstanceWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
+        StashInstancePresenter *host = StashInstanceHost(window, UIUserInterfaceStyleLight);
+        // Portrait preparation defers the card; the presenter leaves its window before it resumes.
+        [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:portrait];
+        [host.view removeFromSuperview];
+        if (reset) [owner resetPresentationState];
+        [owners addObject:owner]; [receivers addObject:receiver]; [windows addObject:window];
+    }
+    BOOL admitted = [owners[0] isCurrentlyPresented];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+        StashCallbackReceiver *card = receivers[0], *reset = receivers[1];
+        completion(@{@"handoffEvents":handoff, @"handoffClosed":@(handoffClosed), @"cardAdmitted":@(admitted),
+            @"cardEvents":[card.events copy], @"cardClosed":@(![owners[0] isCurrentlyPresented]),
+            @"resetEvents":[reset.events copy], @"resetClosed":@(![owners[1] isCurrentlyPresented])});
+        (void)windows;
+    });
+}
+
 NSDictionary *StashCallbackLiveReceiverProbe(BOOL clear) {
     StashNative *owner = [StashNative new];
     StashCallbackReceiver *second = [StashCallbackReceiver new];

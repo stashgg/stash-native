@@ -33,14 +33,29 @@ public class StashHmacTest {
     assertEquals(44, parts[3].length());
   }
 
-  @Test public void malformedSecretsAreRejectedBeforeSigning() throws Exception {
-    assertTrue(MainViewModel.isValidBase64("c2VjcmV0LWtleQ=="));
-    assertTrue(MainViewModel.isValidBase64(" " + MainViewModel.DEFAULT_STASH_API_KEY + " "));
-    assertFalse(MainViewModel.isValidBase64("abc"));
-    assertFalse(MainViewModel.isValidBase64("c2VjcmV0LWtleQ"));
-    assertFalse(MainViewModel.isValidBase64("not base64!"));
-    assertFalse(MainViewModel.isValidBase64(""));
+  /** Shared with iOS/Sample/Tests/HmacVector.swift.template; both samples apply one rule. */
+  private static final String[] ACCEPTED_SECRETS = {
+    "c2VjcmV0LWtleQ==", "c2VjcmV0LWtleQ", " c2VjcmV0LWtleQ\n", "abc", "abc=", "aQ==", "Pz8/Pj4+"
+  };
+  private static final String[] REJECTED_SECRETS = {
+    "", " \n", "a", "abcde", "abcd=", "c2VjcmV0LWtleQ=", "ab=c", "====", "not base64!",
+    "c2Vj cmV0LWtleQ"
+  };
+
+  @Test public void sharedSecretVectorsMatchTheIosRule() throws Exception {
+    for (String secret : ACCEPTED_SECRETS) {
+      assertTrue(secret, MainViewModel.isValidBase64(secret));
+      // Accepted secrets must also sign; generation passes the trimmed value.
+      StashHmac.signature("app_test", secret.trim(), new byte[0], 1700000000000L);
+    }
+    for (String secret : REJECTED_SECRETS) {
+      assertFalse(secret, MainViewModel.isValidBase64(secret));
+    }
     assertFalse(MainViewModel.isValidBase64(null));
+    assertTrue(MainViewModel.isValidBase64(" " + MainViewModel.DEFAULT_STASH_API_KEY + " "));
+    assertEquals(
+        StashHmac.signature("app_test", "c2VjcmV0LWtleQ==", new byte[0], 1700000000000L),
+        StashHmac.signature("app_test", "c2VjcmV0LWtleQ", new byte[0], 1700000000000L));
     try {
       StashHmac.signature("app_test", "not base64!", new byte[0], 1700000000000L);
       fail("invalid secret must not sign");
