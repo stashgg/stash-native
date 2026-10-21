@@ -4,10 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Checkout</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
     <style>
+        /* Inline font faces: a cross-origin stylesheet would make data-stash-content ineligible. */
+        @font-face {
+            font-family: "Work Sans";
+            src: url("https://fonts.gstatic.com/s/worksans/v24/QGYsz_wNahGAdqQ43Rh_fKDptfpA4Q.woff2") format("woff2");
+            font-weight: 400 700;
+            font-style: normal;
+            font-display: swap;
+        }
         @font-face {
             font-family: "Factor A";
             src: url("https://checkout.stashstaging.com/_next/static/media/1c7bd21d3a53ff52-s.p.woff2") format("woff2");
@@ -101,11 +106,15 @@
             font-weight: 400;
             background: var(--pay-ui-theme-bg-secondary);
             color: var(--pay-ui-theme-fg-primary-color);
+        }
+
+        /* Scoped so the data-stash-content wrapper stays measurable in the Sizing tab. */
+        html:not(.fit-content) body,
+        html:not(.fit-content) .page {
             min-height: 100dvh;
         }
 
         .page {
-            min-height: 100dvh;
             width: 100%;
             display: flex;
             flex-direction: column;
@@ -207,7 +216,8 @@
             margin-bottom: 0.5rem;
         }
 
-        input[type="text"] {
+        input[type="text"],
+        select {
             width: 100%;
             height: 2.25rem;
             padding: 0.5rem 0.75rem;
@@ -226,7 +236,8 @@
             color: var(--pay-ui-theme-fg-muted-color);
         }
 
-        input[type="text"]:focus {
+        input[type="text"]:focus,
+        select:focus {
             border-color: transparent;
             box-shadow: 0 0 0 2px transparent;
             background: var(--pay-ui-theme-input-bg);
@@ -424,6 +435,30 @@
             gap: 1.5rem;
         }
 
+        .sizing-block {
+            height: 40px;
+            border: 1px solid var(--pay-ui-theme-border-color);
+            border-radius: 0.75rem;
+            background: var(--pay-ui-theme-paper-gradient);
+        }
+
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 2rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.6rem center;
+            background-size: 1rem;
+        }
+
+        /* Sizing to content needs a page shorter than the resting card. */
+        html.fit-content .powered,
+        html.fit-content #theme-info,
+        html.fit-content #user-agent-info {
+            display: none;
+        }
+
         .tab-dock {
             position: fixed;
             left: 0;
@@ -478,25 +513,13 @@
             border-color: transparent;
         }
 
-        /* ---------- Rendering test (WebView compositing stress) ----------
-           Heavy continuously-compositing layers: animated gradients, backdrop
-           blur, shadows, promoted (will-change) layers, WebP carousels and a
-           clip-path slider. Exercises the native rounded-corner clip that
-           re-composites the WebView every frame -- the path that flickers on
-           scroll on some Android GPUs. */
-        .rt-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .rt-controls {
+        .chip-row {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
         }
 
-        .rt-chip {
+        .chip {
             flex: 1 1 auto;
             min-height: 2rem;
             padding: 0 0.875rem;
@@ -515,434 +538,15 @@
             gap: 0.375rem;
         }
 
-        .rt-chip > svg {
+        .chip > svg {
             display: block;
             width: 1rem;
             height: 1rem;
             flex-shrink: 0;
         }
 
-        .rt-chip:active {
+        .chip:active {
             transform: scale(0.98);
-        }
-
-        .rt-block-label {
-            font-family: var(--font-work-sans);
-            font-weight: 500;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--pay-ui-theme-fg-muted-color);
-        }
-
-        /* Animated gradient hero with a moving sheen and floating blurred blobs */
-        .rt-hero {
-            position: relative;
-            height: 8.5rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            background: linear-gradient(101deg, #e5ff11, #48ff17 45%, #11ffcc 80%, #6a5cff);
-            background-size: 300% 300%;
-            animation: rt-gradient 6s ease infinite;
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-            will-change: background-position;
-        }
-
-        .rt-hero__sheen {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(75deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
-            transform: translateX(-120%);
-            animation: rt-sheen 2.4s linear infinite;
-            will-change: transform;
-        }
-
-        .rt-hero__blob {
-            position: absolute;
-            width: 7rem;
-            height: 7rem;
-            border-radius: 50%;
-            filter: blur(18px);
-            opacity: 0.7;
-            will-change: transform;
-        }
-
-        .rt-hero__blob--a {
-            left: -1rem;
-            top: -1.5rem;
-            background: rgba(255, 255, 255, 0.85);
-            animation: rt-float 5s ease-in-out infinite;
-        }
-
-        .rt-hero__blob--b {
-            right: -1.5rem;
-            bottom: -2rem;
-            background: rgba(106, 92, 255, 0.85);
-            animation: rt-float 7s ease-in-out infinite reverse;
-        }
-
-        .rt-hero__title {
-            position: absolute;
-            left: 1rem;
-            bottom: 0.875rem;
-            font-family: "Factor A Extrabold", var(--font-factor-a);
-            font-weight: 800;
-            font-size: 1.5rem;
-            line-height: 1;
-            color: #101010;
-            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
-        }
-
-        /* Swipeable WebP carousel with scroll-snap */
-        .rt-carousel {
-            display: flex;
-            gap: 0.75rem;
-            overflow-x: auto;
-            scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-            padding-bottom: 0.25rem;
-            scrollbar-width: none;
-        }
-
-        .rt-carousel::-webkit-scrollbar {
-            display: none;
-        }
-
-        .rt-slide {
-            position: relative;
-            flex: 0 0 62%;
-            scroll-snap-align: center;
-            aspect-ratio: 4 / 3;
-            min-height: 8rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            background: var(--pay-ui-theme-paper-color);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
-            will-change: transform;
-        }
-
-        .rt-slide__img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .rt-slide__shine {
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.35) 50%, transparent 60%);
-            transform: translateX(-120%);
-            animation: rt-sheen 3s linear infinite;
-            pointer-events: none;
-        }
-
-        /* Diagonal corner ribbon -- same shape as the shop "Club Bonus!" banner */
-        .rt-ribbon {
-            position: absolute;
-            top: 0.7rem;
-            left: -2.2rem;
-            width: 8rem;
-            transform: rotate(-45deg);
-            background: linear-gradient(101deg, #e5ff11, #48ff17);
-            color: #101010;
-            font-family: "Factor A Extrabold", var(--font-factor-a);
-            font-weight: 800;
-            font-size: 0.6875rem;
-            text-align: center;
-            padding: 0.25rem 0;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-        }
-
-        /* Auto-scrolling marquee strip (continuous transform) */
-        .rt-marquee {
-            overflow: hidden;
-            border-radius: 0.75rem;
-        }
-
-        .rt-marquee__track {
-            display: flex;
-            gap: 0.5rem;
-            width: max-content;
-            animation: rt-marquee 16s linear infinite;
-            will-change: transform;
-        }
-
-        .rt-marquee__item {
-            width: 6rem;
-            height: 4rem;
-            flex: 0 0 auto;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
-        }
-
-        .rt-marquee__item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        /* Before/after compare slider (clip-path on a moving layer) */
-        .rt-compare {
-            position: relative;
-            aspect-ratio: 16 / 10;
-            min-height: 9rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            touch-action: none;
-            user-select: none;
-            -webkit-user-select: none;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
-            background: var(--pay-ui-theme-paper-color);
-            --rt-pos: 50%;
-        }
-
-        .rt-compare img {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .rt-compare__after {
-            clip-path: inset(0 calc(100% - var(--rt-pos)) 0 0);
-        }
-
-        .rt-compare__handle {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: var(--rt-pos);
-            width: 2px;
-            margin-left: -1px;
-            background: #fff;
-            box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
-            pointer-events: none;
-        }
-
-        .rt-compare__grip {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 2rem;
-            height: 2rem;
-            border-radius: 50%;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-            color: #101010;
-        }
-
-        /* Range-driven live transform */
-        .rt-knob {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            align-items: center;
-            padding: 0.5rem 0;
-            --rt-knob: 50;
-        }
-
-        .rt-knob__stage {
-            height: 5.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .rt-knob__box {
-            width: 4rem;
-            height: 4rem;
-            border-radius: 0.9rem;
-            background: var(--pay-ui-theme-primary-gradient);
-            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
-            transform: rotate(calc((var(--rt-knob) - 50) * 3.6deg)) scale(calc(0.7 + var(--rt-knob) / 100));
-            filter: hue-rotate(calc(var(--rt-knob) * 3.6deg));
-        }
-
-        input.rt-range {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 100%;
-            height: 0.375rem;
-            border-radius: 9999px;
-            background: var(--pay-ui-theme-border-color);
-            outline: none;
-        }
-
-        input.rt-range::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 1.25rem;
-            height: 1.25rem;
-            border-radius: 50%;
-            background: var(--pay-ui-theme-fg-primary-color);
-            cursor: pointer;
-        }
-
-        input.rt-range::-moz-range-thumb {
-            width: 1.25rem;
-            height: 1.25rem;
-            border: none;
-            border-radius: 50%;
-            background: var(--pay-ui-theme-fg-primary-color);
-            cursor: pointer;
-        }
-
-        /* Backdrop-filter glass over a rotating background (expensive composite) */
-        .rt-blur {
-            position: relative;
-            height: 7rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-        }
-
-        .rt-blur__bg {
-            position: absolute;
-            inset: -25%;
-            background: conic-gradient(from 0deg, #e5ff11, #48ff17, #11ffcc, #6a5cff, #e5ff11);
-            filter: saturate(1.2);
-            animation: rt-spin 8s linear infinite;
-            will-change: transform;
-        }
-
-        .rt-blur__glass {
-            position: absolute;
-            inset: 1rem;
-            border-radius: 0.6rem;
-            background: rgba(255, 255, 255, 0.12);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: "Factor A Extrabold", var(--font-factor-a);
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            color: #fff;
-        }
-
-        /* Spinners + skeleton shimmer */
-        .rt-spinners {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .rt-spinner {
-            width: 2.5rem;
-            height: 2.5rem;
-            border-radius: 50%;
-            background: conic-gradient(from 0deg, var(--pay-ui-theme-fg-primary-color), transparent 70%);
-            animation: rt-spin 0.9s linear infinite;
-            will-change: transform;
-            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
-            mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
-        }
-
-        .rt-shimmer {
-            flex: 1;
-            height: 2.5rem;
-            border-radius: 0.5rem;
-            background: linear-gradient(90deg, var(--pay-ui-theme-paper-color) 25%, var(--pay-ui-theme-border-color) 37%, var(--pay-ui-theme-paper-color) 63%);
-            background-size: 400% 100%;
-            animation: rt-shimmer 1.4s ease infinite;
-        }
-
-        /* Animated WebP card wall */
-        .rt-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-        }
-
-        .rt-tile {
-            position: relative;
-            aspect-ratio: 1 / 1;
-            min-height: 6rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            background: var(--pay-ui-theme-paper-color);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
-            animation: rt-pulse 3.2s ease-in-out infinite;
-            will-change: transform;
-        }
-
-        .rt-tile:nth-child(3n) {
-            animation-duration: 4.1s;
-        }
-
-        .rt-tile:nth-child(3n + 1) {
-            animation-duration: 2.7s;
-        }
-
-        .rt-tile img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .rt-tile__glow {
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.35), transparent 60%);
-            mix-blend-mode: screen;
-            pointer-events: none;
-            animation: rt-hue 5s linear infinite;
-        }
-
-        /* Pause switch for A/B comparison while scrolling */
-        .rt-paused,
-        .rt-paused * {
-            animation-play-state: paused !important;
-        }
-
-        @keyframes rt-gradient {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-
-        @keyframes rt-sheen {
-            0% { transform: translateX(-120%); }
-            100% { transform: translateX(120%); }
-        }
-
-        @keyframes rt-float {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(1.2rem, 0.8rem) scale(1.15); }
-        }
-
-        @keyframes rt-marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-        }
-
-        @keyframes rt-spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes rt-shimmer {
-            0% { background-position: 100% 0; }
-            100% { background-position: -100% 0; }
-        }
-
-        @keyframes rt-pulse {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-3px) scale(1.015); }
-        }
-
-        @keyframes rt-hue {
-            to { filter: hue-rotate(360deg); }
         }
     </style>
 </head>
@@ -961,17 +565,7 @@
 
                 <section class="tab-panel is-active" id="tab-callbacks" role="tabpanel" aria-labelledby="tab-btn-callbacks">
                 <div class="stack-gap-md">
-                    <p><a href="responsive.html">Open responsive sizing and state-preservation tests</a></p>
-                    <button type="button" class="btn btn-primary" onclick="triggerHaptic()">Trigger confirmation haptic</button>
-                    <button type="button" class="btn btn-primary" onclick="readTelemetry()">Read native telemetry</button>
-                    <pre id="telemetry-result" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre>
-                    <div class="input-wrap">
-                        <label class="field-label" for="sample-input">Keyboard Input Test</label>
-                        <div class="input-focus-shell">
-                            <input type="text" id="sample-input" class="input-focus-ring" placeholder="Sample text input" />
-                        </div>
-                    </div>
-                    <p>With <code>allowDismiss = false</code>, swipe, backdrop tap, and Android Back must leave the card open. The page's close button must still close it. Purchase Processing blocks page close until Processing Completed or a payment result clears the lock.</p>
+                    <span class="section-title-sm">Payment</span>
                     <div class="btn-stack">
                         <button type="button" class="btn btn-primary" onclick="triggerSuccess()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1000,51 +594,58 @@
                     </div>
                 </div>
 
+                <hr class="divider" />
+
+                <div class="stack-gap-md">
+                    <span class="section-title-sm">Device</span>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerHaptic()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M3 8v8M21 8v8"/></svg>
+                            <span class="btn-label">Haptic</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="readTelemetry()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                            <span class="btn-label">Read telemetry</span>
+                        </button>
+                    </div>
+                    <pre id="telemetry-result" style="white-space:pre-wrap;overflow-wrap:anywhere" aria-live="polite"></pre>
+                    <div class="input-wrap">
+                        <label class="field-label" for="sample-input">Keyboard</label>
+                        <div class="input-focus-shell">
+                            <input type="text" id="sample-input" class="input-focus-ring" placeholder="Type here" />
+                        </div>
+                    </div>
+                </div>
+
                 </section>
 
                 <section class="tab-panel" id="tab-links" role="tabpanel" aria-labelledby="tab-btn-links">
                 <div class="stack-gap-md">
-                    <span class="section-title-sm">Deeplink tests</span>
+                    <span class="section-title-sm">Deeplinks</span>
                     <div class="btn-stack">
                         <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://stash-pay/success')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: stash-pay/success</span>
+                            <span class="btn-label">stash-pay/success</span>
                         </button>
                         <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://stash-pay/failure')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: stash-pay/failure</span>
+                            <span class="btn-label">stash-pay/failure</span>
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://stash-pay/cancel')">
+                    </div>
+                    <div class="input-wrap">
+                        <label class="field-label" for="deeplinkUrl">Deeplink</label>
+                        <div class="input-focus-shell">
+                            <input type="text" id="deeplinkUrl" class="input-focus-ring" value="stashdemo://misc/passthrough" placeholder="stashdemo://misc/passthrough" autocapitalize="off" autocorrect="off" spellcheck="false" />
+                        </div>
+                    </div>
+                    <div class="btn-stack">
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink(deeplinkInput())">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: stash-pay/cancel</span>
+                            <span class="btn-label">Open</span>
                         </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashdemo://misc/passthrough')">
+                        <button type="button" class="btn btn-primary" onclick="triggerDeeplinkIframe(deeplinkInput())">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: pass-through (opens app)</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplinkIframe('stashdemo://misc/passthrough?src=iframe')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: from an iframe (sub-frame)</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://misc/passthrough?src=intent#Intent;scheme=stashdemo;package=com.stash.stashnative.sample;end')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: Android intent:// (opens app)</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('https://example.com/deeplink-test')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: iOS universal link (https)</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('stashunknown://nope')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: unhandled scheme (no app, card stays)</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://nope#Intent;scheme=stashunknown;package=com.example.notinstalled;S.browser_fallback_url=https%3A%2F%2Fexample.com%2Ffallback;end')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: intent:// with browser_fallback_url</span>
-                        </button>
-                        <button type="button" class="btn btn-primary" onclick="triggerDeeplink('intent://nope#Intent;scheme=stashunknown;package=com.example.notinstalled;end')">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                            <span class="btn-label">Deeplink: intent://, missing app, no fallback (Play Store)</span>
+                            <span class="btn-label">Open from iframe</span>
                         </button>
                     </div>
                 </div>
@@ -1053,16 +654,15 @@
 
                 <div class="stack-gap-md">
                     <span class="section-title-sm">New window</span>
-                    <p class="meta-hint" style="text-align: left;">https opens outside the app and the card stays. iOS treats stash-pay URLs here as payment results; Android hands them to the OS.</p>
                     <div class="btn-stack">
-                        <a class="btn btn-primary" href="https://example.com/new-window" target="_blank">
+                        <button type="button" class="btn btn-primary" onclick="triggerBlankTarget('https://example.com/new-window')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
                             <span class="btn-label">target=_blank: https</span>
-                        </a>
-                        <a class="btn btn-primary" href="stashdemo://stash-pay/success" target="_blank">
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerBlankTarget('stashdemo://stash-pay/success')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
                             <span class="btn-label">target=_blank: stash-pay/success</span>
-                        </a>
+                        </button>
                         <button type="button" class="btn btn-primary" onclick="triggerWindowOpen('https://example.com/window-open')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
                             <span class="btn-label">window.open: https</span>
@@ -1095,7 +695,7 @@
                 <hr class="divider" />
 
                 <div class="stack-gap-md">
-                    <span class="section-title-sm">Open link (terms, misc)</span>
+                    <span class="section-title-sm">Open link</span>
                     <div class="input-wrap">
                         <label class="field-label" for="openLinkUrl">URL</label>
                         <div class="input-focus-shell">
@@ -1114,7 +714,7 @@
 
                 <section class="tab-panel" id="tab-errors" role="tabpanel" aria-labelledby="tab-btn-errors">
                 <div class="stack-gap-md">
-                    <span class="section-title-sm">Exception tests</span>
+                    <span class="section-title-sm">Errors</span>
                     <div class="btn-stack">
                     <button type="button" class="btn btn-danger" onclick="triggerJSError()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
@@ -1148,112 +748,29 @@
                 </div>
                 </section>
 
-                <section class="tab-panel" id="tab-render" role="tabpanel" aria-labelledby="tab-btn-render">
+
+                <section class="tab-panel" id="tab-sizing" role="tabpanel" aria-labelledby="tab-btn-sizing">
                 <div class="stack-gap-md">
-                    <span class="section-title-sm">Rendering test</span>
-                        <div id="rt-panel" class="rt-panel">
-                            <p class="meta-hint" style="text-align: left;">Complex animations, WebP carousels and a clip-path slider. Expand, then scroll the card to stress the WebView compositor and surface flicker.</p>
-
-                            <div class="rt-controls">
-                                <button type="button" class="rt-chip" id="rt-pause">
-                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-                                    <span class="rt-chip-label">Pause animations</span>
-                                </button>
-                                <button type="button" class="rt-chip" id="rt-amplify">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                                    <span class="rt-chip-label">Add cards</span>
-                                </button>
-                            </div>
-
-                            <div class="rt-hero">
-                                <div class="rt-hero__blob rt-hero__blob--a"></div>
-                                <div class="rt-hero__blob rt-hero__blob--b"></div>
-                                <div class="rt-hero__sheen"></div>
-                                <div class="rt-hero__title">Rendering</div>
-                            </div>
-
-                            <span class="rt-block-label">Carousel (swipe)</span>
-                            <div class="rt-carousel">
-                                <div class="rt-slide">
-                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar1/480/360.webp" alt="" decoding="async" />
-                                    <span class="rt-ribbon">-50%</span>
-                                    <div class="rt-slide__shine"></div>
-                                </div>
-                                <div class="rt-slide">
-                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar2/480/360.webp" alt="" decoding="async" />
-                                    <span class="rt-ribbon">NEW</span>
-                                    <div class="rt-slide__shine"></div>
-                                </div>
-                                <div class="rt-slide">
-                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar3/480/360.webp" alt="" decoding="async" />
-                                    <span class="rt-ribbon">HOT</span>
-                                    <div class="rt-slide__shine"></div>
-                                </div>
-                                <div class="rt-slide">
-                                    <img class="rt-slide__img" src="https://picsum.photos/seed/rtcar4/480/360.webp" alt="" decoding="async" />
-                                    <span class="rt-ribbon">SALE</span>
-                                    <div class="rt-slide__shine"></div>
-                                </div>
-                            </div>
-
-                            <span class="rt-block-label">Auto marquee</span>
-                            <div class="rt-marquee">
-                                <div class="rt-marquee__track">
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq1/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq2/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq3/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq4/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq5/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq6/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq1/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq2/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq3/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq4/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq5/192/128.webp" alt="" decoding="async" /></div>
-                                    <div class="rt-marquee__item"><img src="https://picsum.photos/seed/rtmq6/192/128.webp" alt="" decoding="async" /></div>
-                                </div>
-                            </div>
-
-                            <span class="rt-block-label">Compare slider (drag)</span>
-                            <div class="rt-compare" id="rt-compare">
-                                <img class="rt-compare__before" src="https://picsum.photos/seed/rtcmp1/640/400.webp" alt="" decoding="async" />
-                                <img class="rt-compare__after" src="https://picsum.photos/seed/rtcmp2/640/400.webp" alt="" decoding="async" />
-                                <div class="rt-compare__handle">
-                                    <div class="rt-compare__grip">
-                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l-4 6 4 6M15 6l4 6-4 6"/></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <span class="rt-block-label">Range slider</span>
-                            <div class="rt-knob">
-                                <div class="rt-knob__stage"><div class="rt-knob__box"></div></div>
-                                <input type="range" min="0" max="100" value="50" class="rt-range" id="rt-range" aria-label="Transform amount" />
-                            </div>
-
-                            <span class="rt-block-label">Backdrop blur</span>
-                            <div class="rt-blur">
-                                <div class="rt-blur__bg"></div>
-                                <div class="rt-blur__glass">GLASS</div>
-                            </div>
-
-                            <div class="rt-spinners">
-                                <div class="rt-spinner"></div>
-                                <div class="rt-shimmer"></div>
-                            </div>
-
-                            <span class="rt-block-label">Animated WebP grid</span>
-                            <div class="rt-grid" id="rt-grid">
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg1/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg2/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg3/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg4/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg5/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg6/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg7/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                                <div class="rt-tile"><img src="https://picsum.photos/seed/rtg8/320/320.webp" alt="" decoding="async" /><div class="rt-tile__glow"></div></div>
-                            </div>
+                    <span class="section-title-sm">Content sizing</span>
+                    <div class="input-wrap">
+                        <label class="field-label" for="sizing-mode">Mode</label>
+                        <div class="input-focus-shell">
+                            <select id="sizing-mode" class="input-focus-ring" onchange="setSizingMode(this.value)">
+                                <option value="off">Off</option>
+                                <option value="marker">data-stash-content</option>
+                                <option value="explicit">setContentHeight</option>
+                                <option value="viewport">Viewport-height wrapper (ignored)</option>
+                            </select>
                         </div>
+                    </div>
+                    <div class="chip-row">
+                        <button type="button" class="chip" onclick="setSizingBlock(40)"><span class="chip-label">Short</span></button>
+                        <button type="button" class="chip" onclick="setSizingBlock(200)"><span class="chip-label">Medium</span></button>
+                        <button type="button" class="chip" onclick="setSizingBlock(1000)"><span class="chip-label">Long</span></button>
+                        <button type="button" class="chip" onclick="triggerInvalidHeight()"><span class="chip-label">Invalid height</span></button>
+                    </div>
+                    <div id="sizing-block" class="sizing-block"></div>
+                    <div id="sizing-metrics" class="meta-hint"></div>
                 </div>
                 </section>
 
@@ -1291,9 +808,9 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
                 <span>Errors</span>
             </button>
-            <button type="button" class="tab-btn" role="tab" id="tab-btn-render" aria-controls="tab-render" data-tab="render" aria-selected="false" tabindex="-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                <span>Render</span>
+            <button type="button" class="tab-btn" role="tab" id="tab-btn-sizing" aria-controls="tab-sizing" data-tab="sizing" aria-selected="false" tabindex="-1">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>
+                <span>Sizing</span>
             </button>
         </nav>
     </div>
@@ -1365,6 +882,7 @@
                     panels[j].classList.toggle('is-active', panels[j].id === 'tab-' + name);
                 }
                 window.scrollTo(0, 0);
+                reportContentHeight();
             }
             for (var i = 0; i < buttons.length; i++) {
                 buttons[i].addEventListener('click', function () {
@@ -1389,69 +907,6 @@
             });
         })();
 
-        (function initRenderingTest() {
-            // Animations only cost while the Render tab is active (inactive panels are display:none).
-            // Pause/resume every animation in the panel (A/B while scrolling).
-            var panel = document.getElementById('rt-panel');
-            var pauseBtn = document.getElementById('rt-pause');
-            if (panel && pauseBtn) {
-                pauseBtn.addEventListener('click', function () {
-                    var paused = panel.classList.toggle('rt-paused');
-                    var label = pauseBtn.querySelector('.rt-chip-label');
-                    if (label) {
-                        label.textContent = paused ? 'Resume animations' : 'Pause animations';
-                    }
-                });
-            }
-
-            // Clone the grid tiles to crank up the compositing load on demand.
-            var grid = document.getElementById('rt-grid');
-            var amplify = document.getElementById('rt-amplify');
-            if (grid && amplify) {
-                amplify.addEventListener('click', function () {
-                    var tiles = grid.querySelectorAll('.rt-tile');
-                    var count = Math.min(8, tiles.length);
-                    for (var i = 0; i < count; i++) {
-                        grid.appendChild(tiles[i].cloneNode(true));
-                    }
-                    updateStatus('Rendering grid: ' + grid.querySelectorAll('.rt-tile').length + ' tiles');
-                });
-            }
-
-            // Before/after compare: drag moves a clip-path edge (a moving GPU layer).
-            var compare = document.getElementById('rt-compare');
-            if (compare) {
-                var dragging = false;
-                var setPos = function (clientX) {
-                    var rect = compare.getBoundingClientRect();
-                    if (rect.width <= 0) return;
-                    var pct = ((clientX - rect.left) / rect.width) * 100;
-                    pct = Math.max(0, Math.min(100, pct));
-                    compare.style.setProperty('--rt-pos', pct + '%');
-                };
-                compare.addEventListener('pointerdown', function (e) {
-                    dragging = true;
-                    setPos(e.clientX);
-                    try { compare.setPointerCapture(e.pointerId); } catch (err) {}
-                });
-                compare.addEventListener('pointermove', function (e) {
-                    if (dragging) setPos(e.clientX);
-                });
-                compare.addEventListener('pointerup', function () { dragging = false; });
-                compare.addEventListener('pointercancel', function () { dragging = false; });
-            }
-
-            // Range slider drives a live transform/hue on the box.
-            var knob = document.querySelector('.rt-knob');
-            var range = document.getElementById('rt-range');
-            if (knob && range) {
-                var applyKnob = function () {
-                    knob.style.setProperty('--rt-knob', range.value);
-                };
-                range.addEventListener('input', applyKnob);
-                applyKnob();
-            }
-        })();
 
         if (window.matchMedia) {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
@@ -1468,7 +923,7 @@
                 return;
             }
             window.stash_sdk.triggerHaptic();
-            updateStatus('Requested confirmation haptic. Check on a device with haptics enabled.');
+            updateStatus('Called: triggerHaptic()');
         }
 
         async function readTelemetry() {
@@ -1482,7 +937,7 @@
                     throw new Error('Concurrent calls returned different firstCallAt timestamps.');
                 }
                 output.textContent = JSON.stringify(values[1], null, 2);
-                updateStatus('Read telemetry; firstCallAt is stable across concurrent calls.');
+                updateStatus('Called: getTelemetry()');
             } catch (error) {
                 output.textContent = error.message;
                 updateStatus('Telemetry request failed.');
@@ -1561,6 +1016,11 @@
             }
         }
 
+        function deeplinkInput() {
+            var el = document.getElementById('deeplinkUrl');
+            return el && el.value.trim() ? el.value.trim() : 'stashdemo://misc/passthrough';
+        }
+
         function triggerDeeplink(url) {
             updateStatus('Navigating to deeplink: ' + url);
             try {
@@ -1577,6 +1037,17 @@
             } catch (e) {
                 updateStatus('window.open error: ' + (e && e.message ? e.message : e));
             }
+        }
+
+        // A link with target=_blank, clicked from script.
+        function triggerBlankTarget(url) {
+            updateStatus('target=_blank: ' + url);
+            var link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
         }
 
         // Fires the deeplink from a throwaway sub-frame so the SDK's any-frame
@@ -1598,7 +1069,7 @@
         function triggerJSError() {
             updateStatus('Throwing JavaScript Error...');
             try {
-                throw new Error('Test JavaScript Error - This should be caught by native exception handler');
+                throw new Error('Test error');
             } catch (e) {
                 updateStatus('Error caught: ' + e.message);
                 throw e;
@@ -1683,6 +1154,54 @@
                 throw e;
             }
         }
+
+        var sizingMode = 'off';
+        var sizingRoot = document.querySelector('.sheet-inner');
+        var pageLoads = 1;
+        try {
+            pageLoads = Number(sessionStorage.getItem('stash-test-loads') || 0) + 1;
+            sessionStorage.setItem('stash-test-loads', String(pageLoads));
+        } catch (e) {}
+
+        function setSizingMode(mode) {
+            sizingMode = mode;
+            document.documentElement.classList.toggle('fit-content', mode !== 'off');
+            if (mode === 'marker' || mode === 'viewport') sizingRoot.setAttribute('data-stash-content', '');
+            else sizingRoot.removeAttribute('data-stash-content');
+            sizingRoot.style.minHeight = mode === 'viewport' ? '100vh' : '';
+            updateStatus('Content sizing: ' + mode);
+            reportContentHeight();
+        }
+
+        function setSizingBlock(height) {
+            document.getElementById('sizing-block').style.height = height + 'px';
+            updateStatus('Content block: ' + height + 'px');
+            reportContentHeight();
+        }
+
+        function reportContentHeight() {
+            requestAnimationFrame(function () {
+                if (sizingMode === 'explicit' && window.stash_sdk && window.stash_sdk.setContentHeight) {
+                    window.stash_sdk.setContentHeight(sizingRoot.getBoundingClientRect().height);
+                }
+            });
+        }
+
+        function triggerInvalidHeight() {
+            updateStatus('Called: setContentHeight(-10)');
+            if (window.stash_sdk && window.stash_sdk.setContentHeight) {
+                window.stash_sdk.setContentHeight(-10);
+            }
+        }
+
+        function updateSizingMetrics() {
+            document.getElementById('sizing-metrics').textContent =
+                'Viewport ' + innerWidth + ' x ' + innerHeight + ' CSS px. Page loads: ' + pageLoads;
+            reportContentHeight();
+        }
+
+        window.addEventListener('resize', updateSizingMetrics);
+        updateSizingMetrics();
 
         const originalConsoleError = console.error;
         console.error = function () {
