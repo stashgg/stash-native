@@ -4,47 +4,15 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [3.0.0] - 2026-10-19 (Preview)
 
-A redesigned SDK with one entry point, a responsive native checkout card, and optional modules. Unity and Unreal wrapper updates ship separately. Documentation: [stashgg.github.io/stash-native](https://stashgg.github.io/stash-native/).
+Stash Native 3.0 is a new major release with a redesigned API, so existing integrations need code changes. One `StashNative` entry point replaces `StashNativeCard` on iOS and Android, and a single delegate or listener receives every event. Checkout runs in a responsive native card, and QR Code Linking ships as an optional module. Unity and Unreal wrapper updates ship separately. Documentation: [stashgg.github.io/stash-native](https://stashgg.github.io/stash-native/).
 
 ### Highlights
 
 - A responsive checkout card for phones, tablets, foldables, iPhone Duo, and split screen, built on the native iOS sheet.
 - Portrait checkout in landscape games, with the game's orientation restored afterwards.
 - QR Code Linking for webshop accounts, in the optional `StashNativeCodeLink` module.
-- Card content sizing through `setContentHeight(...)` or a `[data-stash-content]` wrapper.
+- Cards that size to the page through `setContentHeight(...)` or a `[data-stash-content]` wrapper.
 - A native loading cover, with Liquid Glass on iOS 27 and later.
-
-### Breaking changes
-
-- The entry point is now `StashNative` on iOS and Android (was `StashNativeCard`). One delegate or listener receives every event; set it on the main thread.
-- Named events replace the generic callbacks: card dismissed, scanner dismissed, and browser dismissed. On iOS, payment success is only `stashNativeDidCompletePayment(withOrder:)`.
-- On iOS, a payment result that closes the card arrives after the card closes, as on Android, so the game can open the next card from the callback.
-- Card and browser calls take the presenting view controller or activity.
-- The QR scanner implementation moved to the optional `StashNativeCodeLink` module (`stashnative-codelink` on Android). `openScanner`, `ScannerConfig`, and `ScannerError` stay on `StashNative`. The core SDK has no camera code or camera permission.
-- Card sizing uses preferred content dimensions, a height cap, and edge margins. `forcePortrait` is now `orientationPreference`.
-- Removed `openModal`, `openPopup`, `PopupSizeConfig`, and background color settings.
-- Removed the opt-in event (`stashNativeCardDidReceiveOptIn:` on iOS, `onOptInResponse` on Android) and the page's `stash_sdk.setPaymentChannel` method.
-- Removed Android `setActivity`. Pass the activity to each open call.
-- Removed iOS `disableAutoOrientationUnlock` and `+supportedInterfaceOrientationsForWindow:`. The SDK adds its own orientation hook for portrait checkout.
-- iOS 15 or later is required. Android still supports API 21.
-
-### Fixes
-
-- Checkout keeps its state, WebView, and focused fields through rotation, keyboard, and window changes.
-- A lost connection ends checkout with a network error event instead of a dismissal.
-- On iOS, dismissing the presenting view controller ends the session with its dismissal event.
-- The checkout card reveals as soon as the page draws content, instead of waiting for loading placeholders to clear or for the page theme to settle.
-- On iPhone in landscape, the card follows `preferredContentWidth` instead of UIKit's fixed 540-point sheet width.
-- On Android, checkout content stays above the navigation bar; the card still extends to the bottom edge.
-- On iOS, `getTelemetry()` returns keys in the same order on every call and reports `keyboardVisible` as a boolean, matching Android.
-- The Android JavaScript bridge accepts calls only from the checkout document.
-- On iOS, a card, scanner, or Safari handoff that cannot be shown after the open was accepted ends with its dismissal event instead of ending silently.
-- On Android, opening the scanner without the CodeLink module or one of its CameraX or ZXing libraries reports `SCANNER_UNAVAILABLE` without opening a card. A missing library no longer crashes the app.
-- On Android, when a stalled first load is retried, a failing retry ends with a network error instead of showing the server's error page.
-- On iOS, URLs such as `localhost:8080/path` open as `https://`, as on Android.
-- On iOS, VoiceOver is notified when checkout content replaces the loading indicator.
-- On iOS 26, the loading card uses an opaque cover in the sheet color. iPadOS 26.1 drew the glass loading card fully transparent.
-- Content measurement no longer rescans every stylesheet rule on each page change, which removed 5 to 20 ms of work per frame on pages with large stylesheets.
 
 ## [2.3.1] - 2026-09-03
 

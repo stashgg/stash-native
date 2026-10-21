@@ -16,7 +16,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ## Compatibility requirements
 
-- Preserve the current major version's public APIs and observable callback behavior. The native 3.0 migration deliberately removes modal, background-color configuration, legacy sizing, popup, and ambient-host APIs; Unity/Unreal wrapper migration and desktop adoption are separate work. See the 3.0.0 breaking changes in `CHANGELOG.md`.
+- Preserve the current major version's public APIs and observable callback behavior. The native 3.0 migration deliberately removes modal, background-color configuration, legacy sizing, popup, and ambient-host APIs; Unity/Unreal wrapper migration and desktop adoption are separate work. The full list of 3.0 breaking changes is in the 3.0.0 changelog entry at commit `87ab82c` (`git show 87ab82c:CHANGELOG.md`).
 - Preserve iOS ARC and non-ARC compatibility, including the delegate property's `__has_feature(objc_arc)` guard. An ARC build alone does not verify non-ARC consumers.
 - Android checkout runs in the host app process. Do not introduce an `android:process` isolate.
 - Preserve existing JS handler spellings, including `stashNativement*`; they are compatibility names.
