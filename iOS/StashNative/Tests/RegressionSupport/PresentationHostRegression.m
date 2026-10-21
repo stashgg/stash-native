@@ -233,6 +233,50 @@ static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(N
     });
 }
 
+void StashDismissalContentProbe(void (^completion)(NSDictionary *)) {
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    if (!previous.windowScene) { completion(@{@"presented":@NO}); return; }
+    UIWindow *window = [[UIWindow alloc] initWithWindowScene:previous.windowScene];
+    UIViewController *root = [UIViewController new];
+    window.rootViewController = root; [window makeKeyAndVisible];
+    StashNative *owner = [StashNative new];
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:nil];
+    StashCardSession *session = owner.session;
+    [session.webView stopLoading];
+    UIViewController *card = session.controller;
+    WKWebView *web = session.webView;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+        [owner resetPresentationState];
+        window.hidden = YES; [previous makeKeyWindow];
+        completion(result);
+    };
+    StashAwaitHostCondition(^BOOL { return card.presentingViewController == root && !card.isBeingPresented; },
+        CFAbsoluteTimeGetCurrent() + 5, ^(BOOL presented) {
+        if (!presented) { finish(@{@"presented":@NO}); return; }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            CGRect before = web.frame;
+            __block CGFloat minimumHeight = before.size.height;
+            __block NSInteger samples = 0;
+            [owner dismiss];
+            // Sample every frame while UIKit animates the card out; force layout as the update link would.
+            StashAwaitHostCondition(^BOOL {
+                if (card.isBeingDismissed) {
+                    [card.view setNeedsLayout]; [card.view layoutIfNeeded];
+                    minimumHeight = MIN(minimumHeight, web.frame.size.height);
+                    samples += 1;
+                }
+                return card.presentingViewController == nil;
+            }, CFAbsoluteTimeGetCurrent() + 5, ^(BOOL dismissed) {
+                finish(@{@"presented":@YES, @"dismissed":@(dismissed), @"beforeHeight":@(before.size.height),
+                    @"minimumHeight":@(minimumHeight), @"samples":@(samples)});
+            });
+        });
+    });
+}
+
 void StashLandscapeCardWidthProbe(CGFloat preferredWidth, void (^completion)(NSDictionary *)) {
     if (@available(iOS 16.0, *)) StashLandscapeCardWidth(preferredWidth, completion);
     else completion(@{@"rotated":@NO});

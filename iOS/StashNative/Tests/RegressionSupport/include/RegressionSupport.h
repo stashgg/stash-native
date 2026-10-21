@@ -90,6 +90,8 @@ BOOL StashGlassLoadingSurfaceDefault(void);
 NSDictionary *StashNativePresentationProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);
 void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *));
+/// Presents a real card, dismisses it animated, and records the web content height during the animation.
+void StashDismissalContentProbe(void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 void StashLandscapeCardWidthProbe(CGFloat preferredWidth, void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 NSDictionary *StashNativeEntranceProbe(void);
 

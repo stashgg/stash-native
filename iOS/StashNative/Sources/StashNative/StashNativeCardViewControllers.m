@@ -43,7 +43,7 @@
         STASH_WEAK_REF StashCardViewController *weakSelf = self;
         UIUpdateLink *link = [UIUpdateLink updateLinkForView:self.view actionHandler:^(UIUpdateLink *updateLink, UIUpdateInfo *info) {
             StashCardViewController *controller = weakSelf;
-            if (![controller.session isActive]) return;
+            if (![controller.session isActive] || controller.isBeingDismissed) return;
             [controller updateKeyboardGuideOcclusion];
             UIView *container = [controller layoutContainer];
             CGRect bounds = [controller availableBoundsInView:container];
@@ -158,6 +158,8 @@
 }
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
+    // UIKit moves the card off screen as soon as dismissal starts; keep the content where it is while it animates out.
+    if (self.isBeingDismissed) return;
     [self updateKeyboardGuideOcclusion];
     [self reconcileHostSafeAreaInsets];
     if (self.session.scannerController) {

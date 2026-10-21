@@ -79,6 +79,24 @@ final class NativePresentationTests: XCTestCase {
         wait(for: [done], timeout: 20)
     }
 
+    // UIKit moves the card's frame off screen when dismissal starts; the content must stay drawn while it animates out.
+    func testDismissalKeepsWebContentUntilTheCardLeaves() throws {
+        let done = expectation(description: "dismissal content")
+        DispatchQueue.main.async {
+            StashDismissalContentProbe { result in
+                for key in ["presented", "dismissed"] {
+                    XCTAssertEqual((result[key] as? NSNumber)?.boolValue, true, key)
+                }
+                let before = (result["beforeHeight"] as? NSNumber)?.doubleValue ?? 0
+                XCTAssertGreaterThan(before, 0)
+                XCTAssertGreaterThan((result["samples"] as? NSNumber)?.intValue ?? 0, 0)
+                XCTAssertEqual((result["minimumHeight"] as? NSNumber)?.doubleValue ?? 0, before, accuracy: 0.5)
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 15)
+    }
+
     @MainActor func testInvalidPresentersAndRetiredSessionsCannotCreateCheckout() throws {
         let result = try XCTUnwrap(StashPresentationLifetimeProbe())
         XCTAssertEqual(result.count, 5)
