@@ -10,6 +10,38 @@
 }
 @end
 
+@interface StashTransitionProbeView : UIView
+@property (nonatomic) UIUserInterfaceSizeClass horizontalClass;
+@property (nonatomic) UIUserInterfaceSizeClass verticalClass;
+@end
+@implementation StashTransitionProbeView
+- (UITraitCollection *)traitCollection {
+    return [UITraitCollection traitCollectionWithTraitsFromCollections:@[
+        [UITraitCollection traitCollectionWithHorizontalSizeClass:self.horizontalClass],
+        [UITraitCollection traitCollectionWithVerticalSizeClass:self.verticalClass]]];
+}
+@end
+
+NSDictionary *StashCardTransitionProbe(void) {
+    NSMutableDictionary *result = [NSMutableDictionary dictionary];
+    for (NSDictionary *input in @[
+        @{@"name":@"tablet", @"h":@(UIUserInterfaceSizeClassRegular), @"v":@(UIUserInterfaceSizeClassRegular)},
+        @{@"name":@"phone", @"h":@(UIUserInterfaceSizeClassCompact), @"v":@(UIUserInterfaceSizeClassRegular)},
+        @{@"name":@"phoneLandscape", @"h":@(UIUserInterfaceSizeClassRegular), @"v":@(UIUserInterfaceSizeClassCompact)}]) {
+        StashCardSession *session = [StashCardSession new];
+        session.config = [StashNativeCardConfig new];
+        UIViewController *presenter = [UIViewController new];
+        StashTransitionProbeView *view = [[StashTransitionProbeView alloc] initWithFrame:CGRectMake(0, 0, 1000, 1200)];
+        view.horizontalClass = [input[@"h"] integerValue];
+        view.verticalClass = [input[@"v"] integerValue];
+        presenter.view = view; session.presenter = presenter;
+        StashCardViewController *controller = [StashCardViewController new];
+        session.controller = controller; controller.session = session; [controller configurePresentation];
+        result[input[@"name"]] = @(controller.modalTransitionStyle);
+    }
+    return result;
+}
+
 NSDictionary *StashNativePresentationProbe(void) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     for (NSDictionary *input in @[

@@ -79,6 +79,14 @@ final class NativePresentationTests: XCTestCase {
         wait(for: [done], timeout: 20)
     }
 
+    // Floating tablet cards fade in, like Android; phone cards rise from the bottom edge.
+    func testTabletCardFadesInWhilePhoneCardsSlideUp() throws {
+        let result = StashCardTransitionProbe() as! [String: NSNumber]
+        XCTAssertEqual(result["tablet"]?.intValue, UIModalTransitionStyle.crossDissolve.rawValue)
+        XCTAssertEqual(result["phone"]?.intValue, UIModalTransitionStyle.coverVertical.rawValue)
+        XCTAssertEqual(result["phoneLandscape"]?.intValue, UIModalTransitionStyle.coverVertical.rawValue)
+    }
+
     // UIKit moves the card's frame off screen when dismissal starts; the content must stay drawn while it animates out.
     func testDismissalKeepsWebContentUntilTheCardLeaves() throws {
         let done = expectation(description: "dismissal content")

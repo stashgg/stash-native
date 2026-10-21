@@ -88,6 +88,8 @@ NSDictionary *StashLoadingCoverBackgroundProbe(BOOL glass);
 BOOL StashGlassLoadingSurfaceDefault(void);
 
 NSDictionary *StashNativePresentationProbe(void);
+/// The modal transition style a card picks for tablet, phone, and phone-landscape traits.
+NSDictionary *StashCardTransitionProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);
 void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *));
 /// Presents a real card, dismisses it animated, and records the web content height during the animation.

@@ -25,6 +25,9 @@
     self.preferredContentSize = CGSizeMake(self.session.config.preferredContentWidth,
         [self usesFloatingNativeSizing] || wide ? self.session.config.preferredContentHeight : 0);
     self.modalPresentationStyle = UIModalPresentationFormSheet;
+    // A floating card fades in on a large screen instead of rising from the bottom edge.
+    self.modalTransitionStyle = [self usesFloatingNativeSizing]
+        ? UIModalTransitionStyleCrossDissolve : UIModalTransitionStyleCoverVertical;
     UISheetPresentationController *sheet = self.sheetPresentationController;
     sheet.delegate = self.session;
     sheet.prefersGrabberVisible = YES;
