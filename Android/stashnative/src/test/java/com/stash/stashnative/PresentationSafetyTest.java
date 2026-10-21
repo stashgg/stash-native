@@ -765,6 +765,77 @@ public class PresentationSafetyTest {
     assertEquals(0, activity.dismissCalls);
   }
 
+  private Object controllerField(String name) throws Exception {
+    Field field = StashPresentationController.class.getDeclaredField(name);
+    field.setAccessible(true);
+    return field.get(activity.presentation);
+  }
+
+  /** A floating card on an 800 x 1400 window, with its entrance finished. */
+  private StashCheckoutSizing.Box presentFloatingCard() throws Exception {
+    activity.presentation.environmentChanged();
+    ValueAnimator entering = currentAnimation();
+    if (entering != null) entering.end();
+    assertFalse(((StashCheckoutSizing.Layout) controllerField("layout")).bottomAttached);
+    return (StashCheckoutSizing.Box) controllerField("shownFrame");
+  }
+
+  @Test public void floatingHandleDragNeitherExpandsNorResizesTheCard() throws Exception {
+    StashCheckoutSizing.Box resting = presentFloatingCard();
+    View handle = new View(activity);
+    MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 400, 600, 0);
+    MotionEvent move = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 400, 200, 0);
+    MotionEvent up = MotionEvent.obtain(0, 200, MotionEvent.ACTION_UP, 400, 200, 0);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move);
+    StashCheckoutSizing.Box dragged = (StashCheckoutSizing.Box) controllerField("shownFrame");
+    assertEquals(resting.top, dragged.top);
+    assertEquals(resting.bottom, dragged.bottom);
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    activity.presentation.onTouch(handle, up);
+    assertFalse(activity.presentation.state.expanded);
+    assertEquals(0, activity.dismissCalls);
+    down.recycle();
+    move.recycle();
+    up.recycle();
+  }
+
+  @Test public void draggedFloatingCardSlidesOffScreenWhenDismissed() throws Exception {
+    StashCheckoutSizing.Box frame = presentFloatingCard();
+    View handle = new View(activity);
+    MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 400, 600, 0);
+    MotionEvent move = MotionEvent.obtain(0, 100, MotionEvent.ACTION_MOVE, 400, 760, 0);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move);
+    float dragged = activity.cardContainer.getTranslationY();
+    assertTrue(dragged > 0);
+    activity.isDismissing = true;
+    activity.presentation.dismiss(null);
+    // The card continues from the finger instead of snapping back to rest.
+    assertEquals(dragged, activity.cardContainer.getTranslationY(), 0);
+    ValueAnimator dismissing = currentAnimation();
+    dismissing.setCurrentPlayTime(60);
+    assertTrue(activity.cardContainer.getTranslationY() > dragged);
+    assertEquals(1, activity.cardContainer.getAlpha(), 0);
+    dismissing.end();
+    assertTrue(activity.cardContainer.getTranslationY() >= 1400 - frame.top);
+    assertEquals(0, activity.backdropView.getAlpha(), 0);
+    down.recycle();
+    move.recycle();
+  }
+
+  @Test public void undraggedFloatingCardFadesInPlaceWhenDismissed() throws Exception {
+    presentFloatingCard();
+    activity.isDismissing = true;
+    activity.presentation.dismiss(null);
+    ValueAnimator dismissing = currentAnimation();
+    dismissing.setCurrentPlayTime(60);
+    assertTrue(activity.cardContainer.getAlpha() < 1);
+    dismissing.end();
+    assertEquals(0, activity.cardContainer.getTranslationY(), 0);
+    assertEquals(0, activity.cardContainer.getAlpha(), 0);
+  }
+
   public static class RecordingCheckout extends StashCardActivity {
     int dismissCalls;
     int networkErrors;

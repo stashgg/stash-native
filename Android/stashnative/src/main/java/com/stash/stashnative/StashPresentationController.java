@@ -374,8 +374,16 @@ final class StashPresentationController implements View.OnTouchListener {
 
   void dismiss(Runnable completion) {
     boolean bottom = layout != null && layout.bottomAttached;
-    int height = shownFrame != null ? shownFrame.height() : activity.cardContainer.getHeight();
     float initialY = activity.cardContainer.getTranslationY();
+    // A dragged floating card continues down with the finger; otherwise it fades like it appeared.
+    boolean slide = bottom || initialY > 0;
+    int distance;
+    if (bottom) {
+      distance = shownFrame != null ? shownFrame.height() : activity.cardContainer.getHeight();
+    } else {
+      int top = shownFrame != null ? shownFrame.top : activity.cardContainer.getTop();
+      distance = Math.max(activity.rootLayout.getHeight() - top, activity.cardContainer.getHeight());
+    }
     float initialAlpha = activity.cardContainer.getAlpha();
     float initialBackdrop = activity.backdropView.getAlpha();
     animate(
@@ -383,9 +391,9 @@ final class StashPresentationController implements View.OnTouchListener {
         220,
         value -> {
           activity.backdropView.setAlpha(initialBackdrop * (1 - value));
-          activity.cardContainer.setAlpha(bottom ? initialAlpha : initialAlpha * (1 - value));
+          activity.cardContainer.setAlpha(slide ? initialAlpha : initialAlpha * (1 - value));
           activity.cardContainer.setTranslationY(
-              bottom ? initialY + (height - initialY) * value : 0);
+              slide ? initialY + (distance - initialY) * value : 0);
         },
         completion);
   }
@@ -576,11 +584,15 @@ final class StashPresentationController implements View.OnTouchListener {
       }
       view.setPressed(false);
       dragging = true;
-      int height =
-          Math.max(
-              layout.restingHeight,
-              Math.min(layout.expandedHeight, Math.round(dragHeight - delta)));
-      applyFrame(StashCheckoutSizing.frameAtHeight(layout, height));
+      // Floating cards only move for dismissal; expansion is an SDK call there, as on iOS.
+      int height = dragHeight;
+      if (layout.bottomAttached) {
+        height =
+            Math.max(
+                layout.restingHeight,
+                Math.min(layout.expandedHeight, Math.round(dragHeight - delta)));
+        applyFrame(StashCheckoutSizing.frameAtHeight(layout, height));
+      }
       activity.cardContainer.setTranslationY(
           headerGesture && options.allowDismiss
               ? Math.max(0, delta - (dragHeight - height)) : 0);
@@ -609,7 +621,7 @@ final class StashPresentationController implements View.OnTouchListener {
           && (translation > dp(100) || (translation > dp(20) && speed > 700))) {
         activity.dismissWithAnimation();
       } else {
-        if (!cancel && !state.keyboardVisible) {
+        if (!cancel && !state.keyboardVisible && layout.bottomAttached) {
           boolean expanded =
               speed < -400
                   || (speed <= 400
