@@ -836,6 +836,94 @@ public class PresentationSafetyTest {
     assertEquals(0, activity.cardContainer.getAlpha(), 0);
   }
 
+  private StashCheckoutSizing.Box settledFrame() throws Exception {
+    ValueAnimator entering = currentAnimation();
+    if (entering != null) entering.end();
+    return (StashCheckoutSizing.Box) controllerField("shownFrame");
+  }
+
+  // Measured on the iOS sheet: a slow release dismisses past half of the way off screen,
+  // a flick above about 1250 points per second dismisses from a short drag.
+  @Test public void releaseDismissesLikeTheIosSheet() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    StashCheckoutSizing.Box phone = settledFrame();
+    float half = phone.height() / 2f;
+    assertTrue(half > 100);
+    assertFalse(activity.presentation.releaseDismisses(100, 0));
+    assertFalse(activity.presentation.releaseDismisses(half - 1, 0));
+    assertTrue(activity.presentation.releaseDismisses(half + 1, 0));
+    assertFalse(activity.presentation.releaseDismisses(30, 2000));
+    assertFalse(activity.presentation.releaseDismisses(60, 1000));
+    assertTrue(activity.presentation.releaseDismisses(60, 1500));
+
+    activity.rootLayout.setRight(800);
+    activity.presentation.environmentChanged();
+    StashCheckoutSizing.Box floating = settledFrame();
+    float travel = 1400 - floating.top;
+    assertFalse(activity.presentation.releaseDismisses(travel / 2 - 1, 0));
+    assertTrue(activity.presentation.releaseDismisses(travel / 2 + 1, 0));
+  }
+
+  @Test public void slowShortHandleDragSettlesBackInsteadOfDismissing() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    StashCheckoutSizing.Box phone = settledFrame();
+    View handle = new View(activity);
+    // 150 dp at a walking pace: the old 100 dp threshold dismissed this.
+    MotionEvent down = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 180, 600, 0);
+    MotionEvent move = MotionEvent.obtain(0, 1000, MotionEvent.ACTION_MOVE, 180, 750, 0);
+    MotionEvent up = MotionEvent.obtain(0, 1100, MotionEvent.ACTION_UP, 180, 750, 0);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move);
+    activity.presentation.onTouch(handle, up);
+    assertEquals(0, activity.dismissCalls);
+    down.recycle();
+    move.recycle();
+    up.recycle();
+    // Past half of the card's height, the same slow release dismisses.
+    int far = 600 + phone.height() / 2 + 40;
+    MotionEvent down2 = MotionEvent.obtain(2000, 2000, MotionEvent.ACTION_DOWN, 180, 600, 0);
+    MotionEvent move2 = MotionEvent.obtain(2000, 3000, MotionEvent.ACTION_MOVE, 180, far, 0);
+    MotionEvent up2 = MotionEvent.obtain(2000, 3100, MotionEvent.ACTION_UP, 180, far, 0);
+    activity.presentation.onTouch(handle, down2);
+    activity.presentation.onTouch(handle, move2);
+    activity.presentation.onTouch(handle, up2);
+    assertEquals(1, activity.dismissCalls);
+    down2.recycle();
+    move2.recycle();
+    up2.recycle();
+  }
+
+  /** A handle event at a screen position, reported in the coordinates of a handle that moved with it. */
+  private static MotionEvent handleEvent(long time, int action, float screenY, float handleY) {
+    MotionEvent event = MotionEvent.obtain(0, time, action, 180, screenY, 0);
+    event.offsetLocation(0, handleY - screenY);
+    return event;
+  }
+
+  @Test public void fastFlickOfAHandleThatMovesWithTheFingerDismisses() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    StashCheckoutSizing.Box phone = settledFrame();
+    View handle = new View(activity);
+    // 160 dp in 100 ms. The handle travels with the finger, so its local position barely changes.
+    MotionEvent down = handleEvent(0, MotionEvent.ACTION_DOWN, 600, 10);
+    MotionEvent move1 = handleEvent(50, MotionEvent.ACTION_MOVE, 680, 10);
+    MotionEvent move2 = handleEvent(100, MotionEvent.ACTION_MOVE, 760, 10);
+    MotionEvent up = handleEvent(110, MotionEvent.ACTION_UP, 760, 10);
+    assertTrue(160 < phone.height() / 2);
+    activity.presentation.onTouch(handle, down);
+    activity.presentation.onTouch(handle, move1);
+    activity.presentation.onTouch(handle, move2);
+    activity.presentation.onTouch(handle, up);
+    assertEquals(1, activity.dismissCalls);
+    down.recycle();
+    move1.recycle();
+    move2.recycle();
+    up.recycle();
+  }
+
   public static class RecordingCheckout extends StashCardActivity {
     int dismissCalls;
     int networkErrors;

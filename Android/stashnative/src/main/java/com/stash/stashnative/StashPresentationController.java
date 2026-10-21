@@ -509,7 +509,15 @@ final class StashPresentationController implements View.OnTouchListener {
       velocity.recycle();
     }
     velocity = VelocityTracker.obtain();
-    velocity.addMovement(event);
+    trackVelocity(event);
+  }
+
+  // The touched view moves with the finger, so its local coordinates understate the speed.
+  private void trackVelocity(MotionEvent event) {
+    MotionEvent screen = MotionEvent.obtain(event);
+    screen.setLocation(event.getRawX(), event.getRawY());
+    velocity.addMovement(screen);
+    screen.recycle();
   }
 
   private void finishTouch() {
@@ -575,7 +583,7 @@ final class StashPresentationController implements View.OnTouchListener {
       return true;
     }
     if (velocity != null) {
-      velocity.addMovement(event);
+      trackVelocity(event);
     }
     float delta = event.getRawY() - touchY;
     if (event.getActionMasked() == MotionEvent.ACTION_MOVE) {
@@ -616,9 +624,7 @@ final class StashPresentationController implements View.OnTouchListener {
       boolean canDismiss = headerGesture && options.allowDismiss;
       finishTouch();
       float translation = activity.cardContainer.getTranslationY();
-      if (!cancel
-          && canDismiss
-          && (translation > dp(100) || (translation > dp(20) && speed > 700))) {
+      if (!cancel && canDismiss && releaseDismisses(translation, speed)) {
         activity.dismissWithAnimation();
       } else {
         if (!cancel && !state.keyboardVisible && layout.bottomAttached) {
@@ -633,6 +639,20 @@ final class StashPresentationController implements View.OnTouchListener {
       return true;
     }
     return true;
+  }
+
+  /**
+   * Matches the native iOS sheet: a release dismisses once the card has moved half of the way
+   * off screen, or on a fast downward flick. {@code speed} is in dp per second.
+   */
+  boolean releaseDismisses(float translation, float speed) {
+    if (layout == null || shownFrame == null) {
+      return false;
+    }
+    int travel = layout.bottomAttached
+        ? shownFrame.height()
+        : Math.max(1, activity.rootLayout.getHeight() - shownFrame.top);
+    return translation > travel / 2f || (translation > dp(40) && speed > 1250);
   }
 
   void dispose() {
