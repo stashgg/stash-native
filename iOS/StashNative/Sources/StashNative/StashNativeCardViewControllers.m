@@ -5,7 +5,7 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     UIColor *initialBackground = StashSheetBackgroundUIColor(self.session.presenter.traitCollection ?: self.traitCollection);
-    if (@available(iOS 26.0, *)) self.glassLoading = !self.session.initialContentRevealed;
+    self.glassLoading = StashGlassLoadingAvailable() && !self.session.initialContentRevealed;
     self.view.backgroundColor = initialBackground;
     self.view.accessibilityIdentifier = @"stash-card";
     self.view.clipsToBounds = YES;

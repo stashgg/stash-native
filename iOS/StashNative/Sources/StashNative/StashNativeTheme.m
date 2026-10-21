@@ -41,6 +41,16 @@ UIColor* StashSheetBackgroundUIColor(UITraitCollection *traits) {
     return StashSystemBackgroundColor(traits);
 }
 
+NSInteger StashGlassLoadingOverride = -1;
+
+BOOL StashGlassLoadingAvailable(void) {
+    if (StashGlassLoadingOverride >= 0) return StashGlassLoadingOverride == 1;
+    // iPadOS 26.1 accepts a detent background effect but draws nothing, leaving a transparent card.
+    // Earlier systems load behind an opaque cover in the sheet color.
+    if (@available(iOS 27.0, *)) return YES;
+    return NO;
+}
+
 NSString* StashAppendThemeQueryParameter(NSString* url, UITraitCollection *traits) {
     if (url == nil || url.length == 0) {
         return url;

@@ -82,7 +82,10 @@ void StashEnableChromeFixtureProbe(NSDictionary *fixture);
 UIColor *StashChromeFixtureInferredColor(NSDictionary *fixture);
 
 NSDictionary *StashChromeLoadingCoverProbe(void);
-NSDictionary *StashLoadingCoverBackgroundProbe(void);
+/// Runs the loading-surface checks with the glass surface forced on or off, then restores the OS default.
+NSDictionary *StashLoadingCoverBackgroundProbe(BOOL glass);
+/// Whether the SDK uses the glass loading surface on this OS, without a test override.
+BOOL StashGlassLoadingSurfaceDefault(void);
 
 NSDictionary *StashNativePresentationProbe(void);
 NSDictionary *StashPresentationLifetimeProbe(void);

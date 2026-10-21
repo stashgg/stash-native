@@ -4,9 +4,20 @@ import RegressionSupport
 
 final class LoadingPresentationTests: XCTestCase {
     @MainActor func testLoadingSurfaceConcealsPagePaintUntilReveal() throws {
-        let result = try XCTUnwrap(StashLoadingCoverBackgroundProbe())
-        XCTAssertEqual(result.count, 4)
-        for (key, value) in result { XCTAssertEqual(value as? Bool, true, String(describing: key)) }
+        // Glass on iOS 27 and later; the opaque cover in the sheet color everywhere else.
+        for glass in [true, false] {
+            let result = try XCTUnwrap(StashLoadingCoverBackgroundProbe(glass))
+            XCTAssertEqual(result.count, 4)
+            for (key, value) in result { XCTAssertEqual(value as? Bool, true, "\(key) glass=\(glass)") }
+        }
+    }
+
+    func testGlassLoadingSurfaceRequiresIOS27() {
+        if #available(iOS 27.0, *) {
+            XCTAssertTrue(StashGlassLoadingSurfaceDefault())
+        } else {
+            XCTAssertFalse(StashGlassLoadingSurfaceDefault())
+        }
     }
 
     @MainActor func testCheckoutReadinessTreatsPlaceholdersAsDrawnContentWhileWebViewIsTransparent() async throws {

@@ -21,7 +21,7 @@ iPhone Duo layouts need the app itself to link against the iOS 27.1 SDK. Mac Cat
 | 15 | System medium and large detents |
 | 16 | Custom detents and drag to expand |
 | 16.4 | Inspectable WebViews |
-| 26 | Glass loading background |
+| 27 | Glass loading background; earlier versions load behind an opaque cover in the sheet color |
 | 27.1 | Layout around reserved regions such as the iPhone Duo fold |
 
 | Android API | Behavior |

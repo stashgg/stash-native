@@ -400,10 +400,18 @@ static BOOL StashLoadingSamePaint(UIColor *left, UIColor *right) {
         fabs(lr - rr) < 0.00001 && fabs(lg - rg) < 0.00001 && fabs(lb - rb) < 0.00001 && fabs(la - ra) < 0.00001;
 }
 
-NSDictionary *StashLoadingCoverBackgroundProbe(void) {
+BOOL StashGlassLoadingSurfaceDefault(void) {
+    NSInteger saved = StashGlassLoadingOverride;
+    StashGlassLoadingOverride = -1;
+    BOOL available = StashGlassLoadingAvailable();
+    StashGlassLoadingOverride = saved;
+    return available;
+}
+
+NSDictionary *StashLoadingCoverBackgroundProbe(BOOL glass) {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
-    BOOL glass = NO;
-    if (@available(iOS 26.0, *)) glass = YES;
+    NSInteger savedOverride = StashGlassLoadingOverride;
+    StashGlassLoadingOverride = glass ? 1 : 0;
     UIWindow *previous = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
         if ([scene isKindOfClass:UIWindowScene.class])
@@ -465,7 +473,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260100
         if (@available(iOS 26.1, *)) {
             for (UISheetPresentationControllerDetent *detent in controller.sheetPresentationController.detents)
-                nativeMaterial &= [controller usesFloatingNativeSizing]
+                nativeMaterial &= [controller usesFloatingNativeSizing] && glass
                     ? [detent.backgroundEffect isKindOfClass:UIBlurEffect.class] : detent.backgroundEffect == nil;
         }
 #endif
@@ -487,6 +495,7 @@ NSDictionary *StashLoadingCoverBackgroundProbe(void) {
     }
     shared.session = savedSession;
     window.hidden = YES; [previous makeKeyWindow];
+    StashGlassLoadingOverride = savedOverride;
     return result;
 }
 

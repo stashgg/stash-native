@@ -12,7 +12,7 @@ A redesigned SDK with one entry point, a responsive native checkout card, and op
 - Portrait checkout in landscape games, with the game's orientation restored afterwards.
 - QR Code Linking for webshop accounts, in the optional `StashNativeCodeLink` module.
 - Card content sizing through `setContentHeight(...)` or a `[data-stash-content]` wrapper.
-- A native loading cover, with Liquid Glass on iOS 26 and later.
+- A native loading cover, with Liquid Glass on iOS 27 and later.
 
 ### Breaking changes
 
@@ -43,6 +43,7 @@ A redesigned SDK with one entry point, a responsive native checkout card, and op
 - On Android, when a stalled first load is retried, a failing retry ends with a network error instead of showing the server's error page.
 - On iOS, URLs such as `localhost:8080/path` open as `https://`, as on Android.
 - On iOS, VoiceOver is notified when checkout content replaces the loading indicator.
+- On iOS 26, the loading card uses an opaque cover in the sheet color. iPadOS 26.1 drew the glass loading card fully transparent.
 - Content measurement no longer rescans every stylesheet rule on each page change, which removed 5 to 20 ms of work per frame on pages with large stylesheets.
 
 ## [2.3.1] - 2026-09-03

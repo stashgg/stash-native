@@ -217,7 +217,7 @@
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 260100
     if (@available(iOS 26.1, *)) {
         BOOL loading = self.isViewLoaded ? self.loadingCover != nil : !self.session.initialContentRevealed;
-        UIBlurEffect *effect = loading && [self usesFloatingNativeSizing]
+        UIBlurEffect *effect = loading && [self usesFloatingNativeSizing] && StashGlassLoadingAvailable()
             ? [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterial] : nil;
         for (UISheetPresentationControllerDetent *detent in self.sheetPresentationController.detents)
             detent.backgroundEffect = effect;

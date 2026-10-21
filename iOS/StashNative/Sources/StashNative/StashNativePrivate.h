@@ -56,6 +56,9 @@ NSString *StashTopChromeScript(void);
 WKContentWorld *StashTopChromeWorld(void);
 extern NSString *const StashTopChromeHandlerName;
 UIColor *StashSheetBackgroundUIColor(UITraitCollection *traits);
+/** Glass loading surface: iOS 27 and later. Tests set the override to 0 or 1; -1 follows the OS. */
+extern NSInteger StashGlassLoadingOverride;
+BOOL StashGlassLoadingAvailable(void);
 BOOL StashEffectiveThemeIsDark(UITraitCollection *traits);
 NSString *StashAppendThemeQueryParameter(NSString *url, UITraitCollection *traits);
 NSString *StashNormalizeExternalPaymentURL(NSString *raw);
