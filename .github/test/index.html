@@ -435,6 +435,20 @@
             gap: 1.5rem;
         }
 
+        .field-row {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .field-row .input-wrap {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+
+        .field-row .field-wide {
+            flex: 2 1 0;
+        }
+
         .sizing-block {
             height: 40px;
             border: 1px solid var(--pay-ui-theme-border-color);
@@ -760,22 +774,29 @@
                 <section class="tab-panel" id="tab-sizing" role="tabpanel" aria-labelledby="tab-btn-sizing">
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Content sizing</span>
-                    <div class="input-wrap">
-                        <label class="field-label" for="sizing-mode">Mode</label>
-                        <div class="input-focus-shell">
-                            <select id="sizing-mode" class="input-focus-ring" onchange="setSizingMode(this.value)">
-                                <option value="off">Off</option>
-                                <option value="marker">data-stash-content</option>
-                                <option value="explicit">setContentHeight</option>
-                                <option value="viewport">Viewport-height wrapper (ignored)</option>
-                            </select>
+                    <div class="field-row">
+                        <div class="input-wrap field-wide">
+                            <label class="field-label" for="sizing-mode">Mode</label>
+                            <div class="input-focus-shell">
+                                <select id="sizing-mode" class="input-focus-ring" onchange="setSizingMode(this.value)">
+                                    <option value="off">Off</option>
+                                    <option value="marker">data-stash-content</option>
+                                    <option value="viewport">Viewport-height wrapper (ignored)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="input-wrap">
+                            <label class="field-label" for="sizing-height">Height (px)</label>
+                            <div class="input-focus-shell">
+                                <input type="text" id="sizing-height" class="input-focus-ring" inputmode="numeric" value="40" oninput="setSizingBlockFromInput()" />
+                            </div>
                         </div>
                     </div>
                     <div class="chip-row">
                         <button type="button" class="chip" onclick="setSizingBlock(40)"><span class="chip-label">Short</span></button>
                         <button type="button" class="chip" onclick="setSizingBlock(200)"><span class="chip-label">Medium</span></button>
                         <button type="button" class="chip" onclick="setSizingBlock(1000)"><span class="chip-label">Long</span></button>
-                        <button type="button" class="chip" onclick="triggerInvalidHeight()"><span class="chip-label">Invalid height</span></button>
+                        <button type="button" class="chip" onclick="applySizingInput()"><span class="chip-label">Apply</span></button>
                     </div>
                     <div id="sizing-block" class="sizing-block"></div>
                     <div id="sizing-metrics" class="meta-hint"></div>
@@ -890,8 +911,7 @@
                     panels[j].classList.toggle('is-active', panels[j].id === 'tab-' + name);
                 }
                 window.scrollTo(0, 0);
-                reportContentHeight();
-            }
+                }
             for (var i = 0; i < buttons.length; i++) {
                 buttons[i].addEventListener('click', function () {
                     activate(this.getAttribute('data-tab'));
@@ -1186,34 +1206,31 @@
             else sizingRoot.removeAttribute('data-stash-content');
             sizingRoot.style.minHeight = mode === 'viewport' ? '100vh' : '';
             updateStatus('Content sizing: ' + mode);
-            reportContentHeight();
         }
 
         function setSizingBlock(height) {
             document.getElementById('sizing-block').style.height = height + 'px';
+            document.getElementById('sizing-height').value = String(height);
             updateStatus('Content block: ' + height + 'px');
-            reportContentHeight();
         }
 
-        function reportContentHeight() {
-            requestAnimationFrame(function () {
-                if (sizingMode === 'explicit' && window.stash_sdk && window.stash_sdk.setContentHeight) {
-                    window.stash_sdk.setContentHeight(sizingRoot.getBoundingClientRect().height);
-                }
-            });
+        // Applies the typed height and closes the keyboard, which keeps the card expanded while open.
+        function applySizingInput() {
+            var field = document.getElementById('sizing-height');
+            setSizingBlockFromInput();
+            field.blur();
         }
 
-        function triggerInvalidHeight() {
-            updateStatus('Called: setContentHeight(-10)');
-            if (window.stash_sdk && window.stash_sdk.setContentHeight) {
-                window.stash_sdk.setContentHeight(-10);
-            }
+        function setSizingBlockFromInput() {
+            var height = parseInt(document.getElementById('sizing-height').value, 10);
+            if (!isFinite(height) || height < 0) return;
+            document.getElementById('sizing-block').style.height = height + 'px';
+            updateStatus('Content block: ' + height + 'px');
         }
 
         function updateSizingMetrics() {
             document.getElementById('sizing-metrics').textContent =
                 'Viewport ' + innerWidth + ' x ' + innerHeight + ' CSS px. Page loads: ' + pageLoads;
-            reportContentHeight();
         }
 
         window.addEventListener('resize', updateSizingMetrics);
