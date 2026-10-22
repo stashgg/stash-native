@@ -199,14 +199,8 @@ final class StashPresentationController implements View.OnTouchListener {
             hinge,
             verticalHinge,
             activity.rootLayout.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL);
-    StashCheckoutSizing.Layout base =
-        StashCheckoutSizing.resolve(pane, density(), options, state.effectiveExpanded(), 0);
-    StashCheckoutSizing.Layout resolved = StashCheckoutSizing.resolve(
-        pane,
-        density(),
-        options,
-        state.effectiveExpanded(),
-        state.contentForWidth(base.frame.width()));
+    StashCheckoutSizing.Layout resolved =
+        StashCheckoutSizing.resolve(pane, density(), options, state.effectiveExpanded());
     // Only the pane adjoining the window bottom can paint behind its navigation bar.
     int extension = pane.bottom == safe.bottom
         ? Math.max(0, height - keyboardBottom - pane.bottom) : 0;
@@ -248,8 +242,7 @@ final class StashPresentationController implements View.OnTouchListener {
         || activity.rootLayout.getHeight() <= 0) {
       return;
     }
-    StashCheckoutSizing.Layout next = resolve();
-    final boolean widthChanged = layout != null && layout.frame.width() != next.frame.width();
+    final StashCheckoutSizing.Layout next = resolve();
     boolean entering = animationKind == AnimationKind.ENTRANCE;
     if (!entering) {
       cancelAnimation();
@@ -262,9 +255,6 @@ final class StashPresentationController implements View.OnTouchListener {
       applyEntrance(entranceProgress);
     } else {
       activity.cardContainer.setTranslationY(0);
-    }
-    if (widthChanged && activity.contentSizeSupport != null) {
-      activity.contentSizeSupport.widthChanged();
     }
     if (!entered && windowEntered) {
       entered = true;
@@ -296,22 +286,6 @@ final class StashPresentationController implements View.OnTouchListener {
     return shownFrame != null
         && content.getWidth() == shownFrame.width()
         && content.getHeight() == shownFrame.height() - bottom;
-  }
-
-  void contentChanged(double height, int width) {
-    if (disposed || activity.isDismissing) {
-      return;
-    }
-    state.contentHeightPx = height;
-    state.measuredWidthPx = width;
-    if (!dragging) {
-      relayoutAnimated();
-    }
-  }
-
-  void clearContent() {
-    state.invalidateContent();
-    relayoutAnimated();
   }
 
   private void relayoutAnimated() {

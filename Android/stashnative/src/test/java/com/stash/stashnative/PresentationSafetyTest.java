@@ -90,14 +90,14 @@ public class PresentationSafetyTest {
     assertFalse(activity.pageLoadedCallbackSent);
   }
 
-  @Test public void contentReportPreservesEntryAnimation() throws Exception {
+  @Test public void selectionChangePreservesEntryAnimation() throws Exception {
     activity.presentation.environmentChanged();
     ValueAnimator entering = currentAnimation();
     assertNotNull(entering);
     entering.setCurrentPlayTime(60);
     float opacity = activity.backdropView.getAlpha();
     assertTrue(opacity > 0 && opacity < 1);
-    activity.presentation.contentChanged(250, 480);
+    activity.presentation.setExpanded(true);
     assertTrue(entering.isStarted());
     assertEquals(opacity, activity.backdropView.getAlpha(), 0);
     assertEquals(opacity, activity.cardContainer.getAlpha(), 0);
@@ -112,7 +112,7 @@ public class PresentationSafetyTest {
     activity.presentation = new StashPresentationController(activity, activity.options);
     activity.rootLayout.setRight(390);
     activity.presentation.environmentChanged();
-    activity.presentation.contentChanged(250, 390);
+    activity.presentation.setExpanded(false);
     assertNull(currentAnimation());
     assertEquals(0, activity.backdropView.getAlpha(), 0);
     assertEquals(activity.cardContainer.getLayoutParams().height,
@@ -543,10 +543,13 @@ public class PresentationSafetyTest {
   }
 
   @Test public void keyboardExpandsShortCardAndRestoresItsPreviousSelection() throws Exception {
+    StashNative.CardConfig config = new StashNative.CardConfig();
+    config.preferredContentHeight = 120;
+    activity.options = StashPresentationOptions.card(config);
+    activity.presentation.dispose();
+    activity.presentation = new StashPresentationController(activity, activity.options);
     activity.rootLayout.setRight(390);
     activity.rootLayout.setBottom(760);
-    activity.presentation.state.contentHeightPx = 120;
-    activity.presentation.state.measuredWidthPx = 390;
     applyKeyboardInsets(0);
     assertEquals(144, activity.cardContainer.getLayoutParams().height);
     applyKeyboardInsets(300);

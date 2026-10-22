@@ -17,11 +17,6 @@
     [self invalidateTopChrome];
     self.topChromeNavigation = navigation;
     [self beginInitialContentNavigation];
-    self.documentID = nil;
-    self.heightReportSequence++;
-    self.measuredContentHeight = 0;
-    self.measuredNativeWidth = 0;
-    self.hasPendingContentHeight = NO;
     [self.controller.spinner startAnimating];
     [self.controller updatePresentationAnimated:NO];
 }
@@ -31,8 +26,6 @@
     self.topChromeNavigation = nil;
     [self activateTopChrome];
     [self initialContentCommitted];
-    self.documentID = NSUUID.UUID.UUIDString;
-    [webView evaluateJavaScript:StashContentMeasurementScript(self.documentID) completionHandler:nil];
 }
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     if (![self isActive]) return;
@@ -42,12 +35,6 @@
     [self.loadTimer invalidate];
     self.loadTimer = nil;
     [self initialContentDidFinish];
-    if (self.documentID.length) {
-        NSString *script = [NSString stringWithFormat:
-            @"if(window.__stashContentDocumentId!=='%@'){%@}else if(window.__stashMeasureContent){window.__stashMeasureContent();}",
-            self.documentID, StashContentMeasurementScript(self.documentID)];
-        [webView evaluateJavaScript:script completionHandler:nil];
-    }
     if (self.loadStart > 0) {
         double milliseconds = (CFAbsoluteTimeGetCurrent() - self.loadStart) * 1000;
         self.loadStart = 0;

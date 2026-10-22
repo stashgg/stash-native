@@ -4,8 +4,6 @@ package com.stash.stashnative;
 final class StashPresentationState {
   boolean expanded;
   boolean keyboardVisible;
-  double contentHeightPx;
-  int measuredWidthPx;
 
   boolean effectiveExpanded() {
     return expanded || keyboardVisible;
@@ -13,14 +11,5 @@ final class StashPresentationState {
 
   void selectExpanded(boolean value) {
     expanded = value;
-  }
-
-  void invalidateContent() {
-    contentHeightPx = 0;
-    measuredWidthPx = 0;
-  }
-
-  double contentForWidth(int width) {
-    return width == measuredWidthPx ? contentHeightPx : 0;
   }
 }

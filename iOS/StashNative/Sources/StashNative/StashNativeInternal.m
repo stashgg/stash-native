@@ -470,7 +470,6 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     self.loadTimer = nil;
     [self cancelInitialContentReveal];
     [self.controller revealInitialContentAnimated:NO];
-    self.documentID = nil;
     if (self.observingPageBackground) {
         [self.webView removeObserver:self forKeyPath:@"underPageBackgroundColor" context:StashPageBackgroundContext];
         self.observingPageBackground = NO;
@@ -734,8 +733,6 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 #if !__has_feature(objc_arc)
         [feedback release];
 #endif
-    } else if ([name isEqualToString:@"stashContentHeight"]) {
-        if ([body isKindOfClass:NSDictionary.class]) [self acceptContentHeight:body];
     } else if ([name isEqualToString:@"stashOpenLink"] || [name isEqualToString:@"stashExternalPayment"]) {
         // externalBrowser sends {url, keepOpen}; older scripts send the URL string.
         id raw = body;
@@ -836,39 +833,6 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     web.backgroundColor = background;
     web.scrollView.backgroundColor = background;
     self.applyingPageBacking = NO;
-}
-- (void)acceptContentHeight:(NSDictionary *)payload {
-    if (![self isActive] || ![payload[@"documentId"] isEqual:self.documentID]) return;
-    NSString *documentID = self.documentID;
-    WKWebView *web = self.webView;
-    CGFloat nativeWidth = web.bounds.size.width;
-    NSUInteger sequence = ++self.heightReportSequence;
-    [web evaluateJavaScript:@"({width:window.innerWidth,scale:window.visualViewport?window.visualViewport.scale:1,documentId:window.__stashContentDocumentId})"
-        completionHandler:^(id metrics, NSError *error) {
-        if (![self isActive] || self.heightReportSequence != sequence || self.webView != web || ![self.documentID isEqual:documentID] ||
-            fabs(web.bounds.size.width - nativeWidth) > 0.5 || ![metrics isKindOfClass:NSDictionary.class] ||
-            ![metrics[@"documentId"] isEqual:documentID]) return;
-        CGFloat height = 0;
-        if (!StashValidateContentHeight(payload, documentID, [metrics[@"width"] doubleValue],
-            [metrics[@"scale"] doubleValue], nativeWidth, &height)) return;
-        if (fabs(self.measuredContentHeight - height) < 1 && fabs(self.measuredNativeWidth - nativeWidth) < 0.5) return;
-        if (self.controller.dragging) {
-            self.pendingContentHeight = height;
-            self.pendingNativeWidth = nativeWidth;
-            self.hasPendingContentHeight = YES;
-        } else {
-            self.measuredContentHeight = height;
-            self.measuredNativeWidth = nativeWidth;
-        }
-        [self.controller contentHeightDidChange];
-    }];
-}
-- (void)applyPendingContentHeight {
-    if (!self.hasPendingContentHeight) return;
-    self.hasPendingContentHeight = NO;
-    if (fabs(self.webView.bounds.size.width - self.pendingNativeWidth) > 0.5) return;
-    self.measuredContentHeight = self.pendingContentHeight;
-    self.measuredNativeWidth = self.pendingNativeWidth;
 }
 - (void)completeDialog:(id)result {
     void (^completion)(id) = self.dialogCompletion;

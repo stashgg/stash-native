@@ -481,7 +481,7 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual(web.scrollView.contentOffset,.zero)
     }
 
-    @MainActor func testChromeReserveKeepsMeasuredLastActionVisibleThroughProcessing() async throws {
+    @MainActor func testChromeReserveKeepsLastActionVisibleThroughProcessing() async throws {
         let previousWindow = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows).first(where: \.isKeyWindow)
         let window = previousWindow?.windowScene.map(InteractionFixtureWindow.init(windowScene:)) ?? InteractionFixtureWindow(frame: CGRect(x:0,y:0,width:800,height:900))
@@ -498,19 +498,19 @@ final class NativeInteractionTests: XCTestCase {
         XCTAssertEqual((fixture["height"] as? NSNumber)?.doubleValue, 120)
         let expected = CGRect(x:0,y:0,width:390,height:120)
         XCTAssertEqual((fixture["webFrame"] as? NSValue)?.cgRectValue, expected)
-        let loaded = expectation(description: "measured checkout loaded")
+        let loaded = expectation(description: "short checkout loaded")
         let navigation = InteractionNavigation { loaded.fulfill() }
         web.navigationDelegate = navigation
         web.loadHTMLString("""
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <style>html,body{margin:0}main{height:120px}button{display:block;box-sizing:border-box;height:32px}</style>
-        <main data-stash-content><div style="height:88px">Checkout</div><button id="last">Final action</button></main>
+        <main><div style="height:88px">Checkout</div><button id="last">Final action</button></main>
         """, baseURL: URL(string:"https://checkout.invalid"))
         guard await WebViewFixture.waitForLoad(loaded) else { return }
-        let metrics = try await web.evaluateJavaScript("({height:innerHeight,last:last.getBoundingClientRect().bottom,marker:document.querySelector('main').getBoundingClientRect().height})") as! [String: Double]
+        let metrics = try await web.evaluateJavaScript("({height:innerHeight,last:last.getBoundingClientRect().bottom,main:document.querySelector('main').getBoundingClientRect().height})") as! [String: Double]
         XCTAssertEqual(metrics["height"], 120)
         XCTAssertEqual(metrics["last"], 120)
-        XCTAssertEqual(metrics["marker"], 120)
+        XCTAssertEqual(metrics["main"], 120)
         XCTAssertEqual(StashChromeProcessingFrame(fixture, true), expected)
         XCTAssertEqual(StashChromeProcessingFrame(fixture, false), expected)
         XCTAssertEqual(web.scrollView.contentInset, .zero)

@@ -81,8 +81,7 @@ final class StashCheckoutSizing {
       Box pane,
       float density,
       StashPresentationOptions options,
-      boolean expanded,
-      double intrinsicContentHeightPx) {
+      boolean expanded) {
     density = StashPresentationOptions.positive(density, 1f);
     boolean bottom = pane.width() / density < WIDE_WINDOW_DP;
     int margin =
@@ -96,13 +95,7 @@ final class StashCheckoutSizing {
     if (options.maximumHeight > 0) {
       contentCap = Math.min(contentCap, px(options.maximumHeight, density));
     }
-    int restingContent = Math.min(contentCap, px(options.height, density));
-    if (!Double.isNaN(intrinsicContentHeightPx)
-        && !Double.isInfinite(intrinsicContentHeightPx)
-        && intrinsicContentHeightPx > 0) {
-      restingContent = Math.min(restingContent, (int) Math.ceil(intrinsicContentHeightPx));
-    }
-    int resting = Math.max(1, restingContent);
+    int resting = Math.max(1, Math.min(contentCap, px(options.height, density)));
     int maximum = contentCap;
     int height = expanded ? maximum : resting;
     int left = pane.left + Math.max(0, (pane.width() - width) / 2);

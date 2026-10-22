@@ -125,7 +125,7 @@ public class BridgeTokenTest {
     for (String method : TOKENED_WRAPPERS) {
       assertTrue(method, script.contains(StashWebViewUtils.JS_INTERFACE_NAME + "." + method + "(token"));
     }
-    assertFalse(script.contains("setContentHeight(token"));
+    assertFalse(script.contains("ContentHeight"));
     assertFalse(script.contains("getTelemetry(token"));
     // A new main-frame navigation issues a new token and injects a script bound to it.
     WebViewClient client = Shadows.shadowOf(web).getWebViewClient();

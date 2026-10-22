@@ -116,7 +116,6 @@ public class StashWebViewUtils {
       + "  };"
       + "  window.stash_sdk.lock = window.stash_sdk.onPurchaseProcessing;"
       + "  window.stash_sdk.unlock = window.stash_sdk.onProcessingCompleted;"
-      + "  window.stash_sdk.setContentHeight = window.stash_sdk.setContentHeight || function() {};"
       + "  window.stash_sdk.expand = function() {"
       + "    try { "
       + JS_INTERFACE_NAME

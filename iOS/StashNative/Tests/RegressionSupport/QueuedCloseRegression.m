@@ -154,7 +154,7 @@ NSDictionary *StashPresentationStateProbe(void) {
     [controller updatePresentationAnimated:NO];
     BOOL restoredResting = [controller.sheetPresentationController.selectedDetentIdentifier isEqualToString:[controller nativeDetentIdentifierForExpanded:NO]];
     controller.dragging = YES;
-    [controller contentHeightDidChange];
+    [controller updatePresentationAnimated:NO];
     BOOL deferred = controller.deferredContentLayout;
     StashCancelledPan *pan = [StashCancelledPan new];
     [controller nativePanChanged:pan];
@@ -344,19 +344,17 @@ void StashScrollInteractionProbe(void (^completion)(NSDictionary *)) {
     webPan.probeState = UIGestureRecognizerStateBegan;
     [session rootScrollPanChanged:webPan];
     result[@"scrollTracked"] = @(controller.dragging);
-    session.pendingContentHeight = 350; session.pendingNativeWidth = 390; session.hasPendingContentHeight = YES;
     NSArray *detents = controller.sheetPresentationController.detents;
-    [controller contentHeightDidChange]; [controller updatePresentationAnimated:NO];
-    result[@"detentsDeferred"] = @(controller.deferredContentLayout && session.measuredContentHeight == 0 &&
+    [controller updatePresentationAnimated:NO];
+    result[@"detentsDeferred"] = @(controller.deferredContentLayout &&
         [controller.sheetPresentationController.detents isEqual:detents]);
     nativePan.probeState = UIGestureRecognizerStateBegan; [controller nativePanChanged:nativePan];
     nativePan.probeState = UIGestureRecognizerStateCancelled; [controller nativePanChanged:nativePan];
-    result[@"overlapTracked"] = @(controller.dragging && session.hasPendingContentHeight);
+    result[@"overlapTracked"] = @(controller.dragging && controller.deferredContentLayout);
     webPan.probeState = UIGestureRecognizerStateCancelled; [session rootScrollPanChanged:webPan];
     result[@"cancelledNotCollapsed"] = @(!controller.dragging && !session.expanded);
     dispatch_async(dispatch_get_main_queue(), ^{
-        result[@"pendingAfterBoth"] = @(!session.hasPendingContentHeight && session.measuredContentHeight == 350 &&
-            !controller.deferredContentLayout && !controller.dragging);
+        result[@"layoutAfterBoth"] = @(!controller.deferredContentLayout && !controller.dragging);
         [owner resetPresentationState]; completion(result);
     });
 }

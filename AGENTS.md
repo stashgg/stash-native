@@ -27,7 +27,7 @@ Put temporary scripts, screenshots, logs, build outputs, source snapshots, and a
 
 ### Bridge and callbacks
 
-Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Content measurement scripts live in `StashContentSizeSupport` on Android and `StashContentMeasurementScript()` in `StashNativeViewUtils.m` on iOS; Android's `getTelemetry` script lives in `StashTelemetrySupport`. Keep mobile content measurement scripts equivalent, including document/viewport validation and cleanup.
+Mirror changes to common bridge behavior in every implementation present in the target release, and update the bridge specification and test page. Injection sources are `StashWebViewUtils.JS_SDK_SCRIPT` on Android, `StashBridgeScript()` in iOS `StashNativeViewUtils.m`, and `Desktop/shared/StashSdkScript.h` for both desktop hosts. Android's `getTelemetry` script lives in `StashTelemetrySupport`.
 
 Desktop callback ordering, once-guards, processing locks, navigation decisions, and dismissal semantics belong in the shared `Session`. Hosts own platform plumbing. Preserve documented differences: macOS marshals operations to the main queue; Windows operations use the host window's message-loop thread, with explicitly documented atomic queries treated separately. Desktop browser handoff does not promise a browser-closed callback.
 
@@ -36,7 +36,7 @@ Desktop callback ordering, once-guards, processing locks, navigation decisions, 
 - iOS cards use one `UISheetPresentationController` implementation across iPhone, Duo, and iPad. Handle device differences through layout and configuration. Do not add a separate card presenter, custom renderer, or simulated system feedback for a device family.
 
 - Mobile 3.0 uses logical content dimensions and current window geometry. Normalize configuration and copy it at the opening boundary; constructor defaults alone are not validation. Available space wins over requested dimensions.
-- Cards may use validated intrinsic hints or an eligible `data-stash-content` wrapper; never infer intrinsic height from generic document `scrollHeight`.
+- Card height comes only from configuration: the resting `preferredContentHeight` and the expanded maximum. Page content never sizes the card.
 - Preserve the live WebView, document, form state, and semantic resting/expanded selection across resizing. Keyboard accommodation is temporary. On iPhone, portrait checkout uses an SDK-owned UIKit window and scoped orientation overrides, preserving game controller restrictions. Reuse the same native card and WebView, restore orientation before key-window handoff, and ignore the portrait flag on iPad.
 - Respect iOS safe areas through the view helpers and Android system insets through `StashWindowCompat` and its fallback chain.
 - Desktop accepts mobile configuration fields for wrapper compatibility, but uses its own surface sizing policy. Do not impose mobile ratio-driven layout, portrait behavior, or popup APIs on desktop.

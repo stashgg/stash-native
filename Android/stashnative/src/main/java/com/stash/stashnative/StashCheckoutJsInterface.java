@@ -11,8 +11,8 @@ import android.webkit.WebView;
  *
  * <p>WebView exposes this object to every frame. The main-frame bridge script passes the
  * document token issued by {@link StashCardActivity} as the first argument; calls without
- * the current token are ignored, so subframes cannot drive checkout. {@link #setContentHeight}
- * and {@link #getTelemetry} keep their own per-document tokens.
+ * the current token are ignored, so subframes cannot drive checkout. {@link #getTelemetry} keeps
+ * its own per-document token.
  */
 final class StashCheckoutJsInterface {
   private static final String TAG = "StashNative";
@@ -69,15 +69,6 @@ final class StashCheckoutJsInterface {
   @JavascriptInterface
   public void collapse(String token) {
     dispatch("collapse", token, activity::animateCollapse);
-  }
-
-  @JavascriptInterface
-  public void setContentHeight(String payload) {
-    dispatch("setContentHeight", () -> {
-      if (activity.contentSizeSupport != null) {
-        activity.contentSizeSupport.accept(payload);
-      }
-    });
   }
 
   @JavascriptInterface

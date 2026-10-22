@@ -11,7 +11,6 @@ Stash Native 3.0 is a new major release with a redesigned API, so existing integ
 - A responsive checkout card for phones, tablets, foldables, iPhone Duo, and split screen, built on the native iOS sheet.
 - Portrait checkout in landscape games, with the game's orientation restored afterwards.
 - QR Code Linking for webshop accounts, in the optional `StashNativeCodeLink` module.
-- Cards that size to the page through `setContentHeight(...)` or a `[data-stash-content]` wrapper.
 - A native loading cover, with Liquid Glass on iOS 27 and later.
 
 ## [2.3.1] - 2026-09-03

@@ -228,18 +228,6 @@
     [self observeContentScrollPans:self.session.webView];
     [self observeNativePans:self.presentationController.containerView];
     [self.session retryRootOffsetRepair];
-    CGFloat contentWidth = self.session.webView.bounds.size.width;
-    if (fabs(self.previousWidth - contentWidth) > 0.5) {
-        self.previousWidth = contentWidth;
-        self.session.measuredContentHeight = 0;
-        self.session.measuredNativeWidth = 0;
-        self.session.hasPendingContentHeight = NO;
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (![self.session isActive]) return;
-            [self updatePresentationAnimated:NO];
-            [self.session.webView evaluateJavaScript:@"if(window.__stashMeasureContent)window.__stashMeasureContent()" completionHandler:nil];
-        });
-    }
 }
 - (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection {
     [super traitCollectionDidChange:previousTraitCollection];

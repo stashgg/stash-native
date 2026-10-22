@@ -9,7 +9,7 @@ description: Internal window.stash_sdk contract between the SDK and Stash web co
 
 `window.stash_sdk` is the internal contract between the SDK and Stash web content in the native card. The SDK injects it into the top-level page of card web content only; system browser and module presentations do not get it. Integrators never call it. Calls from other frames are ignored.
 
-Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Content measurement comes from `StashContentMeasurementScript()` in the same iOS file and [`StashContentSizeSupport.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashContentSizeSupport.java) on Android; Android telemetry comes from [`StashTelemetrySupport.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashTelemetrySupport.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html), served at `https://test.stashpreview.com`.
+Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/stashgg/stash-native/blob/main/iOS/StashNative/Sources/StashNative/StashNativeViewUtils.m) and `JS_SDK_SCRIPT` in [`StashWebViewUtils.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java). Android telemetry comes from [`StashTelemetrySupport.java`](https://github.com/stashgg/stash-native/blob/main/Android/stashnative/src/main/java/com/stash/stashnative/StashTelemetrySupport.java). Test page: [`.github/test/index.html`](https://github.com/stashgg/stash-native/blob/main/.github/test/index.html), served at `https://test.stashpreview.com`.
 
 ## Methods
 
@@ -20,7 +20,6 @@ Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/
 | `lock()` | Blocks closing the card and hides the drag handle |
 | `unlock()` | Removes the block |
 | `expand()`, `collapse()` | Selects the expanded or resting card height |
-| `setContentHeight(px)` | Reports the content height in CSS pixels, so the resting card can shrink |
 | `externalBrowser(url, options?)` | External payment callback, then closes the card and opens the browser. With `{ keepOpen: true }`, the browser opens over the card, which stays open for the player's return. |
 | `openLink(url)` | Opens a URL outside the app without callbacks; the card stays open |
 | `triggerHaptic(type?)` | Plays a short success haptic, or a long one with `'long'` (or `1`) |
@@ -60,14 +59,3 @@ Strings reach the game unchanged; other values arrive as JSON. With `autoClose` 
 ## Telemetry
 
 `getTelemetry()` resolves to an object with `schemaVersion`, `platform`, `hardware`, `os`, `app`, `runtime`, `presentation`, `power`, and `timing`. Every key is present, keys arrive in the same order on iOS and Android, and values a platform cannot provide are `null`. Sizes are in points or dp; timestamps are Unix milliseconds. Telemetry needs no permissions, holds no device identifiers, and is never uploaded.
-
-## Content sizing
-
-The resting card can shrink to short content. Mark the content wrapper with `data-stash-content`, or report its height with `setContentHeight(px)`. The SDK measures the wrapper only if:
-
-- neither it nor an ancestor is fixed, sticky, or absolutely positioned
-- it does not grow as a flex item
-- no height on it or an ancestor uses `%`, viewport units, or `var()`
-- every stylesheet on the page is readable
-
-The SDK rechecks stylesheets when one is added, removed, or edited. A rule changed in place through the CSSOM counts from the next stylesheet change.

@@ -42,7 +42,6 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   int sheetChromeBackgroundArgb;
   StashPresentationOptions options;
   StashPresentationController presentation;
-  StashContentSizeSupport contentSizeSupport;
   StashTelemetrySupport telemetrySupport;
   StashScannerContent scannerContent;
   StashScannerOptions scannerOptions;
@@ -213,7 +212,6 @@ public class StashCardActivity extends Activity implements StashScannerHost {
       }
       cardContainer.addView(scannerView, new FrameLayout.LayoutParams(-1, -1));
     } else {
-      contentSizeSupport = new StashContentSizeSupport(this);
       telemetrySupport = new StashTelemetrySupport(this);
       StashCheckoutWebViewSupport.addWebView(this);
     }
@@ -683,9 +681,6 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     disposeScanner();
     if (presentation != null) {
       presentation.dispose();
-    }
-    if (contentSizeSupport != null) {
-      contentSizeSupport.dispose();
     }
     if (telemetrySupport != null) {
       telemetrySupport.dispose();

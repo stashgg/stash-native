@@ -163,7 +163,7 @@ NSDictionary *StashKeyboardVisibilityOwnershipProbe(void) {
     StashNative *owner = [StashNative new];
     StashCardSession *session = [StashCardSession new]; owner.session = session; session.owner = owner;
     session.config = [StashNativeCardConfig new]; session.initialContentRevealed = YES;
-    session.measuredContentHeight = 220;
+    session.config.preferredContentHeight = 220;
     StashFocusProbeWebView *web = [[StashFocusProbeWebView alloc] initWithFrame:CGRectMake(0, 0, 640, 700)];
     web.focusForKeyboardProbe = YES; session.webView = web;
     UIWindow *window = StashKeyboardProbeWindow(StashKeyboardHostWindow.class, CGRectMake(0, 0, 640, 700));
@@ -572,20 +572,19 @@ NSDictionary *StashNativeGrabberContentProbe(void) {
     return @{};
 }
 
-NSDictionary *StashChromeSurfaceGeometryProbe(CGRect bounds, BOOL expanded, CGFloat measured,
-    CGFloat preferred, CGFloat maximum) {
+NSDictionary *StashChromeSurfaceGeometryProbe(CGRect bounds, BOOL expanded, CGFloat preferred, CGFloat maximum) {
     StashNativeCardConfig *config = [StashNativeCardConfig new];
     config.preferredContentHeight = preferred; config.maximumContentHeight = maximum;
-    StashPresentationGeometry geometry = StashResolveGeometry(bounds, config, expanded, measured);
+    StashPresentationGeometry geometry = StashResolveGeometry(bounds, config, expanded);
     return @{@"frame":[NSValue valueWithCGRect:geometry.frame], @"resting":@(geometry.restingContentHeight),
         @"expanded":@(geometry.expandedContentHeight)};
 }
 
-NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presenter, CGFloat measured) {
+NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presenter, CGFloat contentHeight) {
     StashNative *owner = [StashNative new];
     StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner; session.presenter = presenter;
-    session.config = [StashNativeCardConfig new]; session.measuredContentHeight = measured;
+    session.config = [StashNativeCardConfig new]; session.config.preferredContentHeight = contentHeight;
     session.webView = web; session.initialContentRevealed = YES;
     StashCardViewController *controller = [StashChromeProbeController new];
     session.controller = controller; controller.session = session;
@@ -594,7 +593,6 @@ NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presen
     CGFloat height = [controller contentHeightForMaximum:800 expanded:NO];
     controller.view.frame = CGRectMake(30, 50, 390, height);
     [controller viewDidLayoutSubviews];
-    controller.previousWidth = web.bounds.size.width;
     return @{@"owner":owner, @"session":session, @"controller":controller,
         @"height":@(height), @"webFrame":[NSValue valueWithCGRect:web.frame]};
 }

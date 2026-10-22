@@ -21,15 +21,14 @@ UIWindow *StashSceneFixtureWindow(Class windowClass, CGRect frame) {
     return window;
 }
 
-NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
-                                double preferredWidth, double preferredHeight, double maximumHeight, double margin) {
+NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double preferredWidth, double preferredHeight, double maximumHeight, double margin) {
     StashNativeCardConfig *config = [StashNativeCardConfig new];
     config.preferredContentWidth = preferredWidth;
     config.preferredContentHeight = preferredHeight;
     config.maximumContentHeight = maximumHeight;
     config.edgeMargin = margin;
     config = StashNormalizedConfig(config);
-    StashPresentationGeometry result = StashResolveGeometry(CGRectMake(11, 23, width, height), config, expanded, measured);
+    StashPresentationGeometry result = StashResolveGeometry(CGRectMake(11, 23, width, height), config, expanded);
     return @{@"x":@(result.frame.origin.x), @"y":@(result.frame.origin.y), @"width":@(result.frame.size.width),
         @"height":@(result.frame.size.height), @"resting":@(result.restingContentHeight),
         @"expanded":@(result.expandedContentHeight), @"centered":@(result.centered)};
@@ -43,9 +42,6 @@ NSDictionary *StashReservedRegionProbe(void) {
     CGRect rtl = StashChooseAvailableRegion(bounds, vertical, CGPointMake(500, 400), YES);
     return @{@"rtlX":@(rtl.origin.x), @"trailingX":@(trailing.origin.x), @"focusedX":@(focused.origin.x), @"lowerY":@(lower.origin.y)};
 }
-BOOL StashHeightHintProbe(NSDictionary *payload, NSString *documentID, double width, double scale, double nativeWidth) {
-    return StashValidateContentHeight(payload, documentID, width, scale, nativeWidth, NULL);
-}
 NSDictionary *StashConfigurationProbe(void) {
     StashNativeCardConfig *card = [StashNativeCardConfig new];
     card.preferredContentWidth = NAN; card.preferredContentHeight = INFINITY;
@@ -56,7 +52,6 @@ NSDictionary *StashConfigurationProbe(void) {
     return @{@"width":@(normalized.preferredContentWidth), @"height":@(normalized.preferredContentHeight),
         @"maximum":@(normalized.maximumContentHeight), @"margin":@(normalized.edgeMargin), @"copiedDismiss":@(copy.allowDismiss)};
 }
-NSString *StashMeasurementSource(void) { return StashContentMeasurementScript(@"document-test"); }
 NSString *StashNativeInteractionSource(void) { return StashNativeInteractionScript(); }
 NSDictionary *StashURLProbe(void) {
     return @{@"bare":StashNormalizeExternalPaymentURL(@"example.invalid/path") ?: @"",
@@ -71,11 +66,13 @@ NSDictionary *StashNativeSurfaceProbe(void) {
     CGFloat maximumDetentValue = 636;
     available.size.height = MIN(CGRectGetMaxY(available), maximumDetentValue) - available.origin.y;
     StashNativeCardConfig *config = [StashNativeCardConfig new];
-    StashPresentationGeometry native = StashResolveGeometry(available, config, NO, 0);
+    StashPresentationGeometry native = StashResolveGeometry(available, config, NO);
     CGFloat surfaceTop = 670 - native.frame.size.height - 34;
     CGRect blocked = StashChooseBottomAttachedRegion(safe, @[[NSValue valueWithCGRect:CGRectMake(220, 0, 20, 644)]]);
     CGRect unobstructed = StashChooseBottomAttachedRegion(safe, @[]);
-    StashPresentationGeometry shortContent = StashResolveGeometry(available, config, NO, 240);
+    StashNativeCardConfig *shortConfig = [StashNativeCardConfig new];
+    shortConfig.preferredContentHeight = 240;
+    StashPresentationGeometry shortContent = StashResolveGeometry(available, shortConfig, NO);
     return @{@"availableWidth":@(available.size.width), @"contentHeight":@(native.restingContentHeight),
         @"detentHeight":@(native.frame.size.height), @"surfaceTop":@(surfaceTop),
         @"blockedHeight":@(blocked.size.height),
@@ -106,14 +103,12 @@ NSDictionary *StashNativePaneProbe(void) {
     CGFloat width = controller.preferredContentSize.width;
     CGFloat restingPreferredHeight = controller.preferredContentSize.height;
     CGFloat resting = [controller contentHeightForMaximum:620 expanded:NO];
-    session.measuredContentHeight = 120;
-    CGFloat intrinsic = [controller contentHeightForMaximum:620 expanded:NO];
     session.expanded = YES;
     [controller updatePresentationAnimated:NO];
     return @{@"width":@(width), @"initialHeight":@(initialHeight),
         @"restingPreferredHeight":@(restingPreferredHeight),
         @"expandedPreferredHeight":@(controller.preferredContentSize.height),
-        @"restingDetent":@(resting), @"intrinsicDetent":@(intrinsic),
+        @"restingDetent":@(resting),
         @"expandedDetent":@([controller contentHeightForMaximum:620 expanded:YES]),
         @"anchored":@(controller.sheetPresentationController.sourceView != nil)};
 }
@@ -222,7 +217,7 @@ NSDictionary *StashCardViewportCoverageProbe(void) {
         controller.dragging = YES;
         controller.touchBeganInWebContent = YES;
         StashReservedProbeView *content = [[StashReservedProbeView alloc] initWithFrame:CGRectZero];
-        controller.view = content; [window addSubview:content]; [content addSubview:session.webView]; controller.previousWidth = 402;
+        controller.view = content; [window addSubview:content]; [content addSubview:session.webView];
         BOOL stable = YES;
         for (NSNumber *height in @[@754, @760, @795, @754, @600]) {
             content.frame = CGRectMake(0, 866 - height.doubleValue, 402, height.doubleValue);
@@ -240,7 +235,7 @@ NSDictionary *StashCardViewportCoverageProbe(void) {
 }
 
 #if defined(__IPHONE_OS_VERSION_MAX_ALLOWED) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
-void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
+void StashNativeRestingSafeAreaProbe(void (^completion)(NSDictionary *)) {
     NSMutableArray *cases = [NSMutableArray array];
     for (NSDictionary *metrics in @[
         @{@"name":@"compact", @"windowWidth":@466, @"windowHeight":@678, @"hostBottom":@34, @"safeBottom":@34, @"nativeExtra":@34},
@@ -249,7 +244,7 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
         StashNative *owner = [StashNative new];
         StashCardSession *session = [StashCardSession new];
         owner.session = session; session.owner = owner; session.config = [StashNativeCardConfig new];
-        session.measuredContentHeight = 220;
+        session.config.preferredContentHeight = 220;
         session.webView = [[WKWebView alloc] initWithFrame:CGRectZero];
         CGFloat windowWidth = [metrics[@"windowWidth"] doubleValue], windowHeight = [metrics[@"windowHeight"] doubleValue];
         StashSafeProbeWindow *window = [[StashSafeProbeWindow alloc] initWithFrame:CGRectMake(0, 0, windowWidth, windowHeight)];
@@ -267,7 +262,6 @@ void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) {
             initWithFrame:CGRectMake((windowWidth - width) / 2, windowHeight - 8 - height, width, height)];
         content.probeInsets = UIEdgeInsetsMake(0, 0, [metrics[@"safeBottom"] doubleValue], 0);
         controller.view = content; [window addSubview:content]; [content addSubview:session.webView];
-        controller.previousWidth = width;
         [controller viewDidLayoutSubviews];
         [cases addObject:@{@"owner":owner, @"session":session, @"window":window, @"metrics":metrics,
             @"before":@(session.webView.bounds.size.height - session.webView.scrollView.verticalScrollIndicatorInsets.bottom)}];
@@ -566,7 +560,7 @@ NSDictionary *StashNativeExpansionProbe(void) {
     return result;
 }
 #else
-void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *)) { completion(@{}); }
+void StashNativeRestingSafeAreaProbe(void (^completion)(NSDictionary *)) { completion(@{}); }
 NSDictionary *StashCompactDividerProbe(void) { return @{}; }
 NSDictionary *StashNativeExpansionProbe(void) { return @{}; }
 NSDictionary *StashNativeHostSafeAreaProbe(void) { return @{}; }

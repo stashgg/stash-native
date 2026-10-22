@@ -169,7 +169,6 @@
             if (![self.session isActive] || self.dragging) return;
             BOOL deferred = self.deferredContentLayout;
             self.deferredContentLayout = NO;
-            [self.session applyPendingContentHeight];
             if (deferred) [self updatePresentationAnimated:NO];
             [self.viewIfLoaded setNeedsLayout];
         });

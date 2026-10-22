@@ -46,9 +46,6 @@ final class StashCheckoutWebViewClient extends WebViewClient {
           activity.telemetrySupport.navigationStarted();
         }
       }
-      if (activity.contentSizeSupport != null) {
-        activity.contentSizeSupport.navigationStarted(url);
-      }
       activity.pageLoadStartTime = System.currentTimeMillis();
       activity.contentRevealSupport.navigationStarted();
       StashCheckoutLoadingSupport.showLoading(activity);
@@ -78,9 +75,6 @@ final class StashCheckoutWebViewClient extends WebViewClient {
       activity.contentRevealSupport.documentFinished();
       StashCheckoutLoadingSupport.maybeRevealWhenReady(activity);
       StashCheckoutWebViewSupport.injectSDK(activity, view);
-      if (activity.contentSizeSupport != null) {
-        activity.contentSizeSupport.documentCommitted(view, url);
-      }
       StashCheckoutWebViewSupport.checkProvider(activity, url);
     } catch (Exception e) {
       Log.w(TAG, "Error in onPageFinished");
@@ -138,9 +132,6 @@ final class StashCheckoutWebViewClient extends WebViewClient {
       activity.telemetrySupport.documentCommitted(view, pageUrl);
     }
     StashCheckoutWebViewSupport.injectSDK(activity, view);
-    if (activity.contentSizeSupport != null) {
-      activity.contentSizeSupport.documentCommitted(view, pageUrl);
-    }
     StashCheckoutLoadingSupport.markMainFrameNavigationCommittedIfNeeded(activity);
     StashCheckoutLoadingSupport.maybeRevealWhenReady(activity);
   }

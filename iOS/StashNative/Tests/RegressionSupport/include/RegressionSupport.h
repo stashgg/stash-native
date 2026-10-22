@@ -22,14 +22,11 @@ void StashEndTelemetryFixture(NSDictionary *fixture);
 NSDictionary *StashHapticFixture(UIViewController *presenter);
 NSDictionary *StashHapticLifecycleProbe(NSDictionary *fixture);
 void StashEndHapticFixture(NSDictionary *fixture);
-NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double measured,
-                                double preferredWidth, double preferredHeight, double maximumHeight, double margin);
+NSDictionary *StashGeometryProbe(double width, double height, BOOL expanded, double preferredWidth, double preferredHeight, double maximumHeight, double margin);
 NSDictionary *StashReservedRegionProbe(void);
-BOOL StashHeightHintProbe(NSDictionary *payload, NSString *documentID, double actualWidth, double scale, double nativeWidth);
 NSDictionary *StashConfigurationProbe(void);
 NSDictionary *StashCallbackProbe(void);
 void StashQueuedCloseProbe(NSString *source, BOOL replace, BOOL processing, BOOL allowDismiss, void (^completion)(BOOL, NSInteger));
-NSString *StashMeasurementSource(void);
 NSString *StashNativeInteractionSource(void);
 NSString *StashInitialContentReadinessSource(void);
 NSDictionary *StashLoadingPresentationProbe(void);
@@ -49,7 +46,7 @@ NSDictionary *StashFloatingSheetKeyboardBaselineProbe(void);
 NSDictionary *StashKeyboardVisibilityOwnershipProbe(void);
 NSDictionary *StashInputAccessoryProbe(void);
 NSDictionary *StashNativeGrabberContentProbe(void);
-void StashNativeIntrinsicSafeAreaProbe(void (^completion)(NSDictionary *));
+void StashNativeRestingSafeAreaProbe(void (^completion)(NSDictionary *));
 NSDictionary *StashURLProbe(void);
 NSString * _Nullable StashNormalizedURLProbe(NSString * _Nullable raw);
 NSDictionary *StashLifecycleProbe(void);
@@ -70,8 +67,8 @@ NSDictionary *StashNativeBottomPaintProbe(void);
 FOUNDATION_EXPORT NSDictionary *StashUndockedKeyboardLayoutProbe(void);
 
 
-NSDictionary *StashChromeSurfaceGeometryProbe(CGRect bounds, BOOL expanded, CGFloat measured, CGFloat preferred, CGFloat maximum);
-NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presenter, CGFloat measured);
+NSDictionary *StashChromeSurfaceGeometryProbe(CGRect bounds, BOOL expanded, CGFloat preferred, CGFloat maximum);
+NSDictionary *StashChromeContentFixture(WKWebView *web, UIViewController *presenter, CGFloat contentHeight);
 CGRect StashChromeProcessingFrame(NSDictionary *fixture, BOOL processing);
 void StashEndChromeContentFixture(NSDictionary *fixture);
 
@@ -102,7 +99,7 @@ NSDictionary *StashNativeEntranceProbe(void);
 NSDictionary *StashPageBackingLifecycleProbe(void);
 UIColor *StashChromeFixtureBackingColor(NSDictionary *fixture);
 
-NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGFloat measured);
+NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGFloat contentHeight);
 
 NSDictionary *StashKeyboardRectangleResolutionProbe(void);
 void StashSetKeyboardNotificationContext(id controller, UIWindow *window);

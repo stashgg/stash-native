@@ -4,13 +4,13 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 public class CardGeometryTest {
-  private StashCheckoutSizing.Layout card(int width, int height, float density, boolean expanded, double content) {
+  private StashCheckoutSizing.Layout card(int width, int height, float density, boolean expanded) {
     return StashCheckoutSizing.resolve(new StashCheckoutSizing.Box(0, 0, width, height), density,
-        StashPresentationOptions.card(null), expanded, content);
+        StashPresentationOptions.card(null), expanded);
   }
 
   @Test public void phoneContentFillsSheetWithoutReservedChrome() {
-    StashCheckoutSizing.Layout layout = card(390, 760, 1, false, 0);
+    StashCheckoutSizing.Layout layout = card(390, 760, 1, false);
     assertTrue(layout.bottomAttached);
     assertEquals(390, layout.frame.width());
     assertEquals(560, layout.frame.height());
@@ -18,29 +18,28 @@ public class CardGeometryTest {
   }
 
   @Test public void densityChangesPixelsWithoutChangingLogicalSize() {
-    StashCheckoutSizing.Layout first = card(390, 760, 1, false, 0);
-    StashCheckoutSizing.Layout scaled = card(1170, 2280, 3, false, 0);
+    StashCheckoutSizing.Layout first = card(390, 760, 1, false);
+    StashCheckoutSizing.Layout scaled = card(1170, 2280, 3, false);
     assertEquals(first.frame.height() * 3, scaled.frame.height());
     assertEquals(first.frame.top * 3, scaled.frame.top);
   }
 
   @Test public void wideCardCentersAndCapsWidth() {
-    StashCheckoutSizing.Layout layout = card(1100, 900, 1, false, 0);
+    StashCheckoutSizing.Layout layout = card(1100, 900, 1, false);
     assertFalse(layout.bottomAttached);
     assertEquals(400, layout.frame.width());
     assertEquals(350, layout.frame.left);
     assertEquals(170, layout.frame.top);
   }
 
-  @Test public void contentShrinksRestingButNotExpandedCard() {
-    assertEquals(200, card(390, 760, 1, false, 200).frame.height());
-    assertEquals(720, card(390, 760, 1, true, 200).frame.height());
-    assertEquals(560, card(390, 760, 1, false, 2000).frame.height());
+  @Test public void restingUsesPreferredHeightAndExpandedUsesCeiling() {
+    assertEquals(560, card(390, 760, 1, false).frame.height());
+    assertEquals(720, card(390, 760, 1, true).frame.height());
   }
 
   @Test public void shortWindowOverridesPreferredAndMaximumSizes() {
     for (boolean expanded : new boolean[]{true, false}) {
-      StashCheckoutSizing.Layout layout = card(900, 240, 1, expanded, 2000);
+      StashCheckoutSizing.Layout layout = card(900, 240, 1, expanded);
       assertTrue(layout.frame.top >= 16);
       assertTrue(layout.frame.bottom <= 224);
       assertTrue(layout.frame.height() > 0);
@@ -51,8 +50,9 @@ public class CardGeometryTest {
     StashNative.CardConfig config = new StashNative.CardConfig();
     config.maximumContentHeight = 300;
     StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(new StashCheckoutSizing.Box(0, 30, 390, 800),
-        1, StashPresentationOptions.card(config), true, 500);
+        1, StashPresentationOptions.card(config), true);
     assertEquals(300, layout.frame.height());
+    assertEquals(300, layout.restingHeight);
     assertEquals(800, layout.frame.bottom);
   }
 
@@ -68,25 +68,20 @@ public class CardGeometryTest {
   }
 
   @Test public void draggingWideCardStaysCenteredWithinItsPane() {
-    StashCheckoutSizing.Layout layout = card(1100, 900, 1, false, 200);
+    StashCheckoutSizing.Layout layout = card(1100, 900, 1, false);
     StashCheckoutSizing.Box expanded = StashCheckoutSizing.frameAtHeight(layout, 10000);
     assertEquals(90, expanded.top);
     assertEquals(810, expanded.bottom);
     assertEquals(900, expanded.top + expanded.bottom);
-    StashCheckoutSizing.Layout compact = card(390, 760, 1, false, 200);
+    StashCheckoutSizing.Layout compact = card(390, 760, 1, false);
     assertEquals(760, StashCheckoutSizing.frameAtHeight(compact, 10000).bottom);
-  }
-
-  @Test public void invalidIntrinsicMeasurementKeepsFallback() {
-    assertEquals(560, card(390, 760, 1, false, Double.NaN).frame.height());
-    assertEquals(560, card(390, 760, 1, false, Double.POSITIVE_INFINITY).frame.height());
   }
 
   @Test public void zeroMarginUsesAvailableBounds() {
     StashNative.CardConfig config = new StashNative.CardConfig();
     config.edgeMargin = 0;
     StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(new StashCheckoutSizing.Box(0, 0, 300, 200),
-        1, StashPresentationOptions.card(config), false, 0);
+        1, StashPresentationOptions.card(config), false);
     assertEquals(300, layout.frame.width());
     assertEquals(200, layout.frame.height());
   }

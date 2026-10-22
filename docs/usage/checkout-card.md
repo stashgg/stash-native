@@ -33,7 +33,7 @@ Pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `ni
 | Property | Default | Description |
 |---|---|---|
 | `preferredContentWidth` | `400` | Card width on tablets and on phones in landscape, within the safe area and edge margins. Portrait phones use the full width. |
-| `preferredContentHeight` | `560` | Height when the card opens. Short pages open shorter. |
+| `preferredContentHeight` | `560` | Height when the card opens |
 | `maximumContentHeight` | `720` | Height when expanded, for example for the keyboard. `0` removes the limit. |
 | `edgeMargin` | `16` | Space between the card and the screen edges |
 | `allowDismiss` | `true` | Players can close the card by swiping down, tapping outside, or pressing Back |

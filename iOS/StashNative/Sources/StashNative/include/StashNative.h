@@ -23,7 +23,7 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 
 /** Responsive card. Defaults: 400 x 560 content, 16 margin, 720 maximum content height.
  * Dimensions are points of web content, excluding safe areas.
- * Preferred height is the resting ceiling and fallback; shorter intrinsic content can shrink it.
+ * Preferred height is the resting height, limited by the maximum and available space.
  */
 @interface StashNativeCardConfig : NSObject <NSCopying>
 @property (nonatomic) CGFloat preferredContentWidth;

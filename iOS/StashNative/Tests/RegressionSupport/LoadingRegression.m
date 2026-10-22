@@ -376,7 +376,7 @@ NSDictionary *StashPageBackingLifecycleProbe(void) {
 }
 @end
 
-NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGFloat measured) {
+NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGFloat contentHeight) {
     StashLoadingBackgroundHost *host = [StashLoadingBackgroundHost new];
     [presenter addChildViewController:host]; host.view.frame = presenter.view.bounds;
     [presenter.view addSubview:host.view]; [host didMoveToParentViewController:presenter];
@@ -384,13 +384,13 @@ NSDictionary *StashObservedChromeContentFixture(UIViewController *presenter, CGF
     StashCardSession *session = [StashCardSession new];
     owner.session = session; session.owner = owner; session.presenter = host;
     session.url = @"about:blank"; session.config = [StashNativeCardConfig new];
-    session.measuredContentHeight = measured;
+    session.config.preferredContentHeight = contentHeight;
     [session presentCheckout]; [session.webView stopLoading];
     session.loaded = YES; session.initialContentRevealed = YES;
     StashCardViewController *controller = session.controller;
     [controller revealInitialContentAnimated:NO];
     controller.view.frame = CGRectMake(30, 50, 390, [controller contentHeightForMaximum:800 expanded:NO]);
-    [controller viewDidLayoutSubviews]; controller.previousWidth = session.webView.bounds.size.width;
+    [controller viewDidLayoutSubviews];
     return @{@"owner":owner, @"session":session, @"controller":controller, @"web":session.webView};
 }
 

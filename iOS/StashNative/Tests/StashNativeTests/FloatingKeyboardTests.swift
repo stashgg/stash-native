@@ -120,7 +120,7 @@ final class FloatingKeyboardTests: XCTestCase {
         </style></head>
         <body><header>Underlying Checkout</header><main id="scroller">
         <article id="canvas" style="min-height:100%;display:flex;flex-direction:column;background:#f7f9f4">
-        <section data-stash-content style="flex:0 0 auto"><div id="lead" style="height:320px"></div>
+        <section id="content" style="flex:0 0 auto"><div id="lead" style="height:320px"></div>
         <input id="field" inputmode="none" value="Native value"><div id="tail" style="height:500px"></div></section></article></main>
         </body></html>
         """, baseURL: URL(string: "https://checkout.invalid"))
@@ -144,14 +144,14 @@ final class FloatingKeyboardTests: XCTestCase {
         scroller.scrollTop=0;await revealAndSettle();
         result.clearedTop=field.getBoundingClientRect().top;
         document.querySelector('#tail').remove();scroller.scrollTop=0;
-        const marker=document.querySelector('[data-stash-content]');
-        result.markerBefore=marker.getBoundingClientRect().height;
+        const content=document.querySelector('#content');
+        result.contentBefore=content.getBoundingClientRect().height;
         result.shortRangeBefore=scroller.scrollHeight-scroller.clientHeight;
         window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);await revealAndSettle();
         result.shortTop=field.getBoundingClientRect().top;result.shortBottom=field.getBoundingClientRect().bottom;
         result.clearanceCount=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         result.shortViewport=innerHeight;result.shortContainer=scroller.clientHeight;
-        result.markerAfter=marker.getBoundingClientRect().height;
+        result.contentAfter=content.getBoundingClientRect().height;
         scroller.style.paddingBottom='11px';window.__stashSetKeyboardOcclusion(null);
         await waitForRendering();
         result.remainingAfterHide=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
@@ -161,24 +161,24 @@ final class FloatingKeyboardTests: XCTestCase {
         field.blur();await waitForRendering();
         result.remainingAfterBlur=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         scroller.style.paddingBottom='';
-        const tail=document.createElement('div');tail.style.height='500px';marker.appendChild(tail);
+        const tail=document.createElement('div');tail.style.height='500px';content.appendChild(tail);
         field.focus({preventScroll:true});scroller.scrollTop=220;
         window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.belowTop=field.getBoundingClientRect().top;result.belowBottom=field.getBoundingClientRect().bottom;
         result.belowClearanceCount=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
-        result.belowMarkerHeight=marker.getBoundingClientRect().height;
+        result.belowContentHeight=content.getBoundingClientRect().height;
         window.__stashSetKeyboardOcclusion(null);tail.remove();scroller.scrollTop=0;
         document.querySelector('#lead').style.height='100px';
         const canvas=document.querySelector('#canvas'),canvasBefore=canvas.getBoundingClientRect();
-        const canvasStyle=canvas.getAttribute('style'),markerStyle=marker.getAttribute('style');
+        const canvasStyle=canvas.getAttribute('style'),contentStyle=content.getAttribute('style');
         window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.shortBelowTop=field.getBoundingClientRect().top;result.shortBelowBottom=field.getBoundingClientRect().bottom;
         const canvasAfter=canvas.getBoundingClientRect();
         result.canvasAnchored=canvasBefore.top===canvasAfter.top&&canvasBefore.left===canvasAfter.left&&canvasBefore.width===canvasAfter.width;
         result.canvasCoversTop=!!document.elementFromPoint(10,10).closest('#canvas');
-        result.shortBelowScroll=scroller.scrollTop;result.shortBelowMarkerHeight=marker.getBoundingClientRect().height;
+        result.shortBelowScroll=scroller.scrollTop;result.shortBelowContentHeight=content.getBoundingClientRect().height;
         result.shortBelowClearance=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
-        result.authoredCanvasUnchanged=canvas.getAttribute('style')===canvasStyle&&marker.getAttribute('style')===markerStyle;
+        result.authoredCanvasUnchanged=canvas.getAttribute('style')===canvasStyle&&content.getAttribute('style')===contentStyle;
         window.__stashSetKeyboardOcclusion(null);scroller.scrollTop=0;
         result.shortBelowRestored=field.getBoundingClientRect().top;
         const wrapper=document.createElement('div');wrapper.style.cssText='height:100%;display:flex;flex-direction:column';
@@ -188,7 +188,7 @@ final class FloatingKeyboardTests: XCTestCase {
         result.wrappedBelowTop=field.getBoundingClientRect().top;
         result.wrappedCanvasTop=canvas.getBoundingClientRect().top;
         result.wrappedCanvasCoversTop=!!document.elementFromPoint(10,10).closest('#canvas');
-        result.wrappedMarkerHeight=marker.getBoundingClientRect().height;
+        result.wrappedContentHeight=content.getBoundingClientRect().height;
         result.wrappedStylePreserved=wrapper.getAttribute('style')===wrapperStyle&&canvas.getAttribute('style')===canvasStyle;
         result.wrappedClearance=document.querySelectorAll('[data-stash-keyboard-clearance]').length;
         window.__stashSetKeyboardOcclusion(null);scroller.scrollTop=0;
@@ -196,7 +196,7 @@ final class FloatingKeyboardTests: XCTestCase {
         wrapper.before(canvas);wrapper.remove();field.focus({preventScroll:true});
         const painted=document.createElement('div');painted.id='painted';
         painted.style.cssText='background:#ddeeff;position:relative;flex:1 0 auto;margin-top:-16px;min-height:616px';
-        canvas.appendChild(painted);painted.appendChild(marker);field.focus({preventScroll:true});
+        canvas.appendChild(painted);painted.appendChild(content);field.focus({preventScroll:true});
         document.querySelector('#lead').style.height='336px';const paintBefore=painted.getBoundingClientRect();
         const paintStyle=painted.getAttribute('style');
         window.__stashSetKeyboardOcclusion([0,240,390,200,390,600]);await revealAndSettle();
@@ -205,12 +205,12 @@ final class FloatingKeyboardTests: XCTestCase {
         result.deepPaintOwnsBottom=!!document.elementFromPoint(10,590).closest('#painted');
         result.deepPaintOrigin=painted.getBoundingClientRect().top+scroller.scrollTop;
         result.deepPaintOriginal=paintBefore.top;result.deepPaintStyle=painted.getAttribute('style')===paintStyle;
-        result.deepMarkerHeight=marker.getBoundingClientRect().height;
+        result.deepContentHeight=content.getBoundingClientRect().height;
         window.__stashSetKeyboardOcclusion(null);scroller.scrollTop=0;
-        canvas.appendChild(marker);painted.remove();field.focus({preventScroll:true});
+        canvas.appendChild(content);painted.remove();field.focus({preventScroll:true});
         const label=document.createElement('label');label.htmlFor='field';label.textContent='Name on card';
         label.style.cssText='display:block;height:24px';field.before(label);
-        const labelTail=document.createElement('div');labelTail.style.height='500px';marker.appendChild(labelTail);
+        const labelTail=document.createElement('div');labelTail.style.height='500px';content.appendChild(labelTail);
         document.querySelector('#lead').style.height='290px';scroller.scrollTop=0;
         window.__stashSetKeyboardOcclusion([0,20,390,280,390,600]);await revealAndSettle();
         result.labelBelowTop=label.getBoundingClientRect().top;result.labelBelowFieldBottom=field.getBoundingClientRect().bottom;
@@ -254,28 +254,28 @@ final class FloatingKeyboardTests: XCTestCase {
         XCTAssertEqual(direct["clearanceCount"] as? Int, 1)
         XCTAssertEqual(direct["shortViewport"] as? Double, 600)
         XCTAssertEqual(direct["shortContainer"] as? Double, 600)
-        XCTAssertEqual(direct["markerBefore"] as? Double, 354)
-        XCTAssertEqual(direct["markerAfter"] as? Double, 354)
+        XCTAssertEqual(direct["contentBefore"] as? Double, 354)
+        XCTAssertEqual(direct["contentAfter"] as? Double, 354)
         XCTAssertEqual(direct["remainingAfterHide"] as? Int, 0)
         XCTAssertEqual(direct["remainingAfterBlur"] as? Int, 0)
         XCTAssertEqual(direct["authoredPadding"] as? String, "11px")
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(direct["belowTop"] as? Double), 308)
         XCTAssertLessThanOrEqual(try XCTUnwrap(direct["belowBottom"] as? Double), 592)
         XCTAssertEqual(direct["belowClearanceCount"] as? Int, 1)
-        XCTAssertEqual(direct["belowMarkerHeight"] as? Double, 854)
+        XCTAssertEqual(direct["belowContentHeight"] as? Double, 854)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(direct["shortBelowTop"] as? Double), 308)
         XCTAssertLessThanOrEqual(try XCTUnwrap(direct["shortBelowBottom"] as? Double), 592)
         XCTAssertEqual(direct["canvasAnchored"] as? Bool, true)
         XCTAssertEqual(direct["canvasCoversTop"] as? Bool, true)
         XCTAssertEqual(direct["authoredCanvasUnchanged"] as? Bool, true)
         XCTAssertEqual(direct["shortBelowScroll"] as? Double, 0)
-        XCTAssertEqual(direct["shortBelowMarkerHeight"] as? Double, 134)
+        XCTAssertEqual(direct["shortBelowContentHeight"] as? Double, 134)
         XCTAssertEqual(direct["shortBelowClearance"] as? Int, 1)
         XCTAssertEqual(direct["shortBelowRestored"] as? Double, 100)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(direct["wrappedBelowTop"] as? Double), 308)
         XCTAssertEqual(direct["wrappedCanvasTop"] as? Double, 0)
         XCTAssertEqual(direct["wrappedCanvasCoversTop"] as? Bool, true)
-        XCTAssertEqual(direct["wrappedMarkerHeight"] as? Double, 134)
+        XCTAssertEqual(direct["wrappedContentHeight"] as? Double, 134)
         XCTAssertEqual(direct["wrappedStylePreserved"] as? Bool, true)
         XCTAssertEqual(direct["wrappedClearance"] as? Int, 1)
         XCTAssertEqual(direct["wrappedRestoredTop"] as? Double, 100)
@@ -284,7 +284,7 @@ final class FloatingKeyboardTests: XCTestCase {
         XCTAssertEqual(direct["deepPaintOwnsBottom"] as? Bool, true)
         XCTAssertEqual(direct["deepPaintOrigin"] as? Double, direct["deepPaintOriginal"] as? Double)
         XCTAssertEqual(direct["deepPaintStyle"] as? Bool, true)
-        XCTAssertEqual(direct["deepMarkerHeight"] as? Double, 370)
+        XCTAssertEqual(direct["deepContentHeight"] as? Double, 370)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(direct["labelBelowTop"] as? Double), 308)
         XCTAssertLessThanOrEqual(try XCTUnwrap(direct["labelBelowFieldBottom"] as? Double), 592)
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(direct["labelDockedTop"] as? Double), 8)
@@ -332,12 +332,12 @@ final class FloatingKeyboardTests: XCTestCase {
         guard await WebViewFixture.waitForLoad(loaded) else { return }
         let settling = try await evaluate("""
         await waitForRendering();
-        document.body.innerHTML='<main id="settlingPort"><article style="min-height:100%;display:flex;flex-direction:column;background:#ebede8"><div id="innerPaint" style="background:#f7f9f4;position:relative;flex:1;margin-top:-16px"><section data-stash-content><div style="height:313px"></div><input id="settlingField" inputmode="none" value="Preserved"><div style="height:471px"></div></section></div></article></main>';
+        document.body.innerHTML='<main id="settlingPort"><article style="min-height:100%;display:flex;flex-direction:column;background:#ebede8"><div id="innerPaint" style="background:#f7f9f4;position:relative;flex:1;margin-top:-16px"><section id="settlingContent"><div style="height:313px"></div><input id="settlingField" inputmode="none" value="Preserved"><div style="height:471px"></div></section></div></article></main>';
         const port=document.querySelector('#settlingPort'),field=document.querySelector('#settlingField');
         field.focus({preventScroll:true});const before=field.getBoundingClientRect();
         window.__stashSetKeyboardOcclusion([0,267.5,390,336,390,900]);await revealAndSettle();
         const result={beforeTop:before.top,bottom:field.getBoundingClientRect().bottom,scroll:port.scrollTop,height:innerHeight,
-        marker:document.querySelector('[data-stash-content]').getBoundingClientRect().height,
+        content:document.querySelector('#settlingContent').getBoundingClientRect().height,
         owner:document.querySelector('[data-stash-keyboard-clearance]')?.parentElement.id,
         paintCoversBottom:!!document.elementFromPoint(10,890).closest('#innerPaint'),value:field.value};
         window.__stashSetKeyboardOcclusion(null);
@@ -365,7 +365,7 @@ final class FloatingKeyboardTests: XCTestCase {
         // The public guide temporarily reports 267.5 while the visible keyboard starts at 245.
         XCTAssertGreaterThanOrEqual(try XCTUnwrap(settling["scroll"] as? Double), 95.5)
         XCTAssertEqual(settling["height"] as? Double, 900)
-        XCTAssertEqual(settling["marker"] as? Double, 818)
+        XCTAssertEqual(settling["content"] as? Double, 818)
         XCTAssertEqual(settling["owner"] as? String, "innerPaint")
         XCTAssertEqual(settling["paintCoversBottom"] as? Bool, true)
         XCTAssertEqual(settling["value"] as? String, "Preserved")

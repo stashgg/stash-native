@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Checkout</title>
     <style>
-        /* Inline font faces: a cross-origin stylesheet would make data-stash-content ineligible. */
+        /* Inline font face: the page loads no external stylesheet. */
         @font-face {
             font-family: "Work Sans";
             src: url("https://fonts.gstatic.com/s/worksans/v24/QGYsz_wNahGAdqQ43Rh_fKDptfpA4Q.woff2") format("woff2");
@@ -108,9 +108,8 @@
             color: var(--pay-ui-theme-fg-primary-color);
         }
 
-        /* Scoped so the data-stash-content wrapper stays measurable in the Sizing tab. */
-        html:not(.fit-content) body,
-        html:not(.fit-content) .page {
+        body,
+        .page {
             min-height: 100dvh;
         }
 
@@ -216,8 +215,7 @@
             margin-bottom: 0.5rem;
         }
 
-        input[type="text"],
-        select {
+        input[type="text"] {
             width: 100%;
             height: 2.25rem;
             padding: 0.5rem 0.75rem;
@@ -236,8 +234,7 @@
             color: var(--pay-ui-theme-fg-muted-color);
         }
 
-        input[type="text"]:focus,
-        select:focus {
+        input[type="text"]:focus {
             border-color: transparent;
             box-shadow: 0 0 0 2px transparent;
             background: var(--pay-ui-theme-input-bg);
@@ -435,44 +432,6 @@
             gap: 1.5rem;
         }
 
-        .field-row {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .field-row .input-wrap {
-            flex: 1 1 0;
-            min-width: 0;
-        }
-
-        .field-row .field-wide {
-            flex: 2 1 0;
-        }
-
-        .sizing-block {
-            height: 40px;
-            border: 1px solid var(--pay-ui-theme-border-color);
-            border-radius: 0.75rem;
-            background: var(--pay-ui-theme-paper-gradient);
-        }
-
-        select {
-            appearance: none;
-            -webkit-appearance: none;
-            padding-right: 2rem;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.6rem center;
-            background-size: 1rem;
-        }
-
-        /* Sizing to content needs a page shorter than the resting card. */
-        html.fit-content .powered,
-        html.fit-content #theme-info,
-        html.fit-content #user-agent-info {
-            display: none;
-        }
-
         .tab-dock {
             position: fixed;
             left: 0;
@@ -527,41 +486,6 @@
             border-color: transparent;
         }
 
-        .chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .chip {
-            flex: 1 1 auto;
-            min-height: 2rem;
-            padding: 0 0.875rem;
-            font-family: var(--font-factor-a);
-            font-size: 0.8125rem;
-            font-weight: 500;
-            color: var(--pay-ui-theme-fg-primary-color);
-            background: var(--pay-ui-theme-neutral-button-bg);
-            box-shadow: inset 0 0 0 1px var(--pay-ui-theme-neutral-button-border);
-            border: 1px solid transparent;
-            border-radius: 9999px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.375rem;
-        }
-
-        .chip > svg {
-            display: block;
-            width: 1rem;
-            height: 1rem;
-            flex-shrink: 0;
-        }
-
-        .chip:active {
-            transform: scale(0.98);
-        }
     </style>
 </head>
 <body>
@@ -771,38 +695,6 @@
                 </section>
 
 
-                <section class="tab-panel" id="tab-sizing" role="tabpanel" aria-labelledby="tab-btn-sizing">
-                <div class="stack-gap-md">
-                    <span class="section-title-sm">Content sizing</span>
-                    <div class="field-row">
-                        <div class="input-wrap field-wide">
-                            <label class="field-label" for="sizing-mode">Mode</label>
-                            <div class="input-focus-shell">
-                                <select id="sizing-mode" class="input-focus-ring" onchange="setSizingMode(this.value)">
-                                    <option value="off">Off</option>
-                                    <option value="marker">data-stash-content</option>
-                                    <option value="viewport">Viewport-height wrapper (ignored)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="input-wrap">
-                            <label class="field-label" for="sizing-height">Height (px)</label>
-                            <div class="input-focus-shell">
-                                <input type="text" id="sizing-height" class="input-focus-ring" inputmode="numeric" value="40" oninput="setSizingBlockFromInput()" />
-                            </div>
-                        </div>
-                    </div>
-                    <div class="chip-row">
-                        <button type="button" class="chip" onclick="setSizingBlock(40)"><span class="chip-label">Short</span></button>
-                        <button type="button" class="chip" onclick="setSizingBlock(200)"><span class="chip-label">Medium</span></button>
-                        <button type="button" class="chip" onclick="setSizingBlock(1000)"><span class="chip-label">Long</span></button>
-                        <button type="button" class="chip" onclick="applySizingInput()"><span class="chip-label">Apply</span></button>
-                    </div>
-                    <div id="sizing-block" class="sizing-block"></div>
-                    <div id="sizing-metrics" class="meta-hint"></div>
-                </div>
-                </section>
-
                 <div class="powered">
                     <span class="powered-label">Powered by</span>
                     <div aria-hidden="true">
@@ -836,10 +728,6 @@
             <button type="button" class="tab-btn" role="tab" id="tab-btn-errors" aria-controls="tab-errors" data-tab="errors" aria-selected="false" tabindex="-1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
                 <span>Errors</span>
-            </button>
-            <button type="button" class="tab-btn" role="tab" id="tab-btn-sizing" aria-controls="tab-sizing" data-tab="sizing" aria-selected="false" tabindex="-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg>
-                <span>Sizing</span>
             </button>
         </nav>
     </div>
@@ -1190,51 +1078,6 @@
                 throw e;
             }
         }
-
-        var sizingMode = 'off';
-        var sizingRoot = document.querySelector('.sheet-inner');
-        var pageLoads = 1;
-        try {
-            pageLoads = Number(sessionStorage.getItem('stash-test-loads') || 0) + 1;
-            sessionStorage.setItem('stash-test-loads', String(pageLoads));
-        } catch (e) {}
-
-        function setSizingMode(mode) {
-            sizingMode = mode;
-            document.documentElement.classList.toggle('fit-content', mode !== 'off');
-            if (mode === 'marker' || mode === 'viewport') sizingRoot.setAttribute('data-stash-content', '');
-            else sizingRoot.removeAttribute('data-stash-content');
-            sizingRoot.style.minHeight = mode === 'viewport' ? '100vh' : '';
-            updateStatus('Content sizing: ' + mode);
-        }
-
-        function setSizingBlock(height) {
-            document.getElementById('sizing-block').style.height = height + 'px';
-            document.getElementById('sizing-height').value = String(height);
-            updateStatus('Content block: ' + height + 'px');
-        }
-
-        // Applies the typed height and closes the keyboard, which keeps the card expanded while open.
-        function applySizingInput() {
-            var field = document.getElementById('sizing-height');
-            setSizingBlockFromInput();
-            field.blur();
-        }
-
-        function setSizingBlockFromInput() {
-            var height = parseInt(document.getElementById('sizing-height').value, 10);
-            if (!isFinite(height) || height < 0) return;
-            document.getElementById('sizing-block').style.height = height + 'px';
-            updateStatus('Content block: ' + height + 'px');
-        }
-
-        function updateSizingMetrics() {
-            document.getElementById('sizing-metrics').textContent =
-                'Viewport ' + innerWidth + ' x ' + innerHeight + ' CSS px. Page loads: ' + pageLoads;
-        }
-
-        window.addEventListener('resize', updateSizingMetrics);
-        updateSizingMetrics();
 
         const originalConsoleError = console.error;
         console.error = function () {

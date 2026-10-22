@@ -4,10 +4,10 @@ import RegressionSupport
 final class NativeSheetGeometryTests: XCTestCase {
 
 
-    @MainActor func testIntrinsicHeightCompensatesOnlyMissingNativeSafeAreaReserve() async throws {
+    @MainActor func testShortRestingHeightCompensatesOnlyMissingNativeSafeAreaReserve() async throws {
         guard #available(iOS 27.1, *) else { throw XCTSkip("Probe requires the reserved-region test host") }
         let result: [String: NSNumber] = await withCheckedContinuation { continuation in
-            StashNativeIntrinsicSafeAreaProbe { value in
+            StashNativeRestingSafeAreaProbe { value in
                 continuation.resume(returning: value as! [String: NSNumber])
             }
         }
@@ -27,8 +27,8 @@ final class NativeSheetGeometryTests: XCTestCase {
 
     func testNativeSurfaceUsesContentBoundsWithoutAdditionalChrome() throws {
         func probe(_ bounds: CGRect, _ expanded: Bool = false,
-                   _ measured: CGFloat = 0, _ preferred: CGFloat = 560, _ maximum: CGFloat = 900) throws -> (CGRect, CGFloat, CGFloat) {
-            let value = try XCTUnwrap(StashChromeSurfaceGeometryProbe(bounds, expanded, measured, preferred, maximum))
+                   _ preferred: CGFloat = 560, _ maximum: CGFloat = 900) throws -> (CGRect, CGFloat, CGFloat) {
+            let value = try XCTUnwrap(StashChromeSurfaceGeometryProbe(bounds, expanded, preferred, maximum))
             return (try XCTUnwrap((value["frame"] as? NSValue)?.cgRectValue),
                     CGFloat(try XCTUnwrap(value["resting"] as? NSNumber).doubleValue),
                     CGFloat(try XCTUnwrap(value["expanded"] as? NSNumber).doubleValue))
@@ -131,14 +131,14 @@ final class NativeSheetGeometryTests: XCTestCase {
         XCTAssertEqual(result["surfaceTop"]?.doubleValue, 186)
     }
 
-    func testNativeGrabberAddsNoMeasuredContentReserve() {
+    func testNativeGrabberAddsNoShortContentReserve() {
         let result = StashNativeSurfaceProbe() as! [String: NSNumber]
         XCTAssertEqual(result["shortHeight"]?.doubleValue, 240)
         XCTAssertEqual(result["unobstructedWidth"]?.doubleValue, 466)
         XCTAssertEqual(result["blockedHeight"]?.doubleValue, 0)
     }
 
-    @MainActor func testNativeSheetUsesDetentsForConfiguredAndMeasuredHeight() {
+    @MainActor func testNativeSheetUsesDetentsForConfiguredHeight() {
         let result = StashNativePaneProbe() as! [String: NSNumber]
         XCTAssertEqual(result["width"]?.doubleValue, 400)
         XCTAssertEqual(result["anchored"]?.boolValue, false)
@@ -149,7 +149,6 @@ final class NativeSheetGeometryTests: XCTestCase {
             XCTAssertEqual(result[key]?.doubleValue, 300, key)
         }
         XCTAssertEqual(result["restingDetent"]?.doubleValue, 300)
-        XCTAssertEqual(result["intrinsicDetent"]?.doubleValue, 120)
         XCTAssertEqual(result["expandedDetent"]?.doubleValue, 620)
     }
 

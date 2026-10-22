@@ -124,8 +124,7 @@
         CGFloat nativeBottom = CGRectGetMinY(container.bounds) + container.safeAreaInsets.top + maximum;
         available.size.height = MAX(0, MIN(CGRectGetMaxY(available), nativeBottom) - CGRectGetMinY(available));
     }
-    StashPresentationGeometry geometry = StashResolveGeometry(available, self.session.config, expanded,
-        self.session.measuredContentHeight);
+    StashPresentationGeometry geometry = StashResolveGeometry(available, self.session.config, expanded);
     CGFloat surface = geometry.frame.size.height;
     CGFloat detent = surface > 0 ? MIN(MAX(0, maximum), surface + self.nativeContentSafeAreaCompensation) : 0;
     return detent;
@@ -178,7 +177,7 @@
     UIView *container = [self layoutContainer];
     CGRect bounds = [self availableBoundsInView:container];
     StashPresentationGeometry geometry = StashResolveGeometry(bounds, self.session.config,
-        self.session.expanded || self.session.keyboardVisible, self.session.measuredContentHeight);
+        self.session.expanded || self.session.keyboardVisible);
     BOOL floatingSizing = [self usesFloatingNativeSizing];
     CGFloat preferredHeight = floatingSizing ? geometry.frame.size.height : 0;
     CGSize preferredSize = CGSizeMake(geometry.frame.size.width, preferredHeight);
@@ -285,9 +284,5 @@
     if (!expanded && self.contentExpansionActive)
         return MIN(expandedHeight, MAX(resting, self.contentExpansionHeight));
     return expanded ? expandedHeight : resting;
-}
-- (void)contentHeightDidChange {
-    if (self.dragging) self.deferredContentLayout = YES;
-    else [self updatePresentationAnimated:YES];
 }
 @end
