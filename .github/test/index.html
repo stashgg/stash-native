@@ -577,11 +577,11 @@
                         </button>
                         <button type="button" class="btn btn-primary" onclick="triggerProcessing()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                            <span class="btn-label">Purchase Processing</span>
+                            <span class="btn-label">Lock</span>
                         </button>
                         <button type="button" class="btn btn-primary" onclick="triggerProcessingCompleted()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><path d="M22 4 12 14.01l-3-3"/></svg>
-                            <span class="btn-label">Processing Completed</span>
+                            <span class="btn-label">Unlock</span>
                         </button>
                         <button type="button" class="btn btn-primary" onclick="triggerExpand()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -599,9 +599,13 @@
                 <div class="stack-gap-md">
                     <span class="section-title-sm">Device</span>
                     <div class="btn-stack">
-                        <button type="button" class="btn btn-primary" onclick="triggerHaptic()">
+                        <button type="button" class="btn btn-primary" onclick="triggerHaptic('short')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M3 8v8M21 8v8"/></svg>
-                            <span class="btn-label">Haptic</span>
+                            <span class="btn-label">Short haptic</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerHaptic('long')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M3 8v8M21 8v8"/></svg>
+                            <span class="btn-label">Long haptic</span>
                         </button>
                         <button type="button" class="btn btn-primary" onclick="readTelemetry()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
@@ -685,9 +689,13 @@
                         </div>
                     </div>
                     <div class="btn-stack">
-                        <button type="button" class="btn btn-primary" onclick="triggerExternal()">
+                        <button type="button" class="btn btn-primary" onclick="triggerExternal(false)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
                             <span class="btn-label">External payment</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerExternal(true)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">External payment, keep card open</span>
                         </button>
                     </div>
                 </div>
@@ -917,13 +925,13 @@
             });
         }
 
-        function triggerHaptic() {
+        function triggerHaptic(type) {
             if (!window.stash_sdk || typeof window.stash_sdk.triggerHaptic !== 'function') {
                 updateStatus('triggerHaptic requires the native Stash bridge.');
                 return;
             }
-            window.stash_sdk.triggerHaptic();
-            updateStatus('Called: triggerHaptic()');
+            window.stash_sdk.triggerHaptic(type);
+            updateStatus("Called: triggerHaptic('" + type + "')");
         }
 
         async function readTelemetry() {
@@ -958,18 +966,26 @@
             }
         }
 
-        function triggerProcessing() {
-            updateStatus('Called: onPurchaseProcessing()');
-            if (window.stash_sdk && window.stash_sdk.onPurchaseProcessing) {
-                window.stash_sdk.onPurchaseProcessing({});
+        // SDKs before lock(), unlock(), and externalBrowser() only have the older names.
+        function callFirst(names, args) {
+            var sdk = window.stash_sdk;
+            for (var i = 0; sdk && i < names.length; i++) {
+                if (typeof sdk[names[i]] === 'function') {
+                    sdk[names[i]].apply(sdk, args || []);
+                    return names[i];
+                }
             }
+            return null;
+        }
+
+        function triggerProcessing() {
+            var called = callFirst(['lock', 'onPurchaseProcessing']);
+            updateStatus(called ? 'Called: ' + called + '()' : 'lock() requires the native Stash bridge.');
         }
 
         function triggerProcessingCompleted() {
-            updateStatus('Called: onProcessingCompleted()');
-            if (window.stash_sdk && window.stash_sdk.onProcessingCompleted) {
-                window.stash_sdk.onProcessingCompleted({});
-            }
+            var called = callFirst(['unlock', 'onProcessingCompleted']);
+            updateStatus(called ? 'Called: ' + called + '()' : 'unlock() requires the native Stash bridge.');
         }
 
         function triggerExpand() {
@@ -1001,18 +1017,18 @@
             }
         }
 
-        function triggerExternal() {
+        function triggerExternal(keepOpen) {
             var el = document.getElementById('externalUrl');
             var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com';
-            if (window.stash_sdk && typeof window.stash_sdk.openExternalBrowser === 'function') {
-                updateStatus('Called: openExternalBrowser("' + url + '")');
-                try {
-                    window.stash_sdk.openExternalBrowser(url);
-                } catch (e) {
-                    updateStatus('openExternalBrowser() error: ' + (e && e.message ? e.message : e));
-                }
-            } else {
-                updateStatus('stash_sdk.openExternalBrowser not available (requires native Stash SDK)');
+            try {
+                var called = keepOpen
+                    ? callFirst(['externalBrowser'], [url, { keepOpen: true }])
+                    : callFirst(['externalBrowser', 'openExternalBrowser'], [url]);
+                updateStatus(called
+                    ? 'Called: ' + called + '("' + url + '"' + (keepOpen ? ', { keepOpen: true })' : ')')
+                    : (keepOpen ? 'externalBrowser() is not available in this SDK.' : 'externalBrowser() requires the native Stash bridge.'));
+            } catch (e) {
+                updateStatus('externalBrowser() error: ' + (e && e.message ? e.message : e));
             }
         }
 

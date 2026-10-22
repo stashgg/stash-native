@@ -152,6 +152,35 @@ public class BrowserLifetimeTest {
     assertEquals(0, browserClosed);
   }
 
+  @Test public void keepOpenBrowserOpensOverTheCardAndEndsNothing() {
+    new StashCheckoutJsInterface(checkout)
+        .externalBrowser(token, "https://example.invalid/payment", true);
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(launched);
+    assertTrue(launched.getDataString().startsWith("https://example.invalid/payment"));
+    assertNull(launched.getComponent());
+    assertEquals(View.VISIBLE, checkout.cardContainer.getVisibility());
+    assertFalse(checkout.isFinishing());
+    assertFalse(checkout.callbackSent);
+    assertTrue(sdk.isCurrentlyPresented());
+    assertEquals(0, browserClosed);
+  }
+
+  @Test public void externalBrowserWithoutKeepOpenIsTheCardClosingHandoff() {
+    new StashCheckoutJsInterface(checkout)
+        .externalBrowser(token, "https://example.invalid/payment", false);
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals(StashNativeBrowserProxyActivity.class.getName(),
+        launched.getComponent().getClassName());
+    assertEquals(View.INVISIBLE, checkout.cardContainer.getVisibility());
+    assertFalse(sdk.isCurrentlyPresented());
+  }
+
   @Test public void activeLinkLaunchesWithoutCallbacksThemeOrDismissal() {
     new StashCheckoutJsInterface(checkout).openLink(token, "https://example.invalid/terms");
     ShadowLooper.idleMainLooper();

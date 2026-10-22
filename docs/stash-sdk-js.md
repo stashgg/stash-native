@@ -17,30 +17,30 @@ Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/
 |---|---|
 | `onPaymentSuccess(order?)` | Payment success callback. Closes the card when `autoClose` is on. |
 | `onPaymentFailure()` | Payment failure callback. Closes the card when `autoClose` is on. |
-| `onPurchaseProcessing()` | Blocks closing the card and hides the drag handle |
-| `onProcessingCompleted()` | Removes the block |
+| `lock()` | Blocks closing the card and hides the drag handle |
+| `unlock()` | Removes the block |
 | `expand()`, `collapse()` | Selects the expanded or resting card height |
 | `setContentHeight(px)` | Reports the content height in CSS pixels, so the resting card can shrink |
-| `openExternalBrowser(url)` | External payment callback, then closes the card and opens the system browser |
+| `externalBrowser(url, options?)` | External payment callback, then closes the card and opens the browser. With `{ keepOpen: true }`, the browser opens over the card, which stays open for the player's return. |
 | `openLink(url)` | Opens a URL outside the app without callbacks; the card stays open |
-| `triggerHaptic()` | Plays a success haptic |
+| `triggerHaptic(type?)` | Plays a short success haptic, or a long one with `'long'` (or `1`) |
 | `getTelemetry()` | Resolves to device, app, card, and timing data |
-| `window.close()` | Closes the card, except during processing |
+| `window.close()` | Closes the card, except while locked |
 
-On Android, the object can appear after early inline scripts run, so look it up at call time: `window.stash_sdk?.onPurchaseProcessing()`. Failed calls are ignored on Android and throw on iOS.
+On Android, the object can appear after early inline scripts run, so look it up at call time: `window.stash_sdk?.lock()`. Failed calls are ignored on Android and throw on iOS.
 
 ## Payment
 
 ```javascript
-stash_sdk.onPurchaseProcessing();
+stash_sdk.lock();
 try {
   stash_sdk.onPaymentSuccess(await submitPayment());
 } catch (error) {
-  stash_sdk.onProcessingCompleted(); // the player can retry
+  stash_sdk.unlock(); // the player can retry
 }
 ```
 
-Strings reach the game unchanged; other values arrive as JSON. With `autoClose` off, payment events can repeat and the card stays open. `openExternalBrowser` and `openLink` accept `http` and `https` URLs only.
+Strings reach the game unchanged; other values arrive as JSON. With `autoClose` off, payment events can repeat and the card stays open. `externalBrowser` and `openLink` accept `http` and `https` URLs only.
 
 ## Navigation
 

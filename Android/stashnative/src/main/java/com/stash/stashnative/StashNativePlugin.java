@@ -459,6 +459,37 @@ public class StashNativePlugin {
     }
   }
 
+  /**
+   * Opens a browser over a checkout that stays open: the host hears about the external payment,
+   * but no browser-dismissal event follows and the card session continues.
+   */
+  void openExternalBrowserOverCheckout(StashCardActivity checkoutActivity, String url) {
+    if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)
+        || url == null || url.isEmpty()) {
+      return;
+    }
+    StashNative.StashNativeListener l = getListener();
+    if (l != null) {
+      try {
+        l.onExternalPayment(url);
+      } catch (Exception e) {
+        Log.w(TAG, "Error in onExternalPayment: " + e.getMessage(), e);
+      }
+    }
+    // The host may reset or open another checkout from its callback.
+    if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)) {
+      return;
+    }
+    // The card activity stops the service again when it resumes.
+    startKeepAliveBeforeBrowser(checkoutActivity);
+    try {
+      StashUrlLauncher.openExternalUrl(checkoutActivity, url, 0);
+    } catch (Exception e) {
+      stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
+      Log.w(TAG, "Error opening browser over checkout: " + e.getMessage(), e);
+    }
+  }
+
   private void cancelBrowserClosedDebounce() {
     if (browserClosedDebounceRunnable != null) {
       mainHandler.removeCallbacks(browserClosedDebounceRunnable);

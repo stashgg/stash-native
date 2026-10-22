@@ -87,6 +87,23 @@ final class NativePresentationTests: XCTestCase {
         XCTAssertEqual(result["phoneLandscape"]?.intValue, UIModalTransitionStyle.coverVertical.rawValue)
     }
 
+    // externalBrowser(url, {keepOpen: true}) presents Safari over the card and returns to it.
+    func testKeepOpenBrowserReturnsToTheOpenCard() throws {
+        let done = expectation(description: "keepOpen browser")
+        DispatchQueue.main.async {
+            StashKeepOpenBrowserProbe { result in
+                for key in ["presented", "browserShown", "tracked", "returned", "cardStillPresented",
+                            "sessionActive", "overlayCleared"] {
+                    XCTAssertEqual((result[key] as? NSNumber)?.boolValue, true, key)
+                }
+                XCTAssertEqual(result["eventsWhileOpen"] as? [String], ["externalPayment"])
+                XCTAssertEqual(result["events"] as? [String], ["externalPayment"])
+                done.fulfill()
+            }
+        }
+        wait(for: [done], timeout: 25)
+    }
+
     // UIKit moves the card's frame off screen when dismissal starts; the content must stay drawn while it animates out.
     func testDismissalKeepsWebContentUntilTheCardLeaves() throws {
         let done = expectation(description: "dismissal content")

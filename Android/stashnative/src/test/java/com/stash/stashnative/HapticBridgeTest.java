@@ -59,6 +59,18 @@ public class HapticBridgeTest {
         ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY, web.feedback);
   }
 
+  @Test public void longTypePlaysTheHeavierPulseAndOtherValuesStayShort() {
+    bridge.triggerHaptic(token, "long");
+    ShadowLooper.idleMainLooper();
+    assertEquals(Build.VERSION.SDK_INT >= 30
+        ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.LONG_PRESS, web.feedback);
+    bridge.triggerHaptic(token, "loud");
+    ShadowLooper.idleMainLooper();
+    assertEquals(Build.VERSION.SDK_INT >= 30
+        ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY, web.feedback);
+    assertEquals(2, web.calls);
+  }
+
   @Test public void hiddenBackgroundAndClosingCardsIgnoreFeedback() {
     activity.isActivityPaused = true;
     bridge.triggerHaptic(token);

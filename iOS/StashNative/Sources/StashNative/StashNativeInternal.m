@@ -1,4 +1,5 @@
 #import "StashNativePrivate.h"
+#import <CoreHaptics/CoreHaptics.h>
 #import <math.h>
 
 static void *StashPageBackgroundContext = &StashPageBackgroundContext;
@@ -499,6 +500,10 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)cleanup {
     [self cleanupCheckout];
+    self.overlayBrowser.delegate = nil;
+    self.overlayBrowser = nil;
+    [self.hapticEngine stopWithCompletionHandler:nil];
+    self.hapticEngine = nil;
     self.browser.delegate = nil;
     self.browser = nil;
     self.browserHandoff = NO;
@@ -539,6 +544,67 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         self.browserHandoff = NO;
         [self presentBrowserAfterHandoff:YES];
     }];
+}
+- (void)openBrowserOverCardWithURL:(NSString *)url {
+    if (![self isActive] || self.overlayBrowser) return;
+#if !__has_feature(objc_arc)
+    [[self retain] autorelease];
+#endif
+    StashNative *owner = self.owner;
+    [owner deliverToDelegate:^(id<StashNativeDelegate> delegate) {
+        if ([delegate respondsToSelector:@selector(stashNativeDidRequestExternalPaymentWithURL:)])
+            [delegate stashNativeDidRequestExternalPaymentWithURL:url];
+    }];
+    UIViewController *card = self.controller;
+    NSURL *target = [NSURL URLWithString:url];
+    if (![self isActive] || !target || !card.viewIfLoaded.window || card.isBeingDismissed ||
+        card.presentedViewController) return;
+    StashSafariViewController *browser = [[StashSafariViewController alloc] initWithURL:target];
+    browser.delegate = self;
+    browser.prefersPortrait = self.portraitPresentation.presenter != nil;
+    self.overlayBrowser = browser;
+    [card presentViewController:browser animated:YES completion:nil];
+#if !__has_feature(objc_arc)
+    [browser release];
+#endif
+}
+- (void)playLongHaptic {
+    if (![self playContinuousHaptic]) {
+        // Without Core Haptics, the error notification is the longest system pattern.
+        UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
+        [feedback notificationOccurred:UINotificationFeedbackTypeError];
+#if !__has_feature(objc_arc)
+        [feedback release];
+#endif
+    }
+}
+- (BOOL)playContinuousHaptic {
+    if (!CHHapticEngine.capabilitiesForHardware.supportsHaptics) return NO;
+    NSError *error = nil;
+    CHHapticEngine *engine = self.hapticEngine;
+    if (!engine) {
+        engine = [[CHHapticEngine alloc] initAndReturnError:&error];
+        if (!engine) return NO;
+        self.hapticEngine = engine;
+#if !__has_feature(objc_arc)
+        [engine release];
+#endif
+    }
+    NSDictionary *definition = @{CHHapticPatternKeyPattern:@[@{CHHapticPatternKeyEvent:@{
+        CHHapticPatternKeyEventType:CHHapticEventTypeHapticContinuous, CHHapticPatternKeyTime:@0,
+        CHHapticPatternKeyEventDuration:@0.4, CHHapticPatternKeyEventParameters:@[
+            @{CHHapticPatternKeyParameterID:CHHapticEventParameterIDHapticIntensity, CHHapticPatternKeyParameterValue:@0.8},
+            @{CHHapticPatternKeyParameterID:CHHapticEventParameterIDHapticSharpness, CHHapticPatternKeyParameterValue:@0.4}]}}]};
+    CHHapticPattern *pattern = [[CHHapticPattern alloc] initWithDictionary:definition error:&error];
+    id<CHHapticPatternPlayer> player = pattern ? [engine createPlayerWithPattern:pattern error:&error] : nil;
+#if !__has_feature(objc_arc)
+    [pattern release];
+#endif
+    if (!player || ![engine startAndReturnError:&error] || ![player startAtTime:CHHapticTimeImmediate error:&error]) return NO;
+    [engine notifyWhenPlayersFinished:^CHHapticEngineFinishedAction(NSError *finishError) {
+        return CHHapticEngineFinishedActionStopEngine;
+    }];
+    return YES;
 }
 - (void)paymentSucceeded:(BOOL)success order:(NSString *)order {
     if (![self isActive] || (self.config.autoClose && self.paymentHandled)) return;
@@ -591,6 +657,8 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     }];
 }
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
+    // Safari over an open card returns to the card without ending the session.
+    if (controller == self.overlayBrowser) { self.overlayBrowser.delegate = nil; self.overlayBrowser = nil; return; }
     if (controller == self.browser) [self browserClosed];
 }
 - (void)presentedSurfaceDidDisappear:(UIViewController *)surface {
@@ -657,6 +725,10 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         BOOL foreground = window.windowScene ? window.windowScene.activationState == UISceneActivationStateForegroundActive :
             UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
         if (!window || window.hidden || self.webView.hidden || !foreground) return;
+        if ([body isKindOfClass:NSDictionary.class] && [body[@"type"] isEqual:@"long"]) {
+            [self playLongHaptic];
+            return;
+        }
         UINotificationFeedbackGenerator *feedback = [[UINotificationFeedbackGenerator alloc] init];
         [feedback notificationOccurred:UINotificationFeedbackTypeSuccess];
 #if !__has_feature(objc_arc)
@@ -665,10 +737,20 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     } else if ([name isEqualToString:@"stashContentHeight"]) {
         if ([body isKindOfClass:NSDictionary.class]) [self acceptContentHeight:body];
     } else if ([name isEqualToString:@"stashOpenLink"] || [name isEqualToString:@"stashExternalPayment"]) {
-        NSString *url = StashNormalizeExternalPaymentURL(body);
+        // externalBrowser sends {url, keepOpen}; older scripts send the URL string.
+        id raw = body;
+        BOOL keepOpen = NO;
+        if ([body isKindOfClass:NSDictionary.class]) {
+            raw = body[@"url"];
+            id flag = body[@"keepOpen"];
+            keepOpen = [flag isKindOfClass:NSNumber.class] && [flag boolValue];
+        }
+        NSString *url = StashNormalizeExternalPaymentURL(raw);
         if (!url) return;
         if ([name isEqualToString:@"stashOpenLink"]) {
             StashOpenExternalURL([NSURL URLWithString:url], nil, nil);
+        } else if (keepOpen) {
+            [self openBrowserOverCardWithURL:StashAppendThemeQueryParameter(url, self.presenter.traitCollection)];
         } else {
             [self handoffToBrowserWithURL:StashAppendThemeQueryParameter(url, self.presenter.traitCollection)];
         }

@@ -106,11 +106,11 @@ These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
 | `stashNativeDidDismissCard()`<br>`onCardDismissed()` | The player or checkout closes the card, or you call `dismiss()` |
 | `stashNativeDidLoadPage(_:)`<br>`onPageLoaded(loadTimeMs)` | Checkout finished loading. Reports the load time in milliseconds. |
 | `stashNativeDidEncounterNetworkError()`<br>`onNetworkError()` | Checkout failed to load or lost its connection. The card closes. |
-| `stashNativeDidRequestExternalPayment(with:)`<br>`onExternalPayment(url)` | Checkout moves the payment to the in-game browser. The card closes. |
+| `stashNativeDidRequestExternalPayment(with:)`<br>`onExternalPayment(url)` | Checkout moves the payment to the in-game browser. The card closes, unless checkout keeps it open for the player's return. |
 
 `order` holds the order details from checkout, as a string or JSON, or `nil`/`null`. Grant items only after your backend [confirms the purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase).
 
-The card ends with payment success or failure, card dismissed, or network error. After an external payment, the [in-game browser](browser.md#callbacks) takes over and ends with browser dismissed. With `autoClose` off, payment events can repeat and the card stays open until dismissed.
+The card ends with payment success or failure, card dismissed, or network error. After an external payment that closes the card, the [in-game browser](browser.md#callbacks) takes over and ends with browser dismissed. When checkout keeps the card open, the card continues and ends with its own events. With `autoClose` off, payment events can repeat and the card stays open until dismissed.
 
 ```swift
 extension StoreViewController: StashNativeDelegate {

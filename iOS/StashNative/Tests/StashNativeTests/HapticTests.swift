@@ -41,6 +41,29 @@ final class HapticTests: XCTestCase {
             return true;
             """)
         XCTAssertEqual((fixture["events"] as? NSArray)?.count, 1, "Subframes cannot request iOS feedback")
+
+        // 'long' and 1 select the long haptic; anything else stays the short confirmation.
+        _ = try await evaluate(web, """
+            stash_sdk.triggerHaptic('long');
+            stash_sdk.triggerHaptic(1);
+            stash_sdk.triggerHaptic('loud');
+            await stash_sdk.getTelemetry();
+            return true;
+            """)
+        let typed = try XCTUnwrap(fixture["events"] as? [[String: Bool]])
+        XCTAssertEqual(Array(typed.dropFirst()), [["long": true, "mainThread": true], ["long": true, "mainThread": true],
+                                                  ["success": true, "mainThread": true]])
+        let session = try XCTUnwrap(fixture["session"] as? NSObject)
+        let aliases = try await evaluate(web, """
+            return stash_sdk.lock === stash_sdk.onPurchaseProcessing &&
+                stash_sdk.unlock === stash_sdk.onProcessingCompleted &&
+                typeof stash_sdk.externalBrowser === 'function' && typeof stash_sdk.openExternalBrowser === 'function';
+            """)
+        XCTAssertEqual(aliases as? Bool, true)
+        _ = try await evaluate(web, "stash_sdk.lock(); await stash_sdk.getTelemetry(); return true;")
+        XCTAssertEqual(session.value(forKey: "processing") as? Bool, true)
+        _ = try await evaluate(web, "stash_sdk.unlock(); await stash_sdk.getTelemetry(); return true;")
+        XCTAssertEqual(session.value(forKey: "processing") as? Bool, false)
         let lifecycle = try XCTUnwrap(StashHapticLifecycleProbe(fixture) as? [String: Bool])
         for (name, passed) in lifecycle { XCTAssertTrue(passed, name) }
     }

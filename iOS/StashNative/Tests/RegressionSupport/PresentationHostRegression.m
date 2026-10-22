@@ -265,6 +265,66 @@ static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(N
     });
 }
 
+@interface StashKeepOpenDelegate : NSObject <StashNativeDelegate>
+@property (nonatomic, strong) NSMutableArray<NSString *> *events;
+@end
+@implementation StashKeepOpenDelegate
+- (instancetype)init { if ((self = [super init])) _events = [NSMutableArray new]; return self; }
+- (void)stashNativeDidRequestExternalPaymentWithURL:(NSString *)url { [self.events addObject:@"externalPayment"]; }
+- (void)stashNativeDidDismissBrowser { [self.events addObject:@"browserDismissed"]; }
+- (void)stashNativeDidDismissCard { [self.events addObject:@"cardDismissed"]; }
+@end
+
+void StashKeepOpenBrowserProbe(void (^completion)(NSDictionary *)) {
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    if (!previous.windowScene) { completion(@{@"presented":@NO}); return; }
+    UIWindow *window = [[UIWindow alloc] initWithWindowScene:previous.windowScene];
+    UIViewController *root = [UIViewController new];
+    window.rootViewController = root; [window makeKeyAndVisible];
+    StashNative *owner = [StashNative new];
+    StashKeepOpenDelegate *delegate = [StashKeepOpenDelegate new];
+    owner.delegate = delegate;
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:nil];
+    StashCardSession *session = owner.session;
+    [session.webView stopLoading];
+    UIViewController *card = session.controller;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+        [owner resetPresentationState];
+        owner.delegate = nil;
+        window.hidden = YES; [previous makeKeyWindow];
+        completion(result);
+    };
+    StashAwaitHostCondition(^BOOL { return card.presentingViewController == root && !card.isBeingPresented; },
+        CFAbsoluteTimeGetCurrent() + 5, ^(BOOL presented) {
+        if (!presented) { finish(@{@"presented":@NO}); return; }
+        [session handleMessage:@"stashExternalPayment" body:@{@"url":@"https://example.invalid/pay", @"keepOpen":@YES}];
+        StashAwaitHostCondition(^BOOL {
+            return [card.presentedViewController isKindOfClass:SFSafariViewController.class] &&
+                !card.presentedViewController.isBeingPresented;
+        }, CFAbsoluteTimeGetCurrent() + 5, ^(BOOL browserShown) {
+            SFSafariViewController *browser = (SFSafariViewController *)card.presentedViewController;
+            BOOL tracked = browser != nil && browser == session.overlayBrowser;
+            NSArray *eventsWhileOpen = [delegate.events copy];
+            // Safari's Done button: the delegate hears about it, then Safari dismisses itself.
+            [session safariViewControllerDidFinish:browser];
+            [browser dismissViewControllerAnimated:YES completion:nil];
+            StashAwaitHostCondition(^BOOL { return card.presentedViewController == nil; },
+                CFAbsoluteTimeGetCurrent() + 5, ^(BOOL returned) {
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                    finish(@{@"presented":@YES, @"browserShown":@(browserShown), @"tracked":@(tracked),
+                        @"eventsWhileOpen":eventsWhileOpen, @"returned":@(returned),
+                        @"cardStillPresented":@(card.presentingViewController == root),
+                        @"sessionActive":@([session isActive] && owner.session == session),
+                        @"overlayCleared":@(session.overlayBrowser == nil), @"events":[delegate.events copy]});
+                });
+            });
+        });
+    });
+}
+
 void StashDismissalContentProbe(void (^completion)(NSDictionary *)) {
     UIWindow *previous = nil;
     for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)

@@ -97,6 +97,10 @@ void StashSetScannerContentClassName(NSString *name);
 @property (nonatomic, strong) NSNumber *telemetryPageLoadTimeMs;
 @property (nonatomic) CFTimeInterval telemetryLoadStart;
 @property (nonatomic, strong) SFSafariViewController *browser;
+/** Safari presented over a card that stays open (externalBrowser keepOpen); closing it ends nothing. */
+@property (nonatomic, strong) SFSafariViewController *overlayBrowser;
+/** CHHapticEngine for long haptics, kept while it plays. */
+@property (nonatomic, strong) id hapticEngine;
 @property (nonatomic, strong) NSTimer *loadTimer;
 @property (nonatomic, strong) NSTimer *contentRevealTimer;
 @property (nonatomic, copy) NSString *documentID;
@@ -157,6 +161,9 @@ void StashSetScannerContentClassName(NSString *name);
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated;
 - (void)acceptContentHeight:(NSDictionary *)payload;
 - (void)browserClosed;
+- (void)openBrowserOverCardWithURL:(NSString *)url;
+- (void)playLongHaptic;
+- (BOOL)playContinuousHaptic;
 // Ends the session when a host dismissal removes the card or Safari outside the SDK.
 - (void)presentedSurfaceDidDisappear:(UIViewController *)surface;
 - (void)completeDialog:(id)result;

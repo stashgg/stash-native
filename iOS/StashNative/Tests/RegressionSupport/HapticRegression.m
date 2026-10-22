@@ -6,6 +6,8 @@
 @property(nonatomic, strong) NSMutableArray *events;
 @property(nonatomic, assign) IMP original;
 @property(nonatomic, assign) IMP replacement;
+@property(nonatomic, assign) IMP originalLong;
+@property(nonatomic, assign) IMP replacementLong;
 - (void)stop;
 @end
 
@@ -20,6 +22,11 @@
         });
         Method method = class_getInstanceMethod(UINotificationFeedbackGenerator.class, @selector(notificationOccurred:));
         _original = method_setImplementation(method, _replacement);
+        _replacementLong = imp_implementationWithBlock(^(id session) {
+            [events addObject:@{@"long":@YES, @"mainThread":@(NSThread.isMainThread)}];
+        });
+        _originalLong = method_setImplementation(class_getInstanceMethod(StashCardSession.class,
+            @selector(playLongHaptic)), _replacementLong);
     }
     return self;
 }
@@ -29,6 +36,9 @@
         @selector(notificationOccurred:)), _original);
     imp_removeBlock(_replacement);
     _replacement = NULL;
+    method_setImplementation(class_getInstanceMethod(StashCardSession.class, @selector(playLongHaptic)), _originalLong);
+    imp_removeBlock(_replacementLong);
+    _replacementLong = NULL;
 }
 - (void)dealloc { [self stop]; }
 @end

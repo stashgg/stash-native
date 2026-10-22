@@ -28,7 +28,7 @@ import org.robolectric.shadows.ShadowLooper;
 public class BridgeTokenTest {
   private static final String[] TOKENED_WRAPPERS = {
       "triggerHaptic", "onPaymentSuccess", "onPaymentFailure", "onPurchaseProcessing",
-      "onProcessingCompleted", "expand", "collapse", "openExternalBrowser", "openLink",
+      "onProcessingCompleted", "expand", "collapse", "externalBrowser", "openLink",
       "requestCloseFromPage"
   };
 

@@ -87,8 +87,9 @@ public class StashWebViewUtils {
       + "  var token = '" + JS_SDK_TOKEN_PLACEHOLDER + "';"
       + "  window.stash_sdk = window.stash_sdk || {};"
       + StashTelemetrySupport.API_SCRIPT
-      + "  window.stash_sdk.triggerHaptic = function() {"
-      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(token); } catch(e) {}"
+      + "  window.stash_sdk.triggerHaptic = function(type) {"
+      + "    try { " + JS_INTERFACE_NAME + ".triggerHaptic(token,"
+      + " type === 1 || type === 'long' ? 'long' : 'short'); } catch(e) {}"
       + "  };"
       + "  window.stash_sdk.onPaymentSuccess = function(order) {"
       + "    try { var p=null;"
@@ -113,6 +114,8 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".onProcessingCompleted(token); } catch(e) {}"
       + "  };"
+      + "  window.stash_sdk.lock = window.stash_sdk.onPurchaseProcessing;"
+      + "  window.stash_sdk.unlock = window.stash_sdk.onProcessingCompleted;"
       + "  window.stash_sdk.setContentHeight = window.stash_sdk.setContentHeight || function() {};"
       + "  window.stash_sdk.expand = function() {"
       + "    try { "
@@ -124,11 +127,15 @@ public class StashWebViewUtils {
       + JS_INTERFACE_NAME
       + ".collapse(token); } catch(e) {}"
       + "  };"
-      + "  window.stash_sdk.openExternalBrowser = function(url) {"
+      + "  window.stash_sdk.externalBrowser = function(url, options) {"
       + "    try { "
       + JS_INTERFACE_NAME
-      + ".openExternalBrowser(token, (url !== undefined && url !== null) ? String(url) : '');"
+      + ".externalBrowser(token, (url !== undefined && url !== null) ? String(url) : '',"
+      + " options === true || !!(options && options.keepOpen === true));"
       + " } catch(e) {}"
+      + "  };"
+      + "  window.stash_sdk.openExternalBrowser = function(url) {"
+      + "    window.stash_sdk.externalBrowser(url);"
       + "  };"
       + "  window.stash_sdk.openLink = function(url) {"
       + "    try { "

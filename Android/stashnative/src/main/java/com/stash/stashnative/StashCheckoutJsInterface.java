@@ -91,14 +91,29 @@ final class StashCheckoutJsInterface {
 
   @JavascriptInterface
   public void triggerHaptic(String token) {
+    triggerHaptic(token, "short");
+  }
+
+  /** {@code "long"} plays a heavier pulse; anything else is the short confirmation. */
+  @JavascriptInterface
+  public void triggerHaptic(String token, String type) {
+    boolean heavy = "long".equals(type);
     dispatch("triggerHaptic", token, () -> {
       WebView web = activity.webView;
       if (activity.isDismissing || activity.isActivityPaused || web == null
           || !web.isShown() || !web.hasWindowFocus()) {
         return;
       }
-      web.performHapticFeedback(Build.VERSION.SDK_INT >= 30
-          ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY);
+      int feedback;
+      if (heavy) {
+        // A longer vibration needs the VIBRATE permission; the core SDK declares none.
+        feedback = Build.VERSION.SDK_INT >= 30
+            ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.LONG_PRESS;
+      } else {
+        feedback = Build.VERSION.SDK_INT >= 30
+            ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY;
+      }
+      web.performHapticFeedback(feedback);
     });
   }
 
@@ -109,6 +124,25 @@ final class StashCheckoutJsInterface {
 
   @JavascriptInterface
   public void openExternalBrowser(String token, String url) {
+    externalBrowser(token, url, false);
+  }
+
+  /** With {@code keepOpen}, the browser opens over the card, which stays open for the return. */
+  @JavascriptInterface
+  public void externalBrowser(String token, String url, boolean keepOpen) {
+    if (keepOpen) {
+      dispatch("externalBrowser", token, () -> {
+        String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+        if (normalized == null) {
+          return;
+        }
+        StashNativePlugin.getInstance().openExternalBrowserOverCheckout(
+            activity,
+            StashWebViewUtils.appendThemeQueryParameter(
+                normalized, activity.effectiveIsDarkForContent));
+      });
+      return;
+    }
     dispatch("openExternalBrowser", token, () -> {
       String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
       if (normalized == null) {

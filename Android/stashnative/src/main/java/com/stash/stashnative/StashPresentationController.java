@@ -382,7 +382,8 @@ final class StashPresentationController implements View.OnTouchListener {
       distance = shownFrame != null ? shownFrame.height() : activity.cardContainer.getHeight();
     } else {
       int top = shownFrame != null ? shownFrame.top : activity.cardContainer.getTop();
-      distance = Math.max(activity.rootLayout.getHeight() - top, activity.cardContainer.getHeight());
+      distance = Math.max(
+          activity.rootLayout.getHeight() - top, activity.cardContainer.getHeight());
     }
     float initialAlpha = activity.cardContainer.getAlpha();
     float initialBackdrop = activity.backdropView.getAlpha();
