@@ -22,9 +22,12 @@ check("unpadded secret signs identically to the padded one") {
     precondition(signature == expected)
 }
 // Shared with the Android StashHmacTest: both samples accept and reject exactly these secrets.
-let acceptedSecrets = ["c2VjcmV0LWtleQ==", "c2VjcmV0LWtleQ", " c2VjcmV0LWtleQ\n", "abc", "abc=", "aQ==", "Pz8/Pj4+"]
+// Trimming covers Unicode spaces and line separators (NBSP, U+2028), not other control characters.
+let acceptedSecrets = ["c2VjcmV0LWtleQ==", "c2VjcmV0LWtleQ", " c2VjcmV0LWtleQ\n", "abc", "abc=", "aQ==", "Pz8/Pj4+",
+                       " c2VjcmV0LWtleQ\u{00A0}", "c2VjcmV0LWtleQ\u{2028}", "\u{200B}c2VjcmV0LWtleQ"]
 let rejectedSecrets = ["", " \n", "a", "abcde", "abcd=", "c2VjcmV0LWtleQ=", "ab=c", "====", "not base64!",
-                       "c2Vj cmV0LWtleQ"]
+                       "c2Vj cmV0LWtleQ", "abcd====", "c2VjcmV0LWtleQ\u{0001}", "c2VjcmV0LWtleQ\u{FEFF}",
+                       "c2VjcmV0LWtleQ\u{180E}"]
 check("shared secret vectors match the Android rule, and only accepted secrets sign") {
     for secret in acceptedSecrets {
         precondition(StashHmac.isValidIngressSecret(secret), secret)
@@ -35,6 +38,17 @@ check("shared secret vectors match the Android rule, and only accepted secrets s
         precondition(!StashHmac.isValidIngressSecret(secret), secret)
         precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
                                          unixMillis: millis) == nil, secret)
+    }
+}
+// Android's MainViewModel.trimSecret lists this set; StashHmacTest pins the same scalars.
+let swiftWhitespace: Set<UInt32> = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x20, 0x85, 0xA0, 0x1680, 0x2000, 0x2001,
+                                    0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200A,
+                                    0x200B, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000]
+check("secret trimming is exactly the whitespace set Android lists") {
+    for value in UInt32(0)...0xFFFF {
+        guard let scalar = Unicode.Scalar(value) else { continue }
+        let trimmed = "a\(Character(scalar))".trimmingCharacters(in: .whitespacesAndNewlines) == "a"
+        precondition(trimmed == swiftWhitespace.contains(value), String(format: "U+%04X", value))
     }
 }
 check("the body bytes and timestamp both change the signature") {
@@ -56,4 +70,4 @@ check("clock overload emits the same format with the current millisecond timesta
     precondition(StashHmac.signature(appId: "app_test", ingressSecretB64: secret, body: body,
                                      unixMillis: signedMillis) == signature)
 }
-print("PASS: 5 HMAC signing cases")
+print("PASS: 6 HMAC signing cases")

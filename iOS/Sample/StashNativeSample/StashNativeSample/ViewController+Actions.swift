@@ -54,7 +54,7 @@ extension ViewController {
         config.orientationPreference = cardPreferPortraitSwitch.isOn ? .portrait : .followHost
         config.preferredContentWidth = CGFloat(cardPreferredWidthSlider.value)
         config.preferredContentHeight = CGFloat(cardPreferredHeightSlider.value)
-        config.maximumContentHeight = CGFloat(cardMaximumHeightSlider.value)
+        config.maximumContentHeight = ViewController.maximumHeight(atPosition: cardMaximumHeightSlider.value)
         config.edgeMargin = CGFloat(cardEdgeMarginSlider.value)
         config.allowDismiss = cardAllowDismissSwitch.isOn
         config.autoClose = cardAutoCloseSwitch.isOn
@@ -68,8 +68,13 @@ extension ViewController {
 
     @objc func sliderValueChanged(_ sender: UISlider) {
         sender.value = sender.value.rounded()
-        let isMaximum = sender === cardMaximumHeightSlider
-        let value = isMaximum && sender.value == 0 ? "Available" : "\(Int(sender.value)) pt"
+        let value: String
+        if sender === cardMaximumHeightSlider {
+            let height = ViewController.maximumHeight(atPosition: sender.value)
+            value = height == 0 ? "Available" : "\(Int(height)) pt"
+        } else {
+            value = "\(Int(sender.value)) pt"
+        }
         sliderLabels[sender]?.text = value
         sender.accessibilityValue = value
     }

@@ -70,6 +70,38 @@ public class InstanceImportTest {
     assertTrue(text.contains("\"" + wanted.getJSONObject(0).getString("ingressSecret") + "\""));
   }
 
+  /**
+   * The malformed documents iOS/Sample/Tests also imports: a missing or non-string credential
+   * rejects the whole document, and null or non-string optional fields count as absent.
+   */
+  @Test public void sharedMalformedImportsMatchTheIosRules() throws Exception {
+    JSONObject cases = new JSONObject(resource("instances-import-cases.json"));
+    JSONArray rejected = cases.getJSONArray("rejected");
+    assertEquals(4, rejected.length());
+    for (int i = 0; i < rejected.length(); i++) {
+      MainViewModel model = new MainViewModel(RuntimeEnvironment.getApplication());
+      String before = model.exportInstancesJson();
+      String document = rejected.getJSONObject(i).toString();
+      assertEquals(document, -1, model.importInstancesJson(document));
+      assertEquals(document, before, model.exportInstancesJson());
+    }
+    MainViewModel model = new MainViewModel(RuntimeEnvironment.getApplication());
+    assertEquals(1, model.importInstancesJson(cases.getJSONObject("optionalFieldsAbsent").toString()));
+    JSONObject imported =
+        new JSONObject(model.exportInstancesJson()).getJSONArray("instances").getJSONObject(1);
+    assertEquals("Untitled", imported.getString("name"));
+    assertFalse(imported.getBoolean("production"));
+    assertEquals(MainViewModel.defaultCheckoutPayload(), imported.getString("checkoutPayload"));
+    assertEquals(MainViewModel.defaultWebshopPayload(), imported.getString("webshopPayload"));
+  }
+
+  private String resource(String name) throws java.io.IOException {
+    try (java.io.InputStream in = getClass().getClassLoader().getResourceAsStream(name);
+        java.util.Scanner scanner = new java.util.Scanner(in, "UTF-8").useDelimiter("\\A")) {
+      return scanner.next();
+    }
+  }
+
   private static java.util.Set<String> keys(JSONObject object) {
     java.util.Set<String> keys = new java.util.TreeSet<>();
     java.util.Iterator<String> it = object.keys();

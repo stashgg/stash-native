@@ -42,8 +42,9 @@ enum StashHmac {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
     /// Decodes a trimmed, standard base64 secret with complete or missing `=` padding; a 4n+1
-    /// length never decodes. The Android sample's MainViewModel.isValidBase64 applies the same rule,
-    /// so a secret works on both samples or on neither.
+    /// length never decodes and a complete group takes no padding. The Android sample's
+    /// MainViewModel.isValidBase64 applies the same rule and trims the same whitespace, so a secret
+    /// works on both samples or on neither.
     static func secretData(_ ingressSecretB64: String) -> Data? {
         let trimmed = ingressSecretB64.trimmingCharacters(in: .whitespacesAndNewlines)
         var unpadded = Substring(trimmed)
@@ -52,7 +53,7 @@ enum StashHmac {
         let remainder = unpadded.count % 4
         guard !unpadded.isEmpty, remainder != 1,
               unpadded.unicodeScalars.allSatisfy({ base64Alphabet.contains($0) }),
-              padding == 0 || remainder + padding == 4 else { return nil }
+              padding == 0 || (remainder != 0 && remainder + padding == 4) else { return nil }
         return Data(base64Encoded: String(unpadded) + String(repeating: "=", count: (4 - remainder) % 4))
     }
 }

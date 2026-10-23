@@ -67,6 +67,10 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     /// iOS 26 draws a glass capsule behind bar items; suppress it so the logo reads as a
     /// wordmark rather than a button.
     lazy var logoBarItem: UIBarButtonItem = {
+        // The wordmark names the screen for VoiceOver, like Android's toolbar logo description.
+        logoView.isAccessibilityElement = true
+        logoView.accessibilityLabel = "Stash iOS"
+        logoView.accessibilityTraits = .header
         let item = UIBarButtonItem(customView: logoView)
         if #available(iOS 26.0, *) {
             item.hidesSharedBackground = true
@@ -103,6 +107,8 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
     var apiKeys: [ApiKeyEntry] = []
     var selectedApiKeyId: String?
     var canSaveApiKeys = false
+    /// Typed detail edits not yet written to the Keychain.
+    var hasPendingInstanceEdits = false
     var didShowCredentialSaveError = false
     var pendingAlerts: [(String, String)] = []
     var generateRequest: URLSessionDataTask?
@@ -197,6 +203,9 @@ class ViewController: UIViewController, UITableViewDataSource, UITableViewDelega
         loadApiKeys()
         NotificationCenter.default.addObserver(
             self, selector: #selector(cancelGenerateRequest(_:)),
+            name: UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(flushPendingInstanceEdits(_:)),
             name: UIApplication.willResignActiveNotification, object: nil)
         setupTextFields()
         setupCheckoutSlidersAndSwitches()

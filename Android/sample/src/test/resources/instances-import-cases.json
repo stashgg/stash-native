@@ -1,0 +1,14 @@
+{
+  "rejected": [
+    {"instances": [{"appId": "fixture-app", "ingressSecret": "YWJj"}, {"name": "x", "ingressSecret": "YWJj"}]},
+    {"instances": [{"appId": "fixture-app", "ingressSecret": null}]},
+    {"instances": [{"appId": 7, "ingressSecret": "YWJj"}]},
+    {"instances": [{"appId": "fixture-app", "ingressSecret": "YWJj"}, 7]}
+  ],
+  "optionalFieldsAbsent": {
+    "instances": [
+      {"appId": "fixture-app", "ingressSecret": "YWJj", "name": null, "checkoutPayload": null,
+       "webshopPayload": 7, "production": "true"}
+    ]
+  }
+}

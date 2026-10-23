@@ -26,20 +26,47 @@ final class ProbeTask {
 final class ProbeSession {
     static let shared = ProbeSession()
     var tasks: [ProbeTask] = []
+    var requests: [URLRequest] = []
 
     func dataTask(with request: URLRequest,
                   completionHandler: @escaping (Data?, URLResponse?, Error?) -> Void) -> URLSessionDataTask {
         let task = ProbeTask(completion: completionHandler)
         tasks.append(task)
+        requests.append(request)
         return task
     }
 }
 
 enum StashHmac {
     static var canSign = true
+    static var signed: [(appId: String, secret: String)] = []
     static func signature(appId: String, ingressSecretB64: String, body: Data) -> String? {
-        canSign ? "fixture" : nil
+        signed.append((appId, ingressSecretB64))
+        return canSign ? "fixture" : nil
     }
+}
+
+// SDK and UIKit surface used by the open actions.
+final class StashNativeCardConfig {}
+final class StashNativeBrowserConfig {}
+final class StashNativeScannerConfig {}
+final class StashNative {
+    static let shared = StashNative()
+    static func sharedInstance() -> StashNative { shared }
+    var opens: [String] = []
+    func openCard(withURL url: String, from host: AnyObject, config: StashNativeCardConfig) {
+        opens.append("card " + url)
+    }
+    func openBrowser(withURL url: String, from host: AnyObject, config: StashNativeBrowserConfig) {
+        opens.append("browser " + url)
+    }
+    func openScanner(from host: AnyObject, config: StashNativeScannerConfig) {
+        opens.append("scanner")
+    }
+}
+final class ProbeTextField {
+    var text: String?
+    init(_ text: String) { self.text = text }
 }
 
 class ProbeViewController: NSObject {
@@ -48,20 +75,33 @@ class ProbeViewController: NSObject {
 
 final class ViewController: ProbeViewController {
     enum PayloadKind { case checkout, webshop }
+    static let defaultCheckoutPayload = "{\"checkout\":true}"
+    static let defaultWebshopPayload = "{\"webshop\":true}"
     // INSERT_PROPERTIES
+    let checkoutUrlTextField = ProbeTextField(" https://example.invalid/card ")
+    let browserUrlTextField = ProbeTextField(" https://example.invalid/browser ")
+    let browserConfig = StashNativeBrowserConfig()
+    let scannerConfig = StashNativeScannerConfig()
     var opened: [String] = []
     var alerts: [String] = []
-    func isActiveKeyProduction() -> Bool { false }
-    func activePayload(_ kind: PayloadKind) -> String { "{}" }
-    var appId = "fixture"
-    func activeAppId() -> String { appId }
-    func activeApiKey() -> String { "fixture" }
+    func buildCardConfig() -> StashNativeCardConfig { StashNativeCardConfig() }
     func showAlert(title: String, message: String) { alerts.append(message) }
     // INSERT_METHODS
     // INSERT_LIFECYCLE
 
-    func start(_ kind: PayloadKind = .checkout) -> ProbeTask {
+    override init() {
+        super.init()
+        apiKeys = [ApiKeyEntry(id: "selected", name: "fixture", appId: "fixture", key: "fixture",
+                               production: false, checkoutPayload: "{}", webshopPayload: "{}")]
+        selectedApiKeyId = "selected"
+    }
+
+    func request(_ kind: PayloadKind = .checkout) {
         performGenerateUrl(kind) { [weak self] url in self?.opened.append(url) }
+    }
+
+    func start(_ kind: PayloadKind = .checkout) -> ProbeTask {
+        request(kind)
         return ProbeSession.shared.tasks.last!
     }
 }
@@ -78,7 +118,10 @@ func drainMainQueue() {
 
 func check(_ name: String, _ body: () -> Void) {
     ProbeSession.shared.tasks.removeAll()
+    ProbeSession.shared.requests.removeAll()
     StashHmac.canSign = true
+    StashHmac.signed.removeAll()
+    StashNative.shared.opens.removeAll()
     body()
     print("PASS request: \(name)")
 }
@@ -153,7 +196,7 @@ check("blank app ID alerts without a request and still supersedes the prior one"
     let host = ViewController()
     let first = host.start()
     let taskCount = ProbeSession.shared.tasks.count
-    host.appId = ""
+    host.apiKeys[0].appId = " "
     _ = host.start()
     precondition(ProbeSession.shared.tasks.count == taskCount && first.cancelled && host.generateRequest == nil)
     precondition(host.alerts == ["App ID and ingress secret are both required"])
@@ -170,4 +213,47 @@ check("completion does not retain a departed controller") {
     task.respond("departed")
     drainMainQueue()
 }
-print("PASS: 9 request lifetime cases")
+// A-102: the selected instance signs or nothing does; the bundled credential is never substituted.
+check("a missing selection or blank secret signs nothing, not the bundled credential") {
+    let host = ViewController()
+    host.selectedApiKeyId = "deleted"
+    host.request()
+    host.selectedApiKeyId = "selected"
+    host.apiKeys[0].key = "\n"
+    host.request()
+    precondition(ProbeSession.shared.tasks.isEmpty && StashHmac.signed.isEmpty)
+    precondition(host.alerts == Array(repeating: "App ID and ingress secret are both required", count: 2))
+}
+check("the selected instance supplies the credential, environment and payload") {
+    let host = ViewController()
+    host.apiKeys.append(ApiKeyEntry(id: "production", name: "live", appId: " live-app ", key: "live-secret\n",
+                                    production: true, checkoutPayload: "{\"live\":1}", webshopPayload: "{}"))
+    host.selectedApiKeyId = "production"
+    _ = host.start()
+    let request = ProbeSession.shared.requests[0]
+    precondition(StashHmac.signed.count == 1 && StashHmac.signed[0] == ("live-app", "live-secret"))
+    precondition(request.url?.absoluteString == "https://api.stash.gg/sdk/server/checkout_links/generate_quick_pay_url")
+    precondition(request.httpBody == Data("{\"live\":1}".utf8))
+    host.selectedApiKeyId = "selected"
+    _ = host.start(.webshop)
+    precondition(ProbeSession.shared.requests[1].url?.host == "test-api.stash.gg")
+}
+// A-096: a manual open supersedes the pending generate request, so its late response cannot open.
+check("manual card, browser and scanner opens supersede a pending generate") {
+    let host = ViewController()
+    let opens: [(String, () -> Void)] = [
+        ("card https://example.invalid/card", host.openCardTapped),
+        ("browser https://example.invalid/browser", host.openBrowserTapped),
+        ("scanner", host.openScannerTapped)
+    ]
+    for (expected, open) in opens {
+        let pending = host.start()
+        open()
+        precondition(pending.cancelled && host.generateRequest == nil)
+        precondition(StashNative.shared.opens.last == expected)
+        pending.respond("late")
+        drainMainQueue()
+    }
+    precondition(host.opened.isEmpty && host.alerts.isEmpty && StashNative.shared.opens.count == 3)
+}
+print("PASS: 12 request lifetime cases")

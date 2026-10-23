@@ -35,6 +35,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import com.stash.stashnative.StashNative;
 import com.stash.stashnative.sample.databinding.ActivityMainBinding;
 import java.io.OutputStream;
+import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -51,10 +52,17 @@ public class MainActivity extends AppCompatActivity {
   private static final String WEBSHOP_PATH = "/sdk/server/generate_url";
   private static final int NETWORK_TIMEOUT_MS = 15000;
 
+  /** A stashdemo:// link forwarded by {@link DeepLinkActivity}. */
+  static final String EXTRA_DEEP_LINK = "com.stash.stashnative.sample.DEEP_LINK";
+
+  /** The live instance, so a deeplink that arrives over an open card is shown in place. */
+  private static WeakReference<MainActivity> current = new WeakReference<>(null);
+
   private ActivityMainBinding binding;
   private MainViewModel viewModel;
   private StashNative.StashNativeListener sdkListener;
   private SettingsAdapter adapter;
+  private OnBackPressedCallback backToParent;
   private volatile boolean destroyed;
   private volatile int requestGeneration;
 
@@ -79,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
         }
       });
 
-  /** Browser open waiting on the notification permission answer; runs whatever the answer. */
+  /** Open waiting on the notification permission answer; runs whatever the answer. */
   private Runnable afterNotificationPermission;
   private boolean notificationPermissionRequested;
   private final ActivityResultLauncher<String> notificationPermission = registerForActivityResult(
@@ -131,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onOpenCard() {
-        openCard();
+        withNotificationPermission(() -> openCard());
       }
 
       @Override
@@ -141,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
 
       @Override
       public void onGenerateCheckout() {
-        generateCheckout();
+        withNotificationPermission(() -> generateCheckout());
       }
 
       @Override
@@ -158,6 +166,12 @@ public class MainActivity extends AppCompatActivity {
       public void onLockLandscapeChanged(boolean on) {
         viewModel.setLockLandscape(on);
         applyOrientationLock();
+      }
+
+      @Override
+      public void onKeepAliveChanged(boolean on) {
+        viewModel.setKeepAliveEnabled(on);
+        syncKeepAlive();
       }
 
       @Override
@@ -221,19 +235,19 @@ public class MainActivity extends AppCompatActivity {
       return true;
     });
 
-    getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+    // Enabled only on sub-screens (see updateToolbarForScreen); top-level Back stays with the
+    // system, which moves the task back on Android 12+ and keeps this instance alive.
+    backToParent = new OnBackPressedCallback(false) {
       @Override
       public void handleOnBackPressed() {
         cancelPendingRequest();
         MainViewModel.Screen parent = parentOf(viewModel.getCurrentScreen());
         if (parent != null) {
           viewModel.navigateTo(parent);
-        } else {
-          setEnabled(false);
-          getOnBackPressedDispatcher().onBackPressed();
         }
       }
-    });
+    };
+    getOnBackPressedDispatcher().addCallback(this, backToParent);
 
     viewModel.getItems().observe(this, items -> {
       if (items != null) {
@@ -248,7 +262,7 @@ public class MainActivity extends AppCompatActivity {
     keepAliveConfig.notificationTitle = "Stash sample";
     keepAliveConfig.notificationText = "Tap to return after paying in the browser";
     stashPayCard.setKeepAliveConfig(keepAliveConfig);
-    stashPayCard.setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+    syncKeepAlive();
     sdkListener = new StashNative.StashNativeListener() {
       @Override
       public void onQrCodeScanned(String content) {
@@ -315,7 +329,7 @@ public class MainActivity extends AppCompatActivity {
 
     };
     stashPayCard.setListener(sdkListener);
-
+    current = new WeakReference<>(this);
 
     // Handle a stashdemo:// deeplink that cold-started the app. Recreations (config change,
     // process-death restore) redeliver the same intent; do not re-fire the outcome dialog.
@@ -328,7 +342,7 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
-    // singleTask delivers deeplinks here while the app (and in-app browser) is already running.
+    // DeepLinkActivity's clear-top return lands here while the app is already running.
     setIntent(intent);
     handleDeepLink(intent);
     handleDebugLaunch(intent);
@@ -352,18 +366,24 @@ public class MainActivity extends AppCompatActivity {
     });
   }
 
-  // Listens for stashdemo:// deeplinks fired from the test card to simulate a payment redirect.
+  /** Shows a deeplink on the live instance without relaunching it; dropped if there is none. */
+  static void deliverDeepLink(String url) {
+    MainActivity activity = current.get();
+    if (activity != null && !activity.isFinishing() && !activity.isDestroyed()) {
+      activity.showDeepLink(url);
+    }
+  }
+
   private void handleDeepLink(Intent intent) {
-    if (intent == null) {
-      return;
+    String url = intent != null ? intent.getStringExtra(EXTRA_DEEP_LINK) : null;
+    if (url != null) {
+      showDeepLink(url);
     }
-    Uri data = intent.getData();
-    if (data == null || !"stashdemo".equalsIgnoreCase(data.getScheme())) {
-      return;
-    }
-    String url = data.toString();
+  }
+
+  // Shows stashdemo:// deeplinks fired from the test card to simulate a payment redirect.
+  private void showDeepLink(String url) {
     Log.i(TAG, "Deeplink received");
-    // singleTask already cleared the Custom Tab above us.
     if (url.contains("stash-pay/success")) {
       addCallbackChip("Deeplink · Payment Success");
     } else if (url.contains("stash-pay/failure")) {
@@ -508,6 +528,7 @@ public class MainActivity extends AppCompatActivity {
     }
     // Test shows the Stash wordmark logo; every other screen uses a text title.
     MainViewModel.Screen screen = viewModel.getCurrentScreen();
+    backToParent.setEnabled(parentOf(screen) != null);
     boolean isTest = screen == MainViewModel.Screen.TEST;
     binding.toolbarLogo.setVisibility(isTest ? View.VISIBLE : View.GONE);
     // Save/Reset live in the app bar, and only on the payload editors.
@@ -661,7 +682,7 @@ public class MainActivity extends AppCompatActivity {
           String name = nameField.getText() != null ? nameField.getText().toString() : "";
           String appId = appIdField.getText() != null ? appIdField.getText().toString() : "";
           String key = valueField.getText() != null ? valueField.getText().toString() : "";
-          if (!key.trim().isEmpty() && !MainViewModel.isValidBase64(key)) {
+          if (!MainViewModel.trimSecret(key).isEmpty() && !MainViewModel.isValidBase64(key)) {
             android.widget.Toast.makeText(this, R.string.error_secret_base64,
                 android.widget.Toast.LENGTH_SHORT).show();
           } else if (!viewModel.addApiKey(name, appId, key, prodSwitch.isChecked())) {
@@ -784,13 +805,13 @@ public class MainActivity extends AppCompatActivity {
       showOutcomeDialog("Error", getString(R.string.error_browser_url));
       return;
     }
-    syncKeepAlive();
     StashNative.getInstance().openBrowser(MainActivity.this, url.trim());
   }
 
   /**
-   * Keep-alive shows a notification, which needs POST_NOTIFICATIONS on Android 13+. Ask once
-   * before the first browser open, then continue with the open whether or not it is granted.
+   * Keep-alive shows a notification, which needs POST_NOTIFICATIONS on Android 13+. Cards start it
+   * for external payments and the browser for every open, so ask once before the first of either,
+   * then continue with the open whether or not it is granted.
    */
   private void withNotificationPermission(Runnable action) {
     if (Build.VERSION.SDK_INT < 33
@@ -801,7 +822,7 @@ public class MainActivity extends AppCompatActivity {
       action.run();
       return;
     }
-    // The browser action supersedes a pending request even while the prompt is up.
+    // The open supersedes a pending request even while the prompt is up.
     cancelPendingRequest();
     notificationPermissionRequested = true;
     afterNotificationPermission = action;
@@ -913,7 +934,6 @@ public class MainActivity extends AppCompatActivity {
                 }
                 acceptedCompletions++;
                 if (openInBrowser) {
-                  syncKeepAlive();
                   Log.i(TAG, "Opening browser");
                   StashNative.getInstance().openBrowser(MainActivity.this, finalUrl);
                 } else {
@@ -945,7 +965,7 @@ public class MainActivity extends AppCompatActivity {
   @Override
   protected void onResume() {
     super.onResume();
-    StashNative.getInstance().setKeepAliveEnabled(viewModel.isKeepAliveEnabled());
+    syncKeepAlive();
   }
 
   @Override
@@ -967,6 +987,9 @@ public class MainActivity extends AppCompatActivity {
     StashNative sdk = StashNative.getInstance();
     if (sdk.getListener() == sdkListener) {
       sdk.setListener(null);
+    }
+    if (current.get() == this) {
+      current.clear();
     }
     destroyed = true;
     cancelBackdropLoad();

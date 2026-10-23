@@ -44,8 +44,19 @@ public class MainViewModel extends AndroidViewModel {
   public static final int MIN_CONTENT_DIMENSION_DP = 240;
 
   /**
-   * Standard base64 with complete or missing '=' padding; a 4n+1 length never decodes. The iOS
-   * sample's StashHmac.secretData applies the same rule.
+   * Zero (available height) or at least {@link #MIN_CONTENT_DIMENSION_DP}; the slider offers only
+   * those, and any other value normalizes to the nearer of the two.
+   */
+  static int snapMaximumContentHeight(int value) {
+    if (value >= MIN_CONTENT_DIMENSION_DP) {
+      return value;
+    }
+    return value < MIN_CONTENT_DIMENSION_DP / 2 ? 0 : MIN_CONTENT_DIMENSION_DP;
+  }
+
+  /**
+   * Standard base64 with complete or missing '=' padding; a 4n+1 length never decodes and a
+   * complete group takes no padding. The iOS sample's StashHmac.secretData applies the same rule.
    */
   private static final java.util.regex.Pattern BASE64 = java.util.regex.Pattern.compile(
       "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$");
@@ -448,8 +459,35 @@ public class MainViewModel extends AndroidViewModel {
     if (secret == null) {
       return false;
     }
-    String trimmed = secret.trim();
+    String trimmed = trimSecret(secret);
     return !trimmed.isEmpty() && BASE64.matcher(trimmed).matches();
+  }
+
+  /**
+   * Trims what the iOS sample trims from a secret (Swift's whitespacesAndNewlines), so a pasted
+   * NBSP, U+200B or U+2028 is handled alike. String.trim() keeps those and strips other control
+   * characters instead.
+   */
+  static String trimSecret(String secret) {
+    int start = 0;
+    int end = secret.length();
+    while (start < end && isTrimmedWhitespace(secret.charAt(start))) {
+      start++;
+    }
+    while (end > start && isTrimmedWhitespace(secret.charAt(end - 1))) {
+      end--;
+    }
+    return secret.substring(start, end);
+  }
+
+  /**
+   * Swift's whitespacesAndNewlines, listed rather than derived from Character.isSpaceChar so it
+   * matches exactly (Swift also trims U+200B) whatever the device's Unicode tables.
+   */
+  private static boolean isTrimmedWhitespace(char c) {
+    return (c >= '\t' && c <= '\r') || c == ' ' || c == 0x85 || c == 0xA0 || c == 0x1680
+        || (c >= 0x2000 && c <= 0x200B) || c == 0x2028 || c == 0x2029 || c == 0x202F
+        || c == 0x205F || c == 0x3000;
   }
 
   /** Saves the selected instance's API environment. */
@@ -464,7 +502,7 @@ public class MainViewModel extends AndroidViewModel {
   /** Returns false when the entry cannot sign; both app ID and secret are required. */
   public boolean addApiKey(String name, String appId, String key, boolean production) {
     String cleanAppId = appId != null ? appId.trim() : "";
-    String cleanKey = key != null ? key.trim() : "";
+    String cleanKey = key != null ? trimSecret(key) : "";
     if (cleanAppId.isEmpty() || cleanKey.isEmpty()) {
       return false;
     }
@@ -530,8 +568,10 @@ public class MainViewModel extends AndroidViewModel {
   }
 
   /**
-   * Adds instances from an exported document, skipping any already present. Returns the number
-   * added, or -1 if the document could not be read.
+   * Adds instances from an exported document, skipping any already present or with a blank
+   * credential. Returns the number added, or -1 if the document could not be read or an entry's
+   * appId or ingressSecret is missing or not a string; then nothing is imported. Optional fields
+   * of the wrong type count as absent. The iOS sample applies the same rules.
    */
   public int importInstancesJson(String text) {
     try {
@@ -543,13 +583,13 @@ public class MainViewModel extends AndroidViewModel {
           return -1;
         }
         String appId = o.getString("appId").trim();
-        String secret = o.getString("ingressSecret").trim();
+        String secret = trimSecret(o.getString("ingressSecret"));
         if (appId.isEmpty() || secret.isEmpty() || findByCredentials(appId, secret) != null) {
           continue;
         }
-        String name = o.optString("name").trim();
-        String checkout = o.optString("checkoutPayload");
-        String webshop = o.optString("webshopPayload");
+        String name = optionalString(o, "name").trim();
+        String checkout = optionalString(o, "checkoutPayload");
+        String webshop = optionalString(o, "webshopPayload");
         boolean duplicate = false;
         for (ApiKeyEntry entry : imported) {
           if (entry.appId.equals(appId) && entry.key.equals(secret)) {
@@ -565,7 +605,7 @@ public class MainViewModel extends AndroidViewModel {
                 name.isEmpty() ? "Untitled" : name,
                 appId,
                 secret,
-                o.optBoolean("production", false),
+                Boolean.TRUE.equals(o.opt("production")),
                 checkout.isEmpty() ? defaultCheckoutPayload() : checkout,
                 webshop.isEmpty() ? defaultWebshopPayload() : webshop));
       }
@@ -579,6 +619,12 @@ public class MainViewModel extends AndroidViewModel {
     } catch (JSONException e) {
       return -1;
     }
+  }
+
+  /** The field's string, or "" if it is missing or another type; optString would coerce. */
+  private static String optionalString(JSONObject o, String key) {
+    Object value = o.opt(key);
+    return value instanceof String ? (String) value : "";
   }
 
   private ApiKeyEntry findByCredentials(String appId, String secret) {
@@ -603,7 +649,7 @@ public class MainViewModel extends AndroidViewModel {
 
   /** Active ingress secret used to sign requests. */
   public String getActiveApiKey() {
-    return activeEntry().key.trim();
+    return trimSecret(activeEntry().key);
   }
 
   /** Active app ID carried in the signature header. */
@@ -730,7 +776,7 @@ public class MainViewModel extends AndroidViewModel {
     } else if (title == R.string.preferred_content_height) {
       cardConfig.preferredContentHeight = Math.max(MIN_CONTENT_DIMENSION_DP, value);
     } else if (title == R.string.maximum_content_height) {
-      cardConfig.maximumContentHeight = value;
+      cardConfig.maximumContentHeight = snapMaximumContentHeight(value);
     } else if (title == R.string.edge_margin) {
       cardConfig.edgeMargin = value;
     }

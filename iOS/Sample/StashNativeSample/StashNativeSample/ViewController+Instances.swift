@@ -57,6 +57,7 @@ extension ViewController {
         do {
             try ApiKeyStore.save(keys: apiKeys, selectedId: selectedApiKeyId)
             didShowCredentialSaveError = false
+            hasPendingInstanceEdits = false
             return true
         } catch {
             if reportError && !didShowCredentialSaveError {
@@ -98,37 +99,39 @@ extension ViewController {
         return text.replacingOccurrences(of: "\\/", with: "/")
     }
 
-    /// Adds instances from an exported document, skipping any already present.
-    /// Returns the number added and whether it was saved, or nil for an unreadable document.
+    /// Adds instances from an exported document, skipping any already present or with a blank
+    /// credential. Returns the number added and whether it was saved, or nil when the document is
+    /// unreadable or an entry's appId or ingressSecret is missing or not a string; then nothing is
+    /// imported. Optional fields of the wrong type count as absent. The Android sample applies the
+    /// same rules.
     func importInstancesJson(_ text: String) -> (added: Int, saved: Bool)? {
         guard let data = text.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let instances = root["instances"] as? [[String: Any]] else { return nil }
-        var added = 0
+        var imported: [ApiKeyEntry] = []
         for entry in instances {
-            let appId = (entry["appId"] as? String ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let secret = (entry["ingressSecret"] as? String ?? "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let rawAppId = entry["appId"] as? String,
+                  let rawSecret = entry["ingressSecret"] as? String else { return nil }
+            let appId = rawAppId.trimmingCharacters(in: .whitespacesAndNewlines)
+            let secret = rawSecret.trimmingCharacters(in: .whitespacesAndNewlines)
             if appId.isEmpty || secret.isEmpty
-                || apiKeys.contains(where: { $0.appId == appId && $0.key == secret }) { continue }
+                || (apiKeys + imported).contains(where: { $0.appId == appId && $0.key == secret }) { continue }
             let name = (entry["name"] as? String ?? "")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             let checkout = entry["checkoutPayload"] as? String ?? ""
             let webshop = entry["webshopPayload"] as? String ?? ""
-            apiKeys.append(ApiKeyEntry(
-                id: UUID().uuidString, name: name.isEmpty ? "Untitled" : name,
-                appId: appId, key: secret, production: entry["production"] as? Bool ?? false,
+            imported.append(ApiKeyEntry(
+                id: UUID().uuidString, name: name.isEmpty ? "Untitled" : name, appId: appId, key: secret,
+                // Only JSON true, as on Android; `as? Bool` would also accept the number 1.
+                production: (entry["production"] as? NSNumber) === kCFBooleanTrue,
                 checkoutPayload: checkout.isEmpty ? ViewController.defaultCheckoutPayload : checkout,
                 webshopPayload: webshop.isEmpty ? ViewController.defaultWebshopPayload : webshop))
-            added += 1
         }
-        if added > 0 {
-            let saved = saveApiKeys(reportError: false)
-            reloadApiSection()
-            return (added, saved)
-        }
-        return (0, true)
+        guard !imported.isEmpty else { return (0, true) }
+        apiKeys += imported
+        let saved = saveApiKeys(reportError: false)
+        reloadApiSection()
+        return (imported.count, saved)
     }
 
     /// Credential the API calls sign with: always the selected entry, so secret, app ID and
@@ -181,20 +184,31 @@ extension ViewController {
     }
 
     // Typed detail fields update in memory only; persistInstances writes them when the details
-    // screen closes, so the Keychain is not rewritten on every keystroke.
+    // screen closes and flushPendingInstanceEdits when the app resigns active, so the Keychain is
+    // not rewritten on every keystroke.
     func setInstanceName(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].name = value
+        hasPendingInstanceEdits = true
     }
 
     func setInstanceAppId(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].appId = value
+        hasPendingInstanceEdits = true
     }
 
     func setInstanceSecret(_ id: String, _ value: String) {
         guard let index = apiKeys.firstIndex(where: { $0.id == id }) else { return }
         apiKeys[index].key = value
+        hasPendingInstanceEdits = true
+    }
+
+    /// Writes typed detail edits before the app can be killed in the background, like the Android
+    /// sample's onPause flush; a no-op when nothing changed.
+    @objc func flushPendingInstanceEdits(_ notification: Notification? = nil) {
+        guard hasPendingInstanceEdits else { return }
+        saveApiKeys()
     }
 
     /// The environment switch is a discrete change, so it persists at once.

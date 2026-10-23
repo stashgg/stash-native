@@ -16,7 +16,6 @@
         android:gravity="top|start"
         android:background="@null"
         android:inputType="textMultiLine|textNoSuggestions"
-        android:textIsSelectable="true"
         android:fontFamily="monospace"
         android:textSize="13sp"
         android:autofillHints="@null"

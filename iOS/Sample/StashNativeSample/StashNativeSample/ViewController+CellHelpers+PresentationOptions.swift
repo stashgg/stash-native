@@ -145,7 +145,7 @@ final class OptionsListViewController: UITableViewController {
 
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         guard section == 1 else { return nil }
-        return "A zero maximum uses available height."
+        return "A zero maximum uses available height; other maximums start at 240 pt."
     }
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

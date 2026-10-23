@@ -69,6 +69,8 @@
     <string name="hint_checkout_url">URL</string>
     <string name="hint_browser_url">URL</string>
     <string name="open_button">Open</string>
+    <string name="open_card">Open card</string>
+    <string name="open_browser">Open browser</string>
     <string name="open_webshop_for_browser">Open Webshop</string>
     <string name="generate_checkout">Generate Checkout</string>
     <string name="generate_checkout_for_browser">Generate Checkout</string>
@@ -94,7 +96,7 @@
     <string name="error_browser_url">Please enter a browser URL</string>
     <string name="credentials_session_only">Secure storage is unavailable. Credentials are kept for this session only; export them explicitly if needed. Exports contain plaintext secrets.</string>
     <string name="section_responsive_size">Responsive size</string>
-    <string name="responsive_size_help">A zero maximum uses available height.</string>
+    <string name="responsive_size_help">A zero maximum uses available height; other maximums start at 240 dp.</string>
     <string name="preferred_content_width">Preferred content width</string>
     <string name="preferred_content_height">Preferred content height</string>
     <string name="maximum_content_height">Maximum content height</string>

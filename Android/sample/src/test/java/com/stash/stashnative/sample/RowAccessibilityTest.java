@@ -39,6 +39,8 @@ public class RowAccessibilityTest {
       activity.setContentView(parent);
       int[] titles = {R.string.hint_checkout_url, R.string.hint_browser_url};
       String[] tags = {"card", "browser"};
+      // Each Open button names its target, as the iOS sample does.
+      int[] openLabels = {R.string.open_card, R.string.open_browser};
       for (int i = 0; i < titles.length; i++) {
         adapter.submitList(Collections.singletonList(SettingsItem.urlPreference(
             titles[i], "https://example.invalid/" + tags[i], 0, true, true)));
@@ -53,7 +55,7 @@ public class RowAccessibilityTest {
         assertTrue(fieldNode.getText().toString().startsWith("https://example.invalid/" + tags[i]));
         fieldNode.recycle();
         AccessibilityNodeInfo openNode = open.createAccessibilityNodeInfo();
-        assertEquals(activity.getString(R.string.open_button),
+        assertEquals(activity.getString(openLabels[i]),
             openNode.getContentDescription().toString());
         openNode.recycle();
       }

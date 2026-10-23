@@ -9,9 +9,10 @@
 import UIKit
 
 /// A pushed screen for editing a single instance. Identity fields commit into the host's in-memory
-/// model as the user types and persist when the screen closes (the environment switch persists at
-/// once); the payload editors (pushed from here) persist on their own Save. Rows reuse the app's
-/// shared cell styling so the screen matches the Test and options screens.
+/// model as the user types and persist when the screen closes or the app resigns active (the
+/// environment switch persists at once); the payload editors (pushed from here) persist on their
+/// own Save. Rows reuse the app's shared cell styling so the screen matches the Test and options
+/// screens.
 final class InstanceDetailViewController: UITableViewController, UITextFieldDelegate {
 
     private weak var host: ViewController?

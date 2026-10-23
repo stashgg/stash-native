@@ -47,6 +47,8 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
 
     void onLockLandscapeChanged(boolean on);
 
+    void onKeepAliveChanged(boolean on);
+
     void onOpenWebshopForBrowser();
 
     void onDeleteInstance();
@@ -293,18 +295,21 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
           || titleRes == R.string.hint_browser_url;
       binding.urlOpenButton.setVisibility(hasOpen ? View.VISIBLE : View.GONE);
       // Stable ids for UI tests live in view tags; rows are recycled, so null out other rows.
-      // contentDescription stays the spoken name: the hint for the field, "Open" for the button.
+      // contentDescription stays the spoken name: the hint for the field, "Open card" or
+      // "Open browser" for the button, matching the iOS sample.
       String tag = null;
+      int openLabel = R.string.open_button;
       if (titleRes == R.string.hint_checkout_url) {
         tag = "card";
+        openLabel = R.string.open_card;
       } else if (titleRes == R.string.hint_browser_url) {
         tag = "browser";
+        openLabel = R.string.open_browser;
       }
       binding.urlEditText.setTag(tag == null ? null : tag + "-url-field");
       binding.urlOpenButton.setTag(tag == null ? null : tag + "-open-button");
       binding.urlEditText.setContentDescription(null);
-      binding.urlOpenButton.setContentDescription(
-          itemView.getContext().getString(R.string.open_button));
+      binding.urlOpenButton.setContentDescription(itemView.getContext().getString(openLabel));
       boolean isSecret = titleRes == R.string.instance_secret;
       binding.urlInputLayout.setErrorEnabled(isSecret);
       binding.urlInputLayout.setError(isSecret ? secretError(item.value) : null);
@@ -437,7 +442,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
         } else if (item.titleRes == R.string.option_card_auto_close) {
           viewModel.setCardAutoClose(isChecked);
         } else if (item.titleRes == R.string.option_keep_alive) {
-          viewModel.setKeepAliveEnabled(isChecked);
+          callbacks.onKeepAliveChanged(isChecked);
         } else if (item.titleRes == R.string.option_lock_landscape) {
           callbacks.onLockLandscapeChanged(isChecked);
         } else if (item.titleRes == R.string.instance_production) {
@@ -484,14 +489,13 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
       binding.sliderValue.setText(item.value);
       androidx.core.view.ViewCompat.setStateDescription(binding.sliderSeekBar, item.value);
       binding.sliderSeekBar.setOnSeekBarChangeListener(null);
-      // SeekBar has no minimum before API 26, so progress is offset from the row's minimum.
-      final int minimum = sliderMinimum(item.titleRes);
-      binding.sliderSeekBar.setMax(sliderMaximum(item.titleRes) - minimum);
-      binding.sliderSeekBar.setProgress(Math.max(0, item.progress - minimum));
+      final int title = item.titleRes;
+      binding.sliderSeekBar.setMax(sliderProgress(title, sliderMaximum(title)));
+      binding.sliderSeekBar.setProgress(sliderProgress(title, item.progress));
       binding.sliderSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-          int value = progress + minimum;
+          int value = sliderValue(title, progress);
           String label = value == 0 && item.titleRes == R.string.maximum_content_height
               ? "Available" : value + " dp";
           androidx.core.view.ViewCompat.setStateDescription(seekBar, label);
@@ -511,10 +515,33 @@ public class SettingsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolde
     }
   }
 
-  /** Width and height floor at the SDK's smallest useful card; zero maximum means available. */
+  /** Width and height floor at the sample's smallest card. */
   static int sliderMinimum(int title) {
     return title == R.string.preferred_content_width || title == R.string.preferred_content_height
         ? MainViewModel.MIN_CONTENT_DIMENSION_DP : 0;
+  }
+
+  /** Maximum height position 1 is the floor; positions count in dp from there. */
+  private static final int MAXIMUM_HEIGHT_OFFSET = MainViewModel.MIN_CONTENT_DIMENSION_DP - 1;
+
+  /**
+   * SeekBar position for a row value; SeekBar has no minimum before API 26. The maximum height
+   * maps position 0 to Available and 1 to the 240 dp floor, so every position is a legal value
+   * and touch, keys and TalkBack scroll steps cross from Available to 240 dp directly.
+   */
+  static int sliderProgress(int title, int value) {
+    if (title == R.string.maximum_content_height) {
+      return value <= 0 ? 0 : Math.max(1, value - MAXIMUM_HEIGHT_OFFSET);
+    }
+    return Math.max(0, value - sliderMinimum(title));
+  }
+
+  /** Row value for a SeekBar position; the inverse of {@link #sliderProgress}. */
+  static int sliderValue(int title, int progress) {
+    if (title == R.string.maximum_content_height) {
+      return progress <= 0 ? 0 : progress + MAXIMUM_HEIGHT_OFFSET;
+    }
+    return progress + sliderMinimum(title);
   }
 
   static int sliderMaximum(int title) {
