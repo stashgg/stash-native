@@ -64,7 +64,7 @@ Discover installed toolchains and simulator IDs. Use temporary source copies or 
 |---|---|
 | Android SDK and sample | JDK 17; Gradle `assembleRelease` and `testDebugUnitTest` for `:stashnative` and `:stashnative-codelink`, `:sample:testDebugUnitTest`, `:sample:assembleDebug`, `:sample:assembleRelease`; the `:consumer` R8 flavor matrix (`assembleCurrentRelease`, `assembleLegacyRelease`, `assembleAbsentRelease`, `assembleCameraOnlyRelease`, `assembleLegacyCameraRelease`, `assembleNoCamera2Release`, `assembleNoLifecycleRelease`); Android Lint and repository Checkstyle configuration over the library, CodeLink, and sample sources. |
 | iOS SDK | `xcodebuild` build, analyze, and non-ARC build of the `StashNative` and `StashNativeCodeLink` schemes, and both schemes from the root `Package.swift`; run the `StashNativeTests` Xcode scheme on an available iOS Simulator for its UIKit app host. Do not use macOS `swift test` for the iOS package. |
-| iOS sample | Simulator build and SwiftLint using `.swiftlint.yml`; device testing for platform behavior. |
+| iOS sample | Simulator build, SwiftLint using `.swiftlint.yml`, and `iOS/Sample/Tests/run_regressions.py`; device testing for platform behavior. |
 | Desktop shared contract | CMake/CTest against `Desktop/shared`, independently of either UI host. |
 | macOS SDK and sample | `swift build`/`swift test` from `Desktop`, bundle export/architecture checks, SwiftLint, Clang analysis, and sample `-stash-auto local`/`secure` proof runs. |
 | Windows SDK and sample | Windows, Visual Studio C++ workload, an explicit installed CMake generator, x64 build, CTest, DLL export checks, and WebView2 sample proof runs. |

@@ -51,7 +51,7 @@ Trace these scenarios end to end in every applicable implementation:
 
 | Scenario | Evidence to follow |
 |---|---|
-| Open card/modal/browser | Public API -> validation -> thread dispatch -> host selection -> native surface -> navigation -> bridge injection. |
+| Open card/browser/scanner | Public API -> validation -> thread dispatch -> host selection -> native surface -> navigation -> bridge injection. |
 | First load and redirects | Progress/spinner, pageLoaded once, timing units, timeout/retry, transport/TLS/HTTP failure, renderer death, stale navigation identifiers. |
 | Payment and processing | Processing lock/unlock, success/failure payload, autoClose on/off, failure then success, duplicate JS/deeplink events, event order and state visible inside callbacks. |
 | Dismiss and reopen | Button/back/backdrop/Esc/window.close, allowDismiss, programmatic dismissal, host close, reset, shutdown, double open, callback-triggered reopen, callbacks from the previous session. |

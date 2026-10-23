@@ -1,6 +1,6 @@
 # Android SDK checks
 
-Read the facade, plugin, activity, both JS interface classes, WebView/popup support, sizing/IME/backdrop helpers, URL launcher, window compatibility, Custom Tabs engagement, and service together. Discover additional classes in the current snapshot.
+Read the facade, plugin, card activity, `StashCheckoutJsInterface`, WebView/navigation/loading support, presentation controller and sizing/IME/backdrop helpers, URL launcher, window compatibility, Custom Tabs engagement, keep-alive service, and the scanner contract together. Discover additional classes in the current snapshot.
 
 ## Ownership and lifecycle
 
@@ -14,7 +14,7 @@ Read the facade, plugin, activity, both JS interface classes, WebView/popup supp
 - Trace the actual callback threads for JS bridge methods, WebView clients, broadcasts, timers, services, and public calls. JS bridge code must not assume it executes on the UI thread; verify any exception propagation claim for the actual boundary.
 - Check UI dispatch, singleton field visibility, listener changes, open/dismiss races, double taps, callback reentrancy, stale broadcasts, and delayed work from a previous session.
 - Verify package scoping and non-exported receiver registration; validate actions and extras before state changes. Follow event order through `StashCheckoutBridge` and plugin dispatch.
-- Trace success/failure/opt-in/network/pageLoaded/dismiss events, autoClose behavior, processing lock, cancellation, and exactly-once guards under both activity and popup paths.
+- Trace success/failure/network/pageLoaded/dismiss/external-payment events, autoClose behavior, processing lock, cancellation, and exactly-once guards across the card, browser handoff, `keepOpen` browser-over-card, and scanner paths.
 - Follow Custom Tabs proxy activity results and engagement fallback, missing browser/runtime classes, cancelled launches, external return, and fallback ACTION_VIEW. Hosts should not need an onActivityResult forwarding workaround.
 - Inspect keep-alive service type, notification/channel/permission handling, OS restrictions, stop conditions, and host impact at the declared target/min SDK levels.
 
@@ -29,7 +29,7 @@ Read the facade, plugin, activity, both JS interface classes, WebView/popup supp
 ## Layout and performance
 
 - Check dp/px conversion, rounding, safe insets and fallbacks, edge-to-edge behavior, cutouts, IME transitions, navigation modes, phones/tablets, landscape hosts with portrait checkout, and very small/resized windows.
-- Validate ratios at runtime, card/modal/popup size calculations, gesture thresholds, animator cancellation, and layout state after interrupted transitions.
+- Validate content dimensions, maximum height and edge margin at the opening boundary, bottom-attached versus floating card geometry, gesture and dismiss thresholds, animator cancellation, and layout state after interrupted transitions.
 - Inspect accessibility labels, TalkBack focus, dismissal affordances, contrast/text scaling, and processing-disabled controls.
 - Trace blocking I/O, expensive reflection/parsing, bitmap allocation, repeated WebView creation, retained pages, and animation allocations. Preserve the documented card-resize tradeoff unless new evidence shows a regression.
 

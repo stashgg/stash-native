@@ -54,7 +54,7 @@ stateDiagram-v2
 
 - The card sizes itself from the current window, not the device type.
 - Regions narrower than 600 points or dp get a full-width card; wider regions use up to the configured width.
-- The card opens at the configured height, or shorter for short content, and expands up to the configured maximum.
+- The card opens at the configured height and expands up to the configured maximum, both limited by the available space. Page content does not size the card.
 - Rotation, folding, window resizing, and the keyboard keep the same content and state.
 
 ## Web content loading

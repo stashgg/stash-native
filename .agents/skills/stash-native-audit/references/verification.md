@@ -29,7 +29,7 @@ JAVA_HOME="$AUDIT_JDK17" GRADLE_USER_HOME="$AUDIT_RUN/gradle-home" ./gradlew \
   :stashnative:lintRelease :stashnative-codelink:lintRelease :sample:lintDebug
 ```
 
-The `:consumer` module builds minimal Java hosts against the release AARs with R8, one flavor per dependency set: current libraries, legacy `androidx.browser`, no optional libraries, CodeLink without ZXing, and CodeLink with CameraX 1.3.4:
+The `:consumer` module builds minimal Java hosts against the release AARs with R8, one flavor per dependency set: current libraries, legacy `androidx.browser`, no optional libraries, CodeLink without ZXing, CodeLink with CameraX 1.3.4, CodeLink without `camera-camera2`, and CodeLink without `camera-lifecycle`:
 
 ```sh
 JAVA_HOME="$AUDIT_JDK17" GRADLE_USER_HOME="$AUDIT_RUN/gradle-home" ./gradlew \
@@ -131,7 +131,12 @@ xcodebuild -project "$AUDIT_SOURCE/iOS/Sample/StashNativeSample/StashNativeSampl
 
 swiftlint lint "$AUDIT_SOURCE/iOS/Sample/StashNativeSample" \
   --strict --config "$AUDIT_SOURCE/.swiftlint.yml"
+
+HS_TEMP="$AUDIT_RUN" python3 "$AUDIT_SOURCE/iOS/Sample/Tests/run_regressions.py" \
+  --output "$AUDIT_RUN/sample-regressions"
 ```
+
+The regression harness compiles the sample's request, credential and signing code against stubbed network and Keychain boundaries; CI runs it in `lint.yml`.
 
 Run SwiftLint from the temporary source copy so any local cache stays there; inspect the installed CLI's supported cache options if it writes elsewhere. For ARC/non-ARC or packaging claims, compile a small public-header consumer in the required modes and check relevant implementation compilation paths, module imports, XCFramework slices and source membership. Scope findings to what the probe establishes.
 

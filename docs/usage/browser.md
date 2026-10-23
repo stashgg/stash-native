@@ -20,7 +20,7 @@ StashNative.sharedInstance().openBrowser(withURL: url, from: self)
 StashNative.getInstance().openBrowser(activity, url);
 ```
 
-On Android, Custom Tabs need `androidx.browser` ([Package Installation](../index.md#android)). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari; on Android it has no effect. While a card is open, `openBrowser` is ignored on iOS and opens on Android. `isCurrentlyPresented` is `true` while Safari is open, and `false` while Custom Tabs are open.
+On Android, Custom Tabs need `androidx.browser` ([Package Installation](../index.md#android)). Without it, links open in the system browser. On iOS, `closeBrowser()` closes Safari. On Android, Custom Tabs cannot be closed programmatically, so it only closes a browser that checkout opened over the card (see below). While a card is open, `openBrowser` is ignored on iOS and opens on Android. `isCurrentlyPresented` is `true` while Safari is open, and `false` while Custom Tabs are open. When checkout opens the browser over the card, the card stays presented and `isCurrentlyPresented` stays `true` on both platforms.
 
 ## Handling Results
 
@@ -42,6 +42,8 @@ On iOS, close Safari when the deep link arrives. `dismissSafariViewController(wi
 StashNative.sharedInstance().dismissSafariViewController(withResult: true)  // mygame://stash-pay/success
 StashNative.sharedInstance().dismissSafariViewController(withResult: false) // mygame://stash-pay/failure
 ```
+
+Checkout can also open the browser over the card, which stays open for the player's return. The checkout page then reports the payment itself, and the game hears it once. On iOS, `dismissSafariViewController(withResult:)` closes Safari back to the card; with `autoClose` on, it also closes the card with that result. On Android, call `closeBrowser()` when the deep link arrives to close the browser and return to the card.
 
 [Confirm every purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase) on your backend before granting items.
 
@@ -84,6 +86,6 @@ These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
 
 | Callback (iOS / Android) | Fires when |
 |---|---|
-| `stashNativeDidDismissBrowser()`<br>`onBrowserDismissed()` | The browser closes, after `openBrowser` or an external payment |
+| `stashNativeDidDismissBrowser()`<br>`onBrowserDismissed()` | The browser closes, after `openBrowser` or an external payment that closed the card |
 
-The browser ends with browser dismissed. On iOS, `dismissSafariViewController(withResult:)` first sends payment success or failure; see [Checkout Card callbacks](checkout-card.md#callbacks).
+The browser ends with browser dismissed. A browser opened over the card sends no browser event; the card continues and ends with its own events. On iOS, `dismissSafariViewController(withResult:)` first sends payment success or failure; see [Checkout Card callbacks](checkout-card.md#callbacks).

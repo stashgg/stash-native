@@ -28,6 +28,8 @@ Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/
 
 On Android, the object can appear after early inline scripts run, so look it up at call time: `window.stash_sdk?.lock()`. Failed calls are ignored on Android and throw on iOS.
 
+`lock()`, `unlock()`, `externalBrowser()`, and the `type` argument of `triggerHaptic()` are newer than some shipped hosts, including the first 3.0.0 preview build. Calling a method the host does not have throws on both platforms, so check first: `typeof window.stash_sdk?.lock === 'function'`. An older host ignores the haptic `type` and plays the short haptic.
+
 ## Payment
 
 ```javascript

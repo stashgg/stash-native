@@ -27,9 +27,9 @@ Read the public header, shared-state declarations, facade, and extracted impleme
 ## Presentation and geometry
 
 - Inspect multi-scene/window selection, controller ancestry, presentation during transitions, host dismissal, and restoration of key-window/orientation state.
-- Check forcePortrait hooks/swizzling for chaining, method signatures, repeated installation, supported orientations, and effects on other host windows. Preserve game-engine constraints.
-- Check card/modal/tablet/landscape paths, safe areas, keyboard/IME changes, rotation during gestures/animations, Split View, backing scale, rounding, and zero/invalid dimensions.
-- Verify card/modal ratio normalization at the runtime boundary and popup positive-finite fallback behavior. Popup values above one are valid.
+- Check the portrait `orientationPreference` window and orientation hooks/swizzling for chaining, method signatures, repeated installation, supported orientations, and effects on other host windows. Preserve game-engine constraints.
+- Check phone, floating (tablet), landscape and portrait-window card paths, safe areas, keyboard/IME changes, rotation during gestures/animations, Split View and Stage Manager, backing scale, rounding, and zero/invalid dimensions.
+- Verify content dimension, maximum height and edge margin normalization at the opening boundary. Check controllers the card presents (JS dialogs, the `keepOpen` Safari) on every close path.
 - Check focus, VoiceOver, accessible dismissal, text sizing, contrast, reduced motion, and interaction while purchase processing locks dismissal.
 
 ## Quality, performance, and packaging

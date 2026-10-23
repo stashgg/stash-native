@@ -43,11 +43,13 @@ flowchart TB
 - The bridge script is injected as each page starts and accepts calls from the top document only.
 - File access, zoom, and algorithmic darkening are off.
 - The first load waits for the final card size, so older WebViews render at the right scale.
+- When checkout navigates to a hosted Klarna, PayPal, or Stripe page, a Return to checkout button reloads the original checkout. It is disabled while checkout is locked. iOS has no equivalent.
 
 ## System browser
 
 - Custom Tabs open through an internal proxy activity that detects when the tab closes. The game does not forward `onActivityResult`.
 - Without `androidx.browser`, links open with `ACTION_VIEW`, and the close event fires when the launching activity resumes.
+- A `keepOpen` browser opens from the card activity, in the game's task. `closeBrowser()` and the keep-alive notification return to the card by finishing what lies above it, so the card and the game's activities stay as they were.
 
 ## Modules
 
