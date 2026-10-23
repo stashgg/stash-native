@@ -536,10 +536,44 @@ public class PresentationSafetyTest {
     assertEquals(2, touches[0]);
     View handle = activity.cardContainer.getChildAt(activity.cardContainer.getChildCount() - 1);
     assertTrue(handle.isFocusable());
+    // A floating card only drags from its handle; expansion is an SDK call, as on iOS.
+    assertFalse(activity.presentation.isBottomAttached());
+    assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, handle.getImportantForAccessibility());
+    assertTrue(handle.performClick());
+    assertFalse(activity.presentation.state.expanded);
+    activity.rootLayout.setRight(390);
+    activity.presentation.environmentChanged();
+    assertTrue(activity.presentation.isBottomAttached());
+    assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_AUTO, handle.getImportantForAccessibility());
     assertTrue(handle.performClick());
     assertTrue(activity.presentation.state.expanded);
     down.recycle();
     up.recycle();
+  }
+
+  @Test public void providerHomeButtonCannotReloadCheckoutDuringProcessing() throws Exception {
+    activity.url = "https://example.invalid/checkout";
+    activity.initialURL = activity.url;
+    StashCheckoutWebViewSupport.addWebView(activity);
+    java.lang.reflect.Method addHome = StashCardActivity.class.getDeclaredMethod("addHomeButton");
+    addHome.setAccessible(true);
+    addHome.invoke(activity);
+    String provider = "https://pay.example.invalid/klarna";
+    activity.webView.loadUrl(provider);
+    StashCheckoutWebViewSupport.checkProvider(activity, provider);
+    assertEquals(View.VISIBLE, activity.homeButton.getVisibility());
+    assertEquals("Return to checkout", activity.homeButton.getText().toString());
+    activity.isPurchaseProcessing = true;
+    activity.applyDragHandlePurchaseProcessingFade(true);
+    assertFalse(activity.homeButton.isEnabled());
+    // Even a click that reaches the listener cannot reload while the page holds the lock.
+    activity.homeButton.callOnClick();
+    assertEquals(provider, Shadows.shadowOf(activity.webView).getLastLoadedUrl());
+    activity.isPurchaseProcessing = false;
+    activity.applyDragHandlePurchaseProcessingFade(false);
+    assertTrue(activity.homeButton.performClick());
+    assertTrue(Shadows.shadowOf(activity.webView).getLastLoadedUrl()
+        .startsWith("https://example.invalid/checkout"));
   }
 
   @Test public void keyboardExpandsShortCardAndRestoresItsPreviousSelection() throws Exception {

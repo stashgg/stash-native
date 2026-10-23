@@ -46,6 +46,9 @@ public class StashNativePlugin {
   /** Identifies callbacks and cleanup belonging to the admitted presentation. */
   volatile long presentationSessionId;
 
+  /** Session of the last activity that registered; differs while a launch is still queued. */
+  private long registeredSessionId;
+
   private boolean presentationIsScanner;
 
   private BroadcastReceiver checkoutBridgeReceiver;
@@ -346,6 +349,42 @@ public class StashNativePlugin {
     StashKeepAliveService.stop(context);
   }
 
+  /**
+   * Brings a presented card's task forward from the keep-alive notification. Started from the
+   * card itself, so it resolves in the card's task whatever the host's affinity or launch mode.
+   * Clear-top with single-top finishes only what lies above the card (a Custom Tab) and delivers
+   * to the existing instance instead of recreating it; the host activities below stay untouched.
+   *
+   * @return false when no card is presented
+   */
+  boolean returnToPresentedCard() {
+    StashCardActivity checkout = getCheckoutActivity();
+    if (!isCurrentlyPresented || !ownsCheckout(checkout)) {
+      return false;
+    }
+    try {
+      checkout.startActivity(new Intent(checkout, StashCardActivity.class)
+          .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP
+              | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+      return true;
+    } catch (Exception e) {
+      Log.w(TAG, "Cannot return to the card: " + e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /** Closes a keepOpen browser over the presented card; no effect otherwise. */
+  void closeBrowserOverCard() {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(this::closeBrowserOverCard);
+      return;
+    }
+    StashCardActivity checkout = getCheckoutActivity();
+    if (checkout != null && checkout.externalBrowserOverCard) {
+      returnToPresentedCard();
+    }
+  }
+
   void cancelBrowserCloseTrackingLaunch() {
     browserSessionId++;
     isBrowserSessionActive = false;
@@ -464,10 +503,16 @@ public class StashNativePlugin {
    * but no browser-dismissal event follows and the card session continues.
    */
   void openExternalBrowserOverCheckout(StashCardActivity checkoutActivity, String url) {
+    // Like iOS, ignore repeats while a browser is over the card (a double tap lands before the
+    // card pauses; a page can still call while paused beneath the browser).
     if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)
-        || url == null || url.isEmpty()) {
+        || url == null || url.isEmpty()
+        || checkoutActivity.externalBrowserOverCard || checkoutActivity.isActivityPaused) {
       return;
     }
+    // Cleared when the card resumes after the browser, or below if the launch fails.
+    checkoutActivity.externalBrowserOverCard = true;
+    long browserBeforeCallback = browserSessionId;
     StashNative.StashNativeListener l = getListener();
     if (l != null) {
       try {
@@ -476,17 +521,24 @@ public class StashNativePlugin {
         Log.w(TAG, "Error in onExternalPayment: " + e.getMessage(), e);
       }
     }
-    // The host may reset or open another checkout from its callback.
-    if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)) {
+    // The host may reset, open another checkout, or open its own browser from its callback.
+    if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)
+        || browserSessionId != browserBeforeCallback) {
       return;
     }
     // The card activity stops the service again when it resumes.
     startKeepAliveBeforeBrowser(checkoutActivity);
+    boolean launched = false;
     try {
-      StashUrlLauncher.openExternalUrl(checkoutActivity, url, 0);
+      launched = StashUrlLauncher.launchExternalUrl(checkoutActivity, url, 0)
+          != StashUrlLauncher.OPEN_EXTERNAL_NONE;
     } catch (Exception e) {
-      stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
       Log.w(TAG, "Error opening browser over checkout: " + e.getMessage(), e);
+    }
+    if (!launched) {
+      // Nothing covers the card, so it will not pause and resume to re-arm the page's request.
+      checkoutActivity.externalBrowserOverCard = false;
+      stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
     }
   }
 
@@ -785,10 +837,46 @@ public class StashNativePlugin {
   }
 
   void dismissDialog() {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      mainHandler.post(this::dismissDialog);
+      return;
+    }
     StashCardActivity checkout = getCheckoutActivity();
     if (checkout != null) {
-      checkout.runOnUiThread(checkout::dismissWithAnimation);
+      checkout.dismissWithAnimation();
+    } else if (isCurrentlyPresented && registeredSessionId != presentationSessionId) {
+      cancelPendingLaunch();
     }
+  }
+
+  /**
+   * Dismisses an admitted card or scanner whose activity has not been created yet. The new
+   * session ID makes that activity finish silently in onCreate; the presentation stays busy until
+   * the dismissal callback, as it does during an animated dismissal.
+   */
+  private void cancelPendingLaunch() {
+    long cancelled = ++presentationSessionId;
+    boolean scanner = presentationIsScanner;
+    releaseLaunchingBackdrop();
+    mainHandler.post(() -> {
+      if (!isCurrentlyPresented || presentationSessionId != cancelled) {
+        return;
+      }
+      cleanupAllViews();
+      StashNative.StashNativeListener l = getListener();
+      if (l == null) {
+        return;
+      }
+      try {
+        if (scanner) {
+          l.onScannerDismissed();
+        } else {
+          l.onCardDismissed();
+        }
+      } catch (Exception e) {
+        Log.w(TAG, "Error in dismissal callback: " + e.getMessage(), e);
+      }
+    });
   }
 
   /**
@@ -796,6 +884,9 @@ public class StashNativePlugin {
    */
   void setCheckoutActivity(StashCardActivity activity) {
     checkoutActivityRef = new WeakReference<>(activity);
+    if (activity != null) {
+      registeredSessionId = activity.getPresentationSessionId();
+    }
   }
 
   private StashCardActivity getCheckoutActivity() {
@@ -837,7 +928,7 @@ public class StashNativePlugin {
     }
   }
 
-  /** Removes session observers and browser tracking, retaining the live listener. */
+  /** Removes session observers, browser tracking and keep-alive, retaining the live listener. */
   public void cleanup() {
     cleanupAllViews();
     setBackdropBitmap(null);
@@ -848,6 +939,8 @@ public class StashNativePlugin {
     }
     if (appContext != null) {
       StashUrlLauncher.unbindCustomTabsEngagement(appContext);
+      // The host-resume observer that normally stops it is unregistered below.
+      stopKeepAliveForegroundService(appContext);
     }
     if (checkoutBridgeReceiverRegistered && appContext != null && checkoutBridgeReceiver != null) {
       try {

@@ -5,7 +5,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- No camera permission: the optional stashnative-codelink module declares it. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" />
     <permission
         android:name="${applicationId}.permission.STASH_NATIVE_INTERNAL"
         android:protectionLevel="signature" />
@@ -46,6 +45,16 @@
             android:exported="false"
             tools:remove="android:process"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
+
+        <!--
+            Keep-alive notification target: returns to a presented card without clearing it,
+            otherwise to the host's launcher activity. Finishes in onCreate.
+        -->
+        <activity
+            android:name=".StashKeepAliveReturnActivity"
+            android:exported="false"
+            tools:remove="android:process"
+            android:theme="@android:style/Theme.NoDisplay" />
 
         <service
             android:name=".StashKeepAliveService"

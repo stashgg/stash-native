@@ -67,6 +67,30 @@ public class ScannerTest {
     assertNull(Shadows.shadowOf(host).getNextStartedActivity());
   }
 
+  @Test
+  @Config(shadows = ResolvedScannerModuleShadow.class)
+  public void dismissBeforeTheScannerActivityRegistersReportsScannerDismissalOnce() {
+    Activity host = Robolectric.buildActivity(Activity.class).setup().get();
+    List<String> events = new ArrayList<>();
+    plugin.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onCardDismissed() { events.add("card-dismissed"); }
+      @Override public void onScannerDismissed() { events.add("scanner-dismissed"); }
+    });
+    plugin.openScanner(host);
+    Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(intent);
+    StashNative.getInstance().dismiss();
+    idle(0);
+    assertEquals(Collections.singletonList("scanner-dismissed"), events);
+    assertFalse(plugin.isCurrentlyPresented());
+    ActivityController<StashCardActivity> late =
+        Robolectric.buildActivity(StashCardActivity.class, intent).create();
+    assertTrue(late.get().isFinishing());
+    late.destroy();
+    idle(0);
+    assertEquals(Collections.singletonList("scanner-dismissed"), events);
+  }
+
   @Test public void missingModuleResolvesToNullWithoutThrowing() {
     StashCardActivity card = Robolectric.buildActivity(StashCardActivity.class).get();
     assertFalse(StashScannerContent.isAvailable());

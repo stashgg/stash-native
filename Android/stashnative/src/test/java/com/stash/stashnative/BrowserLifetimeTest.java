@@ -168,6 +168,136 @@ public class BrowserLifetimeTest {
     assertEquals(0, browserClosed);
   }
 
+  private void keepOpen() {
+    new StashCheckoutJsInterface(checkout)
+        .externalBrowser(token, "https://example.invalid/payment", true);
+  }
+
+  @Test public void repeatedKeepOpenCallsOpenOneBrowserAndReportOnce() {
+    keepOpen();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    // A call while the card sits paused beneath the browser is still a repeat.
+    checkout.onPause();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    // Back on the card, the page may open the browser again.
+    checkout.onResume();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(2, externalPayments);
+    assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    assertTrue(sdk.isCurrentlyPresented());
+    assertEquals(0, browserClosed);
+  }
+
+  @Test public void keepOpenWithNoBrowserReleasesTheRequestAndKeepAlive() {
+    android.app.Application app = host.getApplication();
+    sdk.setKeepAliveEnabled(true);
+    try {
+      Shadows.shadowOf(app).checkActivities(true);
+      keepOpen();
+      ShadowLooper.idleMainLooper();
+      assertEquals(1, externalPayments);
+      assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+      assertFalse(checkout.externalBrowserOverCard);
+      assertNotNull(Shadows.shadowOf(app).getNextStartedService());
+      assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
+      // Nothing covered the card, so the page's next request is not taken for a repeat.
+      Shadows.shadowOf(app).checkActivities(false);
+      keepOpen();
+      ShadowLooper.idleMainLooper();
+      assertEquals(2, externalPayments);
+      assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+      assertTrue(checkout.externalBrowserOverCard);
+      keepOpen();
+      ShadowLooper.idleMainLooper();
+      assertEquals(2, externalPayments);
+      // Back on the card after that browser, the request re-arms.
+      checkout.onPause();
+      checkout.onResume();
+      assertFalse(checkout.externalBrowserOverCard);
+      keepOpen();
+      ShadowLooper.idleMainLooper();
+      assertEquals(3, externalPayments);
+      assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+      assertTrue(sdk.isCurrentlyPresented());
+    } finally {
+      Shadows.shadowOf(app).checkActivities(false);
+      sdk.setKeepAliveEnabled(false);
+    }
+  }
+
+  @Test public void publicLauncherStillReportsTheSystemBrowserWhenNothingOpens() {
+    Shadows.shadowOf(host.getApplication()).checkActivities(true);
+    try {
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_ACTION_VIEW,
+          StashUrlLauncher.openExternalUrl(host, "https://example.invalid/pay", 0));
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_NONE,
+          StashUrlLauncher.launchExternalUrl(host, "https://example.invalid/pay", 0));
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_ACTION_VIEW,
+          StashUrlLauncher.openExternalUrl(host, "ftp://example.invalid/pay", 0));
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_NONE,
+          StashUrlLauncher.launchExternalUrl(host, "ftp://example.invalid/pay", 0));
+      // A link with no handler neither crashes nor ends the card.
+      new StashCheckoutJsInterface(checkout).openLink(token, "https://example.invalid/terms");
+      ShadowLooper.idleMainLooper();
+      assertFalse(checkout.isFinishing());
+      assertTrue(sdk.isCurrentlyPresented());
+    } finally {
+      Shadows.shadowOf(host.getApplication()).checkActivities(false);
+    }
+  }
+
+  @Test public void closeBrowserReturnsToTheCardOnlyWhileAKeepOpenBrowserIsOverIt() {
+    // Without a keepOpen browser there is nothing the SDK can close.
+    sdk.closeBrowser();
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    checkout.onPause();
+    sdk.closeBrowser();
+    ShadowLooper.idleMainLooper();
+    Intent back = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(back);
+    assertEquals(StashCardActivity.class.getName(), back.getComponent().getClassName());
+    int expected = Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP;
+    assertEquals(expected, back.getFlags() & expected);
+    assertFalse(checkout.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
+    assertEquals(0, browserClosed);
+    // Back on the card, the flag clears and closeBrowser has no effect again.
+    checkout.onResume();
+    sdk.closeBrowser();
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+  }
+
+  @Test public void hostBrowserFromKeepOpenCallbackReplacesTheSdkLaunch() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        externalPayments++;
+        sdk.openBrowser(host, "https://example.invalid/host");
+      }
+    });
+    keepOpen();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertNotNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    assertFalse(checkout.isFinishing());
+    assertTrue(sdk.isCurrentlyPresented());
+  }
+
   @Test public void externalBrowserWithoutKeepOpenIsTheCardClosingHandoff() {
     new StashCheckoutJsInterface(checkout)
         .externalBrowser(token, "https://example.invalid/payment", false);
@@ -244,6 +374,37 @@ public class BrowserLifetimeTest {
   }
 
   /** A tab that closes without a result is detected on the proxy's second resume, once. */
+  @Test public void proxyFinishedFromOutsideReportsOneClose() {
+    handoff();
+    Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(intent);
+    org.robolectric.android.controller.ActivityController<StashNativeBrowserProxyActivity> proxy =
+        Robolectric.buildActivity(StashNativeBrowserProxyActivity.class, intent)
+            .create().start().resume();
+    ShadowLooper.idleMainLooper();
+    assertEquals(0, browserClosed);
+    // Clear-top from the keep-alive notification finishes the proxy without a result.
+    proxy.get().finish();
+    proxy.pause().stop().destroy();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, browserClosed);
+    assertTrue(checkout.isFinishing());
+  }
+
+  @Test public void proxyDestroyedAfterItsResultDoesNotReportTwice() {
+    handoff();
+    Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();
+    org.robolectric.android.controller.ActivityController<StashNativeBrowserProxyActivity> proxy =
+        Robolectric.buildActivity(StashNativeBrowserProxyActivity.class, intent)
+            .create().start().resume();
+    ShadowLooper.idleMainLooper();
+    proxy.get().onActivityResult(
+        CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB, Activity.RESULT_CANCELED, null);
+    proxy.pause().stop().destroy();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, browserClosed);
+  }
+
   @Test public void proxyResumeFallbackReportsOneCloseForTheCurrentSession() {
     handoff();
     Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();

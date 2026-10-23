@@ -270,6 +270,11 @@ final class StashPresentationController implements View.OnTouchListener {
     environmentChanged();
   }
 
+  /** Only bottom-attached cards resize from the handle; floating cards expand by SDK call. */
+  boolean isBottomAttached() {
+    return layout != null && layout.bottomAttached;
+  }
+
   void setExpanded(boolean expanded) {
     if (activity.isDismissing || disposed) {
       return;
@@ -329,7 +334,8 @@ final class StashPresentationController implements View.OnTouchListener {
     p.leftMargin = frame.left;
     p.topMargin = frame.top;
     activity.cardContainer.setLayoutParams(p);
-    activity.cardContainer.setBottomAttached(layout != null && layout.bottomAttached);
+    activity.cardContainer.setBottomAttached(isBottomAttached());
+    activity.updateDragHandleResizable(isBottomAttached());
     int bottomInset = layout == null ? 0 : layout.bottomInset;
     activity.setScannerBottomInset(bottomInset);
     applyWebViewBottomInset();

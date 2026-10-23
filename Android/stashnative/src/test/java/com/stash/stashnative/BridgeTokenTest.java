@@ -92,6 +92,32 @@ public class BridgeTokenTest {
     assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
   }
 
+  /** The live entry points the injected script calls: keepOpen browser and typed haptics. */
+  @Test public void forgedKeepOpenBrowserAndTypedHapticDoNothing() {
+    String token = activity.issueBridgeDocumentToken();
+    StashNativePlugin.getInstance().setCheckoutActivity(activity);
+    int[] haptics = {0};
+    activity.webView = new WebView(activity) {
+      @Override public boolean isShown() { return true; }
+      @Override public boolean hasWindowFocus() { return true; }
+      @Override public boolean performHapticFeedback(int constant) {
+        haptics[0]++;
+        return true;
+      }
+    };
+    bridge.externalBrowser("forged", "https://example.invalid/pay", true);
+    bridge.triggerHaptic("forged", "long");
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(activity).getNextStartedActivity());
+    assertEquals(0, haptics[0]);
+    // The same calls with the document token do reach their actions.
+    bridge.externalBrowser(token, "https://example.invalid/pay", true);
+    bridge.triggerHaptic(token, "long");
+    ShadowLooper.idleMainLooper();
+    assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
+    assertEquals(1, haptics[0]);
+  }
+
   @Test public void noTokenIssuedRejectsEveryCall() {
     assertNull(activity.bridgeDocumentToken);
     bridge.onPurchaseProcessing(null);

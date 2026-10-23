@@ -28,6 +28,8 @@ public final class StashUrlLauncher {
   public static final int OPEN_EXTERNAL_CCT = 2;
   /** System browser ({@code ACTION_VIEW}). */
   public static final int OPEN_EXTERNAL_ACTION_VIEW = 3;
+  /** Internal: invalid input or no activity resolved; public results report ACTION_VIEW. */
+  static final int OPEN_EXTERNAL_NONE = 0;
 
   /** Delivers the same launch mode values as {@link #openExternalUrl(Context, String, int)}. */
   public interface LaunchModeCallback {
@@ -69,30 +71,8 @@ public final class StashUrlLauncher {
    */
   public static int openExternalUrl(
       @Nullable Context context, @Nullable String url, int activityRequestCode) {
-    if (context == null || url == null) {
-      return OPEN_EXTERNAL_ACTION_VIEW;
-    }
-    Uri uri = parseHttpUri(url);
-    if (uri == null) {
-      Log.w(TAG, "Invalid URL or unsupported scheme");
-      return OPEN_EXTERNAL_ACTION_VIEW;
-    }
-
-    if (context instanceof Activity
-        && activityRequestCode != 0
-        && tryLaunchCustomTabsForResult((Activity) context, uri, activityRequestCode)) {
-      return OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT;
-    }
-    if (tryLaunchCustomTabsNoResult(context, uri)) {
-      return OPEN_EXTERNAL_CCT;
-    }
-    try {
-      startActionView(context, uri);
-      return OPEN_EXTERNAL_ACTION_VIEW;
-    } catch (ActivityNotFoundException e) {
-      Log.w(TAG, "No application can open URL");
-      return OPEN_EXTERNAL_ACTION_VIEW;
-    }
+    int mode = launchExternalUrl(context, url, activityRequestCode);
+    return mode == OPEN_EXTERNAL_NONE ? OPEN_EXTERNAL_ACTION_VIEW : mode;
   }
 
   /**
@@ -146,6 +126,38 @@ public final class StashUrlLauncher {
   public static int openExternalUrl(@Nullable Context context, @Nullable String url) {
     int code = (context instanceof Activity) ? CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB : 0;
     return openExternalUrl(context, url, code);
+  }
+
+  /**
+   * {@link #openExternalUrl(Context, String, int)} for callers that must know whether anything
+   * opened: returns {@link #OPEN_EXTERNAL_NONE} instead of reporting a failed system browser.
+   */
+  static int launchExternalUrl(
+      @Nullable Context context, @Nullable String url, int activityRequestCode) {
+    if (context == null || url == null) {
+      return OPEN_EXTERNAL_NONE;
+    }
+    Uri uri = parseHttpUri(url);
+    if (uri == null) {
+      Log.w(TAG, "Invalid URL or unsupported scheme");
+      return OPEN_EXTERNAL_NONE;
+    }
+
+    if (context instanceof Activity
+        && activityRequestCode != 0
+        && tryLaunchCustomTabsForResult((Activity) context, uri, activityRequestCode)) {
+      return OPEN_EXTERNAL_CCT_ACTIVITY_FOR_RESULT;
+    }
+    if (tryLaunchCustomTabsNoResult(context, uri)) {
+      return OPEN_EXTERNAL_CCT;
+    }
+    try {
+      startActionView(context, uri);
+      return OPEN_EXTERNAL_ACTION_VIEW;
+    } catch (ActivityNotFoundException e) {
+      Log.w(TAG, "No application can open URL");
+      return OPEN_EXTERNAL_NONE;
+    }
   }
 
   /** Releases the Custom Tabs engagement service after browser completion or cleanup. */

@@ -112,6 +112,17 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     }
   }
 
+  @Override
+  protected void onDestroy() {
+    // Finished from outside while waiting, e.g. the keep-alive notification clearing the task down
+    // to the app's root: neither a result nor a second resume arrives, so report the close here.
+    if (awaitingResult && isFinishing()) {
+      awaitingResult = false;
+      StashNative.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
+    }
+    super.onDestroy();
+  }
+
   private long getBrowserSessionId() {
     return getIntent() != null ? getIntent().getLongExtra(EXTRA_SESSION_ID, 0L) : 0L;
   }

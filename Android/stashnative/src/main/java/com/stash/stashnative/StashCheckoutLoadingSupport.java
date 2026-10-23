@@ -132,11 +132,24 @@ final class StashCheckoutLoadingSupport {
   }
 
   static String appendCacheBuster(String url) {
+    return appendCacheBuster(url, System.currentTimeMillis());
+  }
+
+  /** Adds the parameter to the query, before any fragment; other bytes stay as they were. */
+  static String appendCacheBuster(String url, long stamp) {
     if (url == null || url.isEmpty()) {
       return url;
     }
-    String sep = url.contains("?") ? "&" : "?";
-    return url + sep + "_stash_nc=" + System.currentTimeMillis();
+    int hash = url.indexOf('#');
+    String base = hash < 0 ? url : url.substring(0, hash);
+    String fragment = hash < 0 ? "" : url.substring(hash);
+    String sep;
+    if (base.indexOf('?') < 0) {
+      sep = "?";
+    } else {
+      sep = base.endsWith("?") || base.endsWith("&") ? "" : "&";
+    }
+    return base + sep + "_stash_nc=" + stamp + fragment;
   }
 
   static void cancelLoadTimers(StashCardActivity activity) {

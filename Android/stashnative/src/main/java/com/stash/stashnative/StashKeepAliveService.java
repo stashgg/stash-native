@@ -7,7 +7,6 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
@@ -182,13 +181,13 @@ public class StashKeepAliveService extends Service {
     nm.createNotificationChannel(ch);
   }
 
+  /**
+   * A plain new-task start joins the app's existing task by affinity without clearing anything;
+   * {@link StashKeepAliveReturnActivity} then chooses between the presented card and the app.
+   */
   private PendingIntent buildLaunchAppPendingIntent() {
-    PackageManager pm = getPackageManager();
-    Intent launch = pm.getLaunchIntentForPackage(getPackageName());
-    if (launch == null) {
-      launch = new Intent();
-    }
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    Intent launch = new Intent(this, StashKeepAliveReturnActivity.class);
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       flags |= PendingIntent.FLAG_IMMUTABLE;

@@ -8,6 +8,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -67,6 +68,9 @@ public class StashCardActivity extends Activity implements StashScannerHost {
 
   /** True between onPause and onResume; renderer-gone rebuilds must not arm timers while set. */
   boolean isActivityPaused;
+
+  /** A keepOpen browser was launched over the card and the card has not resumed since. */
+  boolean externalBrowserOverCard;
 
   boolean mainFrameErrorReceived;
 
@@ -249,7 +253,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     tray.setFocusable(true);
     tray.setOnClickListener(
         v -> {
-          if (!isInteractionLocked()) {
+          if (!isInteractionLocked() && presentation.isBottomAttached()) {
             presentation.setExpanded(!presentation.state.expanded);
           }
         });
@@ -262,26 +266,62 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     dragHandleArea = tray;
   }
 
+  /** A floating card's handle only drags, so it offers no resize action to accessibility. */
+  void updateDragHandleResizable(boolean resizable) {
+    if (dragHandleArea != null) {
+      dragHandleArea.setImportantForAccessibility(resizable
+          ? View.IMPORTANT_FOR_ACCESSIBILITY_AUTO : View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+  }
+
   void applyDragHandlePurchaseProcessingFade(boolean hide) {
     if (dragHandleArea != null) {
       dragHandleArea.setPressed(false);
       dragHandleArea.setAlpha(hide ? 0 : 1);
       dragHandleArea.setEnabled(!hide);
     }
+    if (homeButton != null) {
+      homeButton.setPressed(false);
+      homeButton.setAlpha(hide ? 0.4f : 1);
+      homeButton.setEnabled(!hide);
+    }
   }
 
+  /**
+   * Shown over hosted provider pages (see {@link StashCheckoutWebViewSupport#checkProvider}) to
+   * reload the checkout; styled like the card chrome and inert during processing.
+   */
   private void addHomeButton() {
     homeButton = new Button(this);
-    homeButton.setText("Home");
-    homeButton.setTextSize(12);
-    homeButton.setContentDescription("Return to checkout");
+    homeButton.setText(R.string.stash_return_to_checkout);
+    homeButton.setAllCaps(false);
+    homeButton.setTextSize(13);
+    homeButton.setTextColor(effectiveIsDarkForContent ? Color.WHITE : 0xff1c1c1e);
+    homeButton.setStateListAnimator(null);
+    homeButton.setMinWidth(0);
+    homeButton.setMinimumWidth(0);
+    GradientDrawable pill = new GradientDrawable();
+    pill.setColor(sheetChromeBackgroundArgb);
+    pill.setCornerRadius(StashWebViewUtils.dpToPx(this, 18));
+    pill.setStroke(StashWebViewUtils.dpToPx(this, 1),
+        StashBackgroundColorUtils.dragHandleFor(sheetChromeBackgroundArgb));
+    int inset = StashWebViewUtils.dpToPx(this, 6);
+    // A 36 dp pill inside a 48 dp touch target.
+    homeButton.setBackground(new RippleDrawable(
+        ColorStateList.valueOf(effectiveIsDarkForContent ? 0x24ffffff : 0x18000000),
+        new InsetDrawable(pill, 0, inset, 0, inset), null));
+    // After setBackground, which replaces the padding with the drawable's.
+    int padding = StashWebViewUtils.dpToPx(this, 14);
+    homeButton.setPadding(padding, 0, padding, 0);
     homeButton.setVisibility(View.GONE);
     FrameLayout.LayoutParams params =
-        new FrameLayout.LayoutParams(-2, StashWebViewUtils.dpToPx(this, 40));
+        new FrameLayout.LayoutParams(-2, StashWebViewUtils.dpToPx(this, 48));
     params.gravity = Gravity.TOP | Gravity.START;
+    params.setMarginStart(StashWebViewUtils.dpToPx(this, 12));
+    params.topMargin = inset;
     homeButton.setOnClickListener(
         v -> {
-          if (webView != null && initialURL != null) {
+          if (!isInteractionLocked() && webView != null && initialURL != null) {
             webView.loadUrl(
                 StashWebViewUtils.appendThemeQueryParameter(initialURL, effectiveIsDarkForContent));
           }
@@ -586,6 +626,9 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   @Override
   protected void onResume() {
     super.onResume();
+    if (isActivityPaused) {
+      externalBrowserOverCard = false;
+    }
     isActivityPaused = false;
     if (!isDismissing) {
       callScanner(() -> scannerContent.resume());
