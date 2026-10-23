@@ -603,6 +603,59 @@ public class PresentationSafetyTest {
     assertEquals(720, activity.cardContainer.getLayoutParams().height);
   }
 
+  @Test public void cardFollowsTheKeyboardInOneResizeWithoutJumping() throws Exception {
+    activity.rootLayout.setRight(390);
+    activity.rootLayout.setBottom(900);
+    applyKeyboardInsets(0);
+    Field entered = StashPresentationController.class.getDeclaredField("entered");
+    entered.setAccessible(true);
+    entered.set(activity.presentation, true);
+    // Let any entrance finish; the keyboard resize follows only a settled card.
+    ShadowLooper.idleMainLooper(1000, java.util.concurrent.TimeUnit.MILLISECONDS);
+    FrameLayout.LayoutParams frame =
+        (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    int restTop = frame.topMargin;
+    int restHeight = frame.height;
+    assertEquals(900, restTop + restHeight);
+
+    // Opening: the end-state insets arrive first and must not move the card on their own.
+    activity.presentation.keyboardAnimationPrepared();
+    applyKeyboardInsets(300);
+    assertEquals(restTop, frame.topMargin);
+    assertEquals(restHeight, frame.height);
+    activity.presentation.keyboardAnimationStarted();
+    seekKeyboardResize(0.5f);
+    int midBottom = frame.topMargin + frame.height;
+    assertTrue("mid bottom " + midBottom, midBottom < 900 && midBottom > 600);
+    seekKeyboardResize(1f);
+    activity.presentation.keyboardAnimationEnded();
+    assertEquals(600, frame.topMargin + frame.height);
+    int openTop = frame.topMargin;
+    assertTrue(openTop < restTop);
+
+    // Closing: the card stays above the keyboard until the keyboard moves, then returns to rest
+    // without rising above where it started.
+    activity.presentation.keyboardAnimationPrepared();
+    applyKeyboardInsets(0);
+    assertEquals(openTop, frame.topMargin);
+    assertEquals(600, frame.topMargin + frame.height);
+    activity.presentation.keyboardAnimationStarted();
+    for (float fraction : new float[] {0.1f, 0.3f, 0.5f, 0.7f, 0.9f}) {
+      seekKeyboardResize(fraction);
+      assertTrue(frame.topMargin >= openTop);
+      assertTrue(frame.topMargin <= restTop);
+    }
+    seekKeyboardResize(1f);
+    activity.presentation.keyboardAnimationEnded();
+    assertEquals(restTop, frame.topMargin);
+    assertEquals(restHeight, frame.height);
+  }
+
+  /** Reports the keyboard animation's interpolated fraction, as onProgress does. */
+  private void seekKeyboardResize(float fraction) {
+    activity.presentation.keyboardAnimationProgress(fraction);
+  }
+
   @Test public void attachedCardPaintsToWindowBottomInBothStates() throws Exception {
     activity.rootLayout.setRight(390);
     activity.rootLayout.setBottom(900);

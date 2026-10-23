@@ -34,6 +34,12 @@ final class StashPresentationController implements View.OnTouchListener {
   private final StashPresentationOptions options;
   private Insets bars = Insets.NONE;
   private int keyboardBottom;
+  /** Between the keyboard animation's prepare and end callbacks. */
+  private boolean keyboardAnimating;
+  /** Card frames at the start and end of the running keyboard animation, if it is followed. */
+  private StashCheckoutSizing.Box keyboardFrom;
+  private StashCheckoutSizing.Box keyboardTo;
+  private float keyboardTranslation;
   private StashCheckoutSizing.Box hinge;
   private boolean verticalHinge;
   private String foldState;
@@ -88,10 +94,45 @@ final class StashPresentationController implements View.OnTouchListener {
         new WindowInsetsAnimationCompat.Callback(
             WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE) {
           @Override
+          public void onPrepare(WindowInsetsAnimationCompat animation) {
+            if (isKeyboard(animation)) {
+              keyboardAnimationPrepared();
+            }
+          }
+
+          @Override
+          public WindowInsetsAnimationCompat.BoundsCompat onStart(
+              WindowInsetsAnimationCompat animation,
+              WindowInsetsAnimationCompat.BoundsCompat bounds) {
+            if (isKeyboard(animation)) {
+              keyboardAnimationStarted();
+            }
+            return bounds;
+          }
+
+          @Override
           public WindowInsetsCompat onProgress(
               WindowInsetsCompat insets, List<WindowInsetsAnimationCompat> runningAnimations) {
-            applyInsets(insets);
+            if (!keyboardAnimating) {
+              applyInsets(insets);
+              return insets;
+            }
+            // The card moves between its start and end layouts at the keyboard's own fraction;
+            // applying the interpolated insets would replay the start position after the end state.
+            for (WindowInsetsAnimationCompat animation : runningAnimations) {
+              if (isKeyboard(animation)) {
+                keyboardAnimationProgress(animation.getInterpolatedFraction());
+                break;
+              }
+            }
             return insets;
+          }
+
+          @Override
+          public void onEnd(WindowInsetsAnimationCompat animation) {
+            if (isKeyboard(animation)) {
+              keyboardAnimationEnded();
+            }
           }
         });
     ViewCompat.requestApplyInsets(activity.rootLayout);
@@ -133,6 +174,57 @@ final class StashPresentationController implements View.OnTouchListener {
     bars = nextBars;
     keyboardBottom = nextKeyboard;
     state.keyboardVisible = nextKeyboard > nextBars.bottom;
+    if (!keyboardAnimating) {
+      environmentChanged();
+    }
+  }
+
+  private static boolean isKeyboard(WindowInsetsAnimationCompat animation) {
+    return (animation.getTypeMask() & WindowInsetsCompat.Type.ime()) != 0;
+  }
+
+  /**
+   * The keyboard is about to animate. Its end-state insets arrive next; they update the keyboard
+   * state without moving the card, which then follows the keyboard from where it is now.
+   */
+  void keyboardAnimationPrepared() {
+    keyboardAnimating = true;
+  }
+
+  /** Captures the card's current frame and its frame for the keyboard's end state. */
+  void keyboardAnimationStarted() {
+    if (disposed || activity.isDismissing || layout == null || shownFrame == null || !entered
+        || animationKind == AnimationKind.ENTRANCE) {
+      environmentChanged();
+      return;
+    }
+    cancelAnimation();
+    gestureCancelled = true;
+    dragging = false;
+    keyboardFrom = shownFrame;
+    keyboardTo = resolve().frame;
+    keyboardTranslation = activity.cardContainer.getTranslationY();
+  }
+
+  /** Places the card at the keyboard animation's interpolated fraction. */
+  void keyboardAnimationProgress(float fraction) {
+    if (keyboardFrom == null || keyboardTo == null || disposed || activity.isDismissing) {
+      return;
+    }
+    StashCheckoutSizing.Box from = keyboardFrom;
+    StashCheckoutSizing.Box to = keyboardTo;
+    applyFrame(
+        new StashCheckoutSizing.Box(
+            lerp(from.left, to.left, fraction),
+            lerp(from.top, to.top, fraction),
+            lerp(from.right, to.right, fraction),
+            lerp(from.bottom, to.bottom, fraction)));
+    activity.cardContainer.setTranslationY(keyboardTranslation * (1 - fraction));
+  }
+
+  /** Settles on the final layout. */
+  void keyboardAnimationEnded() {
+    keyboardAnimating = false;
     environmentChanged();
   }
 
@@ -243,6 +335,8 @@ final class StashPresentationController implements View.OnTouchListener {
       return;
     }
     final StashCheckoutSizing.Layout next = resolve();
+    keyboardFrom = null;
+    keyboardTo = null;
     boolean entering = animationKind == AnimationKind.ENTRANCE;
     if (!entering) {
       cancelAnimation();
