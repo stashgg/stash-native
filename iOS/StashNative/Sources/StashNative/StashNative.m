@@ -89,7 +89,9 @@ Class StashScannerContentClass(void) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self deliverScannerUnavailable]; });
         return;
     }
-    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed)
+    // A surface from a reset session may still be on screen until its entrance ends; open beneath it.
+    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed &&
+           !StashSessionLeavingSurface(presenter.presentedViewController))
         presenter = presenter.presentedViewController;
     StashCardSession *session = [[StashCardSession alloc] init];
     session.owner = self;
@@ -113,7 +115,9 @@ Class StashScannerContentClass(void) {
         return;
     }
     if (self.session || !normalized || !presenter.viewIfLoaded.window || presenter.isBeingDismissed) return;
-    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed) {
+    // A surface from a reset session may still be on screen until its entrance ends; open beneath it.
+    while (presenter.presentedViewController && !presenter.presentedViewController.isBeingDismissed &&
+           !StashSessionLeavingSurface(presenter.presentedViewController)) {
         presenter = presenter.presentedViewController;
     }
     StashCardSession *session = [[StashCardSession alloc] init];
@@ -147,13 +151,16 @@ Class StashScannerContentClass(void) {
 - (void)closeBrowser {
     if (!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(), ^{ [self closeBrowser]; }); return; }
     if (self.session.browser) [self.session browserClosed];
+    else [self.session closeOverlayBrowser];
 }
 - (void)dismissSafariViewControllerWithResult:(BOOL)success {
     if (!NSThread.isMainThread) {
         dispatch_async(dispatch_get_main_queue(), ^{ [self dismissSafariViewControllerWithResult:success]; }); return;
     }
-    if (!self.session.browser || self.session.closing) return;
-    [self.session paymentSucceeded:success order:nil];
+    StashCardSession *session = self.session;
+    if (session.closing) return;
+    if (session.browser) [session paymentSucceeded:success order:nil];
+    else [session overlayBrowserFinishedWithResult:success];
 }
 - (void)dealloc {
     StashCardSession *session = _session;

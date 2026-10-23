@@ -69,6 +69,8 @@ void StashSetExternalURLOpener(void (^opener)(NSURL *url, NSDictionary *options,
 void StashOpenExternalURL(NSURL *url, NSDictionary *options, void (^completion)(BOOL success));
 // The scanner class from the optional StashNativeCodeLink module, or Nil when it is not linked.
 Class StashScannerContentClass(void);
+// The session whose card or Safari is still presented while waiting to be dismissed, or nil.
+StashCardSession *StashSessionLeavingSurface(UIViewController *surface);
 // Test seam: resolves a different class name; nil restores StashNativeScannerViewController.
 void StashSetScannerContentClassName(NSString *name);
 
@@ -131,6 +133,12 @@ void StashSetScannerContentClassName(NSString *name);
 @property (nonatomic) NSTimeInterval foregroundLoadElapsed;
 @property (nonatomic) BOOL retriedLoad;
 @property (nonatomic, copy) void (^dialogCompletion)(id result);
+/** The card or Safari is still presented and its dismissal has been requested. */
+@property (nonatomic) BOOL dismissingSurface;
+/** Opens from the same presenter that wait for this session's surface to leave. */
+@property (nonatomic, strong) NSMutableArray *surfaceDismissalWaiters;
+/** The open waited for another session's surface, so it was accepted; a later failure ends with its final event. */
+@property (nonatomic) BOOL openDeferred;
 - (BOOL)isActive;
 - (BOOL)canUserDismiss;
 - (void)presentCheckout;
@@ -150,6 +158,13 @@ void StashSetScannerContentClassName(NSString *name);
 - (void)setExpanded:(BOOL)expanded animated:(BOOL)animated;
 - (void)browserClosed;
 - (void)openBrowserOverCardWithURL:(NSString *)url;
+// Dismisses keepOpen Safari and returns to the card; no browser event follows.
+- (void)closeOverlayBrowser;
+// A host-reported browser result for keepOpen Safari.
+- (void)overlayBrowserFinishedWithResult:(BOOL)success;
+- (void)detachOverlayBrowser;
+// Defers an open until a leaving surface from another session is gone.
+- (BOOL)waitForLeavingSurfaceOn:(UIViewController *)presenter then:(void (^)(void))open;
 - (void)playLongHaptic;
 - (BOOL)playContinuousHaptic;
 // Ends the session when a host dismissal removes the card or Safari outside the SDK.

@@ -66,7 +66,9 @@ final class AuditRegressionTests: XCTestCase {
             XCTAssertEqual(width, 432)
             done.fulfill()
         }
-        wait(for: [done], timeout: 5)
+        // The result depends only on ordering. This is often the first test after launch, when a hosted runner
+        // can hold the main queue for several seconds; the ceiling only bounds a hang.
+        wait(for: [done], timeout: 30)
     }
 
     func testMainFrameFailureAfterLoadEndsCheckoutAsNetworkError() {

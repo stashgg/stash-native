@@ -26,6 +26,25 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         fabs(lb - rb) <= 0.000001 && fabs(la - ra) <= 0.000001;
 }
 
+StashCardSession *StashSessionLeavingSurface(UIViewController *surface) {
+    id session = nil;
+    if ([surface isKindOfClass:StashCardViewController.class]) session = ((StashCardViewController *)surface).session;
+    else if ([surface isKindOfClass:SFSafariViewController.class]) session = ((SFSafariViewController *)surface).delegate;
+    return [session isKindOfClass:StashCardSession.class] && [session dismissingSurface] ? session : nil;
+}
+
+// Dismisses keepOpen Safari from its card once any transition it is part of has ended.
+static void StashDismissOverlay(UIViewController *overlay) {
+    id<UIViewControllerTransitionCoordinator> transition = overlay.transitionCoordinator;
+    if ((overlay.isBeingPresented || overlay.isBeingDismissed) && transition &&
+        [transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
+            dispatch_async(dispatch_get_main_queue(), ^{ StashDismissOverlay(overlay); });
+        }]) return;
+    UIViewController *card = overlay.presentingViewController;
+    if (card.presentedViewController == overlay && !overlay.isBeingDismissed && !card.isBeingDismissed)
+        [card dismissViewControllerAnimated:YES completion:nil];
+}
+
 @implementation StashCardSession
 - (BOOL)isActive { return self.owner.session == self && !self.closing; }
 - (BOOL)canUserDismiss { return [self isActive] && self.config.allowDismiss && !self.processing && !self.scanCompleted; }
@@ -33,8 +52,9 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 
 - (void)presentCheckout {
     if (![self isActive] || self.controller) return;
+    if ([self waitForLeavingSurfaceOn:self.presenter then:^{ [self presentCheckout]; }]) return;
     if (!self.presenter.view.window || self.presenter.isBeingDismissed || self.presenter.presentedViewController) {
-        [self finishWithUserDismiss:NO completion:nil];
+        [self finishWithUserDismiss:self.openDeferred completion:nil];
         return;
     }
     [self preparePortraitWithCompletion:^{ [self presentCheckoutContent]; }];
@@ -370,13 +390,14 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)presentBrowser {
     [self presentBrowserAfterHandoff:NO];
 }
-// An open rejected synchronously is ignored. After a handoff, or once preparation has gone asynchronous,
-// the host was told a browser is coming, so a failure ends with the browser-closed event.
+// An open rejected synchronously is ignored. After a handoff, a deferred open, or once preparation has gone
+// asynchronous, the host was told a browser is coming, so a failure ends with the browser-closed event.
 - (void)presentBrowserAfterHandoff:(BOOL)handoff {
     if (![self isActive] || self.browser) return;
+    if (!handoff && [self waitForLeavingSurfaceOn:self.presenter then:^{ [self presentBrowserAfterHandoff:NO]; }]) return;
     UIViewController *presenter = self.presentationPresenter;
     if (!presenter.viewIfLoaded.window || presenter.isBeingDismissed || presenter.presentedViewController) {
-        if (handoff) [self browserClosed];
+        if (handoff || self.openDeferred) [self browserClosed];
         else [self finishWithUserDismiss:NO completion:nil];
         return;
     }
@@ -401,10 +422,29 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
     [browser release];
 #endif
 }
+// A reset or released card can still be in its entrance animation. An open from the same presenter waits for
+// it to leave instead of presenting from the card that is about to be dismissed.
+- (BOOL)waitForLeavingSurfaceOn:(UIViewController *)presenter then:(void (^)(void))open {
+    StashCardSession *leaving = StashSessionLeavingSurface(presenter.presentedViewController);
+    if (!leaving || leaving == self) return NO;
+    if (!leaving.surfaceDismissalWaiters) leaving.surfaceDismissalWaiters = [NSMutableArray array];
+    void (^waiter)(void) = [open copy];
+    [leaving.surfaceDismissalWaiters addObject:waiter];
+#if !__has_feature(objc_arc)
+    [waiter release];
+#endif
+    self.openDeferred = YES;
+    return YES;
+}
 - (void)dismissPresentedSurfaceAnimated:(BOOL)animated completion:(void (^)(void))completion {
     UIViewController *surface = self.browser ?: self.controller;
-    id<UIViewControllerTransitionCoordinator> transition = surface.transitionCoordinator;
-    if ((surface.isBeingPresented || surface.isBeingDismissed) && transition) {
+    // keepOpen Safari leaves with its card.
+    if (surface && surface == self.controller) [self detachOverlayBrowser];
+    // UIKit ignores a dismissal while the surface, or anything it presents, is mid-transition.
+    for (UIViewController *top = surface; top; top = top.presentedViewController) {
+        id<UIViewControllerTransitionCoordinator> transition = top.transitionCoordinator;
+        if (!(top.isBeingPresented || top.isBeingDismissed) || !transition) continue;
+        self.dismissingSurface = YES;
         BOOL waiting = [transition animateAlongsideTransition:nil completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 [self dismissPresentedSurfaceAnimated:animated completion:completion];
@@ -412,8 +452,25 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
         }];
         if (waiting) return;
     }
-    if (surface.presentingViewController) [surface dismissViewControllerAnimated:animated completion:completion];
-    else if (completion) completion();
+    UIViewController *presenting = surface.presentingViewController;
+    if (!presenting) { [self surfaceDismissed:completion]; return; }
+    self.dismissingSurface = YES;
+    void (^dismissed)(void) = ^{ [self surfaceDismissed:completion]; };
+    // Sent to a surface that presents keepOpen Safari or a page dialog, UIKit dismisses only that child and
+    // leaves the surface on screen; its presenter removes the whole stack.
+    if (surface.presentedViewController && presenting.presentedViewController == surface)
+        [presenting dismissViewControllerAnimated:animated completion:dismissed];
+    else [surface dismissViewControllerAnimated:animated completion:dismissed];
+}
+- (void)surfaceDismissed:(void (^)(void))completion {
+    self.dismissingSurface = NO;
+    NSArray *waiters = self.surfaceDismissalWaiters;
+#if !__has_feature(objc_arc)
+    [[waiters retain] autorelease];
+#endif
+    self.surfaceDismissalWaiters = nil;
+    if (completion) completion();
+    for (void (^waiter)(void) in waiters) waiter();
 }
 - (void)finishWithUserDismiss:(BOOL)userDismiss completion:(void (^)(void))completion {
     if (![self isActive]) return;
@@ -499,8 +556,7 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)cleanup {
     [self cleanupCheckout];
-    self.overlayBrowser.delegate = nil;
-    self.overlayBrowser = nil;
+    [self detachOverlayBrowser];
     [self.hapticEngine stopWithCompletionHandler:nil];
     self.hapticEngine = nil;
     self.browser.delegate = nil;
@@ -566,6 +622,26 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 #if !__has_feature(objc_arc)
     [browser release];
 #endif
+}
+- (void)detachOverlayBrowser {
+    self.overlayBrowser.delegate = nil;
+    self.overlayBrowser = nil;
+}
+- (void)closeOverlayBrowser {
+    SFSafariViewController *overlay = self.overlayBrowser;
+    if (!overlay) return;
+#if !__has_feature(objc_arc)
+    [[overlay retain] autorelease];
+#endif
+    [self detachOverlayBrowser];
+    StashDismissOverlay(overlay);
+}
+- (void)overlayBrowserFinishedWithResult:(BOOL)success {
+    if (![self isActive] || !self.overlayBrowser) return;
+    // The live page reports this payment too. The host's result is delivered only when it closes the card,
+    // where the autoClose once-guard drops the other report; otherwise Safari closes and the page reports it.
+    if (self.config.autoClose) [self paymentSucceeded:success order:nil];
+    else [self closeOverlayBrowser];
 }
 - (void)playLongHaptic {
     if (![self playContinuousHaptic]) {
@@ -657,11 +733,20 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 }
 - (void)safariViewControllerDidFinish:(SFSafariViewController *)controller {
     // Safari over an open card returns to the card without ending the session.
-    if (controller == self.overlayBrowser) { self.overlayBrowser.delegate = nil; self.overlayBrowser = nil; return; }
+    if (controller == self.overlayBrowser) { [self detachOverlayBrowser]; return; }
     if (controller == self.browser) [self browserClosed];
 }
 - (void)presentedSurfaceDidDisappear:(UIViewController *)surface {
-    if (![self isActive] || self.browserHandoff || (surface != self.controller && surface != self.browser)) return;
+    if (![self isActive] || self.browserHandoff) return;
+    if (surface == self.overlayBrowser) {
+        // The host can dismiss keepOpen Safari without Safari's Done callback; the card must be able to open it again.
+        BOOL dismissed = surface.isBeingDismissed;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (surface == self.overlayBrowser && (dismissed || !surface.presentingViewController)) [self detachOverlayBrowser];
+        });
+        return;
+    }
+    if (surface != self.controller && surface != self.browser) return;
     // Dismissing the host's presenter chain removes the card or Safari without a UIKit delegate callback.
     BOOL dismissed = surface.isBeingDismissed;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -848,7 +933,8 @@ static BOOL StashSamePageBackingPaint(UIColor *left, UIColor *right) {
 - (void)dealloc {
     [self cleanup];
 #if !__has_feature(objc_arc)
-    [_config release]; [_scannerConfig release]; [_url release]; [super dealloc];
+    [_config release]; [_scannerConfig release]; [_url release]; [_surfaceDismissalWaiters release];
+    [super dealloc];
 #endif
 }
 @end

@@ -93,6 +93,14 @@ void StashHostDismissalProbe(NSString *mode, void (^completion)(NSDictionary *))
 void StashDismissalContentProbe(void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 /// Opens Safari over a card with keepOpen, closes it, and reports the card, session, and delegate events.
 void StashKeepOpenBrowserProbe(void (^ _Nonnull completion)(NSDictionary * _Nonnull));
+/// Covers a real card with keepOpen Safari ("safari") or a page alert ("alert"), applies the trigger, and reports
+/// what is still presented, the session state, and the delegate events.
+void StashCardStackProbe(NSString * _Nonnull cover, NSString * _Nonnull trigger, BOOL autoClose,
+    void (^ _Nonnull completion)(NSDictionary * _Nonnull));
+/// Resets and reopens while the first card is still animating in; reports both cards and the delegate events.
+/// Modes: "present"; "detached", "occupied", "browserDetached" (the host changes before the deferred open
+/// runs); "reset" (reset again while the open waits).
+void StashResetReopenProbe(NSString * _Nonnull mode, void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 void StashLandscapeCardWidthProbe(CGFloat preferredWidth, void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 NSDictionary *StashNativeEntranceProbe(void);
 

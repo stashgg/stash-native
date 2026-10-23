@@ -215,19 +215,36 @@ static void StashRequestSceneOrientation(UIWindowScene *scene, UIInterfaceOrient
     [scene requestGeometryUpdateWithPreferences:preferences errorHandler:nil];
 }
 
+// Repeats the request until the active scene reports the orientation. A request made while the scene is still
+// activating or settling from an earlier rotation can be dropped, so a single request is not enough on a loaded runner.
+static void StashRotateScene(UIWindowScene *scene, UIWindow *window, BOOL landscape, CFAbsoluteTime deadline,
+    void (^completion)(BOOL)) API_AVAILABLE(ios(16.0)) {
+    BOOL (^settled)(void) = ^BOOL {
+        CGSize size = window.bounds.size;
+        if (scene.activationState != UISceneActivationStateForegroundActive) return NO;
+        return landscape ? size.width > size.height && window.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact :
+            size.width < size.height;
+    };
+    if (settled() || CFAbsoluteTimeGetCurrent() >= deadline) { completion(settled()); return; }
+    if (scene.activationState == UISceneActivationStateForegroundActive)
+        StashRequestSceneOrientation(scene, landscape ? UIInterfaceOrientationMaskLandscapeRight : UIInterfaceOrientationMaskPortrait);
+    StashAwaitHostCondition(settled, MIN(deadline, CFAbsoluteTimeGetCurrent() + 1), ^(BOOL done) {
+        if (done) completion(YES);
+        else StashRotateScene(scene, window, landscape, deadline, completion);
+    });
+}
+
 static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(NSDictionary *)) API_AVAILABLE(ios(16.0)) {
-    UIWindow *previous = nil;
-    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
-        if ([scene isKindOfClass:UIWindowScene.class])
-            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
-    UIWindowScene *scene = previous.windowScene;
+    UIWindowScene *scene = nil;
+    for (UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
+        if ([candidate isKindOfClass:UIWindowScene.class]) scene = (UIWindowScene *)candidate;
+    // The host's own window, not a fixture an earlier test left key.
+    id<UIWindowSceneDelegate> sceneDelegate = (id<UIWindowSceneDelegate>)scene.delegate;
+    UIWindow *previous = [sceneDelegate respondsToSelector:@selector(window)] ? sceneDelegate.window : scene.keyWindow;
     if (!scene || !previous) { completion(@{@"rotated":@NO}); return; }
+    [previous makeKeyWindow];
     // Rotate the host scene itself: the card must follow a real compact-height phone window.
-    StashRequestSceneOrientation(scene, UIInterfaceOrientationMaskLandscapeRight);
-    StashAwaitHostCondition(^BOOL {
-        return previous.bounds.size.width > previous.bounds.size.height &&
-            previous.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact;
-    }, CFAbsoluteTimeGetCurrent() + 5, ^(BOOL rotated) {
+    StashRotateScene(scene, previous, YES, CFAbsoluteTimeGetCurrent() + 20, ^(BOOL rotated) {
         UIWindow *window = [[UIWindow alloc] initWithWindowScene:scene];
         UIViewController *root = [UIViewController new];
         window.rootViewController = root; [window makeKeyAndVisible];
@@ -235,9 +252,7 @@ static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(N
         void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
             [owner resetPresentationState];
             window.hidden = YES; [previous makeKeyWindow];
-            StashRequestSceneOrientation(scene, UIInterfaceOrientationMaskPortrait);
-            StashAwaitHostCondition(^BOOL { return previous.bounds.size.width < previous.bounds.size.height; },
-                CFAbsoluteTimeGetCurrent() + 5, ^(BOOL restored) {
+            StashRotateScene(scene, previous, NO, CFAbsoluteTimeGetCurrent() + 20, ^(BOOL restored) {
                 NSMutableDictionary *final = [result mutableCopy];
                 final[@"restoredPortrait"] = @(restored);
                 completion(final);
@@ -252,7 +267,7 @@ static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(N
         [session.webView stopLoading];
         UIViewController *card = session.controller;
         StashAwaitHostCondition(^BOOL { return card.presentingViewController == root && !card.isBeingPresented; },
-            CFAbsoluteTimeGetCurrent() + 5, ^(BOOL presented) {
+            CFAbsoluteTimeGetCurrent() + 10, ^(BOOL presented) {
             if (!presented) { finish(@{@"rotated":@YES, @"presented":@NO}); return; }
             // Let any post-presentation size update settle before measuring.
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
@@ -273,6 +288,9 @@ static void StashLandscapeCardWidth(CGFloat preferredWidth, void (^completion)(N
 - (void)stashNativeDidRequestExternalPaymentWithURL:(NSString *)url { [self.events addObject:@"externalPayment"]; }
 - (void)stashNativeDidDismissBrowser { [self.events addObject:@"browserDismissed"]; }
 - (void)stashNativeDidDismissCard { [self.events addObject:@"cardDismissed"]; }
+- (void)stashNativeDidCompletePaymentWithOrder:(NSString *)order { [self.events addObject:@"paymentSuccess"]; }
+- (void)stashNativeDidFailPayment { [self.events addObject:@"paymentFailure"]; }
+- (void)stashNativeDidEncounterNetworkError { [self.events addObject:@"networkError"]; }
 @end
 
 void StashKeepOpenBrowserProbe(void (^completion)(NSDictionary *)) {
@@ -321,6 +339,219 @@ void StashKeepOpenBrowserProbe(void (^completion)(NSDictionary *)) {
                         @"overlayCleared":@(session.overlayBrowser == nil), @"events":[delegate.events copy]});
                 });
             });
+        });
+    });
+}
+
+void StashCardStackProbe(NSString *cover, NSString *trigger, BOOL autoClose, void (^completion)(NSDictionary *)) {
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    if (!previous.windowScene) { completion(@{@"presented":@NO}); return; }
+    UIWindow *window = [[UIWindow alloc] initWithWindowScene:previous.windowScene];
+    UIViewController *root = [UIViewController new];
+    window.rootViewController = root; [window makeKeyAndVisible];
+    __block StashNative *owner = [StashNative new];
+    __weak StashNative *weakOwner = owner;
+    StashKeepOpenDelegate *delegate = [StashKeepOpenDelegate new];
+    owner.delegate = delegate;
+    StashNativeCardConfig *config = [StashNativeCardConfig new];
+    config.autoClose = autoClose;
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:config];
+    StashCardSession *session = owner.session;
+    [session.webView stopLoading];
+    // Slow cases must not reach the 15-second load deadline.
+    [session.loadTimer invalidate]; session.loadTimer = nil;
+    UIViewController *card = session.controller;
+    BOOL alert = [cover isEqualToString:@"alert"];
+    NSDictionary *keepOpen = @{@"url":@"https://example.invalid/pay", @"keepOpen":@YES};
+    __block NSInteger scriptReturns = 0;
+    void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+        [owner resetPresentationState];
+        owner.delegate = nil;
+        // Remove anything left behind so later tests start from an empty host.
+        if (root.presentedViewController) [root dismissViewControllerAnimated:NO completion:nil];
+        window.hidden = YES; [previous makeKeyWindow];
+        completion(result);
+    };
+    void (^report)(NSDictionary *) = ^(NSDictionary *extra) {
+        NSMutableDictionary *result = [@{@"presented":@YES, @"overlayShown":@YES,
+            @"rootCleared":@(root.presentedViewController == nil),
+            @"cardGone":@(card.presentingViewController == nil),
+            @"cardOpen":@(card.presentingViewController == root && [session isActive] && weakOwner.session == session),
+            @"sessionEnded":@(weakOwner.session == nil),
+            @"overlayCleared":@(session.overlayBrowser == nil),
+            @"scriptReturns":@(scriptReturns), @"events":[delegate.events copy]} mutableCopy];
+        [result addEntriesFromDictionary:extra];
+        finish(result);
+    };
+    // Waits for the condition, then lets late callbacks arrive before continuing.
+    void (^settle)(BOOL (^)(void), void (^)(BOOL)) = ^(BOOL (^condition)(void), void (^then)(BOOL)) {
+        StashAwaitHostCondition(condition, CFAbsoluteTimeGetCurrent() + 10, ^(BOOL met) {
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 300 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{ then(met); });
+        });
+    };
+    BOOL (^closed)(void) = ^BOOL { return root.presentedViewController == nil && weakOwner.session == nil; };
+    BOOL (^coverGone)(void) = ^BOOL { return card.presentedViewController == nil; };
+    BOOL (^coverShown)(void) = ^BOOL {
+        UIViewController *top = card.presentedViewController;
+        return [top isKindOfClass:alert ? UIAlertController.class : SFSafariViewController.class] && !top.isBeingPresented;
+    };
+    // Back on the card, a second keepOpen request must present Safari again.
+    void (^reopen)(BOOL) = ^(BOOL returned) {
+        BOOL cleared = session.overlayBrowser == nil;
+        [session handleMessage:@"stashExternalPayment" body:keepOpen];
+        settle(coverShown, ^(BOOL shown) {
+            report(@{@"returned":@(returned), @"clearedOnReturn":@(cleared),
+                @"reopened":@(shown && card.presentedViewController == session.overlayBrowser)});
+        });
+    };
+    void (^apply)(void) = ^{
+        if ([trigger isEqualToString:@"dismiss"]) [owner dismiss];
+        else if ([trigger isEqualToString:@"reset"]) [owner resetPresentationState];
+        else if ([trigger isEqualToString:@"ownerRelease"]) owner = nil;
+        else if ([trigger isEqualToString:@"success"]) [session handleMessage:@"stashNativementSuccess" body:@"order"];
+        else if ([trigger isEqualToString:@"failure"]) [session handleMessage:@"stashNativementFailure" body:@{}];
+        else if ([trigger isEqualToString:@"windowClose"]) [session handleMessage:@"stashWindowClose" body:@{}];
+        else if ([trigger isEqualToString:@"networkError"]) [session networkFailed];
+        else if ([trigger isEqualToString:@"handoff"]) {
+            [session handleMessage:@"stashExternalPayment" body:@{@"url":@"https://example.invalid/pay", @"keepOpen":@NO}];
+            settle(^BOOL {
+                return session.browser && root.presentedViewController == session.browser && !session.browser.isBeingPresented;
+            }, ^(BOOL handedOff) { report(@{@"browserPresented":@(handedOff)}); });
+            return;
+        } else if ([trigger isEqualToString:@"closeBrowser"] || [trigger isEqualToString:@"hostDismissOverlay"]) {
+            if ([trigger isEqualToString:@"closeBrowser"]) [owner closeBrowser];
+            // The host removes Safari itself; Safari's Done callback never runs.
+            else [card dismissViewControllerAnimated:YES completion:nil];
+            settle(coverGone, reopen);
+            return;
+        } else if ([trigger isEqualToString:@"result"] || [trigger isEqualToString:@"pageThenResult"]) {
+            BOOL pageFirst = [trigger isEqualToString:@"pageThenResult"];
+            // Checkout keeps running under keepOpen Safari, so the page can report the same payment.
+            void (^page)(void) = ^{ [session handleMessage:@"stashNativementSuccess" body:@"order"]; };
+            if (pageFirst) page(); else [owner dismissSafariViewControllerWithResult:YES];
+            settle(autoClose ? closed : (pageFirst ? ^BOOL { return YES; } : coverGone), ^(BOOL first) {
+                if (pageFirst) [owner dismissSafariViewControllerWithResult:YES]; else page();
+                settle(autoClose ? closed : coverGone, ^(BOOL second) {
+                    report(@{@"returned":@(first && second && coverGone())});
+                });
+            });
+            return;
+        }
+        settle([trigger isEqualToString:@"ownerRelease"] ? ^BOOL { return root.presentedViewController == nil && !weakOwner; } :
+            [trigger hasPrefix:@"reset"] ? ^BOOL { return root.presentedViewController == nil; } : closed, ^(BOOL ended) {
+            report(@{@"ended":@(ended)});
+        });
+    };
+    StashAwaitHostCondition(^BOOL { return card.presentingViewController == root && !card.isBeingPresented; },
+        CFAbsoluteTimeGetCurrent() + 10, ^(BOOL presented) {
+        if (!presented) { finish(@{@"presented":@NO}); return; }
+        void (^covered)(BOOL) = ^(BOOL shown) {
+            if (!shown) {
+                finish(@{@"presented":@YES, @"overlayShown":@NO, @"loaded":@(session.loaded),
+                    @"top":NSStringFromClass(card.presentedViewController.class) ?: @"none"});
+                return;
+            }
+            apply();
+        };
+        if (!alert) {
+            [session handleMessage:@"stashExternalPayment" body:keepOpen];
+            StashAwaitHostCondition(coverShown, CFAbsoluteTimeGetCurrent() + 10, covered);
+            return;
+        }
+        // A real page alert: WebKit waits for the SDK to complete its panel before the script returns.
+        // In the simulator, the process's first alert over a page blocked in alert() takes about 15 seconds to
+        // finish presenting; a plain alert first avoids that wait.
+        UIAlertController *plain = [UIAlertController alertControllerWithTitle:nil message:@"stash"
+            preferredStyle:UIAlertControllerStyleAlert];
+        [card presentViewController:plain animated:NO completion:^{
+            [card dismissViewControllerAnimated:NO completion:^{
+                [session.webView loadHTMLString:@"<!doctype html><title>stash</title>"
+                    baseURL:[NSURL URLWithString:@"https://example.invalid/"]];
+                StashAwaitHostCondition(^BOOL { return session.loaded; }, CFAbsoluteTimeGetCurrent() + 10, ^(BOOL loaded) {
+                    [session.webView evaluateJavaScript:@"alert('stash'); 1" completionHandler:^(id value, NSError *error) {
+                        scriptReturns += 1;
+                    }];
+                    StashAwaitHostCondition(coverShown, CFAbsoluteTimeGetCurrent() + 10, covered);
+                });
+            }];
+        }];
+    });
+}
+
+// Observes a deferred session's WebView so the probe can stop its load before a DNS failure ends it.
+@interface StashDeferredLoadStopper : NSObject
+@property (nonatomic, weak) StashCardSession *session;
+@end
+@implementation StashDeferredLoadStopper
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    StashCardSession *session = self.session;
+    dispatch_async(dispatch_get_main_queue(), ^{ [session.webView stopLoading]; });
+}
+@end
+
+void StashResetReopenProbe(NSString *mode, void (^completion)(NSDictionary *)) {
+    UIWindow *previous = nil;
+    for (UIScene *scene in UIApplication.sharedApplication.connectedScenes)
+        if ([scene isKindOfClass:UIWindowScene.class])
+            for (UIWindow *window in ((UIWindowScene *)scene).windows) if (window.isKeyWindow) previous = window;
+    if (!previous.windowScene) { completion(@{@"presented":@NO}); return; }
+    UIWindow *window = [[UIWindow alloc] initWithWindowScene:previous.windowScene];
+    UIViewController *root = [UIViewController new];
+    window.rootViewController = root; [window makeKeyAndVisible];
+    StashNative *owner = [StashNative new];
+    StashKeepOpenDelegate *delegate = [StashKeepOpenDelegate new];
+    owner.delegate = delegate;
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:nil];
+    StashCardSession *first = owner.session;
+    [first.webView stopLoading];
+    UIViewController *firstCard = first.controller;
+    BOOL firstAnimating = firstCard.isBeingPresented;
+    // Reset and reopen while the first card is still in its presentation animation.
+    [owner resetPresentationState];
+    if ([mode isEqualToString:@"browserDetached"])
+        [owner openBrowserWithURL:@"https://example.invalid" fromViewController:root];
+    else [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:nil];
+    StashCardSession *second = owner.session;
+    [second.webView stopLoading];
+    BOOL deferred = first.surfaceDismissalWaiters.count == 1 && second.openDeferred;
+    // The host changes before the deferred open runs: the first card's own dismissal waiter goes first.
+    void (^interfere)(void) = nil;
+    if ([mode hasSuffix:@"etached"]) interfere = ^{ [root.view removeFromSuperview]; };
+    else if ([mode isEqualToString:@"occupied"]) interfere = ^{
+        [root presentViewController:[UIViewController new] animated:NO completion:nil];
+    };
+    else if ([mode isEqualToString:@"reset"]) [owner resetPresentationState];
+    if (interfere) [first.surfaceDismissalWaiters insertObject:[interfere copy] atIndex:0];
+    StashDeferredLoadStopper *stopper = [StashDeferredLoadStopper new];
+    stopper.session = second;
+    [second addObserver:stopper forKeyPath:@"webView" options:0 context:NULL];
+    void (^finish)(NSDictionary *) = ^(NSDictionary *result) {
+        [second removeObserver:stopper forKeyPath:@"webView"];
+        [owner resetPresentationState];
+        owner.delegate = nil;
+        if (root.presentedViewController) [root dismissViewControllerAnimated:NO completion:nil];
+        window.hidden = YES; [previous makeKeyWindow];
+        completion(result);
+    };
+    BOOL presents = [mode isEqualToString:@"present"];
+    StashAwaitHostCondition(^BOOL {
+        if (firstCard.presentingViewController) return NO;
+        if (!presents) return owner.session == nil;
+        UIViewController *card = second.controller;
+        return card && card.presentingViewController == root && !card.isBeingPresented;
+    }, CFAbsoluteTimeGetCurrent() + 10, ^(BOOL settled) {
+        // Let a duplicate or late final event arrive.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 500 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+            UIViewController *card = second.controller;
+            finish(@{@"firstAnimating":@(firstAnimating), @"admitted":@(second != nil && second != first),
+                @"deferred":@(deferred), @"settled":@(settled), @"firstGone":@(firstCard.presentingViewController == nil),
+                @"secondOnRoot":@(card && card.presentingViewController == root && root.presentedViewController == card),
+                @"active":@(owner.isCurrentlyPresented && owner.session == second && [second isActive]),
+                @"ended":@(!owner.isCurrentlyPresented && !second.controller && !second.browser),
+                @"events":[delegate.events copy]});
         });
     });
 }
