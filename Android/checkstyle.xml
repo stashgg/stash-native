@@ -21,7 +21,8 @@
 
   <property name="charset" value="UTF-8"/>
 
-  <property name="severity" value="warning"/>
+  <!-- Error severity makes the Checkstyle CLI exit nonzero, so CI fails on any violation. -->
+  <property name="severity" value="error"/>
 
   <property name="fileExtensions" value="java, properties, xml"/>
   <!-- Excludes all 'module-info.java' files              -->
