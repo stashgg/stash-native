@@ -82,12 +82,29 @@ final class StashCheckoutSizing {
       float density,
       StashPresentationOptions options,
       boolean expanded) {
+    return resolve(pane, density, options, expanded, false);
+  }
+
+  /**
+   * Resolves the card frame. Windows shorter than 600 dp, such as a phone in landscape, keep the
+   * bottom card at the configured width, like the iOS sheet attached to the bottom edge in compact
+   * height; only wide and tall panes float.
+   *
+   * @param compactHeight the window, not the space above the keyboard, is shorter than 600 dp
+   */
+  static Layout resolve(
+      Box pane,
+      float density,
+      StashPresentationOptions options,
+      boolean expanded,
+      boolean compactHeight) {
     density = StashPresentationOptions.positive(density, 1f);
-    boolean bottom = pane.width() / density < WIDE_WINDOW_DP;
+    boolean narrow = pane.width() / density < WIDE_WINDOW_DP;
+    boolean bottom = narrow || compactHeight;
     int margin =
         Math.min(Math.round(options.margin * density), Math.min(pane.width(), pane.height()) / 4);
     int width =
-        bottom
+        narrow
             ? pane.width()
             : Math.min(px(options.width, density), Math.max(1, pane.width() - 2 * margin));
     int outerHeight = Math.max(1, pane.height() - (bottom ? margin : 2 * margin));

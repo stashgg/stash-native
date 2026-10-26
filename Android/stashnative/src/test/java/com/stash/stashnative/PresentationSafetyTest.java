@@ -187,7 +187,9 @@ public class PresentationSafetyTest {
     entering.setCurrentPlayTime(120);
     assertEquals(frame.height * (1 - activity.backdropView.getAlpha()),
         activity.cardContainer.getTranslationY(), 0.01f);
+    // A wide and tall window floats the card; a wide but short one (phone landscape) would not.
     activity.rootLayout.setRight(800);
+    activity.rootLayout.setBottom(900);
     activity.presentation.environmentChanged();
     assertEquals(0, activity.cardContainer.getTranslationY(), 0);
     assertEquals(activity.backdropView.getAlpha(), activity.cardContainer.getAlpha(), 0);
@@ -679,6 +681,31 @@ public class PresentationSafetyTest {
           (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
       assertEquals(900 - keyboard, frame.topMargin + frame.height);
     }
+  }
+
+  @Test public void landscapePhoneCardIsBottomAttachedAndCentered() throws Exception {
+    activity.rootLayout.setRight(915);
+    activity.rootLayout.setBottom(411);
+    applyKeyboardInsets(0);
+    FrameLayout.LayoutParams frame =
+        (FrameLayout.LayoutParams) activity.cardContainer.getLayoutParams();
+    assertTrue(activity.presentation.isBottomAttached());
+    assertEquals(400, frame.width);
+    assertEquals((915 - 400) / 2, frame.leftMargin);
+    assertEquals(411, frame.topMargin + frame.height);
+    // The keyboard shortens the space above it, not the window; the card stays at the bottom.
+    applyKeyboardInsets(200);
+    assertTrue(activity.presentation.isBottomAttached());
+    assertEquals(211, frame.topMargin + frame.height);
+  }
+
+  @Test public void tabletKeyboardDoesNotTurnTheFloatingCardIntoABottomCard() throws Exception {
+    activity.rootLayout.setRight(1280);
+    activity.rootLayout.setBottom(800);
+    applyKeyboardInsets(0);
+    assertFalse(activity.presentation.isBottomAttached());
+    applyKeyboardInsets(400);
+    assertFalse(activity.presentation.isBottomAttached());
   }
 
   @Test public void floatingCardDoesNotExtendThroughNavigationBar() throws Exception {

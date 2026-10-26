@@ -53,7 +53,7 @@ stateDiagram-v2
 ## Native card
 
 - The card sizes itself from the current window, not the device type.
-- Regions narrower than 600 points or dp get a full-width card; wider regions use up to the configured width.
+- Regions narrower than 600 points or dp get a full-width card at the bottom. On a phone in landscape the card stays at the bottom, at up to the configured width. Regions that are wide and tall get a floating card, centered.
 - The card opens at the configured height and expands up to the configured maximum, both limited by the available space. Page content does not size the card.
 - Rotation, folding, window resizing, and the keyboard keep the same content and state.
 

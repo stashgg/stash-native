@@ -292,7 +292,8 @@ final class StashPresentationController implements View.OnTouchListener {
             verticalHinge,
             activity.rootLayout.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL);
     StashCheckoutSizing.Layout resolved =
-        StashCheckoutSizing.resolve(pane, density(), options, state.effectiveExpanded());
+        StashCheckoutSizing.resolve(pane, density(), options, state.effectiveExpanded(),
+            height / density() < StashCheckoutSizing.WIDE_WINDOW_DP);
     // Only the pane adjoining the window bottom can paint behind its navigation bar.
     int extension = pane.bottom == safe.bottom
         ? Math.max(0, height - keyboardBottom - pane.bottom) : 0;

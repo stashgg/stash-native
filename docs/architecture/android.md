@@ -35,7 +35,7 @@ flowchart TB
 
 - Rotation, folding, and multi-window changes resize the activity in place.
 - A separating fold splits the window; the card uses the larger pane.
-- Panes narrower than 600 dp get a full-width card at the bottom. The card extends behind the navigation bar, and the WebView ends above it. Wider panes get a centered card.
+- Panes narrower than 600 dp get a full-width card at the bottom. The card extends behind the navigation bar, and the WebView ends above it. Windows shorter than 600 dp, such as a phone in landscape, also get a bottom card, at the configured width and centered. Panes that are wide and tall get a centered floating card.
 - Portrait is requested only in compact fullscreen windows. Back counts as a player dismissal.
 
 ## WebView

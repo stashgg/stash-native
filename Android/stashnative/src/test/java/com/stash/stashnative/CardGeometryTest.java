@@ -32,6 +32,37 @@ public class CardGeometryTest {
     assertEquals(170, layout.frame.top);
   }
 
+  @Test public void landscapePhoneKeepsBottomCardAtConfiguredWidth() {
+    for (boolean expanded : new boolean[] {false, true}) {
+      StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(
+          new StashCheckoutSizing.Box(0, 0, 915, 411), 1, StashPresentationOptions.card(null),
+          expanded, true);
+      assertTrue(layout.bottomAttached);
+      assertEquals(400, layout.frame.width());
+      assertEquals(257, layout.frame.left);
+      assertEquals(411, layout.frame.bottom);
+      assertEquals(395, layout.frame.height());
+    }
+  }
+
+  @Test public void compactHeightCardStaysWithinTheWidthAndMargins() {
+    StashNative.CardConfig config = new StashNative.CardConfig();
+    config.preferredContentWidth = 2000;
+    StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(
+        new StashCheckoutSizing.Box(0, 0, 700, 380), 1, StashPresentationOptions.card(config),
+        false, true);
+    assertTrue(layout.bottomAttached);
+    assertEquals(668, layout.frame.width());
+    assertEquals(16, layout.frame.left);
+  }
+
+  @Test public void tallWideWindowStillFloats() {
+    StashCheckoutSizing.Layout layout = StashCheckoutSizing.resolve(
+        new StashCheckoutSizing.Box(0, 0, 1100, 900), 1, StashPresentationOptions.card(null),
+        false, false);
+    assertFalse(layout.bottomAttached);
+  }
+
   @Test public void restingUsesPreferredHeightAndExpandedUsesCeiling() {
     assertEquals(560, card(390, 760, 1, false).frame.height());
     assertEquals(720, card(390, 760, 1, true).frame.height());
