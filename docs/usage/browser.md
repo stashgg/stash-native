@@ -74,11 +74,10 @@ Set your URL scheme in [Stash Studio](https://docs.stash.gg/guides/get-started/s
 
 The SDK does not handle deep links. Configure them in your host app as described by [Apple](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) and [Android](https://developer.android.com/training/app-links/create-deeplinks).
 
-On iOS, close Safari when the deep link arrives. `dismissSafariViewController(withResult:)` closes it and sends the payment [callback](#callbacks):
+On iOS, dismiss Safari when the deep link arrives:
 
 ```swift
-StashNative.sharedInstance().dismissSafariViewController(withResult: true)  // mygame://stash-pay/success
-StashNative.sharedInstance().dismissSafariViewController(withResult: false) // mygame://stash-pay/failure
+StashNative.sharedInstance().dismissSafariViewController()
 ```
 
 ## Callbacks
