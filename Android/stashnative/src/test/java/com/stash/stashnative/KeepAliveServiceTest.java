@@ -12,6 +12,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.Robolectric;
@@ -31,6 +32,10 @@ import org.robolectric.shadows.ShadowService;
 @Config(sdk = {26, 34})
 @LooperMode(LooperMode.Mode.PAUSED)
 public class KeepAliveServiceTest {
+
+  @Before public void resetStartTracking() {
+    StashKeepAliveService.resetStartTrackingForTests();
+  }
 
   private ServiceController<StashKeepAliveService> started() {
     Application app = RuntimeEnvironment.getApplication();
@@ -88,12 +93,56 @@ public class KeepAliveServiceTest {
     Intent launched = Shadows.shadowOf(app).getNextStartedService();
     assertNotNull(launched);
     assertEquals(StashKeepAliveService.class.getName(), launched.getComponent().getClassName());
+    ServiceController<StashKeepAliveService> controller =
+        Robolectric.buildService(StashKeepAliveService.class, launched).create().startCommand(0, 1);
+    try {
+      StashKeepAliveService.stop(app);
+      StashKeepAliveService.stop(app);
+      StashKeepAliveService.stop(null);
+      assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
+      assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
+      assertNull(Shadows.shadowOf(app).getNextStoppedService());
+    } finally {
+      controller.destroy();
+    }
+  }
+
+  /** Stopping before startForeground crashes the host on 8+, so the service promotes first. */
+  @Test public void stopBeforeTheServiceEntersTheForegroundWaitsForIt() {
+    Application app = RuntimeEnvironment.getApplication();
+    StashKeepAliveService.start(app, "Stash", "Paying", 0);
+    Intent launched = Shadows.shadowOf(app).getNextStartedService();
     StashKeepAliveService.stop(app);
-    StashKeepAliveService.stop(app);
-    StashKeepAliveService.stop(null);
-    assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
-    assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
     assertNull(Shadows.shadowOf(app).getNextStoppedService());
+    ServiceController<StashKeepAliveService> controller =
+        Robolectric.buildService(StashKeepAliveService.class, launched).create().startCommand(0, 1);
+    try {
+      ShadowService shadow = Shadows.shadowOf(controller.get());
+      assertNotNull(shadow.getLastForegroundNotification());
+      assertTrue(shadow.isStoppedBySelf());
+      // Later stops reach the running service directly again.
+      StashKeepAliveService.stop(app);
+      assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
+    } finally {
+      controller.destroy();
+    }
+  }
+
+  /** A start after a deferred stop cancels that stop. */
+  @Test public void startAfterADeferredStopKeepsTheService() {
+    Application app = RuntimeEnvironment.getApplication();
+    StashKeepAliveService.start(app, "Stash", "Paying", 0);
+    Intent launched = Shadows.shadowOf(app).getNextStartedService();
+    StashKeepAliveService.stop(app);
+    StashKeepAliveService.start(app, "Stash", "Paying", 0);
+    ServiceController<StashKeepAliveService> controller =
+        Robolectric.buildService(StashKeepAliveService.class, launched)
+            .create().startCommand(0, 1).startCommand(0, 2);
+    try {
+      assertFalse(Shadows.shadowOf(controller.get()).isStoppedBySelf());
+    } finally {
+      controller.destroy();
+    }
   }
 
   @Test @Config(sdk = 34, shadows = StartNotAllowed.class)

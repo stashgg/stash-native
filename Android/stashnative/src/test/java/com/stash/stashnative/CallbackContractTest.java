@@ -51,6 +51,7 @@ public class CallbackContractTest {
 
   /** Releases presentations and the listener between tests. */
   @After public void cleanup() {
+    ActionViewLauncher.nothingOpens = false;
     sdk.resetPresentationState();
     sdk.setListener(null);
     host.finish();
@@ -322,6 +323,44 @@ public class CallbackContractTest {
     assertFalse(sdk.isCurrentlyPresented());
   }
 
+  /** With no browser, the handoff ends at once with browser dismissed, not on a later resume. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void fallbackHandoffWithNoBrowserEndsWithBrowserDismissed() {
+    ActionViewLauncher.nothingOpens = true;
+    StashCardActivity card = open(false);
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    assertNull(Shadows.shadowOf(card).getNextStartedActivity());
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    assertTrue(card.isFinishing());
+    assertFalse(sdk.isCurrentlyPresented());
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(host);
+    lifecycle.onActivityResumed(host);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+  }
+
+  /** openBrowser with no browser reports one dismissal and arms no close tracking. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void openBrowserWithNoBrowserReportsOneDismissal() {
+    ActionViewLauncher.nothingOpens = true;
+    sdk.openBrowser(host, "https://example.invalid/help");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(host);
+    lifecycle.onActivityResumed(host);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+  }
+
   /** Without a pending handoff the checkout's own lifecycle never stands in for the host. */
   @Test
   @Config(shadows = ActionViewLauncher.class)
@@ -354,7 +393,14 @@ public class CallbackContractTest {
       return false;
     }
 
-    @Implementation public static int openExternalUrl(Context context, String url) {
+    /** Set by a test when no installed app can open http(s). */
+    static boolean nothingOpens;
+
+    @Implementation
+    protected static int launchExternalUrl(Context context, String url, int requestCode) {
+      if (nothingOpens) {
+        return StashUrlLauncher.OPEN_EXTERNAL_NONE;
+      }
       context.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
       return StashUrlLauncher.OPEN_EXTERNAL_ACTION_VIEW;
     }

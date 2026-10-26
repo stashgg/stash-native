@@ -35,6 +35,7 @@ public class BrowserLifetimeTest {
 
   @Before public void prepare() {
     sdk.resetPresentationState();
+    StashKeepAliveService.resetStartTrackingForTests();
     host = Robolectric.buildActivity(Activity.class).setup().get();
     checkout = openCheckout();
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
@@ -206,8 +207,8 @@ public class BrowserLifetimeTest {
       assertEquals(1, externalPayments);
       assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
       assertFalse(checkout.externalBrowserOverCard);
-      assertNotNull(Shadows.shadowOf(app).getNextStartedService());
-      assertNotNull(Shadows.shadowOf(app).getNextStoppedService());
+      // Keep-alive starts only after a browser opens; a start and stop in one turn would crash.
+      assertNull(Shadows.shadowOf(app).getNextStartedService());
       // Nothing covered the card, so the page's next request is not taken for a repeat.
       Shadows.shadowOf(app).checkActivities(false);
       keepOpen();
@@ -215,6 +216,7 @@ public class BrowserLifetimeTest {
       assertEquals(2, externalPayments);
       assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
       assertTrue(checkout.externalBrowserOverCard);
+      assertNotNull(Shadows.shadowOf(app).getNextStartedService());
       keepOpen();
       ShadowLooper.idleMainLooper();
       assertEquals(2, externalPayments);

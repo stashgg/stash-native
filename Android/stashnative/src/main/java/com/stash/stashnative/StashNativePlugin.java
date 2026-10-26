@@ -329,10 +329,10 @@ public class StashNativePlugin {
   }
 
   /**
-   * Starts the optional keep-alive foreground service before opening Custom Tabs / browser.
-   * Package-private for {@link StashCardActivity}.
+   * Starts the optional keep-alive foreground service once a browser has opened, while the
+   * launching activity is still in the foreground.
    */
-  void startKeepAliveBeforeBrowser(Context context) {
+  void startKeepAliveForBrowser(Context context) {
     if (!keepAliveEnabled || context == null) {
       return;
     }
@@ -395,14 +395,6 @@ public class StashNativePlugin {
     browserCloseTrackingPendingArm = false;
     browserCloseAwaitingCctResult = false;
     cancelBrowserClosedDebounce();
-  }
-
-  private void executePendingCheckoutDismiss() {
-    Runnable r = pendingCheckoutDismissAfterExternalBrowser;
-    pendingCheckoutDismissAfterExternalBrowser = null;
-    if (r != null) {
-      mainHandler.post(r);
-    }
   }
 
   /**
@@ -485,15 +477,19 @@ public class StashNativePlugin {
     pendingCheckoutDismissAfterExternalBrowser =
         forCheckout(checkoutActivity, dismissAfterBrowserClosed);
     try {
-      startKeepAliveBeforeBrowser(checkoutActivity);
-      launchExternalBrowser(checkoutActivity, url);
+      if (!launchExternalBrowser(checkoutActivity, url)) {
+        // Nothing opened: end the handoff as a closed browser does.
+        invokeBrowserDismissedListenerAndDismissCheckout();
+        return;
+      }
+      startKeepAliveForBrowser(checkoutActivity);
       if (hideCheckoutChromeWhileBrowserOpen != null) {
         mainHandler.post(forCheckout(checkoutActivity, hideCheckoutChromeWhileBrowserOpen));
       }
     } catch (Exception e) {
       cancelBrowserCloseTrackingLaunch();
       stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
-      executePendingCheckoutDismiss();
+      invokeBrowserDismissedListenerAndDismissCheckout();
       Log.w(TAG, "Error opening external browser from checkout: " + e.getMessage(), e);
     }
   }
@@ -526,8 +522,6 @@ public class StashNativePlugin {
         || browserSessionId != browserBeforeCallback) {
       return;
     }
-    // The card activity stops the service again when it resumes.
-    startKeepAliveBeforeBrowser(checkoutActivity);
     boolean launched = false;
     try {
       launched = StashUrlLauncher.launchExternalUrl(checkoutActivity, url, 0)
@@ -538,8 +532,10 @@ public class StashNativePlugin {
     if (!launched) {
       // Nothing covers the card, so it will not pause and resume to re-arm the page's request.
       checkoutActivity.externalBrowserOverCard = false;
-      stopKeepAliveForegroundService(checkoutActivity.getApplicationContext());
+      return;
     }
+    // The card activity stops the service again when it resumes.
+    startKeepAliveForBrowser(checkoutActivity);
   }
 
   private void cancelBrowserClosedDebounce() {
@@ -635,10 +631,13 @@ public class StashNativePlugin {
    * Launches the URL in Chrome Custom Tabs via {@link StashNativeBrowserProxyActivity} when {@code
    * androidx.browser} is on the classpath, otherwise falls back to ACTION_VIEW tracked through
    * the lifecycle of the launching activity (see {@link #isBrowserBoundaryActivity}).
+   *
+   * @return false when nothing can open the URL; close tracking is cancelled. The proxy reports
+   *     its own launch failure as a closed browser.
    */
-  private void launchExternalBrowser(Activity activity, String url) {
+  private boolean launchExternalBrowser(Activity activity, String url) {
     if (activity == null || url == null || url.isEmpty()) {
-      return;
+      return false;
     }
     if (StashUrlLauncher.isCustomTabsClassAvailable()) {
       beginBrowserCloseTrackingActivityResult();
@@ -647,10 +646,16 @@ public class StashNativePlugin {
       intent.putExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, browserSessionId);
       intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
       activity.startActivity(intent);
-      return;
+      return true;
     }
-    int mode = StashUrlLauncher.openExternalUrl(activity, url);
+    int mode = StashUrlLauncher.launchExternalUrl(
+        activity, url, CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB);
+    if (mode == StashUrlLauncher.OPEN_EXTERNAL_NONE) {
+      cancelBrowserCloseTrackingLaunch();
+      return false;
+    }
     applyBrowserCloseTrackingForLaunchMode(mode);
+    return true;
   }
 
   private String resolveKeepAliveTitle(Context ctx) {
@@ -823,11 +828,16 @@ public class StashNativePlugin {
       activity.runOnUiThread(
           () -> {
             try {
-              startKeepAliveBeforeBrowser(finalActivity);
-              launchExternalBrowser(finalActivity, finalUrl);
+              if (launchExternalBrowser(finalActivity, finalUrl)) {
+                startKeepAliveForBrowser(finalActivity);
+              } else {
+                // Nothing opened: report it as a closed browser, as the proxy does.
+                invokeBrowserDismissedListenerAndDismissCheckout();
+              }
             } catch (Exception e) {
               cancelBrowserCloseTrackingLaunch();
               stopKeepAliveForegroundService(finalActivity.getApplicationContext());
+              invokeBrowserDismissedListenerAndDismissCheckout();
               Log.w(TAG, "Error in openBrowser: " + e.getMessage(), e);
             }
           });

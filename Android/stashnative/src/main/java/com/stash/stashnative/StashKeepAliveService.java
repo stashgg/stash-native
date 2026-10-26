@@ -33,6 +33,13 @@ public class StashKeepAliveService extends Service {
   public static final String EXTRA_TEXT = "com.stash.stashnative.keepalive.TEXT";
   public static final String EXTRA_ICON_RES_ID = "com.stash.stashnative.keepalive.ICON_RES_ID";
 
+  // Stopping a service that has not called startForeground yet makes Android 8+ crash the host
+  // with ForegroundServiceDidNotStartInTimeException. A stop that arrives while a start is still
+  // pending is deferred: the service enters the foreground, then stops itself.
+  private static final Object START_LOCK = new Object();
+  private static int pendingStarts;
+  private static boolean stopAfterPendingStarts;
+
   /**
    * Starts the foreground keep-alive service. Safe to call from any app context; the service runs
    * in the app's default process.
@@ -50,21 +57,34 @@ public class StashKeepAliveService extends Service {
     i.putExtra(EXTRA_TITLE, notificationTitle);
     i.putExtra(EXTRA_TEXT, notificationText);
     i.putExtra(EXTRA_ICON_RES_ID, notificationIconResId);
-    try {
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        app.startForegroundService(i);
-      } else {
-        app.startService(i);
+    synchronized (START_LOCK) {
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          app.startForegroundService(i);
+        } else {
+          app.startService(i);
+        }
+        pendingStarts++;
+        stopAfterPendingStarts = false;
+      } catch (Exception e) {
+        Log.w(TAG, "Failed to start keep-alive service: " + e.getMessage(), e);
       }
-    } catch (Exception e) {
-      Log.w(TAG, "Failed to start keep-alive service: " + e.getMessage(), e);
     }
   }
 
-  /** Stops the keep-alive service if running. */
+  /**
+   * Stops the keep-alive service if running. A service still waiting to enter the foreground
+   * stops itself once it has.
+   */
   public static void stop(Context context) {
     if (context == null) {
       return;
+    }
+    synchronized (START_LOCK) {
+      if (pendingStarts > 0) {
+        stopAfterPendingStarts = true;
+        return;
+      }
     }
     try {
       context.getApplicationContext()
@@ -136,8 +156,30 @@ public class StashKeepAliveService extends Service {
       Log.e(TAG, "startForeground failed: " + e.getMessage(), e);
       stopSelf(startId);
       return START_NOT_STICKY;
+    } finally {
+      boolean stopNow = false;
+      synchronized (START_LOCK) {
+        if (pendingStarts > 0) {
+          pendingStarts--;
+        }
+        if (pendingStarts == 0 && stopAfterPendingStarts) {
+          stopAfterPendingStarts = false;
+          stopNow = true;
+        }
+      }
+      if (stopNow) {
+        stopSelf();
+      }
     }
     return START_NOT_STICKY;
+  }
+
+  /** Clears start bookkeeping that outlives a test's service instances. */
+  static void resetStartTrackingForTests() {
+    synchronized (START_LOCK) {
+      pendingStarts = 0;
+      stopAfterPendingStarts = false;
+    }
   }
 
   @Override

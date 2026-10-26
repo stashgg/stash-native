@@ -43,6 +43,7 @@ public class KeepAliveLifetimeTest {
 
   @Before public void prepare() {
     sdk.resetPresentationState();
+    StashKeepAliveService.resetStartTrackingForTests();
     app = RuntimeEnvironment.getApplication();
     launcher = new ComponentName(app, "com.example.GameActivity");
     ShadowPackageManager pm = Shadows.shadowOf(app.getPackageManager());
@@ -144,8 +145,11 @@ public class KeepAliveLifetimeTest {
     Intent started = Shadows.shadowOf(app).getNextStartedService();
     assertNotNull(started);
     assertEquals(StashKeepAliveService.class.getName(), started.getComponent().getClassName());
+    ServiceController<StashKeepAliveService> running =
+        Robolectric.buildService(StashKeepAliveService.class, started).create().startCommand(0, 1);
     while (Shadows.shadowOf(app).getNextStoppedService() != null) {}
     sdk.resetPresentationState();
+    running.destroy();
     Intent stopped = Shadows.shadowOf(app).getNextStoppedService();
     assertNotNull(stopped);
     assertEquals(StashKeepAliveService.class.getName(), stopped.getComponent().getClassName());
