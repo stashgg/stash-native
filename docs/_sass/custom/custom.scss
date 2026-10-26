@@ -166,18 +166,24 @@ figure.highlight pre {
 
 // Keep platform icons outside the scrolling and copied code.
 div.highlighter-rouge {
-  &.language-swift,
-  &.language-objc {
-    --platform-icon: url("../images/platform/apple.svg");
+  &.language-swift::before,
+  &.language-objc::before {
+    -webkit-mask-image: url("../images/platform/apple.svg");
+    mask-image: url("../images/platform/apple.svg");
   }
 
+  &.language-java::before,
+  &.language-groovy::before,
+  &.platform-android::before {
+    -webkit-mask-image: url("../images/platform/android.svg");
+    mask-image: url("../images/platform/android.svg");
+  }
+
+  &.language-swift,
+  &.language-objc,
   &.language-java,
   &.language-groovy,
   &.platform-android {
-    --platform-icon: url("../images/platform/android.svg");
-  }
-
-  &:is(.language-swift, .language-objc, .language-java, .language-groovy, .platform-android) {
     padding-left: 44px;
     background-color: $stash-card;
     border: $border $border-color;
@@ -191,8 +197,12 @@ div.highlighter-rouge {
       content: "";
       pointer-events: none;
       background-color: $stash-muted;
-      -webkit-mask: var(--platform-icon) center / contain no-repeat;
-      mask: var(--platform-icon) center / contain no-repeat;
+      -webkit-mask-position: center;
+      -webkit-mask-size: contain;
+      -webkit-mask-repeat: no-repeat;
+      mask-position: center;
+      mask-size: contain;
+      mask-repeat: no-repeat;
     }
 
     > div.highlight {
