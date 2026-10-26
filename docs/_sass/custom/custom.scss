@@ -164,6 +164,45 @@ figure.highlight pre {
   }
 }
 
+// Keep platform icons outside the scrolling and copied code.
+div.highlighter-rouge {
+  &.language-swift,
+  &.language-objc {
+    --platform-icon: url("../images/platform/apple.svg");
+  }
+
+  &.language-java,
+  &.language-groovy,
+  &.platform-android {
+    --platform-icon: url("../images/platform/android.svg");
+  }
+
+  &:is(.language-swift, .language-objc, .language-java, .language-groovy, .platform-android) {
+    padding-left: 44px;
+    background-color: $stash-card;
+    border: $border $border-color;
+
+    &::before {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      width: 16px;
+      height: 16px;
+      content: "";
+      pointer-events: none;
+      background-color: $stash-muted;
+      -webkit-mask: var(--platform-icon) center / contain no-repeat;
+      mask: var(--platform-icon) center / contain no-repeat;
+    }
+
+    > div.highlight {
+      border: 0;
+      border-left: $border $border-color;
+      border-radius: 0 11px 11px 0;
+    }
+  }
+}
+
 pre:has(> code.language-mermaid) {
   padding: $sp-4;
   margin-bottom: $sp-3;
@@ -196,7 +235,32 @@ thead th {
   background-color: $stash-surface;
 }
 
-// Callouts: tinted card with an amber accent, like the code and table cards
+.engine-bindings {
+  th:first-child,
+  td:first-child {
+    width: 1%;
+    min-width: 0;
+    padding-right: $sp-2;
+    padding-left: $sp-2;
+  }
+
+  img {
+    display: block;
+    width: 32px;
+    height: 32px;
+    max-width: none;
+  }
+}
+
+// Callouts
+p.info {
+  background-color: rgba($blue-000, 0.08);
+  border-color: rgba($blue-000, 0.35);
+  border-left-color: $blue-000;
+  border-radius: 12px;
+  box-shadow: none;
+}
+
 p.warning {
   background-color: rgba($yellow-300, 0.08);
   border-color: rgba($yellow-300, 0.35);
@@ -208,6 +272,10 @@ p.warning {
 // Identifiers in table cells stay on one line; stacked iOS / Android names use <br>
 td code {
   white-space: nowrap;
+}
+
+.callback-tooltip {
+  cursor: help;
 }
 
 // Section dividers: a thin rule in the space above each second-level heading
@@ -229,6 +297,64 @@ td code {
 
   &::before {
     content: none;
+  }
+}
+
+// Reuse an existing divider before a heading.
+.main-content hr + h2 {
+  margin-top: 0;
+
+  &::before {
+    content: none;
+  }
+}
+
+// Release entries keep their headings and native disclosure controls.
+.main-content .changelog-entry {
+  margin-top: $sp-4;
+  overflow: hidden;
+  background-color: $stash-card;
+  border: $border $border-color;
+  border-radius: 12px;
+
+  > summary {
+    padding: $sp-4;
+
+    &::marker {
+      color: $stash-muted;
+    }
+
+    &:hover {
+      background-color: $stash-surface;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $stash-primary;
+      outline-offset: -3px;
+      border-radius: 12px;
+    }
+
+    > h2 {
+      display: inline;
+      margin: 0;
+      font-size: 1.125rem;
+
+      &::before {
+        content: none;
+      }
+    }
+  }
+
+  &[open] > summary {
+    border-bottom: $border $border-color;
+  }
+}
+
+.changelog-entry-content {
+  padding: 0 $sp-4 $sp-4;
+
+  > :last-child {
+    margin-bottom: 0;
   }
 }
 

@@ -1,28 +1,51 @@
 ---
 title: QR Code Linking
-nav_order: 5
-description: Link a player's Stash webshop account by scanning the webshop's QR code in the game.
+parent: Modules
+nav_order: 1
+description: Scan Stash Webshop QR codes in the host application for account linking.
 ---
 
 # QR Code Linking
 
-{: .warning }
-QR Code Linking needs the separate `StashNativeCodeLink` module, which the core SDK does not include. Add it as shown in [Package Installation](../index.md#qr-code-linking-module).
-
-Players link their Stash webshop account by scanning the QR code the webshop shows. The scanner opens in the native card, confirms the scan, closes, and returns the code's content to the game. Use that content to link the account, as described in [Account Linking](https://docs.stash.gg/guides/stash-webshop/player-authentication/account-linking#integrate-account-linking).
+QR Code Linking lets users scan a Stash Webshop QR code in a native card over the host application. Results arrive through [callbacks](#callbacks) for your app to complete account linking.
 
 ![QR code scanners on iPhone and Android](../assets/images/codelink-devices-dark.png)
 
-## Requirements
+## Installation
 
-| Platform | Requirement |
-|---|---|
-| iOS | `StashNativeCodeLink` (library or XCFramework) and `NSCameraUsageDescription` in Info.plist |
-| Android | `StashNativeCodeLink` (AAR or `:stashnative-codelink`) with CameraX and ZXing. Its manifest adds the camera permission. |
+{: .info }
+QR Code Linking requires the optional `StashNativeCodeLink` module in addition to the [core SDK](../index.md#package-installation). No additional SDK import is required.
 
-The scanner asks for camera access the first time it opens. Decoding runs on the device; no images are saved.
+Prebuilt modules are available on [GitHub Releases](https://github.com/stashgg/stash-native/releases). Replace `<tag>` with the release tag you downloaded.
+
+### iOS
+
+Add the `StashNativeCodeLink` library through Swift Package Manager, or add `StashNativeCodeLink.xcframework` with **Embed & Sign**. Set `NSCameraUsageDescription` in your app's Info.plist to explain why camera access is needed.
+
+Custom builds that link static archives directly must pass `-ObjC` to retain the scanner.
+
+### Android
+
+Copy `StashNativeCodeLink-<tag>.aar` into `app/libs/` and add it with its dependencies:
+
+```groovy
+dependencies {
+    implementation files('libs/StashNativeCodeLink-<tag>.aar')
+    implementation 'androidx.camera:camera-camera2:1.4.2'
+    implementation 'androidx.camera:camera-lifecycle:1.4.2'
+    implementation 'androidx.camera:camera-view:1.4.2'
+    implementation 'com.google.zxing:core:3.5.3'
+}
+```
+
+The module declares the camera permission in its manifest. Source builds use `:stashnative-codelink`.
+
+{: .info }
+CameraX 1.4.2 requires Android Gradle Plugin 8.x. For AGP 7.x, including Unity 2022.3 LTS, use **1.3.4** for all three CameraX libraries.
 
 ## Open the scanner
+
+Pass the view controller or activity presenting the scanner:
 
 ```swift
 StashNative.sharedInstance().openScanner(from: self, config: nil)
@@ -32,11 +55,11 @@ StashNative.sharedInstance().openScanner(from: self, config: nil)
 StashNative.getInstance().openScanner(activity, null);
 ```
 
-The scanner follows the game's orientation. `dismiss()` closes it.
+The scanner follows the host application's orientation and requests camera access when first opened. QR codes are decoded on the device; no images are saved.
 
 ## Configuration
 
-Pass `StashNativeScannerConfig` (iOS) or `StashNative.ScannerConfig` (Android) to translate the text or hide the info callout. Empty values keep the defaults.
+To optionally customize the scanner text or hide its info callout, pass `StashNativeScannerConfig` (iOS) or `StashNative.ScannerConfig` (Android). Empty text values use the defaults.
 
 | Property | Default |
 |---|---|
@@ -68,20 +91,65 @@ These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
 | Callback (iOS / Android) | Fires when |
 |---|---|
 | `stashNativeDidScanQRCode(_:)`<br>`onQrCodeScanned(content)` | The scanner reads a QR code and closes |
-| `stashNativeDidDismissScanner()`<br>`onScannerDismissed()` | The scanner closes without a result |
-| `stashNativeScannerDidEncounterError(_:)`<br>`onScannerError(error)` | The scanner cannot start or use the camera. See [Errors](#errors). |
+| `stashNativeDidDismissScanner()`<br>`onScannerDismissed()` | The scanner closes without a scan |
+| `stashNativeScannerDidEncounterError(_:)`<br>`onScannerError(error)` | The scanner cannot start or access the camera; see [Errors](#errors) |
 
-The scanner ends with code scanned, scanner dismissed, or the scanner-unavailable error.
+Use the scanned content to complete [account linking](https://docs.stash.gg/guides/stash-webshop/player-authentication/account-linking#integrate-account-linking) in your app:
+
+```swift
+extension StoreViewController: StashNativeDelegate {
+    func stashNativeDidScanQRCode(_ content: String) {
+        // Use content to complete account linking.
+    }
+}
+```
+
+```java
+StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter() {
+    @Override
+    public void onQrCodeScanned(String content) {
+        // Use content to complete account linking.
+    }
+});
+```
 
 ### Errors
 
-Errors are `StashNativeScannerError.Code` values on iOS and `ScannerError` values on Android. Most errors leave the scanner open. A missing `StashNativeCodeLink` module presents nothing and sends no dismissal event.
+The iOS callback receives an `Error`; its `NSError.code` maps to `StashNativeScannerError.Code`. Android receives `StashNative.ScannerError`.
+
+Camera errors leave the scanner open. A missing module or dependency prevents it from opening and sends no dismissal callback.
 
 | Cause | Error (iOS / Android) | Fix |
 |---|---|---|
-| Camera access denied | `.cameraPermissionDenied`<br>`CAMERA_PERMISSION_DENIED` | None. The scanner offers a Settings button. |
+| Camera access denied | `.cameraPermissionDenied`<br>`CAMERA_PERMISSION_DENIED` | Enable camera access using the scanner's Settings button |
 | No camera | `.cameraUnavailable`<br>`CAMERA_UNAVAILABLE` | Offer another way to link |
 | Camera setup failed | `.cameraConfigurationFailed`<br>`CAMERA_CONFIGURATION_FAILED` | Retry later |
-| Scanner module missing, or on Android a CameraX or ZXing library missing | `.scannerUnavailable`<br>`SCANNER_UNAVAILABLE` | Add `StashNativeCodeLink` (with CameraX and ZXing on Android) |
+| Scanner module or Android dependencies missing | `.scannerUnavailable`<br>`SCANNER_UNAVAILABLE` | Complete [Installation](#installation) |
 | Camera usage description missing (iOS) | `.missingCameraUsageDescription` | Add `NSCameraUsageDescription` |
 | Camera permission removed from the manifest (Android) | `CAMERA_PERMISSION_NOT_DECLARED` | Keep the module's `CAMERA` permission in the merged manifest |
+
+## Other
+
+### Checking state
+
+Check whether an SDK presentation is active. On iOS, read this value on the main thread.
+
+```swift
+let isPresented = StashNative.sharedInstance().isCurrentlyPresented
+```
+
+```java
+boolean isPresented = StashNative.getInstance().isCurrentlyPresented();
+```
+
+### Dismissing Scanner
+
+Force dismiss the scanner programmatically:
+
+```swift
+StashNative.sharedInstance().dismiss()
+```
+
+```java
+StashNative.getInstance().dismiss();
+```

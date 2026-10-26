@@ -6,7 +6,13 @@ description: Build and run the iOS and Android sample apps.
 
 # Sample Apps
 
-The repository includes an iOS and an Android sample app. They open the Checkout Card, the In-Game Browser, and the QR scanner, and show each callback as it arrives. Both build the SDK from source.
+Sample apps are not included in the distributed packages. Clone or download the [Stash Native repository](https://github.com/stashgg/stash-native) and follow the instructions below to build the native iOS and Android samples.
+
+```sh
+git clone https://github.com/stashgg/stash-native.git
+```
+
+The samples are native Android / iOS apps. The [Unity](https://github.com/stashgg/stash-unity) and [Unreal Engine](https://github.com/stashgg/stash-unreal) bindings include their own sample scenes as part of the package.
 
 ![Sample apps on iPhone and Android](../assets/images/sample-apps-dark.png)
 
@@ -21,12 +27,6 @@ With JDK 17 installed and `ANDROID_HOME` pointing to the Android SDK, run from `
 ```sh
 ./gradlew :sample:installDebug
 ```
+{: .platform-android }
 
 This builds the sample and installs it on the connected device or emulator. You can also open `Android/` in Android Studio and run the `sample` configuration.
-
-## Checkout links
-
-The **URL** fields start with a test page that can trigger each checkout callback. To test a real checkout, paste a [checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link), or add an instance with your App ID and ingress secret under **Instances** and tap **Generate Checkout**.
-
-{: .warning }
-The samples sign checkout requests on the device for testing only. In production, create checkout links on your backend and keep the ingress secret there.

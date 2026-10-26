@@ -6,15 +6,15 @@ description: Show Stash Pay checkout in a native card over the game.
 
 # Checkout Card
 
-The checkout card shows Stash Pay checkout in a native card over the game. Results arrive through [callbacks](#callbacks).
+The checkout card shows Stash Pay checkout in a native card over the host application. Results arrive through [callbacks](#callbacks).
 
 ![Checkout card on iPhone, unfolded iPhone Duo, and iPad](../assets/images/opencard-devices-dark.png)
 
-The card fits phones, tablets, foldables, and split screen, and follows light or dark mode.
+The checkout card is fully responsive on both platforms and adapts to the device type, state, and system appearance.
 
 ## Open the card
 
-Pass the [checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) from your backend and the view controller or activity showing the game:
+Pass the [checkout link](https://docs.stash.gg/guides/stash-pay/integration#create-a-checkout-link) generated on your backend and the view controller or activity showing the game to trigger the checkout dialog:
 
 ```swift
 StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: nil)
@@ -24,21 +24,22 @@ StashNative.sharedInstance().openCard(withURL: checkoutURL, from: self, config: 
 StashNative.getInstance().openCard(activity, checkoutUrl, null);
 ```
 
-`dismiss()` closes the card, even during a payment. Check `isPurchaseProcessing` first. `isCurrentlyPresented` reports whether a card, scanner, or Safari (iOS) is open.
-
 ## Configuration
 
-Pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android), or `nil`/`null` for the defaults. Sizes are in points (iOS) or dp (Android). The card never exceeds the screen.
+To optionally adjust the card configuration, pass `StashNativeCardConfig` (iOS) or `StashNative.CardConfig` (Android). Sizes are in points (iOS) or dp (Android).
+
+{: .info }
+We recommend keeping the default card dimensions unless your integration requires a different size.
 
 | Property | Default | Description |
 |---|---|---|
-| `preferredContentWidth` | `400` | Card width on tablets and on phones in landscape, within the safe area and edge margins. Portrait phones use the full width. |
-| `preferredContentHeight` | `560` | Height when the card opens |
-| `maximumContentHeight` | `720` | Height when expanded, for example for the keyboard. `0` removes the limit. |
-| `edgeMargin` | `16` | Space between the card and the screen edges |
-| `allowDismiss` | `true` | Players can close the card by swiping down, tapping outside, or pressing Back |
-| `autoClose` | `true` | The card closes after a payment succeeds or fails |
-| `orientationPreference` | Follow host | Portrait on phones. See [Forcing portrait checkout](#forcing-portrait-checkout). |
+| `preferredContentWidth` | `400` | Preferred width; full width on portrait phones |
+| `preferredContentHeight` | `560` | Initial card height |
+| `maximumContentHeight` | `720` | Expanded height; `0` removes the limit |
+| `edgeMargin` | `16` | Screen edge spacing |
+| `allowDismiss` | `true` | Allow swipe, outside tap, or Back dismissal |
+| `autoClose` | `true` | Close after payment success or failure |
+| `orientationPreference` | Follow host | Follow host or [force portrait on phones](#forcing-portrait-card) |
 
 ```swift
 let config = StashNativeCardConfig()
@@ -52,11 +53,11 @@ config.allowDismiss = false;
 StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
 
-## Forcing portrait checkout
+## Forcing Portrait Card
 
 ![Portrait checkout card on iPhone, over an app locked to landscape](../assets/images/portrait-checkout-dark.png){: .single-device }
 
-On phones, the card can open in portrait in a landscape game, including a landscape-only one. The game's orientation returns when the card closes.
+On phones, the SDK makes a best-effort attempt to render the checkout card as a portrait overlay for more comfortable text input. The host application continues running in landscape and does not need to support portrait.
 
 ```swift
 config.orientationPreference = .portrait
@@ -66,34 +67,16 @@ config.orientationPreference = .portrait
 config.orientationPreference = StashNative.CardConfig.ORIENTATION_PORTRAIT;
 ```
 
-Tablets, unfolded foldables, and split screen keep the game's orientation.
-
-## Portrait backdrop (Android)
+### Portrait backdrop (Android)
 
 ![Portrait checkout card on Android, over a backdrop image](../assets/images/portrait-backdrop-dark.png){: .single-device }
 
-On Android, the game rotates behind a portrait card, which can cause glitches. To hide them, pass a screenshot of the game before opening the card:
+Forcing a portrait card on Android phones may cause visual glitches in some host applications due to how Android handles screen orientation. To hide these artifacts, set an image backdrop before opening the card. Use a screenshot of the current app state or a custom image:
 
 ```java
-StashNative.setBackdropBitmap(screenshot); // or setBackdropBytes(pngOrJpegBytes)
+StashNative.setBackdropBitmap(backdrop); // or setBackdropBytes(pngOrJpegBytes)
 StashNative.getInstance().openCard(activity, checkoutUrl, config);
 ```
-
-The SDK takes ownership of the bitmap; do not reuse or recycle it. iOS needs no backdrop.
-
-## WebView debugging
-
-During development, make checkout inspectable before opening the card:
-
-```swift
-StashNative.setInspectableWebViewsEnabled(true)
-```
-
-```java
-StashNative.setInspectableWebViewsEnabled(true);
-```
-
-Inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Keep it off in release builds.
 
 ## Callbacks
 
@@ -101,16 +84,12 @@ These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
 
 | Callback (iOS / Android) | Fires when |
 |---|---|
-| `stashNativeDidCompletePayment(withOrder:)`<br>`onPaymentSuccess(order)` | The player completes a payment |
-| `stashNativeDidFailPayment()`<br>`onPaymentFailure()` | The payment fails |
-| `stashNativeDidDismissCard()`<br>`onCardDismissed()` | The player or checkout closes the card, or you call `dismiss()` |
-| `stashNativeDidLoadPage(_:)`<br>`onPageLoaded(loadTimeMs)` | Checkout finished loading. Reports the load time in milliseconds. |
-| `stashNativeDidEncounterNetworkError()`<br>`onNetworkError()` | Checkout failed to load or lost its connection. The card closes. |
-| `stashNativeDidRequestExternalPayment(with:)`<br>`onExternalPayment(url)` | Checkout moves the payment to the in-game browser. The card closes, unless checkout keeps it open for the player's return. |
-
-`order` holds the order details from checkout, as a string or JSON, or `nil`/`null`. Grant items only after your backend [confirms the purchase](https://docs.stash.gg/guides/stash-pay/integration#processing-purchase).
-
-The card ends with payment success or failure, card dismissed, or network error. After an external payment that closes the card, the [in-game browser](browser.md#callbacks) takes over and ends with browser dismissed. When checkout keeps the card open, the card continues and ends with its own events. With `autoClose` off, payment events can repeat and the card stays open until dismissed.
+| <span class="callback-tooltip" title="Order details from checkout, supplied as a JSON string or plain text; nil/null when absent. Confirm the purchase on your backend before granting items."><code>stashNativeDidCompletePayment(withOrder:)</code><br><code>onPaymentSuccess(order)</code></span> | Payment succeeds |
+| `stashNativeDidFailPayment()`<br>`onPaymentFailure()` | Payment fails |
+| `stashNativeDidDismissCard()`<br>`onCardDismissed()` | The user, checkout page, or app dismisses the card |
+| `stashNativeDidLoadPage(_:)`<br>`onPageLoaded(loadTimeMs)` | Checkout loads (includes load time in milliseconds) |
+| `stashNativeDidEncounterNetworkError()`<br>`onNetworkError()` | Checkout fails to load or loses its connection |
+| `stashNativeDidRequestExternalPayment(with:)`<br>`onExternalPayment(url)` | Payment moves to the in-game browser |
 
 ```swift
 extension StoreViewController: StashNativeDelegate {
@@ -145,4 +124,50 @@ StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter
         // Resume the game.
     }
 });
+```
+
+### External Payment Scenarios
+
+Some alternative payment methods (such as Klarna, Cash App, etc.) require the user to finish the purchase in an external browser or another app. `onExternalPayment` notifies the host application of this handoff. In this flow, the checkout card stays open and waits for the user to complete the purchase and return. Handling this callback is optional unless your app needs to react to the handoff.
+
+## Other
+
+### WebView debugging
+
+During development, make checkout inspectable before opening the card:
+
+```swift
+StashNative.setInspectableWebViewsEnabled(true)
+```
+
+```java
+StashNative.setInspectableWebViewsEnabled(true);
+```
+
+Inspect it with Safari Web Inspector (iOS 16.4+) or `chrome://inspect` (Android). Keep it off in release builds.
+
+### Checking state
+
+Check whether an SDK presentation is active and whether checkout is processing a payment. On iOS, read these values on the main thread.
+
+```swift
+let isPresented = StashNative.sharedInstance().isCurrentlyPresented
+let isProcessing = StashNative.sharedInstance().isPurchaseProcessing
+```
+
+```java
+boolean isPresented = StashNative.getInstance().isCurrentlyPresented();
+boolean isProcessing = StashNative.getInstance().isPurchaseProcessing();
+```
+
+### Dismissing Card
+
+Force dismiss the checkout card programmatically:
+
+```swift
+StashNative.sharedInstance().dismiss()
+```
+
+```java
+StashNative.getInstance().dismiss();
 ```

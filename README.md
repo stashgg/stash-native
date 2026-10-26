@@ -35,7 +35,7 @@ dependencies {
 }
 ```
 
-Optional dependencies and the QR Code Linking module: [Package Installation](https://stashgg.github.io/stash-native/#package-installation).
+Optional browser dependency: [Package Installation](https://stashgg.github.io/stash-native/#package-installation). Scanner module setup: [QR Code Linking](https://stashgg.github.io/stash-native/usage/codelink.html#installation).
 
 ## Checkout Card
 

@@ -18,6 +18,39 @@
     return count ? base + "-" + count : base;
   }
 
+  function collapseEntries() {
+    container.querySelectorAll(":scope > h2").forEach(function (heading, index) {
+      var entry = document.createElement("details");
+      entry.className = "changelog-entry";
+      entry.open = index === 0;
+      var summary = document.createElement("summary");
+      var content = document.createElement("div");
+      content.className = "changelog-entry-content";
+      container.insertBefore(entry, heading);
+      entry.appendChild(summary);
+      summary.appendChild(heading);
+      entry.appendChild(content);
+      while (entry.nextSibling && entry.nextSibling.nodeName !== "H2") {
+        content.appendChild(entry.nextSibling);
+      }
+    });
+  }
+
+  function revealHash() {
+    if (!location.hash) return;
+    var id;
+    try {
+      id = decodeURIComponent(location.hash.slice(1));
+    } catch (error) {
+      return;
+    }
+    var target = document.getElementById(id);
+    if (!target || !container.contains(target)) return;
+    var entry = target.closest(".changelog-entry");
+    if (entry) entry.open = true;
+    target.scrollIntoView();
+  }
+
   if (!window.marked) {
     fail();
     return;
@@ -39,8 +72,9 @@
         var href = link.getAttribute("href");
         if (!/^([a-z][a-z0-9+.-]*:|#|\/)/i.test(href)) link.href = blob + href;
       });
-      var target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
-      if (target) target.scrollIntoView();
+      collapseEntries();
+      revealHash();
+      window.addEventListener("hashchange", revealHash);
     })
     .catch(fail);
 })();

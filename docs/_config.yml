@@ -26,6 +26,9 @@ kramdown:
 color_scheme: stash
 callouts_level: loud
 callouts:
+  info:
+    title: Info
+    color: blue
   warning:
     title: Warning
     color: yellow

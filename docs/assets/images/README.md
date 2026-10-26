@@ -13,3 +13,5 @@ The grid and badges come from [Blueprint 1.4.0](https://github.com/MustafaNatur/
 The backgrounds and badges use Blueprint's `--color` and `--badge` options. Both badges use charcoal text for contrast. Wrapper SVGs embed Blueprint's badge image, overlapping the S.
 
 The README uses `*_rounded.png`: 1024-pixel Icon Composer exports with the iOS Liquid Glass rim, rounded corners, and transparent edges (`Default` rendition, design generation `26`). Full SVGs and sample app icons stay unmasked so the platform applies its launcher shape. Android's legacy round PNGs contain a circular crop.
+
+The Apple and Android snippet icons in `platform/` come from [Bootstrap Icons v1.13.1](https://github.com/twbs/icons/tree/v1.13.1/icons). Their [MIT license](platform/LICENSE) is included alongside the SVGs.
