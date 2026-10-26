@@ -12,7 +12,7 @@ Do not comment on formatting, import ordering, naming, static-analysis findings,
 
 ## 1. external-shape-validation (A2)
 
-When changing decoded checkout responses, persisted sample credentials, or imported instance documents, validate the decoded container and the fields used before indexing or iterating. Preserve the root-and-array shape guard in `iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Instances.swift`'s `importInstancesJson`, the tolerant `optString`/`optBoolean` extraction in `Android/sample/src/main/java/com/stash/stashnative/sample/MainViewModel.java`'s `importInstancesJson`, and the generated-URL shape check in `iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Actions.swift`.
+When changing decoded checkout responses, persisted sample credentials, or imported instance documents, validate the decoded container and the fields used before indexing or iterating. Preserve the root-and-array shape guard in `iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Instances.swift`'s `importInstancesJson`, the strict field rules in `Android/sample/src/main/java/com/stash/stashnative/sample/MainViewModel.java`'s `importInstancesJson` (the document is rejected when an entry's `appId` or `ingressSecret` is missing or not a string; optional fields of the wrong type count as absent, not coerced; `production` is set only by JSON `true`; the iOS importer applies the same rules), and the generated-URL shape check in `iOS/Sample/StashNativeSample/StashNativeSample/ViewController+Actions.swift`.
 
 **Failure:** A parseable but wrongly shaped response or import document throws during access or turns an invalid checkout URL into a host action.
 
