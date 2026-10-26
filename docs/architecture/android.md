@@ -49,7 +49,8 @@ flowchart TB
 
 - Custom Tabs open through an internal proxy activity that detects when the tab closes. The game does not forward `onActivityResult`.
 - Without `androidx.browser`, links open with `ACTION_VIEW`, and the close event fires when the launching activity resumes.
-- A `keepOpen` browser opens from the card activity, in the game's task. `closeBrowser()` and the keep-alive notification return to the card by finishing what lies above it, so the card and the game's activities stay as they were.
+- A `keepOpen` browser opens from the card activity, in the game's task. `closeBrowser()` and the keep-alive notification return to the card by finishing what lies above it, so the card and the game's activities stay as they were. When the card ends first, it clears the browser the same way before finishing.
+- Keep-alive starts only after a browser opens. A failed launch ends a handoff or `openBrowser` with `onBrowserDismissed`.
 
 ## Modules
 

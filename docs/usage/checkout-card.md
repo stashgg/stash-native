@@ -128,7 +128,10 @@ StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter
 
 ### External Payment Scenarios
 
-Some alternative payment methods (such as Klarna, Cash App, etc.) require the user to finish the purchase in an external browser or another app. `onExternalPayment` notifies the host application of this handoff. In this flow, the checkout card stays open and waits for the user to complete the purchase and return. Handling this callback is optional unless your app needs to react to the handoff.
+Some alternative payment methods (such as Klarna, Cash App, etc.) require the user to finish the purchase in an external browser or another app. `onExternalPayment` notifies the host application of this handoff. Handling it is optional unless your app needs to react to the handoff.
+
+- By default, the card closes and the payment continues in the [in-game browser](browser.md). The presentation ends with `onBrowserDismissed` instead of `onCardDismissed`, and the result arrives through the [deep link](browser.md#handling-results).
+- When the page passes `keepOpen`, the browser opens over the card, which stays open for the player's return. No browser event follows; the card ends with its own events and closes the browser with it.
 
 ## Other
 

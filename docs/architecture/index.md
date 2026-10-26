@@ -48,7 +48,7 @@ stateDiagram-v2
 
 - An open call while a presentation is active does nothing.
 - While locked, players cannot close the card.
-- Every presentation ends with one final event. `resetPresentationState()` ends it without events.
+- Every presentation ends with one final event. `resetPresentationState()`, and `dismissSafariViewController()` on iOS, end it without events.
 
 ## Native card
 

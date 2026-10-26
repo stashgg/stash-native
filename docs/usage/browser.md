@@ -48,7 +48,7 @@ Configure and enable it once in your app's code; the SDK starts the service auto
 StashNative.KeepAliveConfig config = new StashNative.KeepAliveConfig();
 config.notificationTitle = "Payment in progress";
 config.notificationText = "Tap to return to the game";
-config.notificationIconResId = R.drawable.ic_notification; // 0 uses the app icon
+config.notificationIconResId = R.drawable.ic_notification; // 0 uses the SDK icon
 StashNative.getInstance().setKeepAliveConfig(config);
 StashNative.getInstance().setKeepAliveEnabled(true);
 ```
@@ -74,11 +74,14 @@ Set your URL scheme in [Stash Studio](https://docs.stash.gg/guides/get-started/s
 
 The SDK does not handle deep links. Configure them in your host app as described by [Apple](https://developer.apple.com/documentation/xcode/defining-a-custom-url-scheme-for-your-app) and [Android](https://developer.android.com/training/app-links/create-deeplinks).
 
-On iOS, dismiss Safari when the deep link arrives:
+On iOS, dismiss Safari when the deep link arrives. Your app already has the result from the deep link, so this sends no callback; resume the game yourself. Call `closeBrowser()` instead if you want `stashNativeDidDismissBrowser`.
 
 ```swift
 StashNative.sharedInstance().dismissSafariViewController()
 ```
+
+On Android, receive the deep link in a separate activity, not in the activity that opened the card. The card and a browser opened over it run in your game's task above that activity. Delivering the link to a `singleTask` activity, or with `FLAG_ACTIVITY_CLEAR_TOP`, finishes everything above it: an open card closes and reports a dismissal. A `singleTask` launcher activity does the same when the player returns through the app icon. Engine templates often declare their main activity `singleTask`, so check your merged manifest. Use a `noHistory` activity that forwards the link and calls `closeBrowser()` while `isCurrentlyPresented()` is true, as the Android sample's [`DeepLinkActivity`](https://github.com/stashgg/stash-native/blob/main/Android/sample/src/main/java/com/stash/stashnative/sample/DeepLinkActivity.java) does.
+{: .platform-android }
 
 ## Callbacks
 
@@ -86,7 +89,7 @@ These events go to the shared receiver; see [Setting Callbacks](callbacks.md).
 
 | Callback (iOS / Android) | Fires when |
 |---|---|
-| `stashNativeDidDismissBrowser()`<br>`onBrowserDismissed()` | The browser closes, after `openBrowser` or an external payment that closed the card |
+| `stashNativeDidDismissBrowser()`<br>`onBrowserDismissed()` | The browser closes, or cannot open, after `openBrowser` or an external payment that closed the card |
 
 ## Other
 
@@ -104,7 +107,7 @@ boolean isPresented = StashNative.getInstance().isCurrentlyPresented();
 
 ### Closing the browser
 
-`closeBrowser()` closes Safari on iOS. On Android, it only closes a browser opened by checkout over an active card; standalone Custom Tabs cannot be closed programmatically.
+`closeBrowser()` closes Safari on iOS. On Android, it only closes a browser opened by checkout over an active card; standalone Custom Tabs cannot be closed programmatically. Call it while your app is in the foreground, for example from the activity that receives the deep link.
 
 ```swift
 StashNative.sharedInstance().closeBrowser()

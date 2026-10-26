@@ -118,8 +118,8 @@ public class StashNative {
      * after launch and finishes after {@link #onBrowserDismissed()}, without {@link
      * #onCardDismissed()}. With {@code {keepOpen: true}} this callback is informational: the
      * browser opens over the card, the card stays open and presented, no browser-dismissal
-     * callback follows, and the card ends with its own events. Repeats are ignored until the
-     * card is back on screen.
+     * callback follows, and the card ends with its own events; a browser still over the card
+     * closes with it. Repeats are ignored until the card is back on screen.
      *
      * @param url Validated {@code http} or {@code https} URL
      */
@@ -127,10 +127,11 @@ public class StashNative {
 
     /**
      * Called when a browser opened via {@link StashNative#openBrowser(Activity, String)} or
-     * checkout's {@code window.stash_sdk.externalBrowser} handoff closes. Not called for a
-     * {@code keepOpen} browser over the card. For Chrome Custom Tabs,
-     * the SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it, engagement
-     * session callbacks so this also runs when the tab is closed from floating or minimized UI.
+     * checkout's {@code window.stash_sdk.externalBrowser} handoff closes, or when no installed app
+     * can open its URL. Not called for a {@code keepOpen} browser over the card. For Chrome Custom
+     * Tabs, the SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it,
+     * engagement session callbacks so this also runs when the tab is closed from floating or
+     * minimized UI.
      * Handled internally by the SDK's proxy activity; no host forwarding needed. The system
      * browser fallback ({@code ACTION_VIEW}) uses activity lifecycle with a short debounce: the
      * host activity after {@code openBrowser}, the checkout activity after a checkout handoff.
@@ -378,9 +379,11 @@ public class StashNative {
    * Closes a browser that checkout opened over the presented card with {@code
    * window.stash_sdk.externalBrowser(url, {keepOpen: true})} by bringing the card back to the
    * front; the card stays open and no callback follows. Call it while the app is in the
-   * foreground, for example from the activity that receives the return deep link. Chrome Custom
-   * Tabs opened by {@link #openBrowser(Activity, String)} cannot be closed programmatically, so
-   * otherwise this has no effect.
+   * foreground, for example from the activity that receives the return deep link. That activity
+   * must not be a {@code singleTask} activity below the card or be started with clear-top:
+   * delivering the link there finishes the card before this runs. Chrome Custom Tabs opened by
+   * {@link #openBrowser(Activity, String)} cannot be closed programmatically, so otherwise this
+   * has no effect.
    */
   public void closeBrowser() {
     plugin.closeBrowserOverCard();

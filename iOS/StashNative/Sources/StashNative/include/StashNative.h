@@ -118,8 +118,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 
 /**
  * Called after a browser opened with openBrowser or checkout's externalBrowser is dismissed.
- * Covers user and programmatic closure; no card dismissal callback is emitted. Not emitted for
- * Safari opened with \c keepOpen, which returns to the open card.
+ * Covers user closure and closeBrowser; no card dismissal callback is emitted. Not emitted for
+ * Safari opened with \c keepOpen, which returns to the open card, or after dismissSafariViewController
+ * or resetPresentationState, which end silently.
  */
 - (void)stashNativeDidDismissBrowser;
 

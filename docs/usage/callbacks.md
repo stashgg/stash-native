@@ -33,4 +33,4 @@ StashNative.getInstance().setListener(listener);
 
 ## Order of events
 
-Each presentation ends with one final event, listed on its feature page. Resume the game when it arrives. You can open the next card, browser, or scanner from that callback. `resetPresentationState()` closes the card or scanner, and Safari on iOS, without sending events.
+Each presentation ends with one final event, listed on its feature page. Resume the game when it arrives. You can open the next card, browser, or scanner from that callback. Two calls end a presentation without events: `resetPresentationState()` closes the card or scanner, and Safari on iOS; `dismissSafariViewController()` closes Safari on iOS when your app handles the payment deep link itself.
