@@ -162,7 +162,10 @@ final class StashCheckoutWebViewClient extends WebViewClient {
       activity.webViewRetryCount = 0;
       // Remove the old overlay before creating the replacement WebView.
       StashCheckoutLoadingSupport.removeLoadingViewFromParent(activity);
+      // onPageLoaded fires once per card, as on iOS; the reload is not a new presentation.
+      boolean pageLoadedSent = activity.pageLoadedCallbackSent;
       StashCheckoutWebViewSupport.addWebView(activity);
+      activity.pageLoadedCallbackSent = pageLoadedSent;
       activity.presentation.environmentChanged();
       if (activity.homeButton != null) {
         activity.homeButton.bringToFront();

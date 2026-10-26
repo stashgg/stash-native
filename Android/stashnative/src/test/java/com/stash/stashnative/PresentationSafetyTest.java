@@ -866,6 +866,33 @@ public class PresentationSafetyTest {
     assertEquals(0, activity.networkErrors);
   }
 
+  @Test public void rendererRecoveryKeepsOnePageLoadedEventPerCard() {
+    activity.url = "https://example.invalid/checkout";
+    StashCheckoutWebViewSupport.addWebView(activity);
+    // Recovery before the first load still allows that first event.
+    WebView first = activity.webView;
+    Shadows.shadowOf(first).getWebViewClient().onRenderProcessGone(first,
+        new RenderProcessGoneDetail() {
+          @Override public boolean didCrash() { return false; }
+          @Override public int rendererPriorityAtExit() { return 0; }
+        });
+    assertFalse(activity.pageLoadedCallbackSent);
+    // After the event was delivered, the reload does not deliver it again.
+    activity.pageLoadedCallbackSent = true;
+    activity.rendererGoneReloadAttempted = false;
+    WebView second = activity.webView;
+    Shadows.shadowOf(second).getWebViewClient().onRenderProcessGone(second,
+        new RenderProcessGoneDetail() {
+          @Override public boolean didCrash() { return false; }
+          @Override public int rendererPriorityAtExit() { return 0; }
+        });
+    assertTrue(activity.webView != second);
+    assertTrue(activity.pageLoadedCallbackSent);
+    activity.pageLoadStartTime = 1L;
+    StashCheckoutLoadingSupport.emitPageLoadedIfNeeded(activity);
+    assertEquals(1L, activity.pageLoadStartTime);
+  }
+
   @Test public void rendererLossDuringProcessingCancelsWithoutReplayingCheckout() {
     activity.url = "https://example.invalid/checkout";
     StashCheckoutWebViewSupport.addWebView(activity);
