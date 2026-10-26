@@ -401,7 +401,8 @@ public class StashCardActivity extends Activity implements StashScannerHost {
       return;
     }
     isDismissing = true;
-    if (presentation != null) {
+    // A covered card cannot be seen, and its animation may not run until the browser closes.
+    if (presentation != null && !externalBrowserOverCard) {
       presentation.dismiss(this::finishActivityWithNoAnimation);
     } else {
       finishActivityWithNoAnimation();
@@ -422,8 +423,28 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   }
 
   private void finishImmediately() {
+    closeBrowserOverCard();
     finish();
     overridePendingTransition(0, 0);
+  }
+
+  /**
+   * Removes a keepOpen browser above the card in its task, as iOS closes Safari with the card.
+   * Clear-top with single-top finishes only what lies above this instance. Where Android blocks
+   * the start from the background, the browser stays and the game shows when it closes.
+   */
+  private void closeBrowserOverCard() {
+    if (!externalBrowserOverCard || isFinishing()) {
+      return;
+    }
+    externalBrowserOverCard = false;
+    try {
+      startActivity(new Intent(this, StashCardActivity.class)
+          .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP
+              | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+    } catch (Exception e) {
+      Log.w(TAG, "Cannot close the browser over the card: " + e.getMessage(), e);
+    }
   }
 
   void finishForPluginResetWithoutCallbacks() {

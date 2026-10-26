@@ -256,6 +256,52 @@ public class BrowserLifetimeTest {
     }
   }
 
+  /** Covers the card with a keepOpen browser, ends the card, and expects the browser closed. */
+  private void assertEndingTheCardClosesItsBrowser(Runnable end) {
+    checkout.onResume();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    checkout.onPause();
+    end.run();
+    ShadowLooper.idleMainLooper();
+    Intent back = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(back);
+    assertEquals(StashCardActivity.class.getName(), back.getComponent().getClassName());
+    int expected = Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP;
+    assertEquals(expected, back.getFlags() & expected);
+    assertTrue(checkout.isFinishing());
+    assertFalse(checkout.externalBrowserOverCard);
+  }
+
+  @Test public void paymentResultClosesTheKeepOpenBrowserWithTheCard() {
+    assertEndingTheCardClosesItsBrowser(
+        () -> new StashCheckoutJsInterface(checkout).onPaymentSuccess(token, "{}"));
+  }
+
+  @Test public void pageCloseClosesTheKeepOpenBrowserWithTheCard() {
+    assertEndingTheCardClosesItsBrowser(
+        () -> new StashCheckoutJsInterface(checkout).requestCloseFromPage(token));
+  }
+
+  @Test public void networkErrorClosesTheKeepOpenBrowserWithTheCard() {
+    assertEndingTheCardClosesItsBrowser(checkout::handleNetworkError);
+  }
+
+  @Test public void hostDismissClosesTheKeepOpenBrowserWithTheCard() {
+    assertEndingTheCardClosesItsBrowser(sdk::dismiss);
+  }
+
+  @Test public void resetClosesTheKeepOpenBrowserWithTheCard() {
+    assertEndingTheCardClosesItsBrowser(sdk::resetPresentationState);
+  }
+
+  @Test public void endingAnUncoveredCardStartsNothing() {
+    new StashCheckoutJsInterface(checkout).requestCloseFromPage(token);
+    ShadowLooper.idleMainLooper();
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+  }
+
   @Test public void closeBrowserReturnsToTheCardOnlyWhileAKeepOpenBrowserIsOverIt() {
     // Without a keepOpen browser there is nothing the SDK can close.
     sdk.closeBrowser();
