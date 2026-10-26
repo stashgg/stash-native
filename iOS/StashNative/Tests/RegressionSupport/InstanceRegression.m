@@ -221,6 +221,7 @@ NSDictionary *StashInstanceThemeProbe(void) {
 - (void)stashNativeDidDismissBrowser { [self record:@"browser-dismissed"]; }
 - (void)stashNativeDidCompletePaymentWithOrder:(NSString *)order { [self record:order ?: @"nil-order"]; }
 - (void)stashNativeDidFailPayment { [self record:@"failure"]; }
+- (void)stashNativeDidEncounterNetworkError { [self record:@"network-error"]; }
 - (void)stashNativeDidScanQRCode:(NSString *)content { [self record:content]; }
 - (void)stashNativeDidRequestExternalPaymentWithURL:(NSString *)url { [self record:@"handoff"]; }
 - (void)dealloc { if (_onRelease) _onRelease(); }
@@ -353,12 +354,14 @@ NSDictionary *StashCallbackLiveReceiverProbe(BOOL clear) {
         @"noReplay":@(noReplay)};
 }
 
+// A payment that keeps the card open is delivered while it is presented; the card's terminal event
+// arrives after teardown. Receivers swapped or cleared inside a callback take effect for the next event.
 NSDictionary *StashCallbackReentrantProbe(void) {
     StashNative *owner = [StashNative new];
     StashCallbackReceiver *first = [StashCallbackReceiver new], *second = [StashCallbackReceiver new];
     owner.delegate = first;
     StashCardSession *session = StashCallbackSession(owner);
-    session.browser = [[SFSafariViewController alloc] initWithURL:[NSURL URLWithString:@"https://example.invalid"]];
+    session.config.autoClose = NO;
     __block BOOL paymentBeforeTeardown = NO, closeAfterTeardown = NO;
     first.onEvent = ^(NSString *event) {
         paymentBeforeTeardown = owner.isCurrentlyPresented;
@@ -370,13 +373,13 @@ NSDictionary *StashCallbackReentrantProbe(void) {
         StashCallbackSession(owner).scanner = YES;
     };
     [session paymentSucceeded:YES order:nil];
-    [session browserClosed];
+    [session networkFailed];
     BOOL replacementSurvived = owner.session.scanner && owner.isCurrentlyPresented;
     [owner dismiss];
     BOOL clearSuppressesNext = second.events.count == 1;
     return @{@"paymentBeforeTeardown":@(paymentBeforeTeardown), @"closeAfterTeardown":@(closeAfterTeardown),
         @"eventUsesNewReceiver":@([first.events isEqualToArray:@[@"nil-order"]] &&
-            [second.events isEqualToArray:@[@"browser-dismissed"]]), @"replacementSurvived":@(replacementSurvived),
+            [second.events isEqualToArray:@[@"network-error"]]), @"replacementSurvived":@(replacementSurvived),
         @"clearSuppressesNext":@(clearSuppressesNext)};
 }
 

@@ -693,11 +693,8 @@ static void StashDismissOverlay(UIViewController *overlay) {
         }];
     };
     // A result that closes the card is final: deliver it after teardown so the game can open again.
-    if (self.config.autoClose && !self.browser) [self finishWithUserDismiss:NO completion:deliver];
-    else {
-        deliver();
-        if (self.browser) [self browserClosed];
-    }
+    if (self.config.autoClose) [self finishWithUserDismiss:NO completion:deliver];
+    else deliver();
 #if !__has_feature(objc_arc)
     [payload release];
 #endif
