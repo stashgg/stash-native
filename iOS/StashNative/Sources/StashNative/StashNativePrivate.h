@@ -160,8 +160,6 @@ void StashSetScannerContentClassName(NSString *name);
 - (void)openBrowserOverCardWithURL:(NSString *)url;
 // Dismisses keepOpen Safari and returns to the card; no browser event follows.
 - (void)closeOverlayBrowser;
-// A host-reported browser result for keepOpen Safari.
-- (void)overlayBrowserFinishedWithResult:(BOOL)success;
 - (void)detachOverlayBrowser;
 // Defers an open until a leaving surface from another session is gone.
 - (BOOL)waitForLeavingSurfaceOn:(UIViewController *)presenter then:(void (^)(void))open;

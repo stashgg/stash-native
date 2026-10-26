@@ -246,14 +246,24 @@ NSDictionary *StashCallbackDismissalProbe(void) {
     [owner openScannerFromViewController:host];
     BOOL scannerAdmitted = owner.session != nil && owner.session.scanner;
     [owner dismiss];
-    for (NSInteger mode = 0; mode < 3; mode++) {
+    for (NSInteger mode = 0; mode < 4; mode++) {
         [owner openBrowserWithURL:@"https://example.invalid" fromViewController:host];
         StashCardSession *browser = owner.session;
         if (mode == 0) [owner closeBrowser];
         else if (mode == 1) [owner dismiss];
-        else [browser safariViewControllerDidFinish:browser.browser];
+        else if (mode == 2) [browser safariViewControllerDidFinish:browser.browser];
+        // Silent: neither this call nor Safari's later finish reaches the delegate.
+        else [owner dismissSafariViewController];
         [browser browserClosed];
+        [browser safariViewControllerDidFinish:browser.browser];
     }
+    BOOL silentBrowserClosed = owner.session == nil;
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
+    StashCardSession *silentHandoff = owner.session;
+    [silentHandoff handleMessage:@"stashExternalPayment" body:@"https://example.invalid/pay"];
+    [owner dismissSafariViewController];
+    [silentHandoff browserClosed];
+    BOOL silentHandoffClosed = owner.session == nil;
     [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
     StashCardSession *card = owner.session;
     [card handleMessage:@"stashExternalPayment" body:@"https://example.invalid/pay"];
@@ -266,10 +276,11 @@ NSDictionary *StashCallbackDismissalProbe(void) {
     [owner closeBrowser];
     BOOL handoffUsesReplacement = [replacement.events isEqualToArray:@[@"browser-dismissed"]];
     NSArray *expected = @[@"card-dismissed", @"scan-dismissed", @"browser-dismissed", @"browser-dismissed", @"browser-dismissed",
-        @"handoff", @"browser-dismissed", @"handoff"];
+        @"handoff", @"handoff", @"browser-dismissed", @"handoff"];
     return @{@"cardAdmitted":@(cardAdmitted), @"scannerAdmitted":@(scannerAdmitted),
         @"handoffKeepsSession":@(sameSession), @"events":receiver.events, @"expected":expected,
-        @"handoffUsesReplacement":@(handoffUsesReplacement), @"closed":@(!owner.isCurrentlyPresented)};
+        @"handoffUsesReplacement":@(handoffUsesReplacement), @"closed":@(!owner.isCurrentlyPresented),
+        @"silentBrowserClosed":@(silentBrowserClosed), @"silentHandoffClosed":@(silentHandoffClosed)};
 }
 
 // Each accepted open whose presentation fails later still ends with its final event; reset stays silent.

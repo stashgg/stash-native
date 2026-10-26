@@ -20,7 +20,7 @@ extension ViewController {
         cell.textLabel?.font = .preferredFont(forTextStyle: .body)
         cell.textLabel?.adjustsFontForContentSizeCategory = true
         cell.textLabel?.textColor = .label
-        cell.detailTextLabel?.text = StashNative.sdkVersion()
+        cell.detailTextLabel?.text = StashNative.getVersion()
         cell.detailTextLabel?.textColor = .secondaryLabel
         return cell
     }

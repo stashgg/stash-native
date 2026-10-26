@@ -48,7 +48,7 @@ When adding or renaming an Objective-C library source, keep the distribution man
 
 ## 7. release-version-parity (B3)
 
-Change the SDK version as one synchronized value: `SDK_VERSION` in `Android/stashnative/src/main/java/com/stash/stashnative/StashNative.java` and `+[StashNative sdkVersion]` in `iOS/StashNative/Sources/StashNative/StashNative.m` must report the same release string.
+Change the SDK version as one synchronized value: `SDK_VERSION` in `Android/stashnative/src/main/java/com/stash/stashnative/StashNative.java` and `+[StashNative getVersion]` in `iOS/StashNative/Sources/StashNative/StashNative.m` must report the same release string.
 
 **Failure:** Integrators and wrappers identify equivalent Android and iOS release artifacts as different SDK versions.
 

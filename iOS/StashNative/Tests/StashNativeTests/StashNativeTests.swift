@@ -4,7 +4,7 @@ import RegressionSupport
 
 final class StashNativeTests: XCTestCase {
     func testV3DefaultsAndIndependentCopy() {
-        XCTAssertEqual(StashNative.sdkVersion(), "3.0.0")
+        XCTAssertEqual(StashNative.getVersion(), "3.0.0")
         let card = StashNativeCardConfig()
         XCTAssertEqual(card.preferredContentWidth, 400)
         XCTAssertEqual(card.preferredContentHeight, 560)

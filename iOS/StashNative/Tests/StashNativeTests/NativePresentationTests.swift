@@ -159,30 +159,13 @@ final class NativePresentationTests: XCTestCase {
         }
     }
 
-    // keepOpen Safari leaves through closeBrowser or a host dismissal: the card stays, no browser event is
-    // emitted, and the page can open Safari again.
+    // keepOpen Safari leaves through closeBrowser, dismissSafariViewController, or a host dismissal: the card
+    // stays, no browser event is emitted, and the page can open Safari again.
     func testKeepOpenSafariClosedOutsideDoneReturnsToTheCard() {
-        for trigger in ["closeBrowser", "hostDismissOverlay"] {
+        for trigger in ["closeBrowser", "dismissSafari", "hostDismissOverlay"] {
             runCardStack("safari", trigger) { result in
                 self.assertFlags(result, ["returned", "clearedOnReturn", "reopened", "cardOpen"], trigger)
                 XCTAssertEqual(result["events"] as? [String], ["externalPayment", "externalPayment"], trigger)
-            }
-        }
-    }
-
-    // dismissSafariViewController(withResult:) closes keepOpen Safari. The live page reports the same payment,
-    // so the player's payment is reported exactly once in either order.
-    func testKeepOpenSafariResultReportsThePaymentOnce() {
-        for trigger in ["result", "pageThenResult"] {
-            runCardStack("safari", trigger, autoClose: true) { result in
-                let label = "\(trigger) autoClose"
-                self.assertFlags(result, ["rootCleared", "cardGone", "sessionEnded", "overlayCleared"], label)
-                XCTAssertEqual(result["events"] as? [String], ["externalPayment", "paymentSuccess"], label)
-            }
-            runCardStack("safari", trigger, autoClose: false) { result in
-                let label = "\(trigger) manual close"
-                self.assertFlags(result, ["returned", "cardOpen", "overlayCleared"], label)
-                XCTAssertEqual(result["events"] as? [String], ["externalPayment", "paymentSuccess"], label)
             }
         }
     }

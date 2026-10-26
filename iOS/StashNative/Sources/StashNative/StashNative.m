@@ -51,7 +51,8 @@ Class StashScannerContentClass(void) {
     dispatch_once(&once, ^{ instance = [[self alloc] init]; });
     return instance;
 }
-+ (NSString *)sdkVersion { return @"3.0.0"; }
++ (NSString *)getVersion { return @"3.0.0"; }
++ (NSString *)sdkVersion { return [self getVersion]; }
 + (void)setInspectableWebViewsEnabled:(BOOL)enabled { stashInspectableWebViewsEnabled = enabled; }
 + (BOOL)isInspectableWebViewsEnabled { return stashInspectableWebViewsEnabled; }
 - (BOOL)isCurrentlyPresented { return self.session != nil; }
@@ -153,14 +154,12 @@ Class StashScannerContentClass(void) {
     if (self.session.browser) [self.session browserClosed];
     else [self.session closeOverlayBrowser];
 }
-- (void)dismissSafariViewControllerWithResult:(BOOL)success {
-    if (!NSThread.isMainThread) {
-        dispatch_async(dispatch_get_main_queue(), ^{ [self dismissSafariViewControllerWithResult:success]; }); return;
-    }
+- (void)dismissSafariViewController {
+    if (!NSThread.isMainThread) { dispatch_async(dispatch_get_main_queue(), ^{ [self dismissSafariViewController]; }); return; }
     StashCardSession *session = self.session;
-    if (session.closing) return;
-    if (session.browser) [session paymentSucceeded:success order:nil];
-    else [session overlayBrowserFinishedWithResult:success];
+    // Ending the session first makes Safari's later finish and disappearance callbacks no-ops.
+    if (session.browser) [session finishWithUserDismiss:NO completion:nil];
+    else [session closeOverlayBrowser];
 }
 - (void)dealloc {
     StashCardSession *session = _session;

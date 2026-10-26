@@ -636,13 +636,6 @@ static void StashDismissOverlay(UIViewController *overlay) {
     [self detachOverlayBrowser];
     StashDismissOverlay(overlay);
 }
-- (void)overlayBrowserFinishedWithResult:(BOOL)success {
-    if (![self isActive] || !self.overlayBrowser) return;
-    // The live page reports this payment too. The host's result is delivered only when it closes the card,
-    // where the autoClose once-guard drops the other report; otherwise Safari closes and the page reports it.
-    if (self.config.autoClose) [self paymentSucceeded:success order:nil];
-    else [self closeOverlayBrowser];
-}
 - (void)playLongHaptic {
     if (![self playContinuousHaptic]) {
         // Without Core Haptics, the error notification is the longest system pattern.

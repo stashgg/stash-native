@@ -73,7 +73,8 @@ final class InstanceLifetimeTests: XCTestCase {
         DispatchQueue.main.async {
             let result = StashCallbackDismissalProbe()
             XCTAssertEqual(result["events"] as? [String], result["expected"] as? [String])
-            for name in ["cardAdmitted", "scannerAdmitted", "handoffKeepsSession", "handoffUsesReplacement", "closed"] {
+            for name in ["cardAdmitted", "scannerAdmitted", "handoffKeepsSession", "handoffUsesReplacement", "closed",
+                         "silentBrowserClosed", "silentHandoffClosed"] {
                 XCTAssertEqual((result[name] as? NSNumber)?.boolValue, true, name)
             }
             done.fulfill()

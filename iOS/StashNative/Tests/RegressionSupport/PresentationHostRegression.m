@@ -421,23 +421,13 @@ void StashCardStackProbe(NSString *cover, NSString *trigger, BOOL autoClose, voi
                 return session.browser && root.presentedViewController == session.browser && !session.browser.isBeingPresented;
             }, ^(BOOL handedOff) { report(@{@"browserPresented":@(handedOff)}); });
             return;
-        } else if ([trigger isEqualToString:@"closeBrowser"] || [trigger isEqualToString:@"hostDismissOverlay"]) {
+        } else if ([trigger isEqualToString:@"closeBrowser"] || [trigger isEqualToString:@"dismissSafari"] ||
+                   [trigger isEqualToString:@"hostDismissOverlay"]) {
             if ([trigger isEqualToString:@"closeBrowser"]) [owner closeBrowser];
+            else if ([trigger isEqualToString:@"dismissSafari"]) [owner dismissSafariViewController];
             // The host removes Safari itself; Safari's Done callback never runs.
             else [card dismissViewControllerAnimated:YES completion:nil];
             settle(coverGone, reopen);
-            return;
-        } else if ([trigger isEqualToString:@"result"] || [trigger isEqualToString:@"pageThenResult"]) {
-            BOOL pageFirst = [trigger isEqualToString:@"pageThenResult"];
-            // Checkout keeps running under keepOpen Safari, so the page can report the same payment.
-            void (^page)(void) = ^{ [session handleMessage:@"stashNativementSuccess" body:@"order"]; };
-            if (pageFirst) page(); else [owner dismissSafariViewControllerWithResult:YES];
-            settle(autoClose ? closed : (pageFirst ? ^BOOL { return YES; } : coverGone), ^(BOOL first) {
-                if (pageFirst) [owner dismissSafariViewControllerWithResult:YES]; else page();
-                settle(autoClose ? closed : coverGone, ^(BOOL second) {
-                    report(@{@"returned":@(first && second && coverGone())});
-                });
-            });
             return;
         }
         settle([trigger isEqualToString:@"ownerRelease"] ? ^BOOL { return root.presentedViewController == nil && !weakOwner; } :

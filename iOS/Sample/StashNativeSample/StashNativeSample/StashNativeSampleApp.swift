@@ -35,12 +35,15 @@ enum StashSampleDeepLink {
         guard url.scheme?.lowercased() == "stashdemo" else { return false }
         let urlString = url.absoluteString
 
+        // The SDK reports no result for these; the game handles the deep link itself.
         if urlString.contains("stash-pay/success") {
-            StashNative.sharedInstance().dismissSafariViewController(withResult: true)
+            StashNative.sharedInstance().dismissSafariViewController()
+            ViewController.postCallbackChip("Deeplink · Payment Success")
             return true
         }
         if urlString.contains("stash-pay/failure") {
-            StashNative.sharedInstance().dismissSafariViewController(withResult: false)
+            StashNative.sharedInstance().dismissSafariViewController()
+            ViewController.postCallbackChip("Deeplink · Payment Failure")
             return true
         }
         if urlString.contains("stash-pay/cancel") {

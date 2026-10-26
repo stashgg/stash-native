@@ -157,7 +157,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @property (nonatomic, readonly) BOOL isCurrentlyPresented;
 @property (nonatomic, readonly) BOOL isPurchaseProcessing;
 + (instancetype)sharedInstance;
-+ (NSString *)sdkVersion;
+/** The SDK version string, for example "3.0.0". Matches Android's StashNative.getVersion(). */
++ (NSString *)getVersion;
++ (NSString *)sdkVersion DEPRECATED_MSG_ATTRIBUTE("Use getVersion.");
 + (void)setInspectableWebViewsEnabled:(BOOL)enabled;
 + (BOOL)isInspectableWebViewsEnabled;
 /** The presenter must belong to the window that initiated checkout. Invalid/busy opens are ignored. */
@@ -187,13 +189,12 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  * Safari opened with \c keepOpen closes back to the open card without a browser event.
  */
 - (void)closeBrowser;
-/** Closes Safari when the payment deep link arrives and reports \c success as the payment result.
- * For Safari opened by openBrowser or externalBrowser, the payment callback precedes
- * \c stashNativeDidDismissBrowser. For Safari opened with \c keepOpen, the checkout page also reports
- * the payment, and it is reported once: with \c autoClose the card closes and the first result wins;
- * without it, Safari closes back to the card and the page's result is the payment callback.
+/** Closes the SDK's Safari without any delegate callback, for example when the payment deep link
+ * arrives and the game handles the result itself. Safari opened by openBrowser or externalBrowser ends
+ * its presentation silently. Safari opened with \c keepOpen closes back to the open card, whose page
+ * still reports its own events.
  */
-- (void)dismissSafariViewControllerWithResult:(BOOL)success;
+- (void)dismissSafariViewController;
 @end
 
 NS_ASSUME_NONNULL_END

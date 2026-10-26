@@ -77,7 +77,7 @@ Desktop shared tests can run without Windows. They do not establish that the Win
 
 When releasing, keep version declarations and artifacts aligned within that release:
 
-- iOS `+sdkVersion` in `StashNative.m` and relevant bundle metadata.
+- iOS `+getVersion` in `StashNative.m` and relevant bundle metadata.
 - Android `SDK_VERSION` in `StashNative.java`.
 - Desktop `STASH_NATIVE_DESKTOP_VERSION` in `Desktop/include/StashNativeDesktopVersion.h`, when present.
 - Changelog and release-workflow version gates.

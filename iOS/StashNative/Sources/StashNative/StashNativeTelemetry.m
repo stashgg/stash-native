@@ -121,7 +121,7 @@ static NSString *StashTelemetryJSON(NSDictionary *snapshot) {
         @"app":@{@"id":StashTelemetryString(NSBundle.mainBundle.bundleIdentifier),
             @"version":StashTelemetryString(bundle[@"CFBundleShortVersionString"]),
             @"build":StashTelemetryString(bundle[@"CFBundleVersion"]), @"targetSdkVersion":NSNull.null},
-        @"runtime":@{@"sdkVersion":StashNative.sdkVersion, @"webViewEngine":@"webkit",
+        @"runtime":@{@"sdkVersion":StashNative.getVersion, @"webViewEngine":@"webkit",
             @"webViewPackage":NSNull.null, @"webViewVersion":NSNull.null},
         @"presentation":@{
             @"state":self.expanded ? @"expanded" : @"resting",
