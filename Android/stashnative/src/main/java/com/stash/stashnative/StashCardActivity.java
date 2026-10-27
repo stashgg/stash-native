@@ -52,6 +52,8 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   private String scanResult;
   private boolean awaitingExternalBrowserDimOverlay;
   private long externalBrowserHandoffUptime;
+  /** Set when a reset or a newer presentation retires this card; it then ends without events. */
+  boolean retiredWithoutCallbacks;
   private OnBackInvokedCallback backCallback;
   boolean initialPageLoadComplete;
   boolean networkErrorHandled;
@@ -457,6 +459,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
 
   void finishForPluginResetWithoutCallbacks() {
     cancelScan();
+    retiredWithoutCallbacks = true;
     callbackSent = true;
     isDismissing = true;
     if (hostBackdrop != null) {

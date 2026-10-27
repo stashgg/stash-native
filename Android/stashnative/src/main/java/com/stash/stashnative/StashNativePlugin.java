@@ -511,9 +511,8 @@ public class StashNativePlugin {
         // new presentation, or a browser the host opens before this runs retires the card
         // silently, as the same calls do inside the callback.
         long session = presentationSessionId;
-        long browserSession = browserSessionId;
         mainHandler.post(() -> {
-          if (session == presentationSessionId && browserSession == browserSessionId
+          if (session == presentationSessionId && !checkoutActivity.retiredWithoutCallbacks
               && !isCurrentlyPresented) {
             notifyCardDismissedListener();
           }

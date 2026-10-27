@@ -446,6 +446,36 @@ public class CallbackContractTest {
     assertEquals(Arrays.asList("external"), events);
   }
 
+  /** An unrelated browser closing in the same turn does not swallow the card's dismissal. */
+  @Test
+  public void independentBrowserCloseKeepsTheQueuedCardDismissal() {
+    StashCardActivity card = open(false);
+    sdk.openBrowser(host, "https://example.invalid/help");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    long browser = launchedBrowser(host);
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        events.add("external");
+        sdk.dismiss();
+      }
+
+      @Override public void onCardDismissed() {
+        events.add("card-dismissed");
+      }
+
+      @Override public void onBrowserDismissed() {
+        events.add("browser-dismissed");
+      }
+    });
+    String token = card.issueBridgeDocumentToken();
+    android.os.Handler main = new android.os.Handler(Looper.getMainLooper());
+    main.post(() -> new StashCheckoutJsInterface(card).openExternalBrowser(
+        token, "https://example.invalid/pay"));
+    main.post(() -> plugin.notifyBrowserClosedFromProxyInternal(browser));
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("external", "browser-dismissed", "card-dismissed"), events);
+  }
+
   /** A host recreated while the system browser is open still reports the browser closing. */
   @Test
   @Config(shadows = ActionViewLauncher.class)
