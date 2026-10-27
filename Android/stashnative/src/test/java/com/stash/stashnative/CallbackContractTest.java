@@ -401,6 +401,28 @@ public class CallbackContractTest {
     assertFalse(sdk.isCurrentlyPresented());
   }
 
+  /** A reset the host queues inside onExternalPayment wins over the queued card dismissal. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void resetQueuedAfterDismissFromExternalPaymentStaysSilent() {
+    StashCardActivity card = open(false);
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        events.add("external");
+        sdk.dismiss();
+        new android.os.Handler(Looper.getMainLooper()).post(sdk::resetPresentationState);
+      }
+
+      @Override public void onCardDismissed() {
+        events.add("card-dismissed");
+      }
+    });
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("external"), events);
+  }
+
   /** A host recreated while the system browser is open still reports the browser closing. */
   @Test
   @Config(shadows = ActionViewLauncher.class)
