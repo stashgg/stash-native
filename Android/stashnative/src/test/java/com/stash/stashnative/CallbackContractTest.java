@@ -397,19 +397,36 @@ public class CallbackContractTest {
   @Test
   @Config(shadows = ActionViewLauncher.class)
   public void recreatedHostStillReportsTheSystemBrowserClosing() {
-    org.robolectric.android.controller.ActivityController<Activity> original =
-        Robolectric.buildActivity(Activity.class).setup();
+    org.robolectric.android.controller.ActivityController<TaskHost> original =
+        Robolectric.buildActivity(TaskHost.class).setup();
+    original.get().task = 7;
     sdk.openBrowser(original.get(), "https://example.invalid/help");
     Shadows.shadowOf(Looper.getMainLooper()).idle();
     Application.ActivityLifecycleCallbacks lifecycle =
         ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
     lifecycle.onActivityPaused(original.get());
     original.pause().stop().destroy();
-    Activity recreated = Robolectric.buildActivity(Activity.class).setup().get();
     Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    // The same class in another task is not the host's replacement.
+    TaskHost elsewhere = Robolectric.buildActivity(TaskHost.class).setup().get();
+    elsewhere.task = 8;
+    lifecycle.onActivityResumed(elsewhere);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertTrue(events.isEmpty());
+    TaskHost recreated = Robolectric.buildActivity(TaskHost.class).setup().get();
+    recreated.task = 7;
     lifecycle.onActivityResumed(recreated);
     Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
     assertEquals(Arrays.asList("first:browser-dismissed"), events);
+  }
+
+  /** A host activity whose task the test chooses. */
+  public static class TaskHost extends Activity {
+    int task;
+
+    @Override public int getTaskId() {
+      return task;
+    }
   }
 
   /** With no browser, the handoff ends at once with browser dismissed, not on a later resume. */

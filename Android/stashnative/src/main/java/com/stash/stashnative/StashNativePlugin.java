@@ -59,6 +59,7 @@ public class StashNativePlugin {
    */
   private Context registeredAppContext;
   private Class<?> hostActivityClass;
+  private int hostTaskId = -1;
 
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
@@ -179,9 +180,12 @@ public class StashNativePlugin {
     if (host != null && activity == host) {
       return true;
     }
-    // A configuration change can recreate the host while the browser is open.
+    // A configuration change can recreate the host while the browser is open. The replacement
+    // has the same class and stays in the same task; another instance of the class elsewhere
+    // does not count.
     if ((host == null || host.isDestroyed()) && hostActivityClass != null
-        && activity.getClass() == hostActivityClass) {
+        && activity.getClass() == hostActivityClass && activity.getTaskId() == hostTaskId) {
+      setActivity(activity);
       return true;
     }
     return pendingCheckoutDismissAfterExternalBrowser != null
@@ -310,6 +314,7 @@ public class StashNativePlugin {
   void setActivity(Activity activity) {
     this.activityRef = new WeakReference<>(activity);
     this.hostActivityClass = activity != null ? activity.getClass() : null;
+    this.hostTaskId = activity != null ? activity.getTaskId() : -1;
     if (activity != null) {
       ensureCheckoutBridgeReceiver(activity);
     }
