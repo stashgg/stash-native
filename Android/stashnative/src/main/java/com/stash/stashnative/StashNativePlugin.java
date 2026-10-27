@@ -183,7 +183,7 @@ public class StashNativePlugin {
     // A configuration change can recreate the host while the browser is open. The replacement
     // has the same class and stays in the same task; another instance of the class elsewhere
     // does not count.
-    if ((host == null || host.isDestroyed()) && hostActivityClass != null
+    if ((host == null || host.isFinishing() || host.isDestroyed()) && hostActivityClass != null
         && activity.getClass() == hostActivityClass && activity.getTaskId() == hostTaskId) {
       setActivity(activity);
       return true;
