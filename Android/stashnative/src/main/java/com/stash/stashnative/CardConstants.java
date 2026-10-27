@@ -14,6 +14,9 @@ final class CardConstants {
 
   public static final long LOADING_REVEAL_DURATION_MS = 350L;
 
+  /** Dismissal is ignored this long after a handoff starts, while the browser opens. */
+  static final long EXTERNAL_BROWSER_DISMISS_GRACE_MS = 1000L;
+
   public static final int REQUEST_CODE_STASH_CUSTOM_TAB = 0x7374;
 
   public static final String INTENT_EXTRA_URL = "url";

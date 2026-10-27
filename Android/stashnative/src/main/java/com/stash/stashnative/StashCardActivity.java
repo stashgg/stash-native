@@ -51,6 +51,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   private boolean scanCancelled;
   private String scanResult;
   private boolean awaitingExternalBrowserDimOverlay;
+  private long externalBrowserHandoffUptime;
   private OnBackInvokedCallback backCallback;
   boolean initialPageLoadComplete;
   boolean networkErrorHandled;
@@ -352,6 +353,12 @@ public class StashCardActivity extends Activity implements StashScannerHost {
       return;
     }
     if (awaitingExternalBrowserDimOverlay) {
+      // Right after the handoff a second tap or Back belongs to the payment tap, as on iOS; a
+      // browser is still opening and would outlive the handoff.
+      if (android.os.SystemClock.uptimeMillis() - externalBrowserHandoffUptime
+          < CardConstants.EXTERNAL_BROWSER_DISMISS_GRACE_MS) {
+        return;
+      }
       finishAfterExternalBrowserClose();
     } else {
       dismissWithAnimation();
@@ -378,6 +385,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
       return;
     }
     awaitingExternalBrowserDimOverlay = true;
+    externalBrowserHandoffUptime = android.os.SystemClock.uptimeMillis();
     if (webView != null) {
       webView.onPause();
     }

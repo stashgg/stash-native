@@ -332,6 +332,13 @@ public class CallbackContractTest {
         card.issueBridgeDocumentToken(), "https://example.invalid/pay");
     Shadows.shadowOf(Looper.getMainLooper()).idle();
     assertTrue((Boolean) ReflectionHelpers.getField(card, "awaitingExternalBrowserDimOverlay"));
+    // A second tap right after the payment tap is ignored while the browser opens, as on iOS.
+    card.requestUserDismiss();
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    assertTrue(events.isEmpty());
+    assertFalse(card.isFinishing());
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(
+        Duration.ofMillis(CardConstants.EXTERNAL_BROWSER_DISMISS_GRACE_MS));
     card.requestUserDismiss();
     Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
     assertEquals(Arrays.asList("first:browser-dismissed"), events);
@@ -357,6 +364,7 @@ public class CallbackContractTest {
     Application.ActivityLifecycleCallbacks lifecycle =
         ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
     lifecycle.onActivityPaused(card);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(3000));
     lifecycle.onActivityResumed(card);
     Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100));
     assertTrue(events.isEmpty());
