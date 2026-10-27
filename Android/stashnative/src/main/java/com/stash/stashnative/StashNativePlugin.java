@@ -418,6 +418,17 @@ public class StashNativePlugin {
     invokeBrowserDismissedListenerAndDismissCheckout();
   }
 
+  private void notifyCardDismissedListener() {
+    StashNative.StashNativeListener l = getListener();
+    if (l != null) {
+      try {
+        l.onCardDismissed();
+      } catch (Exception e) {
+        Log.w(TAG, "Error in card dismissal callback: " + e.getMessage(), e);
+      }
+    }
+  }
+
   private void invokeBrowserDismissedListenerAndDismissCheckout() {
     final Runnable dismiss = pendingCheckoutDismissAfterExternalBrowser;
     pendingCheckoutDismissAfterExternalBrowser = null;
@@ -488,6 +499,12 @@ public class StashNativePlugin {
     }
     // The host may reset or open another checkout from its callback.
     if (!ownsCheckout(checkoutActivity) || browserSessionId != browserBeforeCallback) {
+      if (getCheckoutActivity() == checkoutActivity && checkoutActivity.isDismissing
+          && browserSessionId == browserBeforeCallback) {
+        // dismiss() from the callback: no browser opens, and the card ends as dismissed, as on
+        // iOS. The card's own dismissal event is suppressed because the handoff began.
+        mainHandler.post(this::notifyCardDismissedListener);
+      }
       return;
     }
     pendingCheckoutDismissAfterExternalBrowser =

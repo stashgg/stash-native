@@ -366,6 +366,33 @@ public class CallbackContractTest {
     assertTrue(card.isFinishing());
   }
 
+  /** dismiss() from onExternalPayment opens no browser and ends the card as dismissed, as on iOS. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void dismissFromExternalPaymentEndsTheCardAsDismissed() {
+    StashCardActivity card = open(false);
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        events.add("external");
+        sdk.dismiss();
+      }
+
+      @Override public void onCardDismissed() {
+        events.add("card-dismissed");
+      }
+
+      @Override public void onBrowserDismissed() {
+        events.add("browser-dismissed");
+      }
+    });
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertNull(Shadows.shadowOf(card).getNextStartedActivity());
+    assertEquals(Arrays.asList("external", "card-dismissed"), events);
+    assertFalse(sdk.isCurrentlyPresented());
+  }
+
   /** A host recreated while the system browser is open still reports the browser closing. */
   @Test
   @Config(shadows = ActionViewLauncher.class)
