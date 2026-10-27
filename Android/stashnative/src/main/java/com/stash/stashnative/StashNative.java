@@ -368,7 +368,7 @@ public class StashNative {
    * StashNativeListener#onBrowserDismissed()} runs when the tab closes;
    * {@code ACTION_VIEW} uses lifecycle-based detection (see
    * {@link StashNativeListener#onBrowserDismissed()}). Unlike cards and the scanner, a browser can
-   * open while a card is presented; the card stays open beneath it.
+   * open while a card or the scanner is presented; it stays open beneath the browser.
    *
    * @param url The URL to open in the browser
    */

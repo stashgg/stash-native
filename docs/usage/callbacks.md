@@ -25,7 +25,7 @@ StashNative.getInstance().setListener(listener);
 
 ## How shared callbacks work
 
-- `StashNative` runs one card or scanner at a time, so one receiver serves every feature. On Android, `openBrowser` can also open a browser over an open card; it reports `onBrowserDismissed` separately. Each event has its own method, which tells you the feature that sent it.
+- `StashNative` runs one card or scanner at a time, so one receiver serves every feature. On Android, `openBrowser` can also open a browser over an open card or scanner; it reports `onBrowserDismissed` separately. Each event has its own method, which tells you the feature that sent it.
 - The receiver is global, not tied to an open call. Each event goes to the receiver set when it fires, including events from a presentation that is already open. Use a long-lived object, such as your store or app controller, not a screen that can close or be recreated during checkout.
 - Events arrive on the main thread, so you can update the UI directly.
 - Clearing the receiver stops future events. Events are never replayed.

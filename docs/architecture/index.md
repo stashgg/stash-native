@@ -46,7 +46,7 @@ stateDiagram-v2
     Closed --> [*]
 ```
 
-- An open call while a presentation is active does nothing, with one Android exception: `openBrowser` opens a browser over an open card. That browser ends with its own browser-dismissed event, and the card stays open.
+- An open call while a presentation is active does nothing, with one Android exception: `openBrowser` opens a browser over an open card or scanner. That browser ends with its own browser-dismissed event, and the card or scanner stays open.
 - While locked, players cannot close the card.
 - Every presentation ends with one final event. `resetPresentationState()`, and `dismissSafariViewController()` on iOS, end it without events.
 
