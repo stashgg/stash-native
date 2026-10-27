@@ -507,11 +507,14 @@ public class StashNativePlugin {
       if (getCheckoutActivity() == checkoutActivity && checkoutActivity.isDismissing
           && browserSessionId == browserBeforeCallback) {
         // dismiss() from the callback: no browser opens, and the card ends as dismissed, as on
-        // iOS. The card's own dismissal event is suppressed because the handoff began. A reset or
-        // a new presentation queued by the host before this runs makes it stale.
+        // iOS. The card's own dismissal event is suppressed because the handoff began. A reset, a
+        // new presentation, or a browser the host opens before this runs retires the card
+        // silently, as the same calls do inside the callback.
         long session = presentationSessionId;
+        long browserSession = browserSessionId;
         mainHandler.post(() -> {
-          if (session == presentationSessionId && !isCurrentlyPresented) {
+          if (session == presentationSessionId && browserSession == browserSessionId
+              && !isCurrentlyPresented) {
             notifyCardDismissedListener();
           }
         });
