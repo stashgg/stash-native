@@ -1,9 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-FOUNDATION_EXPORT double StashNativeVersionNumber;
-FOUNDATION_EXPORT const unsigned char StashNativeVersionString[];
-
 NS_ASSUME_NONNULL_BEGIN
 
 FOUNDATION_EXPORT NSErrorDomain const StashNativeScannerErrorDomain;
