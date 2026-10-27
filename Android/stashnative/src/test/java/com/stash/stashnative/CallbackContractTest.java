@@ -323,6 +323,68 @@ public class CallbackContractTest {
     assertFalse(sdk.isCurrentlyPresented());
   }
 
+  /** Dismissing the dim overlay before the browser covers the card still ends the handoff once. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void dimDismissDuringHandoffEndsWithBrowserDismissed() {
+    StashCardActivity card = open(false);
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    assertTrue((Boolean) ReflectionHelpers.getField(card, "awaitingExternalBrowserDimOverlay"));
+    card.requestUserDismiss();
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    assertTrue(card.isFinishing());
+    assertFalse(sdk.isCurrentlyPresented());
+    // A late close signal from the abandoned launch reports nothing more.
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(card);
+    lifecycle.onActivityResumed(card);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+  }
+
+  /** A second Back inside the resume debounce after the system browser reports the close once. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void backInsideTheResumeDebounceReportsTheCloseOnce() {
+    StashCardActivity card = open(false);
+    new StashCheckoutJsInterface(card).openExternalBrowser(
+        card.issueBridgeDocumentToken(), "https://example.invalid/pay");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(card);
+    lifecycle.onActivityResumed(card);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100));
+    assertTrue(events.isEmpty());
+    card.requestUserDismiss();
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+    assertTrue(card.isFinishing());
+  }
+
+  /** A host recreated while the system browser is open still reports the browser closing. */
+  @Test
+  @Config(shadows = ActionViewLauncher.class)
+  public void recreatedHostStillReportsTheSystemBrowserClosing() {
+    org.robolectric.android.controller.ActivityController<Activity> original =
+        Robolectric.buildActivity(Activity.class).setup();
+    sdk.openBrowser(original.get(), "https://example.invalid/help");
+    Shadows.shadowOf(Looper.getMainLooper()).idle();
+    Application.ActivityLifecycleCallbacks lifecycle =
+        ReflectionHelpers.getField(plugin, "checkoutHostLifecycleCallbacks");
+    lifecycle.onActivityPaused(original.get());
+    original.pause().stop().destroy();
+    Activity recreated = Robolectric.buildActivity(Activity.class).setup().get();
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    lifecycle.onActivityResumed(recreated);
+    Shadows.shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(1000));
+    assertEquals(Arrays.asList("first:browser-dismissed"), events);
+  }
+
   /** With no browser, the handoff ends at once with browser dismissed, not on a later resume. */
   @Test
   @Config(shadows = ActionViewLauncher.class)

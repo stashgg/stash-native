@@ -155,6 +155,26 @@ public class KeepAliveLifetimeTest {
     assertEquals(StashKeepAliveService.class.getName(), stopped.getComponent().getClassName());
   }
 
+  /** Keep-alive stops when the browser closes even if the host that opened it was recreated. */
+  @Test public void browserCloseStopsKeepAliveWithoutAHostResume() {
+    sdk.setKeepAliveEnabled(true);
+    sdk.openBrowser(host, "https://example.invalid/terms");
+    ShadowLooper.idleMainLooper();
+    Intent proxy = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(proxy);
+    Intent started = Shadows.shadowOf(app).getNextStartedService();
+    assertNotNull(started);
+    ServiceController<StashKeepAliveService> running =
+        Robolectric.buildService(StashKeepAliveService.class, started).create().startCommand(0, 1);
+    while (Shadows.shadowOf(app).getNextStoppedService() != null) {}
+    plugin.notifyBrowserClosedFromProxyInternal(
+        proxy.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L));
+    Intent stopped = Shadows.shadowOf(app).getNextStoppedService();
+    assertNotNull(stopped);
+    assertEquals(StashKeepAliveService.class.getName(), stopped.getComponent().getClassName());
+    running.destroy();
+  }
+
   /** Records starts made with the card as their source. */
   public static class RecordingCard extends StashCardActivity {
     Intent started;

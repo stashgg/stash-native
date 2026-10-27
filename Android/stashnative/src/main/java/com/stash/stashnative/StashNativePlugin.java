@@ -58,6 +58,7 @@ public class StashNativePlugin {
    * Stashed at registration time so cleanup() can unregister even if the Activity has been GC'd.
    */
   private Context registeredAppContext;
+  private Class<?> hostActivityClass;
 
   private boolean checkoutHostLifecycleRegistered;
   private Application.ActivityLifecycleCallbacks checkoutHostLifecycleCallbacks;
@@ -176,6 +177,11 @@ public class StashNativePlugin {
   private boolean isBrowserBoundaryActivity(Activity activity) {
     Activity host = getActivity();
     if (host != null && activity == host) {
+      return true;
+    }
+    // A configuration change can recreate the host while the browser is open.
+    if ((host == null || host.isDestroyed()) && hostActivityClass != null
+        && activity.getClass() == hostActivityClass) {
       return true;
     }
     return pendingCheckoutDismissAfterExternalBrowser != null
@@ -303,6 +309,7 @@ public class StashNativePlugin {
   /** Observes the current host without retaining it. */
   void setActivity(Activity activity) {
     this.activityRef = new WeakReference<>(activity);
+    this.hostActivityClass = activity != null ? activity.getClass() : null;
     if (activity != null) {
       ensureCheckoutBridgeReceiver(activity);
     }
@@ -398,8 +405,9 @@ public class StashNativePlugin {
   }
 
   /**
-   * Drops checkout external-browser teardown without running the pending runnable (e.g. user
-   * dismissed the dim overlay while Custom Tabs callbacks are missing).
+   * Ends a handoff the player dismissed from the dim overlay, before a browser covered the card or
+   * after one closed without a close signal. Cancels any launch still pending and reports the
+   * handoff's final event; the caller finishes the card.
    */
   void abandonPendingExternalBrowserCheckoutDismiss(StashCardActivity checkout) {
     if (!ownsCheckout(checkout) || pendingCheckoutDismissAfterExternalBrowser == null) {
@@ -407,11 +415,19 @@ public class StashNativePlugin {
     }
     pendingCheckoutDismissAfterExternalBrowser = null;
     cancelBrowserCloseTrackingLaunch();
+    invokeBrowserDismissedListenerAndDismissCheckout();
   }
 
   private void invokeBrowserDismissedListenerAndDismissCheckout() {
-    Runnable dismiss = pendingCheckoutDismissAfterExternalBrowser;
+    final Runnable dismiss = pendingCheckoutDismissAfterExternalBrowser;
     pendingCheckoutDismissAfterExternalBrowser = null;
+    // The browser has ended. A recreated host never resumes as the instance that opened it, so
+    // its resume cannot be relied on to stop keep-alive.
+    Activity host = getActivity();
+    Context keepAliveContext = host != null ? host : registeredAppContext;
+    if (keepAliveContext != null) {
+      stopKeepAliveForegroundService(keepAliveContext);
+    }
     StashNative.StashNativeListener l = getListener();
     if (l != null) {
       try {
@@ -792,8 +808,9 @@ public class StashNativePlugin {
   }
 
   /**
-   * Opens the URL via {@link StashUrlLauncher#openExternalUrl(Context, String)} (Custom Tabs when
-   * available, else system browser).
+   * Opens the URL through {@link #launchExternalBrowser} (the Custom Tabs proxy when available,
+   * else the system browser). An open card stays open beneath it. If nothing can open the URL,
+   * {@link StashNative.StashNativeListener#onBrowserDismissed()} follows at once.
    *
    * @param url URL to open
    */
