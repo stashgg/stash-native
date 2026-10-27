@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file. Format foll
 
 ## [3.0.0] - 2026-10-19 (Preview)
 
-Stash Native 3.0 is a new major release with a redesigned API, so existing integrations need code changes. One `StashNative` entry point replaces `StashNativeCard` on iOS and Android, and a single delegate or listener receives every event. Checkout runs in a responsive native card, and QR Code Linking ships as an optional module. Unity and Unreal wrapper updates ship separately. Documentation: [stashgg.github.io/stash-native](https://stashgg.github.io/stash-native/).
+Stash Native 3.0 is a new major release with a redesigned API, so existing integrations need code changes. One `StashNative` entry point replaces `StashNativeCard` on iOS and Android, and a single delegate or listener receives every event.
 
 ### Highlights
 
