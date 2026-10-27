@@ -367,7 +367,8 @@ public class StashNative {
    * SDK's proxy activity; nothing to forward from this activity so {@link
    * StashNativeListener#onBrowserDismissed()} runs when the tab closes;
    * {@code ACTION_VIEW} uses lifecycle-based detection (see
-   * {@link StashNativeListener#onBrowserDismissed()}).
+   * {@link StashNativeListener#onBrowserDismissed()}). Unlike cards and the scanner, a browser can
+   * open while a card is presented; the card stays open beneath it.
    *
    * @param url The URL to open in the browser
    */

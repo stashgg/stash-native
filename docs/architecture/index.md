@@ -7,7 +7,7 @@ description: How the Stash Native packages are built, independent of any single 
 
 # Package Architecture
 
-iOS and Android share one design: a small core plus optional modules. The `StashNative` facade runs one presentation at a time and sends its events to the game's shared [callback receiver](../usage/callbacks.md). Every feature is a presentation built from the parts below.
+iOS and Android share one design: a small core plus optional modules. The `StashNative` facade runs one card or scanner at a time and sends its events to the game's shared [callback receiver](../usage/callbacks.md). Every feature is a presentation built from the parts below.
 
 ## Components
 
@@ -25,7 +25,7 @@ flowchart TB
 
 | Part | Role | iOS | Android |
 |---|---|---|---|
-| Facade | Public API; one presentation at a time | `StashNative` | `StashNative`, `StashNativePlugin` |
+| Facade | Public API; one card or scanner at a time | `StashNative` | `StashNative`, `StashNativePlugin` |
 | Session | State and events of the open presentation | `StashCardSession` | Session ID in `StashNativePlugin` |
 | Native card | Responsive container over the game | `UISheetPresentationController` sheet | `StashCardActivity` |
 | Web content | Stash pages, connected through the [JavaScript Bridge](../stash-sdk-js.md) | `WKWebView` | `WebView` |
@@ -46,7 +46,7 @@ stateDiagram-v2
     Closed --> [*]
 ```
 
-- An open call while a presentation is active does nothing.
+- An open call while a presentation is active does nothing, with one Android exception: `openBrowser` opens a browser over an open card. That browser ends with its own browser-dismissed event, and the card stays open.
 - While locked, players cannot close the card.
 - Every presentation ends with one final event. `resetPresentationState()`, and `dismissSafariViewController()` on iOS, end it without events.
 

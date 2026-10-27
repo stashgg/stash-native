@@ -1030,8 +1030,8 @@
             updateStatus('Created 10,000 DOM elements');
         }
 
-        // Bridge calls with rejected arguments. Each must leave the card open and send no callback;
-        // iOS throws for a failed call and Android ignores it.
+        // Bridge calls with rejected arguments. Both SDKs ignore each one: the card stays open and no
+        // callback follows.
         function triggerInvalidAPICall() {
             var sdk = window.stash_sdk;
             if (!sdk) {
@@ -1049,7 +1049,7 @@
             cases.forEach(function (entry) {
                 try { entry[1](); } catch (e) { thrown++; }
             });
-            updateStatus('Rejected ' + cases.length + ' invalid calls (' + thrown + ' threw); expect the card to stay open with no callbacks');
+            updateStatus('Sent ' + cases.length + ' invalid calls' + (thrown ? ' (' + thrown + ' threw)' : '') + '; expect the card to stay open with no callbacks');
         }
 
         function triggerUncaughtPromise() {
