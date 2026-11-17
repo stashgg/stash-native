@@ -2,11 +2,23 @@ name: Create Release
 
 on:
   workflow_dispatch:
+    inputs:
+      recut_preview:
+        description: Rebuild an existing mutable preview and publish it as stable
+        type: boolean
+        default: false
   push:
     branches:
       - main
     paths:
       - 'CHANGELOG.md'
+
+concurrency:
+  group: stash-native-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -25,14 +37,21 @@ jobs:
       body: ${{ steps.parse.outputs.body }}
       skip: ${{ steps.check-tag.outputs.skip }}
       preview: ${{ steps.parse.outputs.preview }}
+      recut: ${{ steps.check-tag.outputs.recut }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
 
       - name: Fetch all tags
         run: git fetch --tags --force
+
+      - name: Set release temporary directory
+        run: |
+          echo "HS_TEMP=$RUNNER_TEMP" >> "$GITHUB_ENV"
+          echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/release-pycache" >> "$GITHUB_ENV"
 
       - name: Parse latest CHANGELOG entry
         id: parse
@@ -79,21 +98,27 @@ jobs:
           fi
           echo "Parsed version: $VERSION"
 
-      - name: Check tag does not already exist
+      - name: Test preview recut guards and recovery
+        run: python3 -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      - name: Check release eligibility
         id: check-tag
-        run: |
-          VERSION="${{ steps.parse.outputs.version }}"
-          if [ "${{ steps.parse.outputs.unreleased }}" = "true" ]; then
-            echo "Unreleased entry; packaging and publishing are disabled."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if git rev-parse "$VERSION" >/dev/null 2>&1 || git ls-remote --tags origin "$VERSION" | grep -q "refs/tags/$VERSION"; then
-            echo "Tag $VERSION already exists — skipping release."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.parse.outputs.version }}
+          RECUT_PREVIEW: ${{ github.event_name == 'workflow_dispatch' && inputs.recut_preview }}
+          RELEASE_UNRELEASED: ${{ steps.parse.outputs.unreleased }}
+          RELEASE_PREVIEW: ${{ steps.parse.outputs.preview }}
+        run: python3 .github/scripts/recut_preview.py check
+
+      - name: Save preview state for publication
+        if: steps.check-tag.outputs.recut == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-preview-state
+          path: ${{ runner.temp }}/release-preview/state.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Verify iOS getVersion matches
         if: steps.check-tag.outputs.skip != 'true'
@@ -152,6 +177,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -202,6 +229,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
 
       - name: Set up Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -271,7 +300,7 @@ jobs:
           cd iOS/StashNative/build
           zip -r StashNative.xcframework.zip StashNative.xcframework
           zip -r StashNativeCodeLink.xcframework.zip StashNativeCodeLink.xcframework
-          ls -la *.xcframework.zip
+          ls -la ./*.xcframework.zip
 
       - name: Upload XCFramework artifacts
         uses: actions/upload-artifact@v4
@@ -289,33 +318,51 @@ jobs:
       contents: write
     env:
       VERSION: ${{ needs.parse-changelog.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Set release temporary paths
+        run: |
+          {
+            echo "HS_TEMP=$RUNNER_TEMP"
+            echo "PYTHONPYCACHEPREFIX=$RUNNER_TEMP/release-pycache"
+            echo "RELEASE_ARTIFACTS=$RUNNER_TEMP/release-artifacts"
+            echo "RELEASE_BODY=$RUNNER_TEMP/release_body.md"
+          } >> "$GITHUB_ENV"
+
+      - name: Download preview state
+        if: needs.parse-changelog.outputs.recut == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-preview-state
+          path: ${{ runner.temp }}/release-preview
 
       - name: Download Android AAR
         uses: actions/download-artifact@v4
         with:
           name: stashnative-android-aar
-          path: release-artifacts
+          path: ${{ runner.temp }}/release-artifacts
 
       - name: Download iOS XCFramework
         uses: actions/download-artifact@v4
         with:
           name: stashnative-ios-xcframework
-          path: release-artifacts
+          path: ${{ runner.temp }}/release-artifacts
 
       - name: List artifacts
         run: |
           echo "Release artifacts:"
-          ls -la release-artifacts/
+          ls -la "$RELEASE_ARTIFACTS"
 
       - name: Rename artifacts with version
         run: |
-          cd release-artifacts
+          cd "$RELEASE_ARTIFACTS"
 
           for NAME in StashNative StashNativeCodeLink; do
             test -f "$NAME.aar" && mv "$NAME.aar" "$NAME-${VERSION}.aar"
@@ -356,7 +403,7 @@ jobs:
             echo "Alternatively, use Swift Package Manager with this repository URL."
             echo ""
             echo "See the [installation guide](https://stashgg.github.io/stash-native/#package-installation) for more details."
-          } > release_body.md
+          } > "$RELEASE_BODY"
 
       - name: Configure Git
         run: |
@@ -364,6 +411,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create release branch and tag
+        if: needs.parse-changelog.outputs.recut != 'true'
         run: |
           RELEASE_BRANCH="release/${VERSION}"
           git checkout -b "$RELEASE_BRANCH"
@@ -373,15 +421,30 @@ jobs:
           echo "Created branch $RELEASE_BRANCH and tag ${VERSION}."
 
       - name: Create GitHub Release
+        if: needs.parse-changelog.outputs.recut != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.parse-changelog.outputs.version }}
           name: Stash Native ${{ needs.parse-changelog.outputs.version }}${{ needs.parse-changelog.outputs.preview == 'true' && ' (Preview)' || '' }}
-          body_path: release_body.md
+          body_path: ${{ runner.temp }}/release_body.md
           files: |
-            release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.aar
-            release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.aar
-            release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
-            release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
+            ${{ runner.temp }}/release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.aar
+            ${{ runner.temp }}/release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.aar
+            ${{ runner.temp }}/release-artifacts/StashNative-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
+            ${{ runner.temp }}/release-artifacts/StashNativeCodeLink-${{ needs.parse-changelog.outputs.version }}.xcframework.zip
           draft: false
           prerelease: ${{ needs.parse-changelog.outputs.preview == 'true' }}
+          make_latest: ${{ needs.parse-changelog.outputs.preview != 'true' }}
+
+      - name: Replace preview and publish stable release
+        if: needs.parse-changelog.outputs.recut == 'true'
+        run: python3 .github/scripts/recut_preview.py publish
+
+      - name: Save preview recovery files
+        if: always() && needs.parse-changelog.outputs.recut == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-preview-recovery
+          path: ${{ runner.temp }}/release-preview
+          if-no-files-found: error
+          retention-days: 30
