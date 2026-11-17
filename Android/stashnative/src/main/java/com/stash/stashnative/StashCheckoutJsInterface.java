@@ -172,6 +172,37 @@ class StashCheckoutJsInterface {
     }
   }
 
+  /**
+   * With {@code keepOpen} and Custom Tabs available, the browser opens over the card, which stays
+   * open; otherwise the handoff.
+   */
+  @JavascriptInterface
+  public void externalBrowser(String url, boolean keepOpen) {
+    // Only a Custom Tab started from the card shares its task, so the card can close it.
+    if (!keepOpen || !StashUrlLauncher.isCustomTabsClassAvailable()) {
+      openExternalBrowser(url);
+      return;
+    }
+    try {
+      activity.runOnUiThread(() -> {
+        try {
+          String normalized = StashWebViewUtils.normalizeExternalPaymentUrl(url);
+          if (normalized == null) {
+            return;
+          }
+          String themed =
+              StashWebViewUtils.appendThemeQueryParameter(
+                  normalized, activity.effectiveIsDarkForContent);
+          StashNativeCardPlugin.getInstance().openExternalBrowserOverCheckout(activity, themed);
+        } catch (Exception e) {
+          Log.w(TAG, "Error in externalBrowser: " + e.getMessage(), e);
+        }
+      });
+    } catch (Exception e) {
+      Log.w(TAG, "Error scheduling externalBrowser: " + e.getMessage(), e);
+    }
+  }
+
   /** Opens the URL in the external browser. No callbacks, no dismissal (terms, misc links). */
   @JavascriptInterface
   public void openLink(String url) {

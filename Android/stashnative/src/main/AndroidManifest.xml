@@ -36,6 +36,16 @@
             tools:remove="android:process"
             android:theme="@android:style/Theme.Translucent.NoTitleBar.Fullscreen" />
 
+        <!--
+            Keep-alive notification target: returns to a card covered by a keepOpen browser
+            without clearing it, otherwise to the host's launcher activity. Finishes in onCreate.
+        -->
+        <activity
+            android:name=".StashKeepAliveReturnActivity"
+            android:exported="false"
+            tools:remove="android:process"
+            android:theme="@android:style/Theme.NoDisplay" />
+
         <service
             android:name=".StashKeepAliveService"
             android:exported="false"

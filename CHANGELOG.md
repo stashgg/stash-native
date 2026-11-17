@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.2] - 2026-11-17
+
+### Added
+- Android: `window.stash_sdk.externalBrowser(url, { keepOpen: true })` opens the URL in a Custom Tab over the card, which stays open and keeps running. `onExternalPayment` is informational on this path (the host must not dismiss the card from it), no `onBrowserClosed` follows, and the card ends with its usual events; the tab closes together with the card. Closing the tab returns to the card. `externalBrowser(url)` without `keepOpen`, and `openExternalBrowser(url)`, keep the existing handoff. Popup presentation always takes the handoff. Without `androidx.browser` in the host, `keepOpen` also takes the handoff, since only a Custom Tab shares the card's task. iOS does not expose `externalBrowser` in 2.x.
+
+### Changed
+- Android: the keep-alive notification returns to a card covered by a keepOpen browser without closing it; otherwise it opens the app's launcher activity as before.
+
+### Fixed
+- Android: stopping the keep-alive service right after starting it no longer crashes the host on Android 8+; the stop waits until the service has entered the foreground.
+- Android: `resetPresentationState()` stops the keep-alive service, which otherwise kept its notification after a reset while a browser was open.
+
 ## [2.3.1] - 2026-09-03
 
 ### Added

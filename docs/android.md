@@ -61,6 +61,7 @@ For checkout page authors, see the consolidated web API reference: [JavaScript `
 | `expand()` | `StashAndroid.expand` |
 | `collapse()` | `StashAndroid.collapse` |
 | `openExternalBrowser(url)` | `StashAndroid.openExternalBrowser` |
+| `externalBrowser(url, options)` | `StashAndroid.externalBrowser` |
 | `openLink(url)` | `StashAndroid.openLink` |
 | `window.close()` | `StashAndroid.requestCloseFromPage` |
 
@@ -118,11 +119,12 @@ Dispatch implementation: `dispatchCheckoutBridgeIntent` and related methods in [
 Triggers:
 
 - Page: `openExternalBrowser` in `JS_SDK_SCRIPT` ([`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java)).
+- Page: `externalBrowser(url, { keepOpen: true })` → plugin `openExternalBrowserOverCheckout` (only when `androidx.browser` is present; otherwise the `openExternalBrowser` handoff): Custom Tab launched from the card (request code 0, no proxy), card stays presented, latched by `externalBrowserOverCard` until the card resumes; every card finish clears the tab with `CLEAR_TOP | SINGLE_TOP`.
 - Host: `StashNativeCard.openBrowser` → plugin `openBrowser`.
 
 Shared helpers: [`StashWebViewUtils`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) (`normalizeExternalPaymentUrl`, `appendThemeQueryParameter`, legacy `isChromeCustomTabsAvailable` / `openInSystemBrowser` delegating to the launcher). URL launch: [`StashUrlLauncher.openExternalUrl`](../Android/stashnative/src/main/java/com/stash/stashnative/StashUrlLauncher.java) — when the context is an `Activity` and Custom Tabs are used, launches via `startActivityForResult` (`CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB`); the result is consumed internally by [`StashNativeBrowserProxyActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashNativeBrowserProxyActivity.java); hosts do not forward anything. Otherwise tries `launchUrl` / `startActivity`, or `Intent.ACTION_VIEW`. Hosts do not need to depend on `androidx.browser`.
 
-Keep-alive: [`StashKeepAliveService`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java), started from the plugin via `startKeepAliveBeforeBrowser` where configured.
+Keep-alive: [`StashKeepAliveService`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveService.java), started from the plugin via `startKeepAliveBeforeBrowser` where configured. Its notification opens [`StashKeepAliveReturnActivity`](../Android/stashnative/src/main/java/com/stash/stashnative/StashKeepAliveReturnActivity.java), which returns to a card covered by a keepOpen browser without closing it, otherwise to the host's launcher activity.
 
 **Manual checks (no automated test in-repo yet):**
 

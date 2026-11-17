@@ -151,6 +151,12 @@ class StashPopupJsInterface {
     });
   }
 
+  /** A popup has no card to keep open, so every request takes the handoff. */
+  @JavascriptInterface
+  public void externalBrowser(String url, boolean keepOpen) {
+    openExternalBrowser(url);
+  }
+
   /** Opens the URL in the external browser. No callbacks, no dismissal (terms, misc links). */
   @JavascriptInterface
   public void openLink(String url) {
