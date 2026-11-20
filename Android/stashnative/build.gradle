@@ -36,6 +36,8 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // Robolectric service and activity tests read the library's own resources.
+        unitTests.includeAndroidResources = true
     }
 
     publishing {
