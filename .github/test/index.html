@@ -1048,9 +1048,13 @@
                         </div>
                     </div>
                     <div class="btn-stack">
-                        <button type="button" class="btn btn-primary" onclick="triggerExternal()">
+                        <button type="button" class="btn btn-primary" onclick="triggerExternal(false)">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
                             <span class="btn-label">External payment</span>
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="triggerExternal(true)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+                            <span class="btn-label">External payment, keep card open</span>
                         </button>
                     </div>
                 </div>
@@ -1482,9 +1486,22 @@
             }
         }
 
-        function triggerExternal() {
+        function triggerExternal(keepOpen) {
             var el = document.getElementById('externalUrl');
             var url = (el && el.value && el.value.trim()) ? el.value.trim() : 'https://example.com';
+            if (keepOpen) {
+                if (window.stash_sdk && typeof window.stash_sdk.externalBrowser === 'function') {
+                    updateStatus('Called: externalBrowser("' + url + '", { keepOpen: true })');
+                    try {
+                        window.stash_sdk.externalBrowser(url, { keepOpen: true });
+                    } catch (e) {
+                        updateStatus('externalBrowser() error: ' + (e && e.message ? e.message : e));
+                    }
+                } else {
+                    updateStatus('externalBrowser() is not available in this SDK.');
+                }
+                return;
+            }
             if (window.stash_sdk && typeof window.stash_sdk.openExternalBrowser === 'function') {
                 updateStatus('Called: openExternalBrowser("' + url + '")');
                 try {

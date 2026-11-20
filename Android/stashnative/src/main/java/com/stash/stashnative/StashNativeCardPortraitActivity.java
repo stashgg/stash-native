@@ -72,6 +72,8 @@ public class StashNativeCardPortraitActivity extends Activity {
   long networkDeadlineRemainingMs = -1L;
   /** True between onPause and onResume; renderer-gone rebuilds must not arm timers while set. */
   boolean isActivityPaused;
+  /** A keepOpen browser was launched over the card and the card has not resumed since. */
+  boolean externalBrowserOverCard;
   boolean mainFrameErrorReceived;
   /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
   android.os.Handler loadTimersHandler;
@@ -1471,7 +1473,14 @@ public class StashNativeCardPortraitActivity extends Activity {
       } catch (Exception e) {
         Log.w(TAG, "Error locking orientation: " + e.getMessage(), e);
       }
-      
+
+      // A covered card cannot be seen, and its animation may not run until the browser closes.
+      if (externalBrowserOverCard) {
+        closeBrowserOverCard();
+        finishAfterDismissAnimations();
+        return;
+      }
+
       if (cardContainer == null) {
         finishAfterDismissAnimations();
         return;
@@ -1576,15 +1585,35 @@ public class StashNativeCardPortraitActivity extends Activity {
   }
 
   private void finishActivityWithNoAnimation() {
+    closeBrowserOverCard();
     if (backdropView != null) {
       backdropView.setVisibility(View.INVISIBLE);
     }
     if (cardContainer != null) {
       cardContainer.setVisibility(View.INVISIBLE);
     }
-    
+
     overridePendingTransition(0, 0);
     finish();
+  }
+
+  /**
+   * Removes a keepOpen browser above the card in its task, so it closes with the card.
+   * Clear-top with single-top finishes only what lies above this instance. Where Android blocks
+   * the start, the browser stays and the game shows when it closes.
+   */
+  private void closeBrowserOverCard() {
+    if (!externalBrowserOverCard || isFinishing()) {
+      return;
+    }
+    externalBrowserOverCard = false;
+    try {
+      startActivity(new Intent(this, StashNativeCardPortraitActivity.class)
+          .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP
+              | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+    } catch (Exception e) {
+      Log.w(TAG, "Cannot close the browser over the card: " + e.getMessage(), e);
+    }
   }
   
   /** Plugin resetPresentationState: finish now, no onDialogDismissed (mirrors handleNetworkError latch). */
@@ -1688,6 +1717,9 @@ public class StashNativeCardPortraitActivity extends Activity {
   @Override
   protected void onResume() {
     super.onResume();
+    if (isActivityPaused) {
+      externalBrowserOverCard = false;
+    }
     isActivityPaused = false;
     StashNativeCardPlugin.getInstance().stopKeepAliveForegroundService(getApplicationContext());
     if (webView != null) {

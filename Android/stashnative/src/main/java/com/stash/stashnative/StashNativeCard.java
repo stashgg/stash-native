@@ -117,6 +117,11 @@ public class StashNativeCard {
      * Custom Tabs (or the system browser as fallback). The {@code url} includes the theme query
      * parameter when applicable.
      *
+     * <p>With {@code window.stash_sdk.externalBrowser(url, {keepOpen: true})} (Android) the
+     * callback is informational: the browser opens over the card, the card stays open and
+     * presented, no {@link #onBrowserClosed()} follows, and the card ends with its own events.
+     * Repeats are ignored until the card is back on screen.
+     *
      * @param url Validated {@code http} or {@code https} URL
      */
     void onExternalPayment(String url);
@@ -131,6 +136,8 @@ public class StashNativeCard {
      * <p>
      * Very old Chrome or devices without engagement support may still delay {@code onActivityResult}
      * in some floating-dismiss cases until the next host activity transition.
+     *
+     * <p>Not called for a {@code keepOpen} browser opened over the card.
      */
     void onBrowserClosed();
   }
@@ -306,7 +313,7 @@ public class StashNativeCard {
     plugin = StashNativeCardPlugin.getInstance();
   }
   
-  private static final String SDK_VERSION = "2.3.1";
+  private static final String SDK_VERSION = "2.3.2";
 
   /**
    * Returns the SDK version string (e.g. "2.3.0").
@@ -520,8 +527,11 @@ public class StashNativeCard {
 
   /**
    * When true, opening Chrome Custom Tabs or the system browser for {@link #openBrowser(String)},
-   * {@code window.stash_sdk.openExternalBrowser(url)}, or portrait checkout external flows may start a short
-   * foreground service so the app is less likely to be killed on low-RAM devices. Default false.
+   * {@code window.stash_sdk.openExternalBrowser(url)}, {@code window.stash_sdk.externalBrowser(url,
+   * options)} with or without {@code keepOpen}, or portrait checkout external flows may start a
+   * short foreground service so the app is less likely to be killed on low-RAM devices. Tapping the
+   * notification returns to a card covered by a keepOpen browser without closing it, otherwise to
+   * the app's launcher activity. Default false.
    *
    * @param enabled whether to use the keep-alive helper
    */

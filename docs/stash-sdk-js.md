@@ -96,6 +96,15 @@ Opens the URL in the system browser flow (Chrome Custom Tabs on Android, `SFSafa
 
 Host-facing semantics: [`StashNativeCard.h`](../iOS/StashNative/Sources/StashNative/include/StashNativeCard.h) documents `stashNativeCardDidRequestExternalPaymentWithURL:` for iOS.
 
+### `window.stash_sdk.externalBrowser(url, options?)`
+
+Android only. Opens the URL like `openExternalBrowser`, optionally over a card that stays open. iOS 2.x does not define this function, so pages must check `typeof window.stash_sdk.externalBrowser === 'function'` before calling it.
+
+- **Argument:** `url` is coerced and validated exactly as for `openExternalBrowser`. `options.keepOpen` is read as a strict boolean: only `options.keepOpen === true` keeps the card open.
+- **`keepOpen: true`:** The URL opens in a Custom Tab over the card. The card stays presented and its page keeps running. The host receives `onExternalPayment(url)` as information only; no browser-closed callback follows. The host must not dismiss the card from that callback: the tab closes with the card, which ends the payment. The card ends with its own events (payment result with `autoClose`, `window.close()`, host `dismiss()`, network error) and the tab closes together with it. Closing the tab with Back returns to the card. Further `keepOpen` requests are ignored while the tab covers the card. Requires Chrome Custom Tabs (`androidx.browser` in the host app); without it, `keepOpen` takes the `openExternalBrowser` handoff.
+- **Any other `options` value** (omitted, `{}`, `keepOpen` not `true`): identical to `openExternalBrowser(url)`, the existing handoff.
+- **Popup presentation:** always takes the `openExternalBrowser` handoff; `keepOpen` is ignored.
+
 ### `window.stash_sdk.openLink(url)`
 
 Opens the URL in the external browser and nothing else: the checkout stays presented, no host callbacks fire, no dismissal, no `theme` parameter is appended, and browser-close tracking is not armed. Intended for terms and conditions and other miscellaneous links. Use `openExternalBrowser` for the external-payment flow.
@@ -139,7 +148,8 @@ iOS injects a separate script that posts `stashNativePageReady` for load metrics
 ## Platform Parity Notes
 
 - **Failure / processing payloads:** iOS forwards object payloads via `postMessage`; Android’s injected script does not pass `data` into `onPaymentFailure` / `onPurchaseProcessing` / `onProcessingCompleted` Java methods. Pages should not rely on native interpretation of complex objects for those calls on Android unless the Android implementation is extended.
-- **Naming:** Use `openExternalBrowser`, not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
+- **`externalBrowser`:** Android-only in 2.x, an intentional exception to bridge parity. On iOS its presence would change how checkout routes deeplinks.
+- **Naming:** Use `openExternalBrowser` (and, on Android, `externalBrowser`), not legacy names. The script and native methods are defined in [`StashWebViewUtils.java`](../Android/stashnative/src/main/java/com/stash/stashnative/StashWebViewUtils.java) and [`StashNativeCard.m`](../iOS/StashNative/Sources/StashNative/StashNativeCard.m).
 
 ## Diagram
 

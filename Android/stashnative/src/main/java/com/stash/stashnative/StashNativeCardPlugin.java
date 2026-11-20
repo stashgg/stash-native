@@ -525,6 +525,51 @@ public class StashNativeCardPlugin {
     }
   }
 
+  /**
+   * Opens a browser over a card that stays open: the host hears about the external payment, but
+   * no browser-closed event follows and the card session continues.
+   */
+  void openExternalBrowserOverCheckout(StashNativeCardPortraitActivity checkout, String url) {
+    // Repeats are ignored while a browser is over the card, and while the card is paused
+    // beneath one.
+    if (url == null || url.isEmpty() || !ownsLiveCard(checkout)
+        || checkout.externalBrowserOverCard || checkout.isActivityPaused) {
+      return;
+    }
+    StashNativeCard.StashNativeCardListener l = getListener();
+    if (l != null) {
+      try {
+        l.onExternalPayment(url);
+      } catch (Exception e) {
+        Log.w(TAG, "Error in onExternalPayment: " + e.getMessage(), e);
+      }
+    }
+    // The host may reset, dismiss or replace the card from its callback.
+    if (!ownsLiveCard(checkout)) {
+      return;
+    }
+    boolean launched = false;
+    try {
+      launched = StashUrlLauncher.launchExternalUrl(checkout, url, 0)
+          != StashUrlLauncher.OPEN_EXTERNAL_NONE;
+    } catch (Exception e) {
+      Log.w(TAG, "Error opening browser over checkout: " + e.getMessage(), e);
+    }
+    if (!launched) {
+      return;
+    }
+    // Set only once a browser covers the card; the card's resume after it clears this.
+    checkout.externalBrowserOverCard = true;
+    // The card stops the service again when it resumes.
+    startKeepAliveBeforeBrowser(checkout);
+  }
+
+  private boolean ownsLiveCard(StashNativeCardPortraitActivity checkout) {
+    return checkout != null && isCurrentlyPresented
+        && portraitActivityRef != null && portraitActivityRef.get() == checkout
+        && !checkout.isDismissing && !checkout.isFinishing();
+  }
+
   private void cancelBrowserClosedDebounce() {
     if (browserClosedDebounceRunnable != null) {
       mainHandler.removeCallbacks(browserClosedDebounceRunnable);
@@ -850,6 +895,31 @@ public class StashNativeCardPlugin {
   }
 
   /**
+   * Brings a card covered by a keepOpen browser back to the front from the keep-alive
+   * notification. Started from the card, so it resolves in the card's task; clear-top with
+   * single-top finishes only what lies above the card and keeps the existing instance.
+   *
+   * @return false when no presented card is covered by a keepOpen browser
+   */
+  boolean returnToKeepOpenCard() {
+    StashNativeCardPortraitActivity card =
+        portraitActivityRef != null ? portraitActivityRef.get() : null;
+    if (card == null || !isCurrentlyPresented || card.isFinishing()
+        || !card.externalBrowserOverCard) {
+      return false;
+    }
+    try {
+      card.startActivity(new Intent(card, StashNativeCardPortraitActivity.class)
+          .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP
+              | Intent.FLAG_ACTIVITY_NO_ANIMATION));
+      return true;
+    } catch (Exception e) {
+      Log.w(TAG, "Cannot return to the card: " + e.getMessage(), e);
+      return false;
+    }
+  }
+
+  /**
    * Resets presentation state and dismisses any dialog.
    */
   public void resetPresentationState() {
@@ -877,6 +947,10 @@ public class StashNativeCardPlugin {
     if (appContext == null) {
       Activity activity = getActivity();
       appContext = activity != null ? activity.getApplicationContext() : null;
+    }
+    if (appContext != null) {
+      // The host-resume observer that normally stops it is unregistered below.
+      stopKeepAliveForegroundService(appContext);
     }
     if (checkoutBridgeReceiverRegistered && appContext != null && checkoutBridgeReceiver != null) {
       try {
