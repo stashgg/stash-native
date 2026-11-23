@@ -8,7 +8,12 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ServiceInfo;
+import android.net.Uri;
 import android.view.View;
+import androidx.browser.customtabs.CustomTabsService;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,6 +24,7 @@ import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.shadows.ShadowLooper;
+import org.robolectric.shadows.ShadowPackageManager;
 
 /** Browser handoffs must keep the originating checkout's lifetime across host callbacks. */
 @RunWith(RobolectricTestRunner.class)
@@ -27,6 +33,7 @@ import org.robolectric.shadows.ShadowLooper;
 public class BrowserLifetimeTest {
   private final StashNative sdk = StashNative.getInstance();
   private final StashNativePlugin plugin = StashNativePlugin.getInstance();
+  private static final String PROVIDER = "com.example.browser";
   private Activity host;
   private StashCardActivity checkout;
   private int externalPayments;
@@ -37,6 +44,7 @@ public class BrowserLifetimeTest {
     sdk.resetPresentationState();
     StashKeepAliveService.resetStartTrackingForTests();
     host = Robolectric.buildActivity(Activity.class).setup().get();
+    setProviderAvailable(true);
     checkout = openCheckout();
     sdk.setListener(new StashNative.StashNativeListenerAdapter() {
       @Override public void onExternalPayment(String url) { externalPayments++; }
@@ -47,6 +55,29 @@ public class BrowserLifetimeTest {
   @After public void cleanup() {
     sdk.resetPresentationState();
     sdk.setListener(null);
+  }
+
+  /** Makes the default browser offer a Custom Tabs service, or takes it away. */
+  private void setProviderAvailable(boolean available) {
+    ShadowPackageManager packages = Shadows.shadowOf(host.getPackageManager());
+    Intent view = new Intent(Intent.ACTION_VIEW, Uri.parse("http://"));
+    Intent service =
+        new Intent(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION).setPackage(PROVIDER);
+    if (!available) {
+      packages.removeResolveInfosForIntent(view, PROVIDER);
+      packages.removeResolveInfosForIntent(service, PROVIDER);
+      return;
+    }
+    ResolveInfo activity = new ResolveInfo();
+    activity.activityInfo = new ActivityInfo();
+    activity.activityInfo.packageName = PROVIDER;
+    activity.activityInfo.name = "BrowserActivity";
+    packages.addResolveInfoForIntent(view, activity);
+    ResolveInfo tabs = new ResolveInfo();
+    tabs.serviceInfo = new ServiceInfo();
+    tabs.serviceInfo.packageName = PROVIDER;
+    tabs.serviceInfo.name = "TabsService";
+    packages.addResolveInfoForIntent(service, tabs);
   }
 
   private StashCardActivity openCheckout() {
@@ -164,6 +195,9 @@ public class BrowserLifetimeTest {
     assertNotNull(launched);
     assertTrue(launched.getDataString().startsWith("https://example.invalid/payment"));
     assertNull(launched.getComponent());
+    assertEquals(PROVIDER, launched.getPackage());
+    assertEquals(0, launched.getFlags() & Intent.FLAG_ACTIVITY_NEW_TASK);
+    assertTrue(checkout.externalBrowserOverCard);
     assertEquals(View.VISIBLE, checkout.cardContainer.getVisibility());
     assertFalse(checkout.isFinishing());
     assertFalse(checkout.callbackSent);
@@ -199,42 +233,92 @@ public class BrowserLifetimeTest {
     assertEquals(0, browserClosed);
   }
 
-  @Test public void keepOpenWithNoBrowserReleasesTheRequestAndKeepAlive() {
+  @Test public void keepOpenWhoseTabCannotStartTakesTheHandoff() {
     android.app.Application app = host.getApplication();
-    sdk.setKeepAliveEnabled(true);
+    Shadows.shadowOf(app).checkActivities(true);
     try {
-      Shadows.shadowOf(app).checkActivities(true);
       keepOpen();
       ShadowLooper.idleMainLooper();
       assertEquals(1, externalPayments);
-      assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
       assertFalse(checkout.externalBrowserOverCard);
-      // Keep-alive starts only after a browser opens; a start and stop in one turn would crash.
-      assertNull(Shadows.shadowOf(app).getNextStartedService());
-      // Nothing covered the card, so the page's next request is not taken for a repeat.
+      Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+      assertNotNull(launched);
+      assertEquals(StashNativeBrowserProxyActivity.class.getName(),
+          launched.getComponent().getClassName());
+      assertFalse(sdk.isCurrentlyPresented());
+      assertEquals(0, browserClosed);
+      plugin.notifyBrowserClosedFromProxyInternal(
+          launched.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L));
+      ShadowLooper.idleMainLooper();
+      assertEquals(1, externalPayments);
+      assertEquals(1, browserClosed);
+    } finally {
       Shadows.shadowOf(app).checkActivities(false);
+    }
+  }
+
+  @Test public void keepOpenWithNoCustomTabsProviderTakesTheHandoff() {
+    setProviderAvailable(false);
+    keepOpen();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertFalse(checkout.externalBrowserOverCard);
+    Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals(StashNativeBrowserProxyActivity.class.getName(),
+        launched.getComponent().getClassName());
+    assertNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+    long sessionId = launched.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
+    assertEquals(View.INVISIBLE, checkout.cardContainer.getVisibility());
+    assertFalse(sdk.isCurrentlyPresented());
+    assertEquals(0, browserClosed);
+    plugin.notifyBrowserClosedFromProxyInternal(sessionId);
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertEquals(1, browserClosed);
+    assertTrue(checkout.isFinishing());
+  }
+
+  @Test public void keepOpenWithKeepAliveStartsItOnlyAfterATabOpens() {
+    android.app.Application app = host.getApplication();
+    sdk.setKeepAliveEnabled(true);
+    try {
       keepOpen();
       ShadowLooper.idleMainLooper();
-      assertEquals(2, externalPayments);
-      assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
       assertTrue(checkout.externalBrowserOverCard);
       assertNotNull(Shadows.shadowOf(app).getNextStartedService());
-      keepOpen();
-      ShadowLooper.idleMainLooper();
-      assertEquals(2, externalPayments);
       // Back on the card after that browser, the request re-arms.
       checkout.onPause();
       checkout.onResume();
       assertFalse(checkout.externalBrowserOverCard);
       keepOpen();
       ShadowLooper.idleMainLooper();
-      assertEquals(3, externalPayments);
-      assertNotNull(Shadows.shadowOf(checkout).getNextStartedActivity());
+      assertEquals(2, externalPayments);
       assertTrue(sdk.isCurrentlyPresented());
     } finally {
-      Shadows.shadowOf(app).checkActivities(false);
       sdk.setKeepAliveEnabled(false);
     }
+  }
+
+  @Test public void hostActivityStartedAndCardDismissedFromTheCallbackSurvives() {
+    sdk.setListener(new StashNative.StashNativeListenerAdapter() {
+      @Override public void onExternalPayment(String url) {
+        externalPayments++;
+        host.startActivity(new Intent(host, Activity.class));
+        sdk.dismiss();
+      }
+    });
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertFalse(checkout.externalBrowserOverCard);
+    // Only the host's own start was issued: no browser, and no clear-top start from the card.
+    Intent started = Shadows.shadowOf(host).getNextStartedActivity();
+    assertNotNull(started);
+    assertNull(started.getPackage());
+    assertNull(Shadows.shadowOf(host).getNextStartedActivity());
+    assertTrue(checkout.isFinishing());
   }
 
   @Test public void publicLauncherStillReportsTheSystemBrowserWhenNothingOpens() {

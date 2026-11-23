@@ -38,3 +38,8 @@
     public androidx.browser.customtabs.CustomTabColorSchemeParams$Builder setToolbarColor(int);
     public androidx.browser.customtabs.CustomTabColorSchemeParams build();
 }
+
+# Owned Custom Tab launch resolves the default Custom Tabs provider reflectively.
+-keep,allowoptimization class androidx.browser.customtabs.CustomTabsClient {
+    public static java.lang.String getPackageName(android.content.Context, java.util.List);
+}

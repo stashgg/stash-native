@@ -88,7 +88,7 @@ public class TelemetryTest {
         "webViewEngine",
         "webViewPackage",
         "webViewVersion");
-    assertEquals("3.0.0", value.getJSONObject("runtime").getString("sdkVersion"));
+    assertEquals("3.0.1", value.getJSONObject("runtime").getString("sdkVersion"));
     keys(value.getJSONObject("power"), "lowPowerMode", "thermalState");
     assertTrue(value.getJSONObject("power").isNull("thermalState"));
     keys(

@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 /**
  * Opens http(s) URLs in Chrome Custom Tabs when {@code androidx.browser} is on the classpath and
@@ -38,6 +39,8 @@ public final class StashUrlLauncher {
 
   private static final String CLASS_CUSTOM_TABS_INTENT =
       "androidx.browser.customtabs.CustomTabsIntent";
+  private static final String CLASS_CUSTOM_TABS_CLIENT =
+      "androidx.browser.customtabs.CustomTabsClient";
   private static final String CLASS_CUSTOM_TABS_INTENT_BUILDER =
       "androidx.browser.customtabs.CustomTabsIntent$Builder";
   private static final String CLASS_COLOR_SCHEME_PARAMS =
@@ -157,6 +160,45 @@ public final class StashUrlLauncher {
     } catch (ActivityNotFoundException e) {
       Log.w(TAG, "No application can open URL");
       return OPEN_EXTERNAL_NONE;
+    }
+  }
+
+  /**
+   * Starts a Custom Tab of the default browser's Custom Tabs provider from {@code activity}, with
+   * no task flags, so it lives in the activity's task and finishes with a clear-top return to it.
+   * Returns false, without opening anything, when {@code androidx.browser} or a provider is
+   * missing or the start fails.
+   */
+  static boolean launchOwnedCustomTab(@Nullable Activity activity, @Nullable String url) {
+    try {
+      Uri uri = parseHttpUri(url);
+      if (activity == null || uri == null) {
+        return false;
+      }
+      Object provider =
+          Class.forName(CLASS_CUSTOM_TABS_CLIENT)
+              .getMethod("getPackageName", Context.class, List.class)
+              .invoke(null, activity, null);
+      if (!(provider instanceof String) || ((String) provider).isEmpty()) {
+        return false;
+      }
+      Object customTabsIntent = buildCustomTabsIntent();
+      if (customTabsIntent == null) {
+        return false;
+      }
+      Object intentObj =
+          Class.forName(CLASS_CUSTOM_TABS_INTENT).getField("intent").get(customTabsIntent);
+      if (!(intentObj instanceof Intent)) {
+        return false;
+      }
+      Intent intent = new Intent((Intent) intentObj);
+      intent.setPackage((String) provider);
+      intent.setData(uri);
+      activity.startActivity(intent);
+      return true;
+    } catch (Throwable t) {
+      Log.w(TAG, "Owned Custom Tab launch failed");
+      return false;
     }
   }
 
