@@ -541,10 +541,19 @@ public class StashNativePlugin {
   }
 
   /**
-   * Opens a browser over a checkout that stays open: the host hears about the external payment,
-   * but no browser-dismissal event follows and the card session continues.
+   * Opens a browser over a checkout opened with {@code allowBrowserOverCard} and keeps the card
+   * open: the host hears about the external payment, but no browser-dismissal event follows and
+   * the card session continues. Other cards take the default handoff.
    */
   void openExternalBrowserOverCheckout(StashCardActivity checkoutActivity, String url) {
+    // Without the card's opt-in, keepOpen is the default handoff.
+    if (checkoutActivity != null
+        && (checkoutActivity.options == null || !checkoutActivity.options.allowBrowserOverCard)) {
+      openExternalBrowserFromCheckout(checkoutActivity, url, true,
+          checkoutActivity::hideCardSheetLeavingDimOverlay,
+          checkoutActivity::finishAfterExternalBrowserClose);
+      return;
+    }
     // Like iOS, ignore repeats while a browser is over the card (a double tap lands before the
     // card pauses; a page can still call while paused beneath the browser).
     if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)

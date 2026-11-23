@@ -39,6 +39,7 @@ We recommend keeping the default card dimensions unless your integration require
 | `edgeMargin` | `16` | Screen edge spacing |
 | `allowDismiss` | `true` | Allow swipe, outside tap, or Back dismissal |
 | `autoClose` | `true` | Close after payment success or failure |
+| `allowBrowserOverCard` | `false` | Let the page keep the card open under the browser for an external payment (`keepOpen`) |
 | `orientationPreference` | Follow host | Follow host or [force portrait on phones](#forcing-portrait-card) |
 
 ```swift
@@ -131,7 +132,8 @@ StashNative.getInstance().setListener(new StashNative.StashNativeListenerAdapter
 Some alternative payment methods (such as Klarna, Cash App, etc.) require the user to finish the purchase in an external browser or another app. `onExternalPayment` notifies the host application of this handoff. Handling it is optional unless your app needs to react to the handoff.
 
 - By default, the card closes and the payment continues in the [in-game browser](browser.md). The presentation ends with `onBrowserDismissed` instead of `onCardDismissed`, and the result arrives through the [deep link](browser.md#handling-results).
-- When the page passes `keepOpen`, the browser opens over the card, which stays open for the player's return. No browser event follows; the card ends with its own events and closes the browser with it.
+- When the page passes `keepOpen` and the card was opened with `allowBrowserOverCard`, the browser opens over the card, which stays open for the player's return. No browser event follows; the card ends with its own events and closes the browser with it. Without the option, `keepOpen` is the default handoff.
+- Dismissing the card from `onExternalPayment` cancels the payment on both flows: no browser opens and the card ends as dismissed.
 
 ## Other
 

@@ -20,7 +20,7 @@ Sources: `StashBridgeScript()` in [`StashNativeViewUtils.m`](https://github.com/
 | `lock()` | Blocks closing the card and hides the drag handle |
 | `unlock()` | Removes the block |
 | `expand()`, `collapse()` | Selects the expanded or resting card height |
-| `externalBrowser(url, options?)` | External payment callback, then closes the card and opens the browser. With `{ keepOpen: true }`, the browser opens over the card, which stays open for the player's return. |
+| `externalBrowser(url, options?)` | External payment callback, then closes the card and opens the browser. With `{ keepOpen: true }`, the browser opens over the card, which stays open for the player's return, only when the host opened the card with `allowBrowserOverCard`; otherwise the call is identical to one without options. |
 | `openLink(url)` | Opens a URL outside the app without callbacks; the card stays open |
 | `triggerHaptic(type?)` | Plays a short success haptic, or a long one with `'long'` (or `1`) |
 | `getTelemetry()` | Resolves to device, app, card, and timing data |

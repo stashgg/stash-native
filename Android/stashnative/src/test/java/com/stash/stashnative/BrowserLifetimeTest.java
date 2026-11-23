@@ -54,7 +54,9 @@ public class BrowserLifetimeTest {
     Intent intent = Shadows.shadowOf(host).getNextStartedActivity();
     assertNotNull(intent);
     StashCardActivity result = Robolectric.buildActivity(StashCardActivity.class, intent).get();
-    result.options = StashPresentationOptions.card(null);
+    StashNative.CardConfig config = new StashNative.CardConfig();
+    config.allowBrowserOverCard = true;
+    result.options = StashPresentationOptions.card(config);
     result.cardContainer = new StashSheetLayout(result, 24f);
     plugin.setCheckoutActivity(result);
     token = result.issueBridgeDocumentToken();
@@ -357,6 +359,27 @@ public class BrowserLifetimeTest {
         launched.getComponent().getClassName());
     assertEquals(View.INVISIBLE, checkout.cardContainer.getVisibility());
     assertFalse(sdk.isCurrentlyPresented());
+  }
+
+  @Test public void keepOpenOnADefaultCardTakesTheHandoff() {
+    checkout.options = StashPresentationOptions.card(null);
+    keepOpen();
+    keepOpen();
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, externalPayments);
+    assertFalse(checkout.externalBrowserOverCard);
+    Intent launched = Shadows.shadowOf(checkout).getNextStartedActivity();
+    assertNotNull(launched);
+    assertEquals(StashNativeBrowserProxyActivity.class.getName(),
+        launched.getComponent().getClassName());
+    long sessionId = launched.getLongExtra(StashNativeBrowserProxyActivity.EXTRA_SESSION_ID, 0L);
+    assertEquals(View.INVISIBLE, checkout.cardContainer.getVisibility());
+    assertFalse(sdk.isCurrentlyPresented());
+    assertEquals(0, browserClosed);
+    plugin.notifyBrowserClosedFromProxyInternal(sessionId);
+    ShadowLooper.idleMainLooper();
+    assertEquals(1, browserClosed);
+    assertTrue(checkout.isFinishing());
   }
 
   @Test public void activeLinkLaunchesWithoutCallbacksThemeOrDismissal() {

@@ -305,7 +305,9 @@ void StashKeepOpenBrowserProbe(void (^completion)(NSDictionary *)) {
     StashNative *owner = [StashNative new];
     StashKeepOpenDelegate *delegate = [StashKeepOpenDelegate new];
     owner.delegate = delegate;
-    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:nil];
+    StashNativeCardConfig *config = [StashNativeCardConfig new];
+    config.allowBrowserOverCard = YES;
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:config];
     StashCardSession *session = owner.session;
     [session.webView stopLoading];
     UIViewController *card = session.controller;
@@ -358,6 +360,7 @@ void StashCardStackProbe(NSString *cover, NSString *trigger, BOOL autoClose, voi
     owner.delegate = delegate;
     StashNativeCardConfig *config = [StashNativeCardConfig new];
     config.autoClose = autoClose;
+    config.allowBrowserOverCard = YES;
     [owner openCardWithURL:@"https://example.invalid" fromViewController:root config:config];
     StashCardSession *session = owner.session;
     [session.webView stopLoading];

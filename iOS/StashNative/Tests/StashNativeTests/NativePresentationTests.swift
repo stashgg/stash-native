@@ -105,6 +105,22 @@ final class NativePresentationTests: XCTestCase {
         wait(for: [done], timeout: 25)
     }
 
+    // Without allowBrowserOverCard, a keepOpen request takes the Safari handoff: the card leaves and
+    // closing Safari reports the browser dismissal.
+    func testKeepOpenOnADefaultCardTakesTheSafariHandoff() {
+        let done = expectation(description: "default keepOpen")
+        DispatchQueue.main.async {
+            let result = StashDefaultKeepOpenProbe()
+            XCTAssertEqual(result["eventsWhileOpen"] as? [String], ["handoff"])
+            XCTAssertEqual(result["events"] as? [String], ["handoff", "browser-dismissed"])
+            for key in ["handedOff", "closed"] {
+                XCTAssertEqual((result[key] as? NSNumber)?.boolValue, true, key)
+            }
+            done.fulfill()
+        }
+        wait(for: [done], timeout: 5)
+    }
+
     private func runCardStack(_ cover: String, _ trigger: String, autoClose: Bool = true,
                               check: @escaping ([String: Any]) -> Void) {
         let done = expectation(description: "\(cover) \(trigger) autoClose=\(autoClose)")
