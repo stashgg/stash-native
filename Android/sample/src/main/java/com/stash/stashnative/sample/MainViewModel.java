@@ -118,6 +118,8 @@ public class MainViewModel extends AndroidViewModel {
   /** Restores saved instances from the credential store, or legacy prefs on first launch. */
   public MainViewModel(Application application) {
     super(application);
+    // The sample opts in so the test page's keepOpen button keeps the card open.
+    cardConfig.allowBrowserOverCard = true;
     prefs = application.getSharedPreferences(PREFS_NAME, Application.MODE_PRIVATE);
     credentialStore = new CredentialStore(application);
     loadApiKeys();

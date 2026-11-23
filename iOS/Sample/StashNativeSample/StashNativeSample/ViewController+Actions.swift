@@ -58,6 +58,8 @@ extension ViewController {
         config.edgeMargin = CGFloat(cardEdgeMarginSlider.value)
         config.allowDismiss = cardAllowDismissSwitch.isOn
         config.autoClose = cardAutoCloseSwitch.isOn
+        // The sample opts in so the test page's keepOpen button keeps the card open.
+        config.allowBrowserOverCard = true
         return config
     }
 

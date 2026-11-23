@@ -118,7 +118,10 @@ final class StashCheckoutJsInterface {
     externalBrowser(token, url, false);
   }
 
-  /** With {@code keepOpen}, the browser opens over the card, which stays open for the return. */
+  /**
+   * With {@code keepOpen} on a card opened with {@code allowBrowserOverCard}, the browser opens
+   * over the card; otherwise the default handoff.
+   */
   @JavascriptInterface
   public void externalBrowser(String token, String url, boolean keepOpen) {
     if (keepOpen) {

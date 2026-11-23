@@ -10,6 +10,7 @@ final class StashPresentationOptions {
   final float margin;
   final boolean allowDismiss;
   final boolean autoClose;
+  final boolean allowBrowserOverCard;
   final int orientation;
 
   private StashPresentationOptions(
@@ -19,6 +20,7 @@ final class StashPresentationOptions {
       float margin,
       boolean allowDismiss,
       boolean autoClose,
+      boolean allowBrowserOverCard,
       int orientation) {
     this.width = positive(width, 400f);
     this.height = positive(height, 560f);
@@ -26,6 +28,7 @@ final class StashPresentationOptions {
     this.margin = nonnegative(margin, 16f);
     this.allowDismiss = allowDismiss;
     this.autoClose = autoClose;
+    this.allowBrowserOverCard = allowBrowserOverCard;
     this.orientation =
         orientation == StashNative.CardConfig.ORIENTATION_PORTRAIT
             ? StashNative.CardConfig.ORIENTATION_PORTRAIT
@@ -41,6 +44,7 @@ final class StashPresentationOptions {
         c.edgeMargin,
         c.allowDismiss,
         c.autoClose,
+        c.allowBrowserOverCard,
         c.orientationPreference);
   }
 
@@ -51,6 +55,7 @@ final class StashPresentationOptions {
     intent.putExtra("stash.margin", margin);
     intent.putExtra("stash.allowDismiss", allowDismiss);
     intent.putExtra("stash.autoClose", autoClose);
+    intent.putExtra("stash.allowBrowserOverCard", allowBrowserOverCard);
     intent.putExtra("stash.orientation", orientation);
   }
 
@@ -62,6 +67,7 @@ final class StashPresentationOptions {
         intent.getFloatExtra("stash.margin", 16f),
         intent.getBooleanExtra("stash.allowDismiss", true),
         intent.getBooleanExtra("stash.autoClose", true),
+        intent.getBooleanExtra("stash.allowBrowserOverCard", false),
         intent.getIntExtra("stash.orientation", 0));
   }
 

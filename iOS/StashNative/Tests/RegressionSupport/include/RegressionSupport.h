@@ -122,6 +122,7 @@ void StashInstanceOwnerReleaseProbe(BOOL background, BOOL portrait, void (^compl
 NSDictionary *StashInstanceThemeProbe(void);
 NSDictionary *StashInstanceClosingOwnerReleaseProbe(void);
 NSDictionary * _Nonnull StashCallbackDismissalProbe(void);
+NSDictionary * _Nonnull StashDefaultKeepOpenProbe(void);
 void StashLatePresentationFailureProbe(void (^ _Nonnull completion)(NSDictionary * _Nonnull));
 NSDictionary * _Nonnull StashCallbackLiveReceiverProbe(BOOL clear);
 NSDictionary * _Nonnull StashCallbackReentrantProbe(void);

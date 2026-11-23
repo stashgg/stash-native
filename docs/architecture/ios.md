@@ -36,6 +36,7 @@ The facade owns the active session. The session owns presentation state, the Web
 - Every card is a form sheet from one `UISheetPresentationController`, on iPhone, iPhone Duo, and iPad.
 - Compact layouts switch between resting and expanded detents; iOS 15 uses the system medium and large detents. Regular layouts on iPad use one centered form sheet.
 - The keyboard expands the card until it closes.
+- A `keepOpen` request presents Safari over the card only for a card opened with `allowBrowserOverCard`; otherwise it takes the Safari handoff.
 - If the game dismisses the view controller that presented the card or Safari, the session ends with the matching dismissal event.
 
 ## Portrait presentation

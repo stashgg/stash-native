@@ -1,8 +1,15 @@
 package com.stash.stashnative;
 
 import static org.junit.Assert.*;
-import org.junit.Test;
 
+import android.content.Intent;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricTestRunner;
+import org.robolectric.annotation.Config;
+
+@RunWith(RobolectricTestRunner.class)
+@Config(sdk = 28)
 public class ConfigDefaultsTest {
   @Test public void cardDefaultsAndSnapshotAreIndependentFromCaller() {
     StashNative.CardConfig config = new StashNative.CardConfig();
@@ -39,6 +46,21 @@ public class ConfigDefaultsTest {
     config.maximumContentHeight = 0;
     assertEquals(0f, StashPresentationOptions.card(config).maximumHeight, 0);
     assertEquals(0f, StashPresentationOptions.card(config).margin, 0);
+  }
+
+  @Test public void browserOverCardIsOffByDefaultAndSurvivesTheIntent() {
+    StashNative.CardConfig config = new StashNative.CardConfig();
+    assertFalse(config.allowBrowserOverCard);
+    assertFalse(StashPresentationOptions.card(null).allowBrowserOverCard);
+    assertFalse(StashPresentationOptions.card(config).allowBrowserOverCard);
+    assertFalse(StashPresentationOptions.read(new Intent()).allowBrowserOverCard);
+    config.allowBrowserOverCard = true;
+    StashPresentationOptions snapshot = StashPresentationOptions.card(config);
+    config.allowBrowserOverCard = false;
+    assertTrue(snapshot.allowBrowserOverCard);
+    Intent intent = new Intent();
+    snapshot.put(intent);
+    assertTrue(StashPresentationOptions.read(intent).allowBrowserOverCard);
   }
 
   @Test public void reportsVersionThree() { assertEquals("3.0.0", StashNative.getVersion()); }

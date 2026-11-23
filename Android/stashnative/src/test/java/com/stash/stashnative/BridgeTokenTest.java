@@ -95,6 +95,9 @@ public class BridgeTokenTest {
   /** The live entry points the injected script calls: keepOpen browser and typed haptics. */
   @Test public void forgedKeepOpenBrowserAndTypedHapticDoNothing() {
     String token = activity.issueBridgeDocumentToken();
+    StashNative.CardConfig config = new StashNative.CardConfig();
+    config.allowBrowserOverCard = true;
+    activity.options = StashPresentationOptions.card(config);
     StashNativePlugin.getInstance().setCheckoutActivity(activity);
     int[] haptics = {0};
     activity.webView = new WebView(activity) {

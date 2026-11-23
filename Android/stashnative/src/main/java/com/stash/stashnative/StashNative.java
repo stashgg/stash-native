@@ -116,10 +116,12 @@ public class StashNative {
      * opens the URL in Chrome Custom Tabs (or the system browser as fallback). The URL includes
      * the theme query parameter when applicable. By default this is a handoff: the card hides
      * after launch and finishes after {@link #onBrowserDismissed()}, without {@link
-     * #onCardDismissed()}. With {@code {keepOpen: true}} this callback is informational: the
-     * browser opens over the card, the card stays open and presented, no browser-dismissal
-     * callback follows, and the card ends with its own events; a browser still over the card
-     * closes with it. Repeats are ignored until the card is back on screen.
+     * #onCardDismissed()}. With {@code {keepOpen: true}} on a card opened with {@link
+     * CardConfig#allowBrowserOverCard} this callback is informational: the browser opens over the
+     * card, the card stays open and presented, no browser-dismissal callback follows, and the card
+     * ends with its own events; a browser still over the card closes with it. Repeats are ignored
+     * until the card is back on screen. Without the option, {@code keepOpen} is the default
+     * handoff.
      *
      * @param url Validated {@code http} or {@code https} URL
      */
@@ -128,10 +130,10 @@ public class StashNative {
     /**
      * Called when a browser opened via {@link StashNative#openBrowser(Activity, String)} or
      * checkout's {@code window.stash_sdk.externalBrowser} handoff closes, or when no installed app
-     * can open its URL. Not called for a {@code keepOpen} browser over the card. For Chrome Custom
-     * Tabs, the SDK uses {@link Activity#startActivityForResult} and, when Chrome supports it,
-     * engagement session callbacks so this also runs when the tab is closed from floating or
-     * minimized UI.
+     * can open its URL. Not called for a {@code keepOpen} browser over a card opened with {@link
+     * CardConfig#allowBrowserOverCard}. For Chrome Custom Tabs, the SDK uses {@link
+     * Activity#startActivityForResult} and, when Chrome supports it, engagement session callbacks
+     * so this also runs when the tab is closed from floating or minimized UI.
      * Handled internally by the SDK's proxy activity; no host forwarding needed. The system
      * browser fallback ({@code ACTION_VIEW}) uses activity lifecycle with a short debounce: the
      * host activity after {@code openBrowser}, the checkout activity after a checkout handoff.
@@ -187,6 +189,13 @@ public class StashNative {
     /** Allows user dismissal. Page close, payment callbacks, and native dismiss are independent. */
     public boolean allowDismiss = true;
     public boolean autoClose = true;
+
+    /**
+     * Lets the page keep the card open under the browser it opens for an external payment
+     * ({@code externalBrowser(url, {keepOpen: true})}). Off, that request takes the browser
+     * handoff and ends with {@link StashNativeListener#onBrowserDismissed()}.
+     */
+    public boolean allowBrowserOverCard;
   }
 
   /** Scanner copy, snapshotted when the scanner opens. Null or empty text uses bundled defaults. */

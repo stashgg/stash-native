@@ -10,6 +10,7 @@
         _edgeMargin = 16;
         _allowDismiss = YES;
         _autoClose = YES;
+        _allowBrowserOverCard = NO;
     }
     return self;
 }
@@ -21,6 +22,7 @@
     copy.edgeMargin = self.edgeMargin;
     copy.allowDismiss = self.allowDismiss;
     copy.autoClose = self.autoClose;
+    copy.allowBrowserOverCard = self.allowBrowserOverCard;
     copy.orientationPreference = self.orientationPreference;
     return copy;
 }

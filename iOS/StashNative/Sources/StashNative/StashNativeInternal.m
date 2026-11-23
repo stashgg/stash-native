@@ -821,7 +821,7 @@ static void StashDismissOverlay(UIViewController *overlay) {
         if (!url) return;
         if ([name isEqualToString:@"stashOpenLink"]) {
             StashOpenExternalURL([NSURL URLWithString:url], nil, nil);
-        } else if (keepOpen) {
+        } else if (keepOpen && self.config.allowBrowserOverCard) {
             [self openBrowserOverCardWithURL:StashAppendThemeQueryParameter(url, self.presenter.traitCollection)];
         } else {
             [self handoffToBrowserWithURL:StashAppendThemeQueryParameter(url, self.presenter.traitCollection)];

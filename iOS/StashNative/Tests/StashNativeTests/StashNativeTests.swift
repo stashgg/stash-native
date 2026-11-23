@@ -12,10 +12,16 @@ final class StashNativeTests: XCTestCase {
         XCTAssertEqual(card.edgeMargin, 16)
         XCTAssertTrue(card.allowDismiss)
         XCTAssertTrue(card.autoClose)
+        XCTAssertFalse(card.allowBrowserOverCard)
         XCTAssertEqual(card.orientationPreference, .followHost)
         let copy = card.copy() as! StashNativeCardConfig
         card.preferredContentWidth = 900
         XCTAssertEqual(copy.preferredContentWidth, 400)
+        card.allowBrowserOverCard = true
+        let optedIn = card.copy() as! StashNativeCardConfig
+        card.allowBrowserOverCard = false
+        XCTAssertTrue(optedIn.allowBrowserOverCard)
+        XCTAssertFalse(copy.allowBrowserOverCard)
     }
 
     func testConfigurationRejectsNonfiniteAndNegativeSizes() {

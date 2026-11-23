@@ -284,6 +284,23 @@ NSDictionary *StashCallbackDismissalProbe(void) {
         @"silentBrowserClosed":@(silentBrowserClosed), @"silentHandoffClosed":@(silentHandoffClosed)};
 }
 
+// A card opened without allowBrowserOverCard takes the Safari handoff for a keepOpen request.
+NSDictionary *StashDefaultKeepOpenProbe(void) {
+    StashNative *owner = [StashNative new];
+    StashCallbackReceiver *receiver = [StashCallbackReceiver new];
+    owner.delegate = receiver;
+    UIWindow *window = [[UIWindow alloc] initWithFrame:CGRectMake(0, 0, 390, 844)];
+    StashInstancePresenter *host = StashInstanceHost(window, UIUserInterfaceStyleLight);
+    [owner openCardWithURL:@"https://example.invalid" fromViewController:host config:nil];
+    StashCardSession *card = owner.session;
+    [card handleMessage:@"stashExternalPayment" body:@{@"url":@"https://example.invalid/pay", @"keepOpen":@YES}];
+    BOOL handedOff = owner.session == card && card.browser != nil && card.overlayBrowser == nil;
+    NSArray *eventsWhileOpen = [receiver.events copy];
+    [owner closeBrowser];
+    return @{@"handedOff":@(handedOff), @"eventsWhileOpen":eventsWhileOpen, @"events":[receiver.events copy],
+        @"closed":@(!owner.isCurrentlyPresented)};
+}
+
 // Each accepted open whose presentation fails later still ends with its final event; reset stays silent.
 void StashLatePresentationFailureProbe(void (^completion)(NSDictionary *)) {
     StashNative *handoffOwner = [StashNative new];

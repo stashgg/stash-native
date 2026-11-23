@@ -31,6 +31,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 /** Allows user dismissal. Page close, payment callbacks, and native dismiss are independent. */
 @property (nonatomic) BOOL allowDismiss;
 @property (nonatomic) BOOL autoClose;
+/** Lets the page keep the card open under Safari for an external payment
+ * (externalBrowser(url, {keepOpen: true})). NO, the default, takes the Safari handoff. */
+@property (nonatomic) BOOL allowBrowserOverCard;
 /** On iPhone, presents portrait checkout in an SDK window, including landscape-only hosts. Ignored on iPad. */
 @property (nonatomic) StashNativeOrientationPreference orientationPreference;
 @end
@@ -107,8 +110,9 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
  * in \c SFSafariViewController. Closing it emits \c stashNativeDidDismissBrowser. An iPhone portrait
  * checkout keeps its portrait window through a native Safari sheet and restores the host orientation
  * when the browser closes.
- * With \c keepOpen, Safari opens over the card, which stays open. This callback is informational:
- * closing Safari returns to the card and emits no browser event, and the card ends with its own events.
+ * With \c keepOpen on a card opened with \c allowBrowserOverCard, Safari opens over the card, which
+ * stays open. This callback is informational: closing Safari returns to the card and emits no browser
+ * event, and the card ends with its own events. Without the option, \c keepOpen is the default handoff.
  */
 - (void)stashNativeDidRequestExternalPaymentWithURL:(NSString *)url
     NS_SWIFT_NAME(stashNativeDidRequestExternalPayment(with:));
@@ -116,8 +120,8 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 /**
  * Called after a browser opened with openBrowser or checkout's externalBrowser is dismissed.
  * Covers user closure and closeBrowser; no card dismissal callback is emitted. Not emitted for
- * Safari opened with \c keepOpen, which returns to the open card, or after dismissSafariViewController
- * or resetPresentationState, which end silently.
+ * Safari opened with \c keepOpen on a card opened with \c allowBrowserOverCard, which returns to the
+ * open card, or after dismissSafariViewController or resetPresentationState, which end silently.
  */
 - (void)stashNativeDidDismissBrowser;
 
@@ -184,13 +188,14 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 /** Immediately tears down the session without delegate callbacks; keeps the delegate registration. */
 - (void)resetPresentationState;
 /** Closes Safari opened by openBrowser or externalBrowser, emitting \c stashNativeDidDismissBrowser.
- * Safari opened with \c keepOpen closes back to the open card without a browser event.
+ * Safari opened with \c keepOpen over a card opened with \c allowBrowserOverCard closes back to the
+ * open card without a browser event.
  */
 - (void)closeBrowser;
 /** Closes the SDK's Safari without any delegate callback, for example when the payment deep link
  * arrives and the game handles the result itself. Safari opened by openBrowser or externalBrowser ends
- * its presentation silently. Safari opened with \c keepOpen closes back to the open card, whose page
- * still reports its own events.
+ * its presentation silently. Safari opened with \c keepOpen over a card opened with
+ * \c allowBrowserOverCard closes back to the open card, whose page still reports its own events.
  */
 - (void)dismissSafariViewController;
 @end
