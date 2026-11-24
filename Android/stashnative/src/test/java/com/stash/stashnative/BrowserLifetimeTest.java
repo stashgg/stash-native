@@ -546,6 +546,27 @@ public class BrowserLifetimeTest {
     assertTrue(checkout.isFinishing());
   }
 
+  @Test public void proxyThatOpensNothingReportsOneClose() {
+    handoff();
+    Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();
+    setProviderAvailable(false);
+    Shadows.shadowOf(host.getApplication()).checkActivities(true);
+    try {
+      org.robolectric.android.controller.ActivityController<StashNativeBrowserProxyActivity> proxy =
+          Robolectric.buildActivity(StashNativeBrowserProxyActivity.class, intent)
+              .create().start().resume();
+      ShadowLooper.idleMainLooper();
+      assertEquals(1, browserClosed);
+      assertTrue(proxy.get().isFinishing());
+      assertTrue(checkout.isFinishing());
+      proxy.pause().stop().destroy();
+      ShadowLooper.idleMainLooper();
+      assertEquals(1, browserClosed);
+    } finally {
+      Shadows.shadowOf(host.getApplication()).checkActivities(false);
+    }
+  }
+
   @Test public void proxyDestroyedAfterItsResultDoesNotReportTwice() {
     handoff();
     Intent intent = Shadows.shadowOf(checkout).getNextStartedActivity();

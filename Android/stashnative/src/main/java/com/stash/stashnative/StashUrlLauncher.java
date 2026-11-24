@@ -74,7 +74,11 @@ public final class StashUrlLauncher {
    */
   public static int openExternalUrl(
       @Nullable Context context, @Nullable String url, int activityRequestCode) {
-    int mode = launchExternalUrl(context, url, activityRequestCode);
+    return publicLaunchMode(launchExternalUrl(context, url, activityRequestCode));
+  }
+
+  /** The public result for a launch mode: a failed launch reports the system browser. */
+  static int publicLaunchMode(int mode) {
     return mode == OPEN_EXTERNAL_NONE ? OPEN_EXTERNAL_ACTION_VIEW : mode;
   }
 
@@ -83,7 +87,7 @@ public final class StashUrlLauncher {
    * The callback must be scoped to the originating browser session.
    *
    * @deprecated Unused by the SDK; {@link StashNativeBrowserProxyActivity} calls {@link
-   *     StashCustomTabsEngagement#tryLaunchForResult} directly. Removal planned for the next
+   *     StashCustomTabsEngagement#launchForResult} directly. Removal planned for the next
    *     major.
    */
   @Deprecated

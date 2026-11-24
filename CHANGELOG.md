@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [3.0.1] - 2026-11-23 (Preview)
+## [3.0.1] - 2026-11-23
 
 ### Added
 - `allowBrowserOverCard` on the card configuration (iOS and Android), default off. Checkout can ask to keep the card open under the browser it opens for an external payment (`externalBrowser(url, { keepOpen: true })`); the card stays open only when this option is on. Without it, that request is the regular handoff and ends with the browser-dismissed callback, as in 3.0.0 before checkout began asking.
@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file. Format foll
 ### Fixed
 - Android: the browser over a card is always a Custom Tab in the game's task, pinned to the default browser's Custom Tabs provider, so it closes with the card. Without a Custom Tabs provider or `androidx.browser`, the request takes the regular handoff instead of opening a browser the card cannot close.
 - Android: a host that dismisses the card from `onExternalPayment` on the over-card flow no longer closes activities it started from that callback.
+- Android: with `androidx.browser` present and no app able to open the URL, a browser handoff ends with the browser-dismissed callback at once instead of waiting behind a hidden card.
 
 ## [3.0.0] - 2026-11-17
 

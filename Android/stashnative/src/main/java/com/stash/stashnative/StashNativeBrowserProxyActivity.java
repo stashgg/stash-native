@@ -57,7 +57,7 @@ public final class StashNativeBrowserProxyActivity extends Activity {
 
     boolean launched = false;
     try {
-      launched = StashCustomTabsEngagement.tryLaunchForResult(
+      launched = StashCustomTabsEngagement.launchForResult(
           this,
           uri,
           CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB,
@@ -69,9 +69,8 @@ public final class StashNativeBrowserProxyActivity extends Activity {
     }
 
     if (!launched) {
-      int mode = StashUrlLauncher.openExternalUrl(
-          this, url, CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB);
-      onLaunchMode(mode);
+      onLaunchMode(StashUrlLauncher.launchExternalUrl(
+          this, url, CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB));
       return;
     }
 
@@ -82,6 +81,13 @@ public final class StashNativeBrowserProxyActivity extends Activity {
 
   /** Called by the engagement helper (or the synchronous fallback) with the actual launch mode. */
   private void onLaunchMode(int launchMode) {
+    if (launchMode == StashUrlLauncher.OPEN_EXTERNAL_NONE) {
+      // Nothing opened: end as a closed browser does.
+      awaitingResult = false;
+      StashNative.notifyBrowserClosedFromProxyInternal(getBrowserSessionId());
+      finish();
+      return;
+    }
     awaitingResult = true;
   }
 

@@ -50,6 +50,19 @@ public final class StashCustomTabsEngagement {
       int requestCode,
       StashUrlLauncher.LaunchModeCallback launchCallback,
       Runnable engagementSessionEnded) {
+    return launchForResult(activity, uri, requestCode,
+        launchCallback == null ? null
+            : mode -> launchCallback.onLaunchMode(StashUrlLauncher.publicLaunchMode(mode)),
+        engagementSessionEnded);
+  }
+
+  /** {@link #tryLaunchForResult} reporting {@link StashUrlLauncher#OPEN_EXTERNAL_NONE} as is. */
+  static boolean launchForResult(
+      Activity activity,
+      Uri uri,
+      int requestCode,
+      StashUrlLauncher.LaunchModeCallback launchCallback,
+      Runnable engagementSessionEnded) {
     if (activity == null || uri == null || launchCallback == null) {
       return false;
     }
@@ -88,7 +101,7 @@ public final class StashCustomTabsEngagement {
               return;
             }
             launchCallback.onLaunchMode(
-                StashUrlLauncher.openExternalUrl(activity, uri.toString(), requestCode));
+                StashUrlLauncher.launchExternalUrl(activity, uri.toString(), requestCode));
           };
       conn.setTimeoutRunnable(timeout);
       main.postDelayed(timeout, BIND_TIMEOUT_MS);
@@ -246,7 +259,7 @@ public final class StashCustomTabsEngagement {
         }
         releaseConnection();
         launchCallback.onLaunchMode(
-            StashUrlLauncher.openExternalUrl(activity, uri.toString(), requestCode));
+            StashUrlLauncher.launchExternalUrl(activity, uri.toString(), requestCode));
       }
     }
 
