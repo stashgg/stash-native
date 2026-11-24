@@ -77,11 +77,6 @@ public final class StashUrlLauncher {
     return publicLaunchMode(launchExternalUrl(context, url, activityRequestCode));
   }
 
-  /** The public result for a launch mode: a failed launch reports the system browser. */
-  static int publicLaunchMode(int mode) {
-    return mode == OPEN_EXTERNAL_NONE ? OPEN_EXTERNAL_ACTION_VIEW : mode;
-  }
-
   /**
    * Opens Custom Tabs with an engagement callback for floating or minimized tab closure.
    * The callback must be scoped to the originating browser session.
@@ -133,6 +128,11 @@ public final class StashUrlLauncher {
   public static int openExternalUrl(@Nullable Context context, @Nullable String url) {
     int code = (context instanceof Activity) ? CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB : 0;
     return openExternalUrl(context, url, code);
+  }
+
+  /** The public result for a launch mode: a failed launch reports the system browser. */
+  static int publicLaunchMode(int mode) {
+    return mode == OPEN_EXTERNAL_NONE ? OPEN_EXTERNAL_ACTION_VIEW : mode;
   }
 
   /**
