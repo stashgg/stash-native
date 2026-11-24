@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). This project uses [Semantic Versioning](https://semver.org/).
 
-## [3.0.1] - 2026-11-23
+## [3.0.1] - 2026-11-23 (Preview)
 
 ### Added
 - `allowBrowserOverCard` on the card configuration (iOS and Android), default off. Checkout can ask to keep the card open under the browser it opens for an external payment (`externalBrowser(url, { keepOpen: true })`); the card stays open only when this option is on. Without it, that request is the regular handoff and ends with the browser-dismissed callback, as in 3.0.0 before checkout began asking.
