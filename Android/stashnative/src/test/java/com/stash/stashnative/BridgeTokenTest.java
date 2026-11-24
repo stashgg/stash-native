@@ -8,8 +8,13 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ServiceInfo;
+import android.net.Uri;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.browser.customtabs.CustomTabsService;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -99,6 +104,7 @@ public class BridgeTokenTest {
     config.allowBrowserOverCard = true;
     activity.options = StashPresentationOptions.card(config);
     StashNativePlugin.getInstance().setCheckoutActivity(activity);
+    registerCustomTabsProvider();
     int[] haptics = {0};
     activity.webView = new WebView(activity) {
       @Override public boolean isShown() { return true; }
@@ -119,6 +125,22 @@ public class BridgeTokenTest {
     ShadowLooper.idleMainLooper();
     assertNotNull(Shadows.shadowOf(activity).getNextStartedActivity());
     assertEquals(1, haptics[0]);
+  }
+
+  private void registerCustomTabsProvider() {
+    String pkg = "com.example.browser";
+    ResolveInfo view = new ResolveInfo();
+    view.activityInfo = new ActivityInfo();
+    view.activityInfo.packageName = pkg;
+    view.activityInfo.name = "BrowserActivity";
+    Shadows.shadowOf(activity.getPackageManager()).addResolveInfoForIntent(
+        new Intent(Intent.ACTION_VIEW, Uri.parse("http://")), view);
+    ResolveInfo tabs = new ResolveInfo();
+    tabs.serviceInfo = new ServiceInfo();
+    tabs.serviceInfo.packageName = pkg;
+    tabs.serviceInfo.name = "TabsService";
+    Shadows.shadowOf(activity.getPackageManager()).addResolveInfoForIntent(
+        new Intent(CustomTabsService.ACTION_CUSTOM_TABS_CONNECTION).setPackage(pkg), tabs);
   }
 
   @Test public void noTokenIssuedRejectsEveryCall() {

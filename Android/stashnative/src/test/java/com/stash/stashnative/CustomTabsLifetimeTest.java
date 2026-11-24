@@ -106,6 +106,25 @@ public class CustomTabsLifetimeTest {
     assertEquals(0, closed);
   }
 
+  @Test public void boundLaunchThatOpensNothingReportsItOnlyInternally() {
+    Shadows.shadowOf(host.getApplication()).checkActivities(true);
+    try {
+      Uri uri = Uri.parse("https://example.invalid/payment");
+      java.util.ArrayList<Integer> modes = new java.util.ArrayList<>();
+      assertTrue(StashCustomTabsEngagement.launchForResult(host, uri,
+          CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB, modes::add, () -> closed++));
+      Shadows.shadowOf(Looper.getMainLooper()).idle();
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_NONE, (int) modes.get(modes.size() - 1));
+      assertTrue(StashCustomTabsEngagement.tryLaunchForResult(host, uri,
+          CardConstants.REQUEST_CODE_STASH_CUSTOM_TAB, modes::add, () -> closed++));
+      Shadows.shadowOf(Looper.getMainLooper()).idle();
+      assertEquals(StashUrlLauncher.OPEN_EXTERNAL_ACTION_VIEW, (int) modes.get(modes.size() - 1));
+      assertEquals(0, closed);
+    } finally {
+      Shadows.shadowOf(host.getApplication()).checkActivities(false);
+    }
+  }
+
   @Test public void retiredEngagementCallbackCannotCloseOrUnbindReplacement() {
     launch();
     EngagementSignalsCallback retired = browser.engagement;

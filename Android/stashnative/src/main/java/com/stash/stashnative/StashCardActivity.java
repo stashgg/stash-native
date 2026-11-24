@@ -75,6 +75,9 @@ public class StashCardActivity extends Activity implements StashScannerHost {
   /** A keepOpen browser was launched over the card and the card has not resumed since. */
   boolean externalBrowserOverCard;
 
+  /** A keepOpen request was taken and the card has not resumed since; repeats are ignored. */
+  boolean externalBrowserRequested;
+
   boolean mainFrameErrorReceived;
 
   /** Main-thread handler for retry + network deadline (aligned with iOS WebViewLoadDelegate). */
@@ -660,6 +663,7 @@ public class StashCardActivity extends Activity implements StashScannerHost {
     super.onResume();
     if (isActivityPaused) {
       externalBrowserOverCard = false;
+      externalBrowserRequested = false;
     }
     isActivityPaused = false;
     if (!isDismissing) {

@@ -159,7 +159,7 @@ typedef NS_ENUM(NSInteger, StashNativeOrientationPreference) {
 @property (nonatomic, readonly) BOOL isCurrentlyPresented;
 @property (nonatomic, readonly) BOOL isPurchaseProcessing;
 + (instancetype)sharedInstance;
-/** The SDK version string, for example "3.0.0". Matches Android's StashNative.getVersion(). */
+/** The SDK version string, for example "3.0.1". Matches Android's StashNative.getVersion(). */
 + (NSString *)getVersion;
 + (NSString *)sdkVersion DEPRECATED_MSG_ATTRIBUTE("Use getVersion.");
 + (void)setInspectableWebViewsEnabled:(BOOL)enabled;

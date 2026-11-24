@@ -63,5 +63,5 @@ public class ConfigDefaultsTest {
     assertTrue(StashPresentationOptions.read(intent).allowBrowserOverCard);
   }
 
-  @Test public void reportsVersionThree() { assertEquals("3.0.0", StashNative.getVersion()); }
+  @Test public void reportsVersionThree() { assertEquals("3.0.1", StashNative.getVersion()); }
 }

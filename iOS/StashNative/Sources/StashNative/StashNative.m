@@ -51,7 +51,7 @@ Class StashScannerContentClass(void) {
     dispatch_once(&once, ^{ instance = [[self alloc] init]; });
     return instance;
 }
-+ (NSString *)getVersion { return @"3.0.0"; }
++ (NSString *)getVersion { return @"3.0.1"; }
 + (NSString *)sdkVersion { return [self getVersion]; }
 + (void)setInspectableWebViewsEnabled:(BOOL)enabled { stashInspectableWebViewsEnabled = enabled; }
 + (BOOL)isInspectableWebViewsEnabled { return stashInspectableWebViewsEnabled; }

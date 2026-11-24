@@ -543,7 +543,9 @@ public class StashNativePlugin {
   /**
    * Opens a browser over a checkout opened with {@code allowBrowserOverCard} and keeps the card
    * open: the host hears about the external payment, but no browser-dismissal event follows and
-   * the card session continues. Other cards take the default handoff.
+   * the card session continues. The browser is a Custom Tab started from the card in its task, so
+   * the card can close it. When none can be opened, the request takes the default handoff after
+   * the callback. Other cards take the default handoff.
    */
   void openExternalBrowserOverCheckout(StashCardActivity checkoutActivity, String url) {
     // Without the card's opt-in, keepOpen is the default handoff.
@@ -558,11 +560,11 @@ public class StashNativePlugin {
     // card pauses; a page can still call while paused beneath the browser).
     if (!isCurrentlyPresented || !ownsCheckout(checkoutActivity)
         || url == null || url.isEmpty()
-        || checkoutActivity.externalBrowserOverCard || checkoutActivity.isActivityPaused) {
+        || checkoutActivity.externalBrowserRequested || checkoutActivity.isActivityPaused) {
       return;
     }
-    // Cleared when the card resumes after the browser, or below if the launch fails.
-    checkoutActivity.externalBrowserOverCard = true;
+    // Ignores repeats until the card resumes; ownership is set separately, after the launch.
+    checkoutActivity.externalBrowserRequested = true;
     long browserBeforeCallback = browserSessionId;
     StashNative.StashNativeListener l = getListener();
     if (l != null) {
@@ -577,18 +579,16 @@ public class StashNativePlugin {
         || browserSessionId != browserBeforeCallback) {
       return;
     }
-    boolean launched = false;
-    try {
-      launched = StashUrlLauncher.launchExternalUrl(checkoutActivity, url, 0)
-          != StashUrlLauncher.OPEN_EXTERNAL_NONE;
-    } catch (Exception e) {
-      Log.w(TAG, "Error opening browser over checkout: " + e.getMessage(), e);
-    }
-    if (!launched) {
-      // Nothing covers the card, so it will not pause and resume to re-arm the page's request.
-      checkoutActivity.externalBrowserOverCard = false;
+    if (!StashUrlLauncher.launchOwnedCustomTab(checkoutActivity, url)) {
+      // The host already heard onExternalPayment.
+      openExternalBrowserFromCheckout(checkoutActivity, url, false,
+          checkoutActivity::hideCardSheetLeavingDimOverlay,
+          checkoutActivity::finishAfterExternalBrowserClose);
       return;
     }
+    // Set only once the tab is open, so a card the host dismissed from its callback has nothing
+    // to close. Cleared when the card resumes after the browser.
+    checkoutActivity.externalBrowserOverCard = true;
     // The card activity stops the service again when it resumes.
     startKeepAliveForBrowser(checkoutActivity);
   }

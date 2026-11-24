@@ -119,9 +119,11 @@ public class StashNative {
      * #onCardDismissed()}. With {@code {keepOpen: true}} on a card opened with {@link
      * CardConfig#allowBrowserOverCard} this callback is informational: the browser opens over the
      * card, the card stays open and presented, no browser-dismissal callback follows, and the card
-     * ends with its own events; a browser still over the card closes with it. Repeats are ignored
-     * until the card is back on screen. Without the option, {@code keepOpen} is the default
-     * handoff.
+     * ends with its own events; a browser still over the card closes with it. That browser is a
+     * Custom Tab of the default browser, started from the card in the game's task; when one
+     * cannot be used, the request takes the default handoff after this callback. Repeats are
+     * ignored until the card is back on screen. Without the option, {@code keepOpen} is the
+     * default handoff.
      *
      * @param url Validated {@code http} or {@code https} URL
      */
@@ -231,9 +233,9 @@ public class StashNative {
     plugin = StashNativePlugin.getInstance();
   }
 
-  private static final String SDK_VERSION = "3.0.0";
+  private static final String SDK_VERSION = "3.0.1";
 
-  /** Returns the SDK version string (e.g. "3.0.0"). */
+  /** Returns the SDK version string (e.g. "3.0.1"). */
   public static String getVersion() {
     return SDK_VERSION;
   }
